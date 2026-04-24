@@ -1,8 +1,7 @@
 import axios from 'axios'
 import * as SecureStore from 'expo-secure-store'
 
-const API_URL = 'https://pinturapro-api-production.up.railway.app'
-// Em desenvolvimento local: 'http://192.168.x.x:3000/api'
+const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -12,8 +11,13 @@ const api = axios.create({
 
 // Interceptor: injeta o token JWT em toda requisição autenticada
 api.interceptors.request.use(async (config) => {
-  const token = await SecureStore.getItemAsync('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  try {
+    const token = await SecureStore.getItemAsync('token')
+    console.log('Token enviado:', token ? 'SIM' : 'NAO')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+  } catch (err) {
+    console.log('Erro ao buscar token:', err)
+  }
   return config
 })
 
@@ -21,6 +25,7 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    console.log('Erro API:', error.response?.status, error.response?.data)
     const msg = error.response?.data?.erro || 'Erro de conexão. Verifique sua internet.'
     return Promise.reject({ mensagem: msg, status: error.response?.status })
   }
@@ -45,7 +50,6 @@ export const authService = {
 export const obrasService = {
   listar: (params) =>
     api.get('/obras', { params }),
-    // params: { latitude, longitude, raio_km, categoria, page }
 
   detalhe: (id) =>
     api.get(`/obras/${id}`),

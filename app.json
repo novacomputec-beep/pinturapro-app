@@ -4,8 +4,7 @@
     "slug": "pinturapro",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+        "userInterfaceStyle": "dark",
     "splash": {
       "backgroundColor": "#0A0A0A"
     },
@@ -17,10 +16,7 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#0A0A0A"
-      },
-      "package": "com.pinturapro.app",
+           "package": "com.pinturapro.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
