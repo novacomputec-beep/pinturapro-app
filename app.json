@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "PinturaPro",
+    "slug": "pinturapro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0A0A0A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.pinturapro.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar obras próximas a você."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0A0A"
+      },
+      "package": "com.pinturapro.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      "expo-secure-store",
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "bf289259-dbe3-429f-9032-dcaca21f0a8a"
+      }
+    }
+  }
+}
