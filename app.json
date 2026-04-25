@@ -4,8 +4,11 @@
     "slug": "pinturapro",
     "version": "1.0.0",
     "orientation": "portrait",
-        "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
     "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
       "backgroundColor": "#0A0A0A"
     },
     "ios": {
@@ -16,7 +19,11 @@
       }
     },
     "android": {
-           "package": "com.pinturapro.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "package": "com.pinturapro.app",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
