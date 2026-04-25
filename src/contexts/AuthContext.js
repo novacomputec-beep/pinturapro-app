@@ -9,17 +9,25 @@ export const AuthProvider = ({ children }) => {
   const [assinatura, setAssinatura] = useState(null)
   const [carregando, setCarregando] = useState(true)
 
-  // Ao abrir o app, verifica se há sessão salva
   useEffect(() => {
     const restaurarSessao = async () => {
       try {
         const token = await SecureStore.getItemAsync('token')
         if (token) {
-          const { usuario, assinatura } = await authService.perfil()
-          setUsuario(usuario)
-          setAssinatura(assinatura)
+          try {
+            const { usuario, assinatura } = await authService.perfil()
+            setUsuario(usuario)
+            setAssinatura(assinatura)
+          } catch (err) {
+            // Token inválido ou expirado — limpa e vai para login
+            console.log('Token inválido, limpando sessão...')
+            await SecureStore.deleteItemAsync('token')
+            setUsuario(null)
+            setAssinatura(null)
+          }
         }
-      } catch {
+      } catch (err) {
+        console.log('Erro ao restaurar sessão:', err)
         await SecureStore.deleteItemAsync('token')
       } finally {
         setCarregando(false)
