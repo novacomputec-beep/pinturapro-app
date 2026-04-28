@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Alert
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image
 } from 'react-native'
 import { obrasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -35,12 +35,26 @@ const CardObra = ({ obra, onPress }) => {
       activeOpacity={0.85}
     >
       <View style={estilos.cardImagem}>
-        <Text style={estilos.cardImagemIcone}>🏠</Text>
+        {obra.foto_capa ? (
+          <Image
+            source={{ uri: obra.foto_capa }}
+            style={estilos.fotoImagem}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={estilos.cardImagemIcone}>🏠</Text>
+        )}
         {countdown && (
           <View style={[estilos.countdownPill, urgente && estilos.countdownUrgente]}>
+            {urgente && <View style={estilos.countdownDot} />}
             <Text style={[estilos.countdownTexto, urgente && { color: cores.primaria }]}>
               {urgente ? `Expira ${countdown}` : `Expira em ${countdown}`}
             </Text>
+          </View>
+        )}
+        {obra.total_midias > 0 && (
+          <View style={estilos.midiasBadge}>
+            <Text style={estilos.midiasTexto}>📷 {obra.total_midias}</Text>
           </View>
         )}
       </View>
@@ -52,17 +66,12 @@ const CardObra = ({ obra, onPress }) => {
             R$ {Number(obra.valor).toLocaleString('pt-BR')}
           </Text>
         </View>
-
         <Text style={estilos.cardLocalTexto}>
           {obra.cidade}, MG{obra.metragem ? ` · ${obra.metragem}m²` : ''}
         </Text>
-
         <View style={estilos.cardRodape}>
           <Text style={estilos.cardCategoria}>{obra.categoria}</Text>
-          <TouchableOpacity
-            style={estilos.btnVerObra}
-            onPress={() => onPress(obra)}
-          >
+          <TouchableOpacity style={estilos.btnVerObra} onPress={() => onPress(obra)}>
             <Text style={estilos.btnVerObraTexto}>Ver obra →</Text>
           </TouchableOpacity>
         </View>
@@ -82,13 +91,9 @@ export default function FeedScreen({ navigation }) {
   const buscarObras = async () => {
     try {
       setErro(null)
-      console.log('Buscando obras...')
-      const params = { categoria }
-      const resposta = await obrasService.listar(params)
-      console.log('Obras recebidas:', resposta)
+      const resposta = await obrasService.listar({ categoria })
       setObras(resposta.obras || [])
     } catch (err) {
-      console.log('Erro ao buscar obras:', err)
       setErro(err.mensagem || 'Erro ao buscar obras')
     } finally {
       setCarregando(false)
@@ -96,9 +101,7 @@ export default function FeedScreen({ navigation }) {
     }
   }
 
-  useEffect(() => {
-    buscarObras()
-  }, [categoria])
+  useEffect(() => { buscarObras() }, [categoria])
 
   const onRefresh = () => {
     setAtualizando(true)
@@ -109,22 +112,18 @@ export default function FeedScreen({ navigation }) {
     <SafeAreaView style={estilos.container}>
       <View style={estilos.header}>
         <View>
-          <Text style={estilos.saudacao}>Bom dia, {usuario?.nome?.split(' ')[0]} 👷</Text>
+          <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 👷</Text>
           <Text style={estilos.titulo}>
             Obras <Text style={{ color: cores.primaria }}>disponíveis</Text>
           </Text>
         </View>
-        <TouchableOpacity
-          style={estilos.avatar}
-          onPress={() => navigation.navigate('Perfil')}
-        >
+        <TouchableOpacity style={estilos.avatar} onPress={() => navigation.navigate('Perfil')}>
           <Text style={estilos.avatarTexto}>
             {usuario?.nome?.substring(0, 2).toUpperCase()}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Filtros */}
       <View style={estilos.filtrosRow}>
         {CATEGORIAS.map((c) => (
           <TouchableOpacity
@@ -172,11 +171,7 @@ export default function FeedScreen({ navigation }) {
           ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={atualizando}
-              onRefresh={onRefresh}
-              tintColor={cores.primaria}
-            />
+            <RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />
           }
         />
       )}
@@ -187,35 +182,24 @@ export default function FeedScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: espacos.tela,
-    paddingTop: 8,
-    paddingBottom: 14,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 14,
   },
   saudacao: { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
   titulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   avatar: {
-    width: 34, height: 34,
-    backgroundColor: cores.primariaSuave,
+    width: 34, height: 34, backgroundColor: cores.primariaSuave,
     borderWidth: 0.5, borderColor: cores.primariaBorda,
-    borderRadius: 17,
-    alignItems: 'center', justifyContent: 'center',
+    borderRadius: 17, alignItems: 'center', justifyContent: 'center',
   },
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
   filtrosRow: {
-    flexDirection: 'row',
-    paddingHorizontal: espacos.tela,
-    gap: 8,
-    marginBottom: 12,
-    flexWrap: 'wrap',
+    flexDirection: 'row', paddingHorizontal: espacos.tela,
+    gap: 8, marginBottom: 12, flexWrap: 'wrap',
   },
   filtroPill: {
-    backgroundColor: cores.fundoElevado,
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.pill,
-    paddingHorizontal: 14, paddingVertical: 6,
+    backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
+    borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 6,
   },
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillTexto: { fontSize: 12, color: cores.textoMedio },
@@ -229,23 +213,32 @@ const estilos = StyleSheet.create({
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
   card: {
-    backgroundColor: cores.fundoCard,
-    borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden',
+    backgroundColor: cores.fundoCard, borderRadius: 20,
+    borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden',
   },
   cardUrgente: { borderColor: cores.primaria + '44' },
   cardImagem: {
-    height: 130, backgroundColor: cores.fundoElevado,
+    height: 160, backgroundColor: cores.fundoElevado,
     alignItems: 'center', justifyContent: 'center', position: 'relative',
   },
+  fotoImagem: { width: '100%', height: '100%' },
   cardImagemIcone: { fontSize: 40, opacity: 0.15 },
   countdownPill: {
     position: 'absolute', top: 10, right: 10,
     backgroundColor: 'rgba(10,10,10,0.88)',
     borderWidth: 0.5, borderColor: cores.borda,
     borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
   },
   countdownUrgente: { borderColor: cores.primaria },
+  countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: cores.primaria },
   countdownTexto: { fontSize: 10, fontWeight: '500', color: cores.textoFraco },
+  midiasBadge: {
+    position: 'absolute', bottom: 10, left: 10,
+    backgroundColor: 'rgba(10,10,10,0.88)',
+    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+  },
+  midiasTexto: { fontSize: 10, color: cores.textoForte },
   cardCorpo: { padding: 14 },
   cardTopo: {
     flexDirection: 'row', justifyContent: 'space-between',
