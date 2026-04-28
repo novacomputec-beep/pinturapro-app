@@ -4,6 +4,7 @@ import {
   TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator,
   Image, FlatList, Dimensions
 } from 'react-native'
+import { Video, ResizeMode } from 'expo-av'
 import { obrasService, candidaturasService, mensagensService } from '../../services/api'
 import { BotaoPrimario, BotaoSecundario, Tag, Separador } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -108,7 +109,6 @@ export default function DetalheObraScreen({ route, navigation }) {
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* Galeria de fotos */}
         {midias.length > 0 ? (
           <View style={estilos.galeriaWrap}>
             <FlatList
@@ -130,15 +130,17 @@ export default function DetalheObraScreen({ route, navigation }) {
                       resizeMode="cover"
                     />
                   ) : (
-                    <View style={estilos.videoPlaceholder}>
-                      <Text style={{ fontSize: 40 }}>▶️</Text>
-                      <Text style={{ color: cores.textoMedio, marginTop: 8 }}>Vídeo</Text>
-                    </View>
+                    <Video
+                      source={{ uri: item.url_assinada || item.url }}
+                      style={estilos.fotoImagem}
+                      useNativeControls
+                      resizeMode={ResizeMode.COVER}
+                      isLooping={false}
+                    />
                   )}
                 </View>
               )}
             />
-            {/* Indicadores */}
             <View style={estilos.indicadoresRow}>
               {midias.map((_, i) => (
                 <View
@@ -332,11 +334,6 @@ const estilos = StyleSheet.create({
   galeriaWrap: { position: 'relative' },
   fotoSlide: { width, height: 220 },
   fotoImagem: { width: '100%', height: '100%' },
-  videoPlaceholder: {
-    width: '100%', height: '100%',
-    backgroundColor: cores.fundoElevado,
-    alignItems: 'center', justifyContent: 'center',
-  },
   indicadoresRow: {
     flexDirection: 'row',
     justifyContent: 'center',
