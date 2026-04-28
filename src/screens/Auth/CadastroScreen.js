@@ -1,16 +1,17 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
+  Linking
 } from 'react-native'
 import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { authService } from '../../services/api'
+import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const TOTAL_PASSOS = 3
 
-// Indicador de progresso
 const IndicadorPassos = ({ passo }) => (
   <View style={estilos.indicador}>
     {[1, 2, 3].map((n) => (
@@ -32,7 +33,6 @@ export default function CadastroScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
 
-  // Passo 1 — dados pessoais
   const [nome, setNome] = useState('')
   const [sobrenome, setSobrenome] = useState('')
   const [email, setEmail] = useState('')
@@ -40,14 +40,12 @@ export default function CadastroScreen({ navigation }) {
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
 
-  // Passo 2 — perfil profissional
   const [cidade, setCidade] = useState('')
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
   const [especialidades, setEspecialidades] = useState('')
   const [cpfCnpj, setCpfCnpj] = useState('')
 
-  // Passo 3 — plano
   const [planoSelecionado, setPlanoSelecionado] = useState('mensal')
 
   const validarPasso1 = () => {
@@ -94,16 +92,35 @@ export default function CadastroScreen({ navigation }) {
         cpf_cnpj: cpfCnpj.trim(),
       }
 
-      const resposta = await authService.cadastrar(dados)
-
-      // Faz login automático após cadastro
+      await authService.cadastrar(dados)
       await login(dados.email, senha)
 
-      Alert.alert(
-        'Conta criada!',
-        'Bem-vindo à PinturaPro. Agora escolha seu plano para acessar as obras.',
-        [{ text: 'OK' }]
-      )
+      // Cria link de pagamento no Mercado Pago
+      try {
+        const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: planoSelecionado })
+        if (pagamento.init_point) {
+          Alert.alert(
+            'Conta criada! 🎉',
+            'Para acessar as obras disponíveis, finalize seu pagamento agora.',
+            [
+              {
+                text: 'Pagar agora',
+                onPress: () => Linking.openURL(pagamento.init_point)
+              },
+              {
+                text: 'Depois',
+                style: 'cancel'
+              }
+            ]
+          )
+        }
+      } catch (errPagamento) {
+        Alert.alert(
+          'Conta criada!',
+          'Sua conta foi criada. Entre em contato para ativar seu acesso.'
+        )
+      }
+
     } catch (err) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível criar sua conta.')
     } finally {
@@ -122,7 +139,6 @@ export default function CadastroScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Cabeçalho */}
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
             <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
           </TouchableOpacity>
@@ -140,7 +156,6 @@ export default function CadastroScreen({ navigation }) {
 
           <IndicadorPassos passo={passo} />
 
-          {/* ── PASSO 1 ── */}
           {passo === 1 && (
             <View>
               <View style={estilos.duasColunas}>
@@ -195,7 +210,6 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
-          {/* ── PASSO 2 ── */}
           {passo === 2 && (
             <View>
               <Input
@@ -240,14 +254,12 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
-          {/* ── PASSO 3 ── */}
           {passo === 3 && (
             <View>
               <Text style={estilos.planoSubtitulo}>
                 Escolha o plano para acessar obras disponíveis:
               </Text>
 
-              {/* Plano Mensal */}
               <TouchableOpacity
                 style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]}
                 onPress={() => setPlanoSelecionado('mensal')}
@@ -266,7 +278,6 @@ export default function CadastroScreen({ navigation }) {
                 </View>
               </TouchableOpacity>
 
-              {/* Plano Anual */}
               <TouchableOpacity
                 style={[estilos.planoCard, planoSelecionado === 'anual' && estilos.planoCardAtivo]}
                 onPress={() => setPlanoSelecionado('anual')}
@@ -290,7 +301,6 @@ export default function CadastroScreen({ navigation }) {
                 </View>
               </TouchableOpacity>
 
-              {/* Segurança */}
               <View style={estilos.segurancaBox}>
                 <Text style={estilos.segurancaIcone}>🔒</Text>
                 <Text style={estilos.segurancaTexto}>
@@ -300,7 +310,6 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
-          {/* Botões de navegação */}
           <View style={estilos.acoesRow}>
             {passo < TOTAL_PASSOS ? (
               <BotaoPrimario titulo="Continuar →" onPress={avancar} />
