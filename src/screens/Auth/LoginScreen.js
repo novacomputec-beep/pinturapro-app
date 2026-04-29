@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert
+  TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image
 } from 'react-native'
 import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth } from '../../contexts/AuthContext'
@@ -28,7 +28,6 @@ export default function LoginScreen({ navigation }) {
     setCarregando(true)
     try {
       await login(email.trim().toLowerCase(), senha)
-      // Navegação tratada pelo AuthContext no Navigator
     } catch (err) {
       Alert.alert('Erro', err.mensagem || 'Erro ao fazer login')
     } finally {
@@ -47,7 +46,6 @@ export default function LoginScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Cabeçalho */}
           <TouchableOpacity
             style={estilos.voltarBtn}
             onPress={() => navigation.goBack()}
@@ -55,10 +53,18 @@ export default function LoginScreen({ navigation }) {
             <Text style={estilos.voltarIcone}>←</Text>
           </TouchableOpacity>
 
+          {/* LOGO */}
+          <View style={estilos.logoWrap}>
+            <Image
+              source={require('../../../assets/logo.png')}
+              style={estilos.logo}
+              resizeMode="contain"
+            />
+          </View>
+
           <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
           <Text style={estilos.subtitulo}>Acesse sua conta de pintor</Text>
 
-          {/* Formulário */}
           <View style={estilos.form}>
             <Input
               label="E-MAIL"
@@ -136,11 +142,19 @@ const estilos = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   voltarIcone: {
     color: cores.textoMedio,
     fontSize: 16,
+  },
+  logoWrap: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logo: {
+    width: 200,
+    height: 100,
   },
   titulo: {
     fontSize: 28,
