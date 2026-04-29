@@ -1,8 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import * as SecureStore from 'expo-secure-store'
+import * as Notifications from 'expo-notifications'
+import { Platform } from 'react-native'
 import { authService } from '../services/api'
+import api from '../services/api'
 
 const AuthContext = createContext({})
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+})
 
 export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null)
@@ -18,16 +29,14 @@ export const AuthProvider = ({ children }) => {
             const { usuario, assinatura } = await authService.perfil()
             setUsuario(usuario)
             setAssinatura(assinatura)
+            registrarPushToken()
           } catch (err) {
-            // Token inválido ou expirado — limpa e vai para login
-            console.log('Token inválido, limpando sessão...')
             await SecureStore.deleteItemAsync('token')
             setUsuario(null)
             setAssinatura(null)
           }
         }
       } catch (err) {
-        console.log('Erro ao restaurar sessão:', err)
         await SecureStore.deleteItemAsync('token')
       } finally {
         setCarregando(false)
@@ -36,11 +45,27 @@ export const AuthProvider = ({ children }) => {
     restaurarSessao()
   }, [])
 
+  const registrarPushToken = async () => {
+    try {
+      const { status } = await Notifications.requestPermissionsAsync()
+      if (status !== 'granted') return
+
+      const tokenData = await Notifications.getExpoPushTokenAsync()
+      const pushToken = tokenData.data
+
+      await api.post('/auth/push-token', { token: pushToken })
+      console.log('Push token registrado:', pushToken)
+    } catch (err) {
+      console.log('Erro ao registrar push token:', err)
+    }
+  }
+
   const login = async (email, senha) => {
     const resposta = await authService.login(email, senha)
     await SecureStore.setItemAsync('token', resposta.token)
     setUsuario(resposta.usuario)
     setAssinatura(resposta.assinatura)
+    setTimeout(() => registrarPushToken(), 1000)
     return resposta
   }
 
