@@ -5,7 +5,7 @@ const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 15000,
+  timeout: 30000,
   headers: { 'Content-Type': 'application/json' }
 })
 
@@ -13,7 +13,6 @@ const api = axios.create({
 api.interceptors.request.use(async (config) => {
   try {
     const token = await SecureStore.getItemAsync('token')
-    console.log('Token enviado:', token ? 'SIM' : 'NAO')
     if (token) config.headers.Authorization = `Bearer ${token}`
   } catch (err) {
     console.log('Erro ao buscar token:', err)
@@ -31,17 +30,27 @@ api.interceptors.response.use(
   }
 )
 
+// Upload com timeout maior
+export const uploadMidia = async (formData, onProgress) => {
+  const token = await SecureStore.getItemAsync('token')
+  return axios.post(`${API_URL}/upload/dono`, formData, {
+    timeout: 120000, // 2 minutos para upload
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'Authorization': `Bearer ${token}`
+    },
+    onUploadProgress: onProgress
+  })
+}
+
 // ─── AUTH ────────────────────────────────────────────────────
 export const authService = {
   login: (email, senha) =>
     api.post('/auth/login', { email, senha }),
-
   cadastrar: (dados) =>
     api.post('/auth/cadastro', dados),
-
   perfil: () =>
     api.get('/auth/perfil'),
-
   atualizarPerfil: (dados) =>
     api.put('/auth/perfil', dados),
 }
@@ -50,7 +59,6 @@ export const authService = {
 export const obrasService = {
   listar: (params) =>
     api.get('/obras', { params }),
-
   detalhe: (id) =>
     api.get(`/obras/${id}`),
 }
@@ -59,7 +67,6 @@ export const obrasService = {
 export const candidaturasService = {
   candidatar: (obra_id, referencias) =>
     api.post('/candidaturas', { obra_id, referencias }),
-
   minhas: () =>
     api.get('/candidaturas/minhas'),
 }
@@ -68,7 +75,6 @@ export const candidaturasService = {
 export const mensagensService = {
   enviar: (obra_id, conteudo) =>
     api.post('/mensagens', { obra_id, conteudo }),
-
   porObra: (obra_id) =>
     api.get(`/mensagens/obra/${obra_id}`),
 }
