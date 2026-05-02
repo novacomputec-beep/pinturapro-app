@@ -88,6 +88,7 @@ export default function MinhasObrasScreen({ navigation }) {
             return (
               <TouchableOpacity
                 style={estilos.card}
+                onPress={() => navigation.navigate('DetalheMinhaObra', { obra: item })}
                 activeOpacity={0.85}
               >
                 <View style={estilos.cardTopo}>
