@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const statusInfo = {
-  pendente: { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
-  aprovada: { cor: '#4caf50', label: '✅ Aprovada — visível aos pintores' },
-  recusada: { cor: '#f44336', label: '❌ Recusada' },
-  aberta:   { cor: '#4caf50', label: '✅ Publicada' },
-  encerrada:{ cor: '#888', label: '🔒 Encerrada' },
+  pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
+  aprovada:  { cor: '#4caf50', label: '✅ Aprovada — visível aos pintores' },
+  recusada:  { cor: '#f44336', label: '❌ Recusada' },
+  aberta:    { cor: '#4caf50', label: '✅ Publicada' },
+  encerrada: { cor: '#888',    label: '🔒 Encerrada' },
 }
 
 export default function MinhasObrasScreen({ navigation }) {
@@ -33,7 +34,11 @@ export default function MinhasObrasScreen({ navigation }) {
     }
   }
 
-  useEffect(() => { buscarObras() }, [])
+  useFocusEffect(
+    useCallback(() => {
+      buscarObras()
+    }, [])
+  )
 
   const onRefresh = () => {
     setAtualizando(true)
@@ -83,7 +88,6 @@ export default function MinhasObrasScreen({ navigation }) {
             return (
               <TouchableOpacity
                 style={estilos.card}
-                onPress={() => navigation.navigate('DetalheMinhaObra', { obra: item })}
                 activeOpacity={0.85}
               >
                 <View style={estilos.cardTopo}>
