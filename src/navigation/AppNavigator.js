@@ -12,24 +12,30 @@ import SplashScreen   from '../screens/Auth/SplashScreen'
 import LoginScreen    from '../screens/Auth/LoginScreen'
 import CadastroScreen from '../screens/Auth/CadastroScreen'
 
-// App
+// App — Pintor
 import FeedScreen        from '../screens/Feed/FeedScreen'
 import DetalheObraScreen from '../screens/Obra/DetalheObraScreen'
 import ContratosScreen   from '../screens/Contratos/ContratosScreen'
 import MensagensScreen   from '../screens/Mensagens/MensagensScreen'
 import PerfilScreen      from '../screens/Perfil/PerfilScreen'
 
-const Stack     = createNativeStackNavigator()
-const Tab       = createBottomTabNavigator()
-const FeedStack = createNativeStackNavigator()
+// App — Dono de Obra
+import MinhasObrasScreen   from '../screens/DonoObra/MinhasObrasScreen'
+import CadastrarObraScreen from '../screens/DonoObra/CadastrarObraScreen'
+
+const Stack        = createNativeStackNavigator()
+const Tab          = createBottomTabNavigator()
+const FeedStack    = createNativeStackNavigator()
+const DonoStack    = createNativeStackNavigator()
 
 // ─── Ícones da tab bar ────────────────────────────────────────
 const TabIcone = ({ nome, focado }) => {
   const mapa = {
-    Obras:     '⬡',
-    Contratos: '📄',
-    Mensagens: '💬',
-    Perfil:    '👤',
+    Obras:      '⬡',
+    Contratos:  '📄',
+    Mensagens:  '💬',
+    Perfil:     '👤',
+    MinhasObras:'🏠',
   }
   return (
     <Text style={{
@@ -50,7 +56,7 @@ const FeedStackNavigator = () => (
   </FeedStack.Navigator>
 )
 
-// ─── Bottom Tabs ──────────────────────────────────────────────
+// ─── Bottom Tabs — Pintor ─────────────────────────────────────
 const TabsNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -78,6 +84,14 @@ const TabsNavigator = () => (
   </Tab.Navigator>
 )
 
+// ─── Stack — Dono de Obra ─────────────────────────────────────
+const DonoObraNavigator = () => (
+  <DonoStack.Navigator screenOptions={{ headerShown: false }}>
+    <DonoStack.Screen name="MinhasObras"   component={MinhasObrasScreen} />
+    <DonoStack.Screen name="CadastrarObra" component={CadastrarObraScreen} />
+  </DonoStack.Navigator>
+)
+
 // ─── Raiz ─────────────────────────────────────────────────────
 export default function AppNavigator() {
   const { usuario, carregando } = useAuth()
@@ -88,7 +102,11 @@ export default function AppNavigator() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {usuario ? (
-          <Stack.Screen name="App" component={TabsNavigator} />
+          usuario.role === 'dono_obra' ? (
+            <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
+          ) : (
+            <Stack.Screen name="App" component={TabsNavigator} />
+          )
         ) : (
           <>
             <Stack.Screen name="Splash"   component={SplashScreen} />
