@@ -63,8 +63,8 @@ export default function CadastroScreen({ navigation }) {
   const avancar = () => {
     if (passo === 1 && !validarPasso1()) return
     if (passo === 2 && !validarPasso2()) return
-    if (tipoConta === 'dono_obra' && passo === 2) { handleCadastrar(); return }
-    if (passo < totalPassos) setPasso(p => p + 1)
+    if (passo === totalPassos) { handleCadastrar(); return }
+    setPasso(p => p + 1)
   }
 
   const voltar = () => {
@@ -94,13 +94,13 @@ export default function CadastroScreen({ navigation }) {
 
       if (tipoConta === 'pintor') {
         Alert.alert(
-          'Conta criada! 🎉',
-          'Sua conta foi criada com sucesso! Faca login para finalizar seu pagamento e acessar as obras.',
+          'Conta criada!',
+          'Sua conta foi criada! Faca login para finalizar seu pagamento e acessar as obras.',
           [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
         )
       } else {
         Alert.alert(
-          'Conta criada! 🎉',
+          'Conta criada!',
           'Bem-vindo! Faca login para cadastrar suas obras.',
           [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
         )
@@ -237,7 +237,7 @@ export default function CadastroScreen({ navigation }) {
 
           <View style={estilos.acoesRow}>
             <BotaoPrimario
-              titulo={(tipoConta === 'dono_obra' && passo === 2) || passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →'}
+              titulo={passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →'}
               onPress={avancar}
               carregando={carregando}
             />
