@@ -20,18 +20,24 @@ import ContratosScreen   from '../screens/Contratos/ContratosScreen'
 import MensagensScreen   from '../screens/Mensagens/MensagensScreen'
 import PerfilScreen      from '../screens/Perfil/PerfilScreen'
 
+// App — Prestador de Serviços
+import FeedReparosScreen   from '../screens/Reparos/FeedReparosScreen'
+import DetalheReparoScreen from '../screens/Reparos/DetalheReparoScreen'
+
 // App — Dono de Obra
 import MinhasObrasScreen      from '../screens/DonoObra/MinhasObrasScreen'
 import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
+import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
 import DetalheMinhaObraScreen from '../screens/DonoObra/DetalheMinhaObraScreen'
 
-const Stack     = createNativeStackNavigator()
-const Tab       = createBottomTabNavigator()
-const FeedStack = createNativeStackNavigator()
-const DonoStack = createNativeStackNavigator()
+const Stack        = createNativeStackNavigator()
+const Tab          = createBottomTabNavigator()
+const FeedStack    = createNativeStackNavigator()
+const ReparoStack  = createNativeStackNavigator()
+const DonoStack    = createNativeStackNavigator()
 
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤' }
+  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧' }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
@@ -41,7 +47,7 @@ const TabIcone = ({ nome, focado }) => {
 
 // Tela de pagamento pendente
 function PagamentoPendenteScreen() {
-  const { logout } = useAuth()
+  const { logout, usuario } = useAuth()
   const [link, setLink] = React.useState(null)
   const [carregando, setCarregando] = React.useState(true)
 
@@ -56,6 +62,9 @@ function PagamentoPendenteScreen() {
     buscar()
   }, [])
 
+  const valor = usuario?.role === 'prestador' ? 'R$ 49,90' : 'R$ 99,90'
+  const tipo = usuario?.role === 'prestador' ? 'reparos e serviços' : 'obras de pintura'
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -63,8 +72,11 @@ function PagamentoPendenteScreen() {
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
           Assinatura pendente
         </Text>
-        <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
-          Para acessar as obras disponíveis, finalize seu pagamento via Mercado Pago.
+        <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
+          Para acessar {tipo} disponíveis, finalize seu pagamento.
+        </Text>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 32 }}>
+          {valor}/mês
         </Text>
 
         {carregando ? (
@@ -90,6 +102,7 @@ function PagamentoPendenteScreen() {
   )
 }
 
+// Stack do Feed de Pintores
 const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
     <FeedStack.Screen name="FeedMain"    component={FeedScreen} />
@@ -97,7 +110,16 @@ const FeedStackNavigator = () => (
   </FeedStack.Navigator>
 )
 
-const TabsNavigator = () => (
+// Stack do Feed de Reparos
+const ReparoStackNavigator = () => (
+  <ReparoStack.Navigator screenOptions={{ headerShown: false }}>
+    <ReparoStack.Screen name="FeedReparosMain" component={FeedReparosScreen} />
+    <ReparoStack.Screen name="DetalheReparo"   component={DetalheReparoScreen} />
+  </ReparoStack.Navigator>
+)
+
+// Tabs do Pintor
+const TabsPintorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
@@ -115,10 +137,30 @@ const TabsNavigator = () => (
   </Tab.Navigator>
 )
 
+// Tabs do Prestador
+const TabsPrestadorNavigator = () => (
+  <Tab.Navigator
+    screenOptions={({ route }) => ({
+      headerShown: false,
+      tabBarStyle: { backgroundColor: cores.fundo, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, height: 72, paddingBottom: 14, paddingTop: 8 },
+      tabBarActiveTintColor: cores.primaria,
+      tabBarInactiveTintColor: cores.textoFraco,
+      tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
+      tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
+    })}
+  >
+    <Tab.Screen name="Reparos"   component={ReparoStackNavigator} options={{ title: 'Reparos' }} />
+    <Tab.Screen name="Mensagens" component={MensagensScreen} />
+    <Tab.Screen name="Perfil"    component={PerfilScreen} />
+  </Tab.Navigator>
+)
+
+// Stack do Dono de Obra
 const DonoObraNavigator = () => (
   <DonoStack.Navigator screenOptions={{ headerShown: false }}>
     <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
     <DonoStack.Screen name="CadastrarObra"    component={CadastrarObraScreen} />
+    <DonoStack.Screen name="CadastrarReparo"  component={CadastrarReparoScreen} />
     <DonoStack.Screen name="DetalheMinhaObra" component={DetalheMinhaObraScreen} />
   </DonoStack.Navigator>
 )
@@ -134,10 +176,18 @@ export default function AppNavigator() {
         {usuario ? (
           usuario.role === 'dono_obra' ? (
             <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
-          ) : assinatura?.status === 'ativa' ? (
-            <Stack.Screen name="App" component={TabsNavigator} />
+          ) : usuario.role === 'prestador' ? (
+            assinatura?.status === 'ativa' ? (
+              <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />
+            ) : (
+              <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
+            )
           ) : (
-            <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
+            assinatura?.status === 'ativa' ? (
+              <Stack.Screen name="App" component={TabsPintorNavigator} />
+            ) : (
+              <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
+            )
           )
         ) : (
           <>
