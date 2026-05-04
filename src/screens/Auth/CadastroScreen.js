@@ -38,7 +38,7 @@ export default function CadastroScreen({ navigation }) {
   const [especialidades, setEspecialidades] = useState('')
   const [planoSelecionado, setPlanoSelecionado] = useState('mensal')
 
-  const totalPassos = tipoConta === 'pintor' ? 3 : 2
+  const totalPassos = tipoConta === 'dono_obra' ? 2 : 3
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
@@ -84,24 +84,24 @@ export default function CadastroScreen({ navigation }) {
         cidade: cidade.trim(),
         cpf_cnpj: cpfCnpj.trim(),
         tipo_conta: tipoConta,
-        anos_experiencia: tipoConta === 'pintor' ? parseInt(anosExp) || 0 : 0,
-        tamanho_equipe: tipoConta === 'pintor' ? parseInt(equipe) || 1 : 1,
-        especialidades: tipoConta === 'pintor'
+        anos_experiencia: (tipoConta === 'pintor' || tipoConta === 'prestador') ? parseInt(anosExp) || 0 : 0,
+        tamanho_equipe: (tipoConta === 'pintor' || tipoConta === 'prestador') ? parseInt(equipe) || 1 : 1,
+        especialidades: (tipoConta === 'pintor' || tipoConta === 'prestador')
           ? especialidades.split(',').map(s => s.trim()).filter(Boolean) : [],
       }
 
       await authService.cadastrar(dados)
 
-      if (tipoConta === 'pintor') {
+      if (tipoConta === 'dono_obra') {
         Alert.alert(
           'Conta criada!',
-          'Sua conta foi criada! Faca login para finalizar seu pagamento e acessar as obras.',
+          'Bem-vindo! Faca login para cadastrar suas obras e reparos.',
           [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
         )
       } else {
         Alert.alert(
           'Conta criada!',
-          'Bem-vindo! Faca login para cadastrar suas obras.',
+          'Sua conta foi criada! Faca login para finalizar seu pagamento e acessar os servicos.',
           [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
         )
       }
@@ -113,6 +113,13 @@ export default function CadastroScreen({ navigation }) {
     }
   }
 
+  const getValorPlano = () => {
+    if (tipoConta === 'prestador') return { mensal: 'R$ 49,90', anual: 'R$ 41,58', anualTotal: 'R$ 499/ano' }
+    return { mensal: 'R$ 99,90', anual: 'R$ 83,25', anualTotal: 'R$ 999/ano' }
+  }
+
+  const valores = getValorPlano()
+
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -122,19 +129,33 @@ export default function CadastroScreen({ navigation }) {
           </TouchableOpacity>
           <Text style={estilos.titulo}>Como voce{'\n'}quer usar?</Text>
           <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve voce</Text>
+
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🖌️</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou pintor profissional</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar obras e servicos disponiveis na regiao</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar obras de pintura disponíveis na regiao</Text>
+              <Text style={estilos.tipoPreco}>R$ 99,90/mes</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('prestador')} activeOpacity={0.8}>
+            <Text style={estilos.tipoIcone}>🔧</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.tipoNome}>Sou prestador de servicos</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar reparos e servicos gerais na regiao</Text>
+              <Text style={estilos.tipoPreco}>R$ 49,90/mes</Text>
+            </View>
+            <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🏠</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Tenho uma obra</Text>
-              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra e encontrar pintores qualificados</Text>
+              <Text style={estilos.tipoNome}>Tenho uma obra ou reparo</Text>
+              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra ou reparo e encontrar profissionais</Text>
+              <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
@@ -152,13 +173,13 @@ export default function CadastroScreen({ navigation }) {
           </TouchableOpacity>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
-              : passo === 2 ? (tipoConta === 'pintor' ? 'Perfil\nprofissional' : 'Seus\ndados')
+              : passo === 2 ? (tipoConta === 'dono_obra' ? 'Seus\ndados' : 'Perfil\nprofissional')
               : 'Escolha\nseu plano'}
           </Text>
           <Text style={estilos.subtitulo}>
             {`Passo ${passo} de ${totalPassos} — ${
               passo === 1 ? 'dados pessoais'
-              : passo === 2 ? (tipoConta === 'pintor' ? 'informacoes profissionais' : 'localizacao e documento')
+              : passo === 2 ? (tipoConta === 'dono_obra' ? 'localizacao e documento' : 'informacoes profissionais')
               : 'assinatura'}`}
           </Text>
           <IndicadorPassos passo={passo} total={totalPassos} />
@@ -184,31 +205,38 @@ export default function CadastroScreen({ navigation }) {
             <View>
               <Input label="CIDADE" placeholder="Ex: Uberlandia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
               <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={setCpfCnpj} keyboardType="numeric" erro={erros.cpfCnpj} />
-              {tipoConta === 'pintor' && (
+              {tipoConta !== 'dono_obra' && (
                 <>
                   <View style={estilos.duasColunas}>
                     <Input label="ANOS DE EXP." placeholder="Ex: 8" value={anosExp} onChangeText={setAnosExp} keyboardType="numeric" estilo={{ flex: 1 }} />
                     <Input label="TAMANHO DA EQUIPE" placeholder="Ex: 4" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
                   </View>
-                  <Input label="ESPECIALIDADES" placeholder="Ex: textura, epoxi, acabamento fino" value={especialidades} onChangeText={setEspecialidades} />
+                  <Input
+                    label={tipoConta === 'prestador' ? 'ESPECIALIDADES (ex: hidraulica, eletrica)' : 'ESPECIALIDADES (ex: textura, epoxi)'}
+                    placeholder="Separe por virgula"
+                    value={especialidades}
+                    onChangeText={setEspecialidades}
+                  />
                 </>
               )}
             </View>
           )}
 
-          {passo === 3 && tipoConta === 'pintor' && (
+          {passo === 3 && tipoConta !== 'dono_obra' && (
             <View>
-              <Text style={estilos.planoSubtitulo}>Escolha o plano para acessar obras disponiveis:</Text>
+              <Text style={estilos.planoSubtitulo}>
+                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os reparos disponiveis' : 'as obras disponiveis'}:
+              </Text>
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
                 <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>
                   {planoSelecionado === 'mensal' && <View style={estilos.planoRadioDot} />}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.planoNome}>Plano Mensal</Text>
-                  <Text style={estilos.planoDesc}>Acesso completo as obras disponiveis</Text>
+                  <Text style={estilos.planoDesc}>Acesso completo</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={estilos.planoPreco}>R$ 99,90</Text>
+                  <Text style={estilos.planoPreco}>{valores.mensal}</Text>
                   <Text style={estilos.planoPeriodo}>/mes</Text>
                 </View>
               </TouchableOpacity>
@@ -224,8 +252,8 @@ export default function CadastroScreen({ navigation }) {
                   <Text style={estilos.planoDesc}>Melhor custo-beneficio</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={estilos.planoPreco}>R$ 83,25</Text>
-                  <Text style={estilos.planoPeriodo}>/mes · R$ 999/ano</Text>
+                  <Text style={estilos.planoPreco}>{valores.anual}</Text>
+                  <Text style={estilos.planoPeriodo}>/mes · {valores.anualTotal}</Text>
                 </View>
               </TouchableOpacity>
               <View style={estilos.segurancaBox}>
@@ -264,7 +292,8 @@ const estilos = StyleSheet.create({
   tipoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   tipoIcone: { fontSize: 32 },
   tipoNome: { fontSize: 15, fontWeight: '600', color: cores.textoForte, marginBottom: 4 },
-  tipoDesc: { fontSize: 12, color: cores.textoFraco, lineHeight: 18 },
+  tipoDesc: { fontSize: 12, color: cores.textoFraco, lineHeight: 18, marginBottom: 4 },
+  tipoPreco: { fontSize: 12, fontWeight: '600', color: cores.primaria },
   planoSubtitulo: { fontSize: 13, color: cores.textoMedio, marginBottom: 16 },
   planoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   planoCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
