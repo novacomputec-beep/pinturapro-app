@@ -5,31 +5,26 @@ import {
 } from 'react-native'
 import { BotaoPrimario, Input } from '../../components'
 import { authService } from '../../services/api'
-import api from '../../services/api'
-import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const IndicadorPassos = ({ passo, total }) => (
   <View style={estilos.indicador}>
     {Array.from({ length: total }).map((_, i) => (
-      <View
-        key={i}
-        style={[
-          estilos.indicadorDot,
-          i < passo - 1 && estilos.indicadorDotFeito,
-          i === passo - 1 && estilos.indicadorDotAtivo,
-        ]}
-      />
+      <View key={i} style={[
+        estilos.indicadorDot,
+        i < passo - 1 && estilos.indicadorDotFeito,
+        i === passo - 1 && estilos.indicadorDotAtivo,
+      ]} />
     ))}
   </View>
 )
 
 export default function CadastroScreen({ navigation }) {
-  const { login } = useAuth()
   const [tipoConta, setTipoConta] = useState(null)
   const [passo, setPasso] = useState(0)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
+  const [linkPagamento, setLinkPagamento] = useState(null)
 
   const [nome, setNome] = useState('')
   const [sobrenome, setSobrenome] = useState('')
@@ -39,7 +34,6 @@ export default function CadastroScreen({ navigation }) {
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [cidade, setCidade] = useState('')
   const [cpfCnpj, setCpfCnpj] = useState('')
-
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
   const [especialidades, setEspecialidades] = useState('')
@@ -47,10 +41,7 @@ export default function CadastroScreen({ navigation }) {
 
   const totalPassos = tipoConta === 'pintor' ? 3 : 2
 
-  const escolherTipo = (tipo) => {
-    setTipoConta(tipo)
-    setPasso(1)
-  }
+  const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
   const validarPasso1 = () => {
     const novos = {}
@@ -73,14 +64,12 @@ export default function CadastroScreen({ navigation }) {
   const avancar = () => {
     if (passo === 1 && !validarPasso1()) return
     if (passo === 2 && !validarPasso2()) return
-    if (tipoConta === 'dono_obra' && passo === 2) {
-      handleCadastrar()
-      return
-    }
+    if (tipoConta === 'dono_obra' && passo === 2) { handleCadastrar(); return }
     if (passo < totalPassos) setPasso(p => p + 1)
   }
 
   const voltar = () => {
+    if (linkPagamento) { setLinkPagamento(null); return }
     if (passo > 1) setPasso(p => p - 1)
     else if (passo === 1) { setTipoConta(null); setPasso(0) }
     else navigation.goBack()
@@ -100,50 +89,78 @@ export default function CadastroScreen({ navigation }) {
         anos_experiencia: tipoConta === 'pintor' ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: tipoConta === 'pintor' ? parseInt(equipe) || 1 : 1,
         especialidades: tipoConta === 'pintor'
-          ? especialidades.split(',').map(s => s.trim()).filter(Boolean)
-          : [],
+          ? especialidades.split(',').map(s => s.trim()).filter(Boolean) : [],
       }
 
-      // Cadastra sem fazer login ainda
       await authService.cadastrar(dados)
 
       if (tipoConta === 'pintor') {
-        // Faz login para pegar o token
-        const resposta = await login(dados.email, senha)
-
-        // Cria link de pagamento
+        // Busca link de pagamento SEM fazer login ainda
         try {
-          const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: planoSelecionado })
-          if (pagamento.init_point) {
-            Alert.alert(
-              'Conta criada!',
-              'Para acessar as obras disponiveis, finalize seu pagamento agora.',
-              [
-                { text: 'Pagar agora', onPress: () => Linking.openURL(pagamento.init_point) },
-                { text: 'Depois', style: 'cancel' }
-              ]
-            )
-          }
+          const { default: axios } = await import('axios')
+          const loginResp = await axios.post(
+            'https://pinturapro-api-production.up.railway.app/api/auth/login',
+            { email: dados.email, senha: dados.senha }
+          )
+          const token = loginResp.data.token
+
+          const pagResp = await axios.post(
+            'https://pinturapro-api-production.up.railway.app/api/pagamentos/criar-assinatura',
+            { plano: planoSelecionado },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          setLinkPagamento(pagResp.data.init_point)
         } catch {
-          Alert.alert('Conta criada!', 'Sua conta foi criada. Entre em contato para ativar seu acesso.')
+          // Se falhar, vai para login normal
+          navigation.navigate('Login')
         }
       } else {
-        // Dono de obra — faz login direto
-        await login(dados.email, senha)
         Alert.alert(
           'Conta criada!',
-          'Bem-vindo! Agora voce pode cadastrar suas obras e aguardar aprovacao da nossa equipe.',
-          [{ text: 'OK' }]
+          'Bem-vindo! Agora faca login para acessar o app.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
         )
       }
-
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Nao foi possivel criar sua conta.')
+      Alert.alert('Erro', err.mensagem || err.response?.data?.erro || 'Nao foi possivel criar sua conta.')
     } finally {
       setCarregando(false)
     }
   }
 
+  // TELA DE PAGAMENTO
+  if (linkPagamento) {
+    return (
+      <SafeAreaView style={estilos.container}>
+        <ScrollView contentContainerStyle={[estilos.scroll, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}>
+          <Text style={{ fontSize: 48, marginBottom: 16 }}>🎉</Text>
+          <Text style={[estilos.titulo, { textAlign: 'center' }]}>Conta criada!</Text>
+          <Text style={[estilos.subtitulo, { textAlign: 'center', marginBottom: 32 }]}>
+            Para acessar as obras disponiveis, finalize seu pagamento agora.
+          </Text>
+
+          <BotaoPrimario
+            titulo="Pagar agora via Mercado Pago →"
+            onPress={() => Linking.openURL(linkPagamento)}
+            estilo={{ marginBottom: 12 }}
+          />
+
+          <TouchableOpacity
+            style={estilos.btnDepois}
+            onPress={() => navigation.navigate('Login')}
+          >
+            <Text style={estilos.btnDepoisTexto}>Pagar depois</Text>
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 16, lineHeight: 18 }}>
+            Apos o pagamento, faca login para acessar as obras.
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    )
+  }
+
+  // TELA DE ESCOLHA DO TIPO
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -151,10 +168,8 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
           </TouchableOpacity>
-
           <Text style={estilos.titulo}>Como voce{'\n'}quer usar?</Text>
           <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve voce</Text>
-
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🖌️</Text>
             <View style={{ flex: 1 }}>
@@ -163,7 +178,6 @@ export default function CadastroScreen({ navigation }) {
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🏠</Text>
             <View style={{ flex: 1 }}>
@@ -181,11 +195,9 @@ export default function CadastroScreen({ navigation }) {
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
             <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
           </TouchableOpacity>
-
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
               : passo === 2 ? (tipoConta === 'pintor' ? 'Perfil\nprofissional' : 'Seus\ndados')
@@ -195,10 +207,8 @@ export default function CadastroScreen({ navigation }) {
             {`Passo ${passo} de ${totalPassos} — ${
               passo === 1 ? 'dados pessoais'
               : passo === 2 ? (tipoConta === 'pintor' ? 'informacoes profissionais' : 'localizacao e documento')
-              : 'assinatura'
-            }`}
+              : 'assinatura'}`}
           </Text>
-
           <IndicadorPassos passo={passo} total={totalPassos} />
 
           {passo === 1 && (
@@ -237,7 +247,6 @@ export default function CadastroScreen({ navigation }) {
           {passo === 3 && tipoConta === 'pintor' && (
             <View>
               <Text style={estilos.planoSubtitulo}>Escolha o plano para acessar obras disponiveis:</Text>
-
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
                 <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>
                   {planoSelecionado === 'mensal' && <View style={estilos.planoRadioDot} />}
@@ -251,7 +260,6 @@ export default function CadastroScreen({ navigation }) {
                   <Text style={estilos.planoPeriodo}>/mes</Text>
                 </View>
               </TouchableOpacity>
-
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'anual' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('anual')} activeOpacity={0.8}>
                 <View style={{ position: 'absolute', top: -10, right: 14 }}>
                   <View style={estilos.planoDestaque}><Text style={estilos.planoDestaqueTexto}>Economize 2 meses</Text></View>
@@ -268,7 +276,6 @@ export default function CadastroScreen({ navigation }) {
                   <Text style={estilos.planoPeriodo}>/mes · R$ 999/ano</Text>
                 </View>
               </TouchableOpacity>
-
               <View style={estilos.segurancaBox}>
                 <Text style={estilos.segurancaIcone}>🔒</Text>
                 <Text style={estilos.segurancaTexto}>Pagamento 100% seguro via Mercado Pago. Cancele quando quiser.</Text>
@@ -278,16 +285,11 @@ export default function CadastroScreen({ navigation }) {
 
           <View style={estilos.acoesRow}>
             <BotaoPrimario
-              titulo={
-                (tipoConta === 'dono_obra' && passo === 2) || passo === totalPassos
-                  ? 'Finalizar cadastro →'
-                  : 'Continuar →'
-              }
+              titulo={(tipoConta === 'dono_obra' && passo === 2) || passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →'}
               onPress={avancar}
               carregando={carregando}
             />
           </View>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -297,12 +299,7 @@ export default function CadastroScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
-  btnVoltar: {
-    marginTop: 14, width: 36, height: 36,
-    backgroundColor: cores.fundoElevado,
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-  },
+  btnVoltar: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },
   indicador: { flexDirection: 'row', gap: 6, marginBottom: 28 },
@@ -312,22 +309,12 @@ const estilos = StyleSheet.create({
   duasColunas: { flexDirection: 'row', gap: 12 },
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
-  tipoCard: {
-    backgroundColor: cores.fundoCard,
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande, padding: 20,
-    flexDirection: 'row', alignItems: 'center',
-    gap: 14, marginBottom: 12,
-  },
+  tipoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   tipoIcone: { fontSize: 32 },
   tipoNome: { fontSize: 15, fontWeight: '600', color: cores.textoForte, marginBottom: 4 },
   tipoDesc: { fontSize: 12, color: cores.textoFraco, lineHeight: 18 },
   planoSubtitulo: { fontSize: 13, color: cores.textoMedio, marginBottom: 16 },
-  planoCard: {
-    backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande, padding: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12,
-  },
+  planoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
   planoCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
   planoRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   planoRadioAtivo: { borderColor: cores.primaria, backgroundColor: cores.primaria },
@@ -342,4 +329,6 @@ const estilos = StyleSheet.create({
   segurancaIcone: { fontSize: 14 },
   segurancaTexto: { flex: 1, fontSize: 11, color: cores.textoFraco, lineHeight: 17 },
   acoesRow: { marginTop: 24 },
+  btnDepois: { padding: 14, alignItems: 'center' },
+  btnDepoisTexto: { fontSize: 14, color: cores.textoFraco },
 })
