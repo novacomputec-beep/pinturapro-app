@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Linking
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert
 } from 'react-native'
 import { BotaoPrimario, Input } from '../../components'
 import { authService } from '../../services/api'
@@ -24,7 +24,6 @@ export default function CadastroScreen({ navigation }) {
   const [passo, setPasso] = useState(0)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
-  const [linkPagamento, setLinkPagamento] = useState(null)
 
   const [nome, setNome] = useState('')
   const [sobrenome, setSobrenome] = useState('')
@@ -69,7 +68,6 @@ export default function CadastroScreen({ navigation }) {
   }
 
   const voltar = () => {
-    if (linkPagamento) { setLinkPagamento(null); return }
     if (passo > 1) setPasso(p => p - 1)
     else if (passo === 1) { setTipoConta(null); setPasso(0) }
     else navigation.goBack()
@@ -95,72 +93,26 @@ export default function CadastroScreen({ navigation }) {
       await authService.cadastrar(dados)
 
       if (tipoConta === 'pintor') {
-        // Busca link de pagamento SEM fazer login ainda
-        try {
-          const { default: axios } = await import('axios')
-          const loginResp = await axios.post(
-            'https://pinturapro-api-production.up.railway.app/api/auth/login',
-            { email: dados.email, senha: dados.senha }
-          )
-          const token = loginResp.data.token
-
-          const pagResp = await axios.post(
-            'https://pinturapro-api-production.up.railway.app/api/pagamentos/criar-assinatura',
-            { plano: planoSelecionado },
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-          setLinkPagamento(pagResp.data.init_point)
-        } catch {
-          // Se falhar, vai para login normal
-          navigation.navigate('Login')
-        }
+        Alert.alert(
+          'Conta criada! 🎉',
+          'Sua conta foi criada com sucesso! Faca login para finalizar seu pagamento e acessar as obras.',
+          [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
+        )
       } else {
         Alert.alert(
-          'Conta criada!',
-          'Bem-vindo! Agora faca login para acessar o app.',
-          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+          'Conta criada! 🎉',
+          'Bem-vindo! Faca login para cadastrar suas obras.',
+          [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
         )
       }
+
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err.response?.data?.erro || 'Nao foi possivel criar sua conta.')
+      Alert.alert('Erro', err.mensagem || err?.response?.data?.erro || 'Nao foi possivel criar sua conta.')
     } finally {
       setCarregando(false)
     }
   }
 
-  // TELA DE PAGAMENTO
-  if (linkPagamento) {
-    return (
-      <SafeAreaView style={estilos.container}>
-        <ScrollView contentContainerStyle={[estilos.scroll, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>🎉</Text>
-          <Text style={[estilos.titulo, { textAlign: 'center' }]}>Conta criada!</Text>
-          <Text style={[estilos.subtitulo, { textAlign: 'center', marginBottom: 32 }]}>
-            Para acessar as obras disponiveis, finalize seu pagamento agora.
-          </Text>
-
-          <BotaoPrimario
-            titulo="Pagar agora via Mercado Pago →"
-            onPress={() => Linking.openURL(linkPagamento)}
-            estilo={{ marginBottom: 12 }}
-          />
-
-          <TouchableOpacity
-            style={estilos.btnDepois}
-            onPress={() => navigation.navigate('Login')}
-          >
-            <Text style={estilos.btnDepoisTexto}>Pagar depois</Text>
-          </TouchableOpacity>
-
-          <Text style={{ fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 16, lineHeight: 18 }}>
-            Apos o pagamento, faca login para acessar as obras.
-          </Text>
-        </ScrollView>
-      </SafeAreaView>
-    )
-  }
-
-  // TELA DE ESCOLHA DO TIPO
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -329,6 +281,4 @@ const estilos = StyleSheet.create({
   segurancaIcone: { fontSize: 14 },
   segurancaTexto: { flex: 1, fontSize: 11, color: cores.textoFraco, lineHeight: 17 },
   acoesRow: { marginTop: 24 },
-  btnDepois: { padding: 14, alignItems: 'center' },
-  btnDepoisTexto: { fontSize: 14, color: cores.textoFraco },
 })
