@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Linking
 } from 'react-native'
-import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
+import { BotaoPrimario, Input } from '../../components'
 import { authService } from '../../services/api'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -26,12 +26,11 @@ const IndicadorPassos = ({ passo, total }) => (
 
 export default function CadastroScreen({ navigation }) {
   const { login } = useAuth()
-  const [tipoConta, setTipoConta] = useState(null) // 'pintor' ou 'dono_obra'
-  const [passo, setPasso] = useState(0) // 0 = escolha tipo
+  const [tipoConta, setTipoConta] = useState(null)
+  const [passo, setPasso] = useState(0)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
 
-  // Dados comuns
   const [nome, setNome] = useState('')
   const [sobrenome, setSobrenome] = useState('')
   const [email, setEmail] = useState('')
@@ -41,7 +40,6 @@ export default function CadastroScreen({ navigation }) {
   const [cidade, setCidade] = useState('')
   const [cpfCnpj, setCpfCnpj] = useState('')
 
-  // Dados do pintor
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
   const [especialidades, setEspecialidades] = useState('')
@@ -59,7 +57,7 @@ export default function CadastroScreen({ navigation }) {
     if (!nome.trim()) novos.nome = 'Informe o nome'
     if (!email.trim()) novos.email = 'Informe o e-mail'
     if (!senha.trim()) novos.senha = 'Informe a senha'
-    if (senha.length < 8) novos.senha = 'Mínimo 8 caracteres'
+    if (senha.length < 8) novos.senha = 'Minimo 8 caracteres'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -106,16 +104,20 @@ export default function CadastroScreen({ navigation }) {
           : [],
       }
 
+      // Cadastra sem fazer login ainda
       await authService.cadastrar(dados)
-      await login(dados.email, senha)
 
       if (tipoConta === 'pintor') {
+        // Faz login para pegar o token
+        const resposta = await login(dados.email, senha)
+
+        // Cria link de pagamento
         try {
           const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: planoSelecionado })
           if (pagamento.init_point) {
             Alert.alert(
-              'Conta criada! 🎉',
-              'Para acessar as obras disponíveis, finalize seu pagamento agora.',
+              'Conta criada!',
+              'Para acessar as obras disponiveis, finalize seu pagamento agora.',
               [
                 { text: 'Pagar agora', onPress: () => Linking.openURL(pagamento.init_point) },
                 { text: 'Depois', style: 'cancel' }
@@ -126,21 +128,22 @@ export default function CadastroScreen({ navigation }) {
           Alert.alert('Conta criada!', 'Sua conta foi criada. Entre em contato para ativar seu acesso.')
         }
       } else {
+        // Dono de obra — faz login direto
+        await login(dados.email, senha)
         Alert.alert(
-          'Conta criada! 🎉',
-          'Bem-vindo! Agora você pode cadastrar suas obras e aguardar aprovação da nossa equipe.',
+          'Conta criada!',
+          'Bem-vindo! Agora voce pode cadastrar suas obras e aguardar aprovacao da nossa equipe.',
           [{ text: 'OK' }]
         )
       }
 
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível criar sua conta.')
+      Alert.alert('Erro', err.mensagem || 'Nao foi possivel criar sua conta.')
     } finally {
       setCarregando(false)
     }
   }
 
-  // TELA DE ESCOLHA DO TIPO
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -149,14 +152,14 @@ export default function CadastroScreen({ navigation }) {
             <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
           </TouchableOpacity>
 
-          <Text style={estilos.titulo}>Como você{'\n'}quer usar?</Text>
-          <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve você</Text>
+          <Text style={estilos.titulo}>Como voce{'\n'}quer usar?</Text>
+          <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve voce</Text>
 
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🖌️</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou pintor profissional</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar obras e serviços disponíveis na região</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar obras e servicos disponiveis na regiao</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
@@ -191,14 +194,13 @@ export default function CadastroScreen({ navigation }) {
           <Text style={estilos.subtitulo}>
             {`Passo ${passo} de ${totalPassos} — ${
               passo === 1 ? 'dados pessoais'
-              : passo === 2 ? (tipoConta === 'pintor' ? 'informações profissionais' : 'localização e documento')
+              : passo === 2 ? (tipoConta === 'pintor' ? 'informacoes profissionais' : 'localizacao e documento')
               : 'assinatura'
             }`}
           </Text>
 
           <IndicadorPassos passo={passo} total={totalPassos} />
 
-          {/* PASSO 1 — dados pessoais */}
           {passo === 1 && (
             <View>
               <View style={estilos.duasColunas}>
@@ -208,7 +210,7 @@ export default function CadastroScreen({ navigation }) {
               <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" erro={erros.email} />
               <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
               <View>
-                <Input label="SENHA" placeholder="Mínimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
+                <Input label="SENHA" placeholder="Minimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
                 <TouchableOpacity style={estilos.olhoBtn} onPress={() => setMostrarSenha(!mostrarSenha)}>
                   <Text style={estilos.olhoTexto}>{mostrarSenha ? 'ocultar' : 'mostrar'}</Text>
                 </TouchableOpacity>
@@ -216,10 +218,9 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
-          {/* PASSO 2 — dados profissionais ou localização */}
           {passo === 2 && (
             <View>
-              <Input label="CIDADE" placeholder="Ex: Uberlândia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
+              <Input label="CIDADE" placeholder="Ex: Uberlandia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
               <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={setCpfCnpj} keyboardType="numeric" erro={erros.cpfCnpj} />
               {tipoConta === 'pintor' && (
                 <>
@@ -227,16 +228,15 @@ export default function CadastroScreen({ navigation }) {
                     <Input label="ANOS DE EXP." placeholder="Ex: 8" value={anosExp} onChangeText={setAnosExp} keyboardType="numeric" estilo={{ flex: 1 }} />
                     <Input label="TAMANHO DA EQUIPE" placeholder="Ex: 4" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
                   </View>
-                  <Input label="ESPECIALIDADES" placeholder="Ex: textura, epóxi, acabamento fino" value={especialidades} onChangeText={setEspecialidades} />
+                  <Input label="ESPECIALIDADES" placeholder="Ex: textura, epoxi, acabamento fino" value={especialidades} onChangeText={setEspecialidades} />
                 </>
               )}
             </View>
           )}
 
-          {/* PASSO 3 — plano (apenas pintor) */}
           {passo === 3 && tipoConta === 'pintor' && (
             <View>
-              <Text style={estilos.planoSubtitulo}>Escolha o plano para acessar obras disponíveis:</Text>
+              <Text style={estilos.planoSubtitulo}>Escolha o plano para acessar obras disponiveis:</Text>
 
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
                 <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>
@@ -244,11 +244,11 @@ export default function CadastroScreen({ navigation }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.planoNome}>Plano Mensal</Text>
-                  <Text style={estilos.planoDesc}>Acesso completo às obras disponíveis</Text>
+                  <Text style={estilos.planoDesc}>Acesso completo as obras disponiveis</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={estilos.planoPreco}>R$ 99,90</Text>
-                  <Text style={estilos.planoPeriodo}>/mês</Text>
+                  <Text style={estilos.planoPeriodo}>/mes</Text>
                 </View>
               </TouchableOpacity>
 
@@ -261,11 +261,11 @@ export default function CadastroScreen({ navigation }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.planoNome}>Plano Anual</Text>
-                  <Text style={estilos.planoDesc}>Melhor custo-benefício</Text>
+                  <Text style={estilos.planoDesc}>Melhor custo-beneficio</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={estilos.planoPreco}>R$ 83,25</Text>
-                  <Text style={estilos.planoPeriodo}>/mês · R$ 999/ano</Text>
+                  <Text style={estilos.planoPeriodo}>/mes · R$ 999/ano</Text>
                 </View>
               </TouchableOpacity>
 
