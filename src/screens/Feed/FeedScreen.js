@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image, ScrollView
 } from 'react-native'
 import { obrasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useLocalizacao } from '../../hooks/useLocalizacao'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const CATEGORIAS = [
@@ -14,6 +15,24 @@ const CATEGORIAS = [
   { id: 'galpoes',     label: 'Galpões'     },
   { id: 'outras',      label: 'Outras'      },
 ]
+
+const OPCOES_RAIO = [
+  { id: 0,   label: '📍 Todos' },
+  { id: 25,  label: '25 km'   },
+  { id: 50,  label: '50 km'   },
+  { id: 100, label: '100 km'  },
+  { id: 200, label: '200 km'  },
+]
+
+const calcularDistanciaKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
 
 const formatarCountdown = (expiraEm) => {
   const diff = new Date(expiraEm) - new Date()
@@ -36,11 +55,7 @@ const CardObra = ({ obra, onPress }) => {
     >
       <View style={estilos.cardImagem}>
         {obra.foto_capa ? (
-          <Image
-            source={{ uri: obra.foto_capa }}
-            style={estilos.fotoImagem}
-            resizeMode="cover"
-          />
+          <Image source={{ uri: obra.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
         ) : (
           <Text style={estilos.cardImagemIcone}>🏠</Text>
         )}
@@ -57,14 +72,17 @@ const CardObra = ({ obra, onPress }) => {
             <Text style={estilos.midiasTexto}>📷 {obra.total_midias}</Text>
           </View>
         )}
+        {obra.distancia_km != null && (
+          <View style={estilos.distanciaBadge}>
+            <Text style={estilos.distanciaTexto}>📍 {obra.distancia_km.toFixed(0)} km</Text>
+          </View>
+        )}
       </View>
 
       <View style={estilos.cardCorpo}>
         <View style={estilos.cardTopo}>
           <Text style={estilos.cardTitulo} numberOfLines={2}>{obra.titulo}</Text>
-          <Text style={estilos.cardValor}>
-            R$ {Number(obra.valor).toLocaleString('pt-BR')}
-          </Text>
+          <Text style={estilos.cardValor}>R$ {Number(obra.valor).toLocaleString('pt-BR')}</Text>
         </View>
         <Text style={estilos.cardLocalTexto}>
           {obra.cidade}, MG{obra.metragem ? ` · ${obra.metragem}m²` : ''}
@@ -82,16 +100,27 @@ const CardObra = ({ obra, onPress }) => {
 
 export default function FeedScreen({ navigation }) {
   const { usuario } = useAuth()
+  const { coordenadas, permissao, carregando: carregandoGPS, reobter } = useLocalizacao()
   const [obras, setObras] = useState([])
+  const [obrasFiltradas, setObrasFiltradas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
+  const [raioFiltro, setRaioFiltro] = useState(0)
   const [erro, setErro] = useState(null)
+  const raioRef = useRef(0)
+  const coordsRef = useRef(null)
 
-  const buscarObras = async () => {
+  const buscarObras = useCallback(async (cat = categoria) => {
     try {
       setErro(null)
-      const resposta = await obrasService.listar({ categoria })
+      const params = { categoria: cat }
+      if (coordsRef.current && raioRef.current > 0) {
+        params.latitude = coordsRef.current.latitude
+        params.longitude = coordsRef.current.longitude
+        params.raio = raioRef.current
+      }
+      const resposta = await obrasService.listar(params)
       setObras(resposta.obras || [])
     } catch (err) {
       setErro(err.mensagem || 'Erro ao buscar obras')
@@ -99,14 +128,43 @@ export default function FeedScreen({ navigation }) {
       setCarregando(false)
       setAtualizando(false)
     }
-  }
+  }, [categoria])
 
   useEffect(() => { buscarObras() }, [categoria])
 
-  const onRefresh = () => {
-    setAtualizando(true)
-    buscarObras()
+  // Re-busca quando coordenadas chegam com raio já selecionado
+  useEffect(() => {
+    coordsRef.current = coordenadas
+    if (coordenadas && raioRef.current > 0) buscarObras()
+  }, [coordenadas])
+
+  // Filtro client-side por raio usando Haversine
+  useEffect(() => {
+    if (raioFiltro === 0 || !coordenadas) {
+      setObrasFiltradas(obras)
+      return
+    }
+    const filtradas = obras
+      .map(o => {
+        if (!o.latitude || !o.longitude) return { ...o, distancia_km: null }
+        const dist = calcularDistanciaKm(coordenadas.latitude, coordenadas.longitude, o.latitude, o.longitude)
+        return { ...o, distancia_km: dist }
+      })
+      .filter(o => o.distancia_km == null || o.distancia_km <= raioFiltro)
+      .sort((a, b) => (a.distancia_km ?? 9999) - (b.distancia_km ?? 9999))
+    setObrasFiltradas(filtradas)
+  }, [obras, raioFiltro, coordenadas])
+
+  const mudarRaio = (novoRaio) => {
+    raioRef.current = novoRaio
+    setRaioFiltro(novoRaio)
+    if (novoRaio > 0 && coordenadas) buscarObras()
+    else if (novoRaio === 0) buscarObras()
   }
+
+  const onRefresh = () => { setAtualizando(true); buscarObras() }
+
+  const dadosExibidos = raioFiltro > 0 ? obrasFiltradas : obras
 
   return (
     <SafeAreaView style={estilos.container}>
@@ -124,7 +182,8 @@ export default function FeedScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <View style={estilos.filtrosRow}>
+      {/* Filtros de categoria */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.filtrosScroll} contentContainerStyle={estilos.filtrosRow}>
         {CATEGORIAS.map((c) => (
           <TouchableOpacity
             key={c.id}
@@ -136,9 +195,44 @@ export default function FeedScreen({ navigation }) {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
-      <Text style={estilos.contadorTexto}>{obras.length} obras em aberto</Text>
+      {/* Filtros de raio */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.filtrosScroll} contentContainerStyle={estilos.filtrosRow}>
+        {OPCOES_RAIO.map((r) => {
+          const desabilitado = r.id > 0 && permissao !== 'granted'
+          return (
+            <TouchableOpacity
+              key={r.id}
+              style={[
+                estilos.filtroPill,
+                raioFiltro === r.id && estilos.filtroPillAtivo,
+                desabilitado && { opacity: 0.4 }
+              ]}
+              onPress={() => !desabilitado && mudarRaio(r.id)}
+              disabled={desabilitado}
+            >
+              {r.id > 0 && carregandoGPS ? (
+                <ActivityIndicator size="small" color={cores.textoMedio} />
+              ) : (
+                <Text style={[estilos.filtroPillTexto, raioFiltro === r.id && estilos.filtroPillTextoAtivo]}>
+                  {r.label}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )
+        })}
+        {permissao === 'denied' && (
+          <TouchableOpacity onPress={reobter} style={estilos.gpsAviso}>
+            <Text style={estilos.gpsAvisoTexto}>Localização bloqueada · Toque para tentar novamente</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+
+      <Text style={estilos.contadorTexto}>
+        {dadosExibidos.length} obras em aberto
+        {raioFiltro > 0 && coordenadas ? ` · até ${raioFiltro}km` : ''}
+      </Text>
 
       {erro && (
         <View style={estilos.erroBox}>
@@ -151,28 +245,25 @@ export default function FeedScreen({ navigation }) {
 
       {carregando ? (
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
-      ) : obras.length === 0 && !erro ? (
+      ) : dadosExibidos.length === 0 && !erro ? (
         <View style={estilos.vazio}>
           <Text style={estilos.vazioIcone}>📋</Text>
           <Text style={estilos.vazioTitulo}>Nenhuma obra disponível</Text>
-          <Text style={estilos.vazioSub}>Novas obras aparecerão aqui em breve.</Text>
+          <Text style={estilos.vazioSub}>
+            {raioFiltro > 0 ? `Nenhuma obra em até ${raioFiltro}km. Aumente o raio.` : 'Novas obras aparecem aqui em breve.'}
+          </Text>
         </View>
       ) : (
         <FlatList
-          data={obras}
+          data={dadosExibidos}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <CardObra
-              obra={item}
-              onPress={(obra) => navigation.navigate('DetalheObra', { obra })}
-            />
+            <CardObra obra={item} onPress={(obra) => navigation.navigate('DetalheObra', { obra })} />
           )}
           contentContainerStyle={estilos.lista}
           ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />
-          }
+          refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         />
       )}
     </SafeAreaView>
@@ -181,29 +272,19 @@ export default function FeedScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 14,
-  },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 14 },
   saudacao: { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
   titulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
-  avatar: {
-    width: 34, height: 34, backgroundColor: cores.primariaSuave,
-    borderWidth: 0.5, borderColor: cores.primariaBorda,
-    borderRadius: 17, alignItems: 'center', justifyContent: 'center',
-  },
+  avatar: { width: 34, height: 34, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
-  filtrosRow: {
-    flexDirection: 'row', paddingHorizontal: espacos.tela,
-    gap: 8, marginBottom: 12, flexWrap: 'wrap',
-  },
-  filtroPill: {
-    backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 6,
-  },
+  filtrosScroll: { maxHeight: 44 },
+  filtrosRow: { paddingHorizontal: espacos.tela, gap: 8, paddingBottom: 8 },
+  filtroPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 6 },
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillTexto: { fontSize: 12, color: cores.textoMedio },
   filtroPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  gpsAviso: { backgroundColor: '#3a1a1a', borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  gpsAvisoTexto: { fontSize: 11, color: '#f44336' },
   contadorTexto: { fontSize: 12, color: cores.textoFraco, paddingHorizontal: espacos.tela, marginBottom: 10 },
   lista: { paddingHorizontal: espacos.tela, paddingBottom: 32 },
   erroBox: { alignItems: 'center', padding: 20 },
@@ -212,46 +293,26 @@ const estilos = StyleSheet.create({
   vazioIcone: { fontSize: 36, marginBottom: 16 },
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
-  card: {
-    backgroundColor: cores.fundoCard, borderRadius: 20,
-    borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden',
-  },
+  card: { backgroundColor: cores.fundoCard, borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden' },
   cardUrgente: { borderColor: cores.primaria + '44' },
-  cardImagem: {
-    height: 160, backgroundColor: cores.fundoElevado,
-    alignItems: 'center', justifyContent: 'center', position: 'relative',
-  },
+  cardImagem: { height: 160, backgroundColor: cores.fundoElevado, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   fotoImagem: { width: '100%', height: '100%' },
   cardImagemIcone: { fontSize: 40, opacity: 0.15 },
-  countdownPill: {
-    position: 'absolute', top: 10, right: 10,
-    backgroundColor: 'rgba(10,10,10,0.88)',
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4,
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-  },
+  countdownPill: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.borda, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
   countdownUrgente: { borderColor: cores.primaria },
   countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: cores.primaria },
   countdownTexto: { fontSize: 10, fontWeight: '500', color: cores.textoFraco },
-  midiasBadge: {
-    position: 'absolute', bottom: 10, left: 10,
-    backgroundColor: 'rgba(10,10,10,0.88)',
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
-  },
+  midiasBadge: { position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   midiasTexto: { fontSize: 10, color: cores.textoForte },
+  distanciaBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  distanciaTexto: { fontSize: 10, color: cores.primaria, fontWeight: '600' },
   cardCorpo: { padding: 14 },
-  cardTopo: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', marginBottom: 6, gap: 8,
-  },
+  cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 },
   cardTitulo: { flex: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
   cardValor: { fontSize: 15, fontWeight: '700', color: cores.sucesso },
   cardLocalTexto: { fontSize: 12, color: cores.textoFraco, marginBottom: 12 },
   cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardCategoria: { fontSize: 11, color: cores.textoMutado, textTransform: 'capitalize' },
-  btnVerObra: {
-    backgroundColor: cores.primaria, borderRadius: 9,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
+  btnVerObra: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 7 },
   btnVerObraTexto: { fontSize: 11, fontWeight: '600', color: '#0A0A0A' },
 })
