@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import * as SecureStore from 'expo-secure-store'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
@@ -11,16 +11,31 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
+    shouldSetBadge: true,
   }),
 })
+
+const configurarCanalAndroid = () => {
+  if (Platform.OS !== 'android') return
+  Notifications.setNotificationChannelAsync('default', {
+    name: 'PinturaPro',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#E8833A',
+    sound: true,
+  })
+}
 
 export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null)
   const [assinatura, setAssinatura] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const notificacaoRecebidaRef = useRef(null)
+  const notificacaoRespostaRef = useRef(null)
 
   useEffect(() => {
+    configurarCanalAndroid()
+
     const restaurarSessao = async () => {
       try {
         const token = await SecureStore.getItemAsync('token')
@@ -43,16 +58,31 @@ export const AuthProvider = ({ children }) => {
       }
     }
     restaurarSessao()
+
+    // Notificação recebida com app aberto
+    notificacaoRecebidaRef.current = Notifications.addNotificationReceivedListener(notificacao => {
+      console.log('Notificação recebida:', notificacao.request.content)
+    })
+
+    // Usuário tocou na notificação
+    notificacaoRespostaRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
+      const data = resposta.notification.request.content.data
+      console.log('Notificação tocada:', data)
+      // A navegação é tratada no AppNavigator via navigationRef
+    })
+
+    return () => {
+      notificacaoRecebidaRef.current?.remove()
+      notificacaoRespostaRef.current?.remove()
+    }
   }, [])
 
   const registrarPushToken = async () => {
     try {
       const { status } = await Notifications.requestPermissionsAsync()
       if (status !== 'granted') return
-
       const tokenData = await Notifications.getExpoPushTokenAsync()
       const pushToken = tokenData.data
-
       await api.post('/auth/push-token', { token: pushToken })
       console.log('Push token registrado:', pushToken)
     } catch (err) {

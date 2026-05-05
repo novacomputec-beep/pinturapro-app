@@ -1,11 +1,12 @@
 import 'react-native-gesture-handler'
-import React from 'react'
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Linking } from 'react-native'
+import React, { useRef, useEffect } from 'react'
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Linking } from 'react-native'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
-import { cores, espacos, raios } from '../utils/tema'
+import { cores, raios } from '../utils/tema'
 import api from '../services/api'
 
 // Auth
@@ -20,7 +21,7 @@ import ContratosScreen   from '../screens/Contratos/ContratosScreen'
 import MensagensScreen   from '../screens/Mensagens/MensagensScreen'
 import PerfilScreen      from '../screens/Perfil/PerfilScreen'
 
-// App — Prestador de Serviços
+// App — Prestador
 import FeedReparosScreen   from '../screens/Reparos/FeedReparosScreen'
 import DetalheReparoScreen from '../screens/Reparos/DetalheReparoScreen'
 
@@ -30,11 +31,39 @@ import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
 import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
 import DetalheMinhaObraScreen from '../screens/DonoObra/DetalheMinhaObraScreen'
 
-const Stack        = createNativeStackNavigator()
-const Tab          = createBottomTabNavigator()
-const FeedStack    = createNativeStackNavigator()
-const ReparoStack  = createNativeStackNavigator()
-const DonoStack    = createNativeStackNavigator()
+const Stack       = createNativeStackNavigator()
+const Tab         = createBottomTabNavigator()
+const FeedStack   = createNativeStackNavigator()
+const ReparoStack = createNativeStackNavigator()
+const DonoStack   = createNativeStackNavigator()
+
+export const navigationRef = React.createRef()
+
+const navegarParaNotificacao = (data) => {
+  if (!navigationRef.current || !data?.tipo) return
+  try {
+    switch (data.tipo) {
+      case 'nova_obra':
+        navigationRef.current.navigate('Obras')
+        break
+      case 'candidatura_aprovada':
+      case 'candidatura_recusada':
+        navigationRef.current.navigate('Contratos')
+        break
+      case 'nova_mensagem':
+        navigationRef.current.navigate('Mensagens')
+        break
+      case 'novo_reparo':
+        navigationRef.current.navigate('Reparos')
+        break
+      case 'nova_candidatura':
+        navigationRef.current.navigate('MinhasObras')
+        break
+    }
+  } catch (err) {
+    console.log('Erro ao navegar para notificação:', err)
+  }
+}
 
 const TabIcone = ({ nome, focado }) => {
   const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧' }
@@ -45,7 +74,6 @@ const TabIcone = ({ nome, focado }) => {
   )
 }
 
-// Tela de pagamento pendente
 function PagamentoPendenteScreen() {
   const { logout, usuario } = useAuth()
   const [link, setLink] = React.useState(null)
@@ -78,7 +106,6 @@ function PagamentoPendenteScreen() {
         <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 32 }}>
           {valor}/mês
         </Text>
-
         {carregando ? (
           <Text style={{ color: cores.textoFraco }}>Gerando link...</Text>
         ) : link ? (
@@ -93,7 +120,6 @@ function PagamentoPendenteScreen() {
             Entre em contato para ativar seu acesso.
           </Text>
         )}
-
         <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
           <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
         </TouchableOpacity>
@@ -102,7 +128,6 @@ function PagamentoPendenteScreen() {
   )
 }
 
-// Stack do Feed de Pintores
 const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
     <FeedStack.Screen name="FeedMain"    component={FeedScreen} />
@@ -110,7 +135,6 @@ const FeedStackNavigator = () => (
   </FeedStack.Navigator>
 )
 
-// Stack do Feed de Reparos
 const ReparoStackNavigator = () => (
   <ReparoStack.Navigator screenOptions={{ headerShown: false }}>
     <ReparoStack.Screen name="FeedReparosMain" component={FeedReparosScreen} />
@@ -118,7 +142,6 @@ const ReparoStackNavigator = () => (
   </ReparoStack.Navigator>
 )
 
-// Tabs do Pintor
 const TabsPintorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -137,7 +160,6 @@ const TabsPintorNavigator = () => (
   </Tab.Navigator>
 )
 
-// Tabs do Prestador
 const TabsPrestadorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -155,7 +177,6 @@ const TabsPrestadorNavigator = () => (
   </Tab.Navigator>
 )
 
-// Stack do Dono de Obra
 const DonoObraNavigator = () => (
   <DonoStack.Navigator screenOptions={{ headerShown: false }}>
     <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
@@ -167,11 +188,28 @@ const DonoObraNavigator = () => (
 
 export default function AppNavigator() {
   const { usuario, assinatura, carregando } = useAuth()
+  const respostaNotificacaoRef = useRef(null)
+
+  useEffect(() => {
+    // Trata app aberto via notificação (app frio)
+    Notifications.getLastNotificationResponseAsync().then(resposta => {
+      if (resposta?.notification?.request?.content?.data) {
+        setTimeout(() => navegarParaNotificacao(resposta.notification.request.content.data), 500)
+      }
+    })
+
+    // Trata toque em notificação com app aberto/background
+    respostaNotificacaoRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
+      navegarParaNotificacao(resposta.notification.request.content.data)
+    })
+
+    return () => respostaNotificacaoRef.current?.remove()
+  }, [])
 
   if (carregando) return null
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {usuario ? (
           usuario.role === 'dono_obra' ? (
