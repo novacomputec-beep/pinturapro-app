@@ -30,8 +30,6 @@ export default function LoginScreen({ navigation }) {
     setCarregando(true)
     try {
       const resposta = await login(email.trim().toLowerCase(), senha)
-
-      // Se pintor com assinatura pendente, mostra pagamento
       if (resposta?.assinatura?.status === 'pendente' || !resposta?.assinatura) {
         if (resposta?.usuario?.role === 'assinante') {
           try {
@@ -52,7 +50,6 @@ export default function LoginScreen({ navigation }) {
     }
   }
 
-  // TELA DE PAGAMENTO PENDENTE
   if (linkPagamento) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -62,20 +59,14 @@ export default function LoginScreen({ navigation }) {
           <Text style={[estilos.subtitulo, { textAlign: 'center', marginBottom: 32 }]}>
             Sua conta foi criada! Para acessar as obras disponíveis, finalize seu pagamento.
           </Text>
-
           <BotaoPrimario
             titulo="Pagar agora via Mercado Pago →"
             onPress={() => Linking.openURL(linkPagamento)}
             estilo={{ marginBottom: 12, width: '100%' }}
           />
-
-          <TouchableOpacity
-            style={estilos.btnDepois}
-            onPress={() => setLinkPagamento(null)}
-          >
+          <TouchableOpacity style={estilos.btnDepois} onPress={() => setLinkPagamento(null)}>
             <Text style={estilos.btnDepoisTexto}>Pagar depois</Text>
           </TouchableOpacity>
-
           <Text style={{ fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 20, lineHeight: 18, paddingHorizontal: 20 }}>
             Após o pagamento ser confirmado, seu acesso será ativado automaticamente.
           </Text>
@@ -101,20 +92,43 @@ export default function LoginScreen({ navigation }) {
           <Text style={estilos.subtitulo}>Acesse sua conta</Text>
 
           <View style={estilos.form}>
-            <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" erro={erros.email} />
+            <Input
+              label="E-MAIL"
+              placeholder="seu@email.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              erro={erros.email}
+            />
 
             <View>
-              <Input label="SENHA" placeholder="••••••••" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
+              <Input
+                label="SENHA"
+                placeholder="••••••••"
+                value={senha}
+                onChangeText={setSenha}
+                secureTextEntry={!mostrarSenha}
+                erro={erros.senha}
+              />
               <TouchableOpacity style={estilos.olhoBtn} onPress={() => setMostrarSenha(!mostrarSenha)}>
                 <Text style={estilos.olhoTexto}>{mostrarSenha ? 'ocultar' : 'mostrar'}</Text>
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={estilos.esqueciBtn}>
+            <TouchableOpacity
+              style={estilos.esqueciBtn}
+              onPress={() => navigation.navigate('EsqueciSenha')}
+            >
               <Text style={estilos.esqueciTexto}>Esqueci minha senha</Text>
             </TouchableOpacity>
 
-            <BotaoPrimario titulo="Entrar" onPress={handleLogin} carregando={carregando} estilo={{ marginTop: 8 }} />
+            <BotaoPrimario
+              titulo="Entrar"
+              onPress={handleLogin}
+              carregando={carregando}
+              estilo={{ marginTop: 8 }}
+            />
 
             <View style={estilos.ouDivisor}>
               <View style={estilos.ouLinha} />
@@ -122,7 +136,10 @@ export default function LoginScreen({ navigation }) {
               <View style={estilos.ouLinha} />
             </View>
 
-            <BotaoSecundario titulo="Criar nova conta" onPress={() => navigation.navigate('Cadastro')} />
+            <BotaoSecundario
+              titulo="Criar nova conta"
+              onPress={() => navigation.navigate('Cadastro')}
+            />
           </View>
 
         </ScrollView>

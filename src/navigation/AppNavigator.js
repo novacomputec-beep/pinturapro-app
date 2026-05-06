@@ -10,16 +10,19 @@ import { cores, raios } from '../utils/tema'
 import api from '../services/api'
 
 // Auth
-import SplashScreen   from '../screens/Auth/SplashScreen'
-import LoginScreen    from '../screens/Auth/LoginScreen'
-import CadastroScreen from '../screens/Auth/CadastroScreen'
+import SplashScreen        from '../screens/Auth/SplashScreen'
+import LoginScreen         from '../screens/Auth/LoginScreen'
+import CadastroScreen      from '../screens/Auth/CadastroScreen'
+import EsqueciSenhaScreen  from '../screens/Auth/EsqueciSenhaScreen'
 
 // App — Pintor
-import FeedScreen        from '../screens/Feed/FeedScreen'
-import DetalheObraScreen from '../screens/Obra/DetalheObraScreen'
-import ContratosScreen   from '../screens/Contratos/ContratosScreen'
-import MensagensScreen   from '../screens/Mensagens/MensagensScreen'
-import PerfilScreen      from '../screens/Perfil/PerfilScreen'
+import FeedScreen          from '../screens/Feed/FeedScreen'
+import DetalheObraScreen   from '../screens/Obra/DetalheObraScreen'
+import ContratosScreen     from '../screens/Contratos/ContratosScreen'
+import MensagensScreen     from '../screens/Mensagens/MensagensScreen'
+import PerfilScreen        from '../screens/Perfil/PerfilScreen'
+import EditarPerfilScreen  from '../screens/Perfil/EditarPerfilScreen'
+import AlterarSenhaScreen  from '../screens/Perfil/AlterarSenhaScreen'
 
 // App — Prestador
 import FeedReparosScreen   from '../screens/Reparos/FeedReparosScreen'
@@ -36,6 +39,7 @@ const Tab         = createBottomTabNavigator()
 const FeedStack   = createNativeStackNavigator()
 const ReparoStack = createNativeStackNavigator()
 const DonoStack   = createNativeStackNavigator()
+const PerfilStack = createNativeStackNavigator()
 
 export const navigationRef = React.createRef()
 
@@ -44,21 +48,16 @@ const navegarParaNotificacao = (data) => {
   try {
     switch (data.tipo) {
       case 'nova_obra':
-        navigationRef.current.navigate('Obras')
-        break
+        navigationRef.current.navigate('Obras'); break
       case 'candidatura_aprovada':
       case 'candidatura_recusada':
-        navigationRef.current.navigate('Contratos')
-        break
+        navigationRef.current.navigate('Contratos'); break
       case 'nova_mensagem':
-        navigationRef.current.navigate('Mensagens')
-        break
+        navigationRef.current.navigate('Mensagens'); break
       case 'novo_reparo':
-        navigationRef.current.navigate('Reparos')
-        break
+        navigationRef.current.navigate('Reparos'); break
       case 'nova_candidatura':
-        navigationRef.current.navigate('MinhasObras')
-        break
+        navigationRef.current.navigate('MinhasObras'); break
     }
   } catch (err) {
     console.log('Erro ao navegar para notificação:', err)
@@ -128,6 +127,16 @@ function PagamentoPendenteScreen() {
   )
 }
 
+// Stack do Perfil (compartilhado entre pintor e prestador)
+const PerfilStackNavigator = () => (
+  <PerfilStack.Navigator screenOptions={{ headerShown: false }}>
+    <PerfilStack.Screen name="PerfilMain"   component={PerfilScreen} />
+    <PerfilStack.Screen name="EditarPerfil" component={EditarPerfilScreen} />
+    <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
+  </PerfilStack.Navigator>
+)
+
+// Stack do Feed de Pintores
 const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
     <FeedStack.Screen name="FeedMain"    component={FeedScreen} />
@@ -135,6 +144,7 @@ const FeedStackNavigator = () => (
   </FeedStack.Navigator>
 )
 
+// Stack do Feed de Reparos
 const ReparoStackNavigator = () => (
   <ReparoStack.Navigator screenOptions={{ headerShown: false }}>
     <ReparoStack.Screen name="FeedReparosMain" component={FeedReparosScreen} />
@@ -142,6 +152,7 @@ const ReparoStackNavigator = () => (
   </ReparoStack.Navigator>
 )
 
+// Tabs do Pintor
 const TabsPintorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -156,10 +167,11 @@ const TabsPintorNavigator = () => (
     <Tab.Screen name="Obras"     component={FeedStackNavigator} options={{ title: 'Obras' }} />
     <Tab.Screen name="Contratos" component={ContratosScreen} />
     <Tab.Screen name="Mensagens" component={MensagensScreen} />
-    <Tab.Screen name="Perfil"    component={PerfilScreen} />
+    <Tab.Screen name="Perfil"    component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </Tab.Navigator>
 )
 
+// Tabs do Prestador
 const TabsPrestadorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -173,16 +185,19 @@ const TabsPrestadorNavigator = () => (
   >
     <Tab.Screen name="Reparos"   component={ReparoStackNavigator} options={{ title: 'Reparos' }} />
     <Tab.Screen name="Mensagens" component={MensagensScreen} />
-    <Tab.Screen name="Perfil"    component={PerfilScreen} />
+    <Tab.Screen name="Perfil"    component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </Tab.Navigator>
 )
 
+// Stack do Dono de Obra
 const DonoObraNavigator = () => (
   <DonoStack.Navigator screenOptions={{ headerShown: false }}>
     <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
     <DonoStack.Screen name="CadastrarObra"    component={CadastrarObraScreen} />
     <DonoStack.Screen name="CadastrarReparo"  component={CadastrarReparoScreen} />
     <DonoStack.Screen name="DetalheMinhaObra" component={DetalheMinhaObraScreen} />
+    <DonoStack.Screen name="EditarPerfil"     component={EditarPerfilScreen} />
+    <DonoStack.Screen name="AlterarSenha"     component={AlterarSenhaScreen} />
   </DonoStack.Navigator>
 )
 
@@ -191,14 +206,12 @@ export default function AppNavigator() {
   const respostaNotificacaoRef = useRef(null)
 
   useEffect(() => {
-    // Trata app aberto via notificação (app frio)
     Notifications.getLastNotificationResponseAsync().then(resposta => {
       if (resposta?.notification?.request?.content?.data) {
         setTimeout(() => navegarParaNotificacao(resposta.notification.request.content.data), 500)
       }
     })
 
-    // Trata toque em notificação com app aberto/background
     respostaNotificacaoRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
       navegarParaNotificacao(resposta.notification.request.content.data)
     })
@@ -229,9 +242,10 @@ export default function AppNavigator() {
           )
         ) : (
           <>
-            <Stack.Screen name="Splash"   component={SplashScreen} />
-            <Stack.Screen name="Login"    component={LoginScreen} />
-            <Stack.Screen name="Cadastro" component={CadastroScreen} />
+            <Stack.Screen name="Splash"        component={SplashScreen} />
+            <Stack.Screen name="Login"         component={LoginScreen} />
+            <Stack.Screen name="Cadastro"      component={CadastroScreen} />
+            <Stack.Screen name="EsqueciSenha"  component={EsqueciSenhaScreen} />
           </>
         )}
       </Stack.Navigator>

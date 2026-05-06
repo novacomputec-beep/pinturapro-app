@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator
+  TouchableOpacity, Alert, ActivityIndicator, Linking
 } from 'react-native'
 import { authService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -15,7 +15,14 @@ const LinhaPerfil = ({ label, valor }) => (
   </View>
 )
 
-export default function PerfilScreen() {
+const ItemAcao = ({ titulo, onPress, perigo }) => (
+  <TouchableOpacity style={estilos.itemAcao} onPress={onPress} activeOpacity={0.7}>
+    <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }]}>{titulo}</Text>
+    <Text style={estilos.itemAcaoSeta}>→</Text>
+  </TouchableOpacity>
+)
+
+export default function PerfilScreen({ navigation }) {
   const { usuario, assinatura, logout } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
@@ -35,14 +42,10 @@ export default function PerfilScreen() {
   }, [])
 
   const confirmarLogout = () => {
-    Alert.alert(
-      'Sair da conta',
-      'Tem certeza que deseja sair?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: logout },
-      ]
-    )
+    Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: logout },
+    ])
   }
 
   const dados = dadosCompletos || usuario
@@ -64,12 +67,10 @@ export default function PerfilScreen() {
     <SafeAreaView style={estilos.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* Cabeçalho */}
         <View style={estilos.header}>
           <Text style={estilos.headerTitulo}>Meu perfil</Text>
         </View>
 
-        {/* Avatar + nome */}
         <View style={estilos.avatarArea}>
           <View style={estilos.avatarCirculo}>
             <Text style={estilos.avatarTexto}>{iniciais}</Text>
@@ -81,7 +82,6 @@ export default function PerfilScreen() {
           )}
         </View>
 
-        {/* Card de assinatura */}
         <View style={estilos.assinaturaCard}>
           <View style={estilos.assinaturaHeader}>
             <Text style={estilos.assinaturaTitulo}>Assinatura</Text>
@@ -98,7 +98,9 @@ export default function PerfilScreen() {
             <View style={estilos.assinaturaItem}>
               <Text style={estilos.assinaturaLabel}>Valor</Text>
               <Text style={[estilos.assinaturaValor, { color: cores.sucesso }]}>
-                {assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês'}
+                {usuario?.role === 'prestador'
+                  ? (assinatura?.plano === 'anual' ? 'R$ 41,58/mês' : 'R$ 49,90/mês')
+                  : (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês')}
               </Text>
             </View>
             {vencimento && (
@@ -108,51 +110,48 @@ export default function PerfilScreen() {
               </View>
             )}
           </View>
-          {!assinatura || assinatura.status !== 'ativa' ? (
+          {(!assinatura || assinatura.status !== 'ativa') && (
             <TouchableOpacity style={estilos.btnRenovar}>
               <Text style={estilos.btnRenovarTexto}>Renovar assinatura →</Text>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
 
-        {/* Dados profissionais */}
         <View style={estilos.secaoCard}>
           <Text style={estilos.secaoTitulo}>Dados profissionais</Text>
           <Separador estilo={{ marginBottom: 12 }} />
           <LinhaPerfil label="Telefone" valor={dados?.telefone} />
           <LinhaPerfil label="Cidade" valor={dados?.cidade ? `${dados.cidade}, MG` : null} />
           <LinhaPerfil label="Experiência" valor={dados?.anos_experiencia ? `${dados.anos_experiencia} anos` : null} />
-          <LinhaPerfil label="Equipe" valor={dados?.tamanho_equipe ? `${dados.tamanho_equipe} pintores` : null} />
+          <LinhaPerfil label="Equipe" valor={dados?.tamanho_equipe ? `${dados.tamanho_equipe} profissionais` : null} />
           <LinhaPerfil
             label="Especialidades"
             valor={dados?.especialidades?.length ? dados.especialidades.join(', ') : null}
           />
         </View>
 
-        {/* Ações */}
         <View style={estilos.acoesWrap}>
-          <TouchableOpacity style={estilos.itemAcao}>
-            <Text style={estilos.itemAcaoTexto}>Editar perfil</Text>
-            <Text style={estilos.itemAcaoSeta}>→</Text>
-          </TouchableOpacity>
+          <ItemAcao
+            titulo="✏️ Editar perfil"
+            onPress={() => navigation.navigate('EditarPerfil')}
+          />
           <Separador />
-          <TouchableOpacity style={estilos.itemAcao}>
-            <Text style={estilos.itemAcaoTexto}>Alterar senha</Text>
-            <Text style={estilos.itemAcaoSeta}>→</Text>
-          </TouchableOpacity>
+          <ItemAcao
+            titulo="🔒 Alterar senha"
+            onPress={() => navigation.navigate('AlterarSenha')}
+          />
           <Separador />
-          <TouchableOpacity style={estilos.itemAcao}>
-            <Text style={estilos.itemAcaoTexto}>Termos de uso</Text>
-            <Text style={estilos.itemAcaoSeta}>→</Text>
-          </TouchableOpacity>
+          <ItemAcao
+            titulo="📄 Termos de uso"
+            onPress={() => Linking.openURL('https://pinturapro-painel-production.up.railway.app')}
+          />
           <Separador />
-          <TouchableOpacity style={estilos.itemAcao}>
-            <Text style={estilos.itemAcaoTexto}>Suporte</Text>
-            <Text style={estilos.itemAcaoSeta}>→</Text>
-          </TouchableOpacity>
+          <ItemAcao
+            titulo="💬 Suporte"
+            onPress={() => Linking.openURL('mailto:novacomputec@gmail.com?subject=Suporte PinturaPro')}
+          />
         </View>
 
-        {/* Logout */}
         <View style={estilos.logoutWrap}>
           <BotaoSecundario
             titulo="Sair da conta"
@@ -169,111 +168,32 @@ export default function PerfilScreen() {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  header: {
-    paddingHorizontal: espacos.tela,
-    paddingTop: 8, paddingBottom: 16,
-  },
-  headerTitulo: {
-    fontSize: 26, fontWeight: '700',
-    color: cores.textoForte, letterSpacing: -0.5,
-  },
-  avatarArea: {
-    alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: espacos.tela,
-  },
-  avatarCirculo: {
-    width: 72, height: 72,
-    borderRadius: 36,
-    backgroundColor: cores.primariaSuave,
-    borderWidth: 0.5, borderColor: cores.primariaBorda,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 14,
-  },
-  avatarTexto: {
-    fontSize: 22, fontWeight: '700', color: cores.primaria,
-  },
-  nomeTexto: {
-    fontSize: 18, fontWeight: '700',
-    color: cores.textoForte, marginBottom: 4,
-  },
+  header: { paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 16 },
+  headerTitulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
+  avatarArea: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: espacos.tela },
+  avatarCirculo: { width: 72, height: 72, borderRadius: 36, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  avatarTexto: { fontSize: 22, fontWeight: '700', color: cores.primaria },
+  nomeTexto: { fontSize: 18, fontWeight: '700', color: cores.textoForte, marginBottom: 4 },
   emailTexto: { fontSize: 13, color: cores.textoFraco, marginBottom: 4 },
   cidadeTexto: { fontSize: 12, color: cores.textoMutado },
-  assinaturaCard: {
-    marginHorizontal: espacos.tela,
-    backgroundColor: cores.fundoCard,
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande,
-    padding: 16,
-    marginBottom: 16,
-  },
-  assinaturaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  assinaturaTitulo: {
-    fontSize: 14, fontWeight: '600', color: cores.textoMedio,
-  },
+  assinaturaCard: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  assinaturaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  assinaturaTitulo: { fontSize: 14, fontWeight: '600', color: cores.textoMedio },
   assinaturaInfo: { gap: 10 },
-  assinaturaItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  assinaturaItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   assinaturaLabel: { fontSize: 12, color: cores.textoFraco },
   assinaturaValor: { fontSize: 13, fontWeight: '500', color: cores.textoForte },
-  btnRenovar: {
-    marginTop: 14,
-    borderTopWidth: 0.5, borderTopColor: cores.bordaFraca,
-    paddingTop: 12,
-    alignItems: 'center',
-  },
+  btnRenovar: { marginTop: 14, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, paddingTop: 12, alignItems: 'center' },
   btnRenovarTexto: { fontSize: 13, color: cores.primaria, fontWeight: '500' },
-  secaoCard: {
-    marginHorizontal: espacos.tela,
-    backgroundColor: cores.fundoCard,
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande,
-    padding: 16,
-    marginBottom: 16,
-  },
-  secaoTitulo: {
-    fontSize: 13, fontWeight: '600',
-    color: cores.textoMedio, marginBottom: 12,
-  },
-  linhaWrap: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca,
-  },
+  secaoCard: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  secaoTitulo: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, marginBottom: 12 },
+  linhaWrap: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca },
   linhaLabel: { fontSize: 12, color: cores.textoFraco },
   linhaValor: { fontSize: 13, color: cores.textoForte, textAlign: 'right', flex: 1, marginLeft: 16 },
-  acoesWrap: {
-    marginHorizontal: espacos.tela,
-    backgroundColor: cores.fundoCard,
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande,
-    overflow: 'hidden',
-    marginBottom: 16,
-  },
-  itemAcao: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 14,
-  },
+  acoesWrap: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, overflow: 'hidden', marginBottom: 16 },
+  itemAcao: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
-  logoutWrap: {
-    paddingHorizontal: espacos.tela,
-    paddingBottom: 40,
-  },
-  versaoTexto: {
-    textAlign: 'center',
-    fontSize: 11, color: cores.textoMutado,
-    marginTop: 16,
-  },
+  logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
 })
