@@ -132,13 +132,11 @@ export default function FeedScreen({ navigation }) {
 
   useEffect(() => { buscarObras() }, [categoria])
 
-  // Re-busca quando coordenadas chegam com raio já selecionado
   useEffect(() => {
     coordsRef.current = coordenadas
     if (coordenadas && raioRef.current > 0) buscarObras()
   }, [coordenadas])
 
-  // Filtro client-side por raio usando Haversine
   useEffect(() => {
     if (raioFiltro === 0 || !coordenadas) {
       setObrasFiltradas(obras)
@@ -182,7 +180,6 @@ export default function FeedScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Filtros de categoria */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.filtrosScroll} contentContainerStyle={estilos.filtrosRow}>
         {CATEGORIAS.map((c) => (
           <TouchableOpacity
@@ -197,8 +194,7 @@ export default function FeedScreen({ navigation }) {
         ))}
       </ScrollView>
 
-      {/* Filtros de raio */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.filtrosScroll} contentContainerStyle={estilos.filtrosRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.filtrosScrollRaio} contentContainerStyle={estilos.filtrosRow}>
         {OPCOES_RAIO.map((r) => {
           const desabilitado = r.id > 0 && permissao !== 'granted'
           return (
@@ -277,9 +273,10 @@ const estilos = StyleSheet.create({
   titulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   avatar: { width: 34, height: 34, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
-  filtrosScroll: { maxHeight: 44 },
-  filtrosRow: { paddingHorizontal: espacos.tela, gap: 8, paddingBottom: 8 },
-  filtroPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 6 },
+  filtrosScroll: { maxHeight: 46, marginBottom: 2 },
+  filtrosScrollRaio: { maxHeight: 46, marginBottom: 8 },
+  filtrosRow: { paddingHorizontal: espacos.tela, gap: 8, paddingBottom: 4, alignItems: 'center' },
+  filtroPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 7 },
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillTexto: { fontSize: 12, color: cores.textoMedio },
   filtroPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
