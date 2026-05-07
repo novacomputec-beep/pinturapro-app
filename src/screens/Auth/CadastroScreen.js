@@ -153,12 +153,23 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🏠</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Tenho uma obra ou reparo</Text>
-              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra ou reparo e encontrar profissionais</Text>
+              <Text style={estilos.tipoNome}>Tenho obra de pintura</Text>
+              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra e encontrar pintores qualificados</Text>
               <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
+            <Text style={estilos.tipoIcone}>🛠️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.tipoNome}>Reparos domésticos</Text>
+              <Text style={estilos.tipoDesc}>Torneira, elétrica, marcenaria e outros reparos do dia a dia</Text>
+              <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
+            </View>
+            <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
+          </TouchableOpacity>
+
         </ScrollView>
       </SafeAreaView>
     )
@@ -258,7 +269,7 @@ export default function CadastroScreen({ navigation }) {
               </TouchableOpacity>
               <View style={estilos.segurancaBox}>
                 <Text style={estilos.segurancaIcone}>🔒</Text>
-                <Text style={estilos.segurancaTexto}>Pagamento 100% seguro via Mercado Pago. Cancele quando quiser.</Text>
+                <Text style={estilos.segurancaTexto}>Pagamento 100% seguro via PagBank. Cancele quando quiser.</Text>
               </View>
             </View>
           )}
