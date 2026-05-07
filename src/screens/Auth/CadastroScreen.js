@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { BotaoPrimario, Input } from '../../components'
 import { authService } from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const IndicadorPassos = ({ passo, total }) => (
@@ -20,6 +21,7 @@ const IndicadorPassos = ({ passo, total }) => (
 )
 
 export default function CadastroScreen({ navigation }) {
+  const { loginComToken } = useAuth()
   const [tipoConta, setTipoConta] = useState(null)
   const [passo, setPasso] = useState(0)
   const [carregando, setCarregando] = useState(false)
@@ -90,19 +92,16 @@ export default function CadastroScreen({ navigation }) {
           ? especialidades.split(',').map(s => s.trim()).filter(Boolean) : [],
       }
 
-      await authService.cadastrar(dados)
+      const resposta = await authService.cadastrar(dados)
 
-      if (tipoConta === 'dono_obra') {
-        Alert.alert(
-          'Conta criada!',
-          'Bem-vindo! Faca login para cadastrar suas obras e reparos.',
-          [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
-        )
+      if (resposta?.token) {
+        // Login automático — entra direto no app!
+        await loginComToken(resposta.token, resposta.usuario, resposta.assinatura)
       } else {
         Alert.alert(
           'Conta criada!',
-          'Sua conta foi criada! Faca login para finalizar seu pagamento e acessar os servicos.',
-          [{ text: 'Fazer login agora', onPress: () => navigation.navigate('Login') }]
+          'Faca login para continuar.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
         )
       }
 
