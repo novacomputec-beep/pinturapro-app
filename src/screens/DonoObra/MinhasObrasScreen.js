@@ -95,14 +95,14 @@ export default function MinhasObrasScreen({ navigation }) {
       <View style={estilos.botoesRow}>
         <TouchableOpacity
           style={estilos.btnNovo}
-          onPress={() => navigation.navigate('CadastrarObra')}
+          onPress={() => navigation.navigate('DicasCadastro', { tipo: 'pintura' })}
           activeOpacity={0.85}
         >
           <Text style={estilos.btnNovoTexto}>🖌️ Nova obra</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[estilos.btnNovo, { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda }]}
-          onPress={() => navigation.navigate('CadastrarReparo')}
+          onPress={() => navigation.navigate('DicasCadastro', { tipo: 'reparo' })}
           activeOpacity={0.85}
         >
           <Text style={[estilos.btnNovoTexto, { color: cores.textoForte }]}>🔧 Novo reparo</Text>
