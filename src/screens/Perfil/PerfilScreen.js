@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator, Linking
+  TouchableOpacity, Alert, ActivityIndicator, Linking, Image
 } from 'react-native'
 import { authService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -59,6 +59,7 @@ export default function PerfilScreen({ navigation }) {
   }
 
   const iniciais = dados?.nome?.split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase()
+  const fotoUrl = dados?.foto_url || usuario?.foto_url
   const vencimento = assinatura?.proximo_vencimento
     ? new Date(assinatura.proximo_vencimento).toLocaleDateString('pt-BR')
     : null
@@ -72,9 +73,22 @@ export default function PerfilScreen({ navigation }) {
         </View>
 
         <View style={estilos.avatarArea}>
-          <View style={estilos.avatarCirculo}>
-            <Text style={estilos.avatarTexto}>{iniciais}</Text>
-          </View>
+          <TouchableOpacity
+            style={estilos.avatarWrap}
+            onPress={() => navigation.navigate('EditarPerfil')}
+            activeOpacity={0.8}
+          >
+            {fotoUrl ? (
+              <Image source={{ uri: fotoUrl }} style={estilos.avatarFoto} />
+            ) : (
+              <View style={estilos.avatarCirculo}>
+                <Text style={estilos.avatarTexto}>{iniciais}</Text>
+              </View>
+            )}
+            <View style={estilos.avatarBotaoEditar}>
+              <Text style={{ fontSize: 11 }}>✏️</Text>
+            </View>
+          </TouchableOpacity>
           <Text style={estilos.nomeTexto}>{dados?.nome}</Text>
           <Text style={estilos.emailTexto}>{dados?.email}</Text>
           {dados?.cidade && (
@@ -131,19 +145,18 @@ export default function PerfilScreen({ navigation }) {
         </View>
 
         <View style={estilos.acoesWrap}>
-          <ItemAcao
-            titulo="✏️ Editar perfil"
-            onPress={() => navigation.navigate('EditarPerfil')}
-          />
+          <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
-          <ItemAcao
-            titulo="🔒 Alterar senha"
-            onPress={() => navigation.navigate('AlterarSenha')}
-          />
+          <ItemAcao titulo="🔒 Alterar senha" onPress={() => navigation.navigate('AlterarSenha')} />
           <Separador />
           <ItemAcao
             titulo="📄 Termos de uso"
-            onPress={() => Linking.openURL('https://pinturapro-painel-production.up.railway.app')}
+            onPress={() => Linking.openURL('https://pinturapro-painel-production.up.railway.app/termos.html')}
+          />
+          <Separador />
+          <ItemAcao
+            titulo="🔐 Política de privacidade"
+            onPress={() => Linking.openURL('https://pinturapro-painel-production.up.railway.app/privacidade.html')}
           />
           <Separador />
           <ItemAcao
@@ -171,8 +184,11 @@ const estilos = StyleSheet.create({
   header: { paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 16 },
   headerTitulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   avatarArea: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: espacos.tela },
-  avatarCirculo: { width: 72, height: 72, borderRadius: 36, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  avatarTexto: { fontSize: 22, fontWeight: '700', color: cores.primaria },
+  avatarWrap: { position: 'relative', marginBottom: 14 },
+  avatarCirculo: { width: 80, height: 80, borderRadius: 40, backgroundColor: cores.primariaSuave, borderWidth: 2, borderColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
+  avatarFoto: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: cores.primaria },
+  avatarTexto: { fontSize: 24, fontWeight: '700', color: cores.primaria },
+  avatarBotaoEditar: { position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 13, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: cores.fundo },
   nomeTexto: { fontSize: 18, fontWeight: '700', color: cores.textoForte, marginBottom: 4 },
   emailTexto: { fontSize: 13, color: cores.textoFraco, marginBottom: 4 },
   cidadeTexto: { fontSize: 12, color: cores.textoMutado },
