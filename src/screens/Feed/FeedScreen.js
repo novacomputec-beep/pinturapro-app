@@ -191,10 +191,14 @@ export default function FeedScreen({ navigation }) {
           </Text>
         </View>
         <TouchableOpacity style={estilos.avatar} onPress={() => navigation.navigate('Perfil')}>
-          <Text style={estilos.avatarTexto}>
-            {usuario?.nome?.substring(0, 2).toUpperCase()}
-          </Text>
-        </TouchableOpacity>
+  {usuario?.foto_url ? (
+    <Image source={{ uri: usuario.foto_url }} style={{ width: 34, height: 34, borderRadius: 17 }} />
+  ) : (
+    <Text style={estilos.avatarTexto}>
+      {usuario?.nome?.substring(0, 2).toUpperCase()}
+    </Text>
+  )}
+</TouchableOpacity>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={estilos.filtrosScroll} contentContainerStyle={estilos.filtrosRow}>
