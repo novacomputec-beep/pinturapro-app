@@ -53,6 +53,23 @@ const CardObra = ({ obra, onPress }) => {
       onPress={() => onPress(obra)}
       activeOpacity={0.85}
     >
+      {/* Valor em destaque no topo */}
+      <View style={estilos.valorDestaque}>
+        <View style={estilos.valorDestaqueEsquerda}>
+          <Text style={estilos.valorDestaqueLabel}>💰 VALOR ESTIMADO</Text>
+          <Text style={estilos.valorDestaqueValor}>
+            R$ {Number(obra.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </Text>
+        </View>
+        <View style={estilos.valorDestaqueDireita}>
+          <Text style={estilos.valorCategoria}>{obra.categoria}</Text>
+          {obra.prazo_execucao_dias && (
+            <Text style={estilos.valorPrazo}>⏱ {obra.prazo_execucao_dias} dias</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Imagem */}
       <View style={estilos.cardImagem}>
         {obra.foto_capa ? (
           <Image source={{ uri: obra.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
@@ -79,16 +96,16 @@ const CardObra = ({ obra, onPress }) => {
         )}
       </View>
 
+      {/* Corpo */}
       <View style={estilos.cardCorpo}>
-        <View style={estilos.cardTopo}>
-          <Text style={estilos.cardTitulo} numberOfLines={2}>{obra.titulo}</Text>
-          <Text style={estilos.cardValor}>R$ {Number(obra.valor).toLocaleString('pt-BR')}</Text>
-        </View>
+        <Text style={estilos.cardTitulo} numberOfLines={2}>{obra.titulo}</Text>
         <Text style={estilos.cardLocalTexto}>
-          {obra.cidade}, MG{obra.metragem ? ` · ${obra.metragem}m²` : ''}
+          📍 {obra.cidade}, MG{obra.metragem ? ` · ${obra.metragem}m²` : ''}
         </Text>
         <View style={estilos.cardRodape}>
-          <Text style={estilos.cardCategoria}>{obra.categoria}</Text>
+          <Text style={estilos.cardCandidaturas}>
+            👷 {obra.total_candidaturas || 0} interessados
+          </Text>
           <TouchableOpacity style={estilos.btnVerObra} onPress={() => onPress(obra)}>
             <Text style={estilos.btnVerObraTexto}>Ver obra →</Text>
           </TouchableOpacity>
@@ -292,7 +309,16 @@ const estilos = StyleSheet.create({
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
   card: { backgroundColor: cores.fundoCard, borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden' },
   cardUrgente: { borderColor: cores.primaria + '44' },
-  cardImagem: { height: 160, backgroundColor: cores.fundoElevado, alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  // Valor destaque no topo
+  valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
+  valorDestaqueEsquerda: { flex: 1 },
+  valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 },
+  valorDestaqueValor: { fontSize: 20, fontWeight: '700', color: cores.sucesso },
+  valorDestaqueDireita: { alignItems: 'flex-end', gap: 4 },
+  valorCategoria: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize', backgroundColor: cores.fundoElevado, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  valorPrazo: { fontSize: 11, color: cores.textoFraco },
+  // Imagem
+  cardImagem: { height: 150, backgroundColor: cores.fundoElevado, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   fotoImagem: { width: '100%', height: '100%' },
   cardImagemIcone: { fontSize: 40, opacity: 0.15 },
   countdownPill: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.borda, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -303,13 +329,12 @@ const estilos = StyleSheet.create({
   midiasTexto: { fontSize: 10, color: cores.textoForte },
   distanciaBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   distanciaTexto: { fontSize: 10, color: cores.primaria, fontWeight: '600' },
+  // Corpo
   cardCorpo: { padding: 14 },
-  cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 },
-  cardTitulo: { flex: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
-  cardValor: { fontSize: 15, fontWeight: '700', color: cores.sucesso },
+  cardTitulo: { fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20, marginBottom: 6 },
   cardLocalTexto: { fontSize: 12, color: cores.textoFraco, marginBottom: 12 },
   cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardCategoria: { fontSize: 11, color: cores.textoMutado, textTransform: 'capitalize' },
+  cardCandidaturas: { fontSize: 11, color: cores.textoMutado },
   btnVerObra: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 7 },
   btnVerObraTexto: { fontSize: 11, fontWeight: '600', color: '#0A0A0A' },
 })
