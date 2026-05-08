@@ -30,17 +30,30 @@ api.interceptors.response.use(
   }
 )
 
-// Upload com timeout maior
+// Upload de mídia de obra/reparo
 export const uploadMidia = async (formData, onProgress) => {
   const token = await SecureStore.getItemAsync('token')
   return axios.post(`${API_URL}/upload/dono`, formData, {
-    timeout: 120000, // 2 minutos para upload
+    timeout: 120000,
     headers: {
       'Content-Type': 'multipart/form-data',
       'Authorization': `Bearer ${token}`
     },
     onUploadProgress: onProgress
   })
+}
+
+// Upload foto de perfil
+api.uploadFotoPerfil = async (formData) => {
+  const token = await SecureStore.getItemAsync('token')
+  const resposta = await axios.post(`${API_URL}/auth/foto-perfil`, formData, {
+    timeout: 60000,
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'Authorization': `Bearer ${token}`
+    }
+  })
+  return resposta.data
 }
 
 // ─── AUTH ────────────────────────────────────────────────────
@@ -53,6 +66,10 @@ export const authService = {
     api.get('/auth/perfil'),
   atualizarPerfil: (dados) =>
     api.put('/auth/perfil', dados),
+  alterarSenha: (dados) =>
+    api.post('/auth/alterar-senha', dados),
+  esqueciSenha: (email) =>
+    api.post('/auth/esqueci-senha', { email }),
 }
 
 // ─── OBRAS ───────────────────────────────────────────────────
