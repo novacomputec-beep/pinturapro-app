@@ -6,16 +6,16 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { BotaoPrimario, Input } from '../../components'
-import api, { uploadMidia } from '../../services/api'
+import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const CATEGORIAS = [
-  { id: 'hidraulica', label: '🚿 Hidráulica' },
-  { id: 'eletrica', label: '💡 Elétrica' },
-  { id: 'marcenaria', label: '🪚 Marcenaria' },
-  { id: 'alvenaria', label: '🏠 Alvenaria' },
-  { id: 'climatizacao', label: '❄️ Climatização' },
-  { id: 'outros', label: '🔨 Outros' },
+  { id: 'hidraulica',   label: '🚿 Hidráulica'   },
+  { id: 'eletrica',     label: '💡 Elétrica'      },
+  { id: 'marcenaria',   label: '🪚 Marcenaria'    },
+  { id: 'alvenaria',    label: '🏠 Alvenaria'     },
+  { id: 'climatizacao', label: '❄️ Climatização'  },
+  { id: 'outros',       label: '🔨 Outros'        },
 ]
 
 export default function CadastrarReparoScreen({ navigation }) {
@@ -91,8 +91,8 @@ export default function CadastrarReparoScreen({ navigation }) {
       }
 
       Alert.alert(
-        'Reparo enviado! 🎉',
-        'Seu reparo foi enviado para aprovação. Nossa equipe irá analisá-lo em breve.',
+        '✅ Reparo publicado!',
+        'Seu reparo já está visível para prestadores qualificados da sua região!',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       )
     } catch (err) {
@@ -114,7 +114,24 @@ export default function CadastrarReparoScreen({ navigation }) {
           <Text style={estilos.titulo}>Cadastrar{'\n'}reparo</Text>
           <Text style={estilos.subtitulo}>Descreva o reparo e encontre um profissional qualificado</Text>
 
-          <Input label="TÍTULO DO REPARO" placeholder="Ex: Torneira da pia da cozinha vazando" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
+          {/* Aviso de vídeo destacado */}
+          <View style={estilos.avisoBanner}>
+            <Text style={estilos.avisoIcone}>🎥</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE 30 SEGUNDOS!</Text>
+              <Text style={estilos.avisoTexto}>
+                Mostre o problema e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!
+              </Text>
+            </View>
+          </View>
+
+          <Input
+            label="TÍTULO DO REPARO"
+            placeholder="Ex: Torneira da pia da cozinha vazando"
+            value={titulo}
+            onChangeText={setTitulo}
+            erro={erros.titulo}
+          />
 
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
@@ -131,9 +148,23 @@ export default function CadastrarReparoScreen({ navigation }) {
             ))}
           </View>
 
-          <Input label="DESCRIÇÃO DO PROBLEMA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
+          <Input
+            label="DESCRIÇÃO DO PROBLEMA"
+            placeholder="Descreva detalhadamente o que precisa ser feito..."
+            value={descricao}
+            onChangeText={setDescricao}
+            erro={erros.descricao}
+            multiline
+            numberOfLines={4}
+          />
 
-          <Input label="VALOR ESTIMADO (R$) — opcional" placeholder="Ex: 150" value={valorEstimado} onChangeText={setValorEstimado} keyboardType="numeric" />
+          <Input
+            label="VALOR ESTIMADO (R$) — opcional"
+            placeholder="Ex: 150"
+            value={valorEstimado}
+            onChangeText={setValorEstimado}
+            keyboardType="numeric"
+          />
 
           <View style={estilos.duasColunas}>
             <Input label="CIDADE" placeholder="Uberlândia" value={cidade} onChangeText={setCidade} erro={erros.cidade} estilo={{ flex: 1 }} />
@@ -141,7 +172,6 @@ export default function CadastrarReparoScreen({ navigation }) {
           </View>
 
           <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
-          <Text style={estilos.dica}>💡 Grave um vídeo mostrando o problema para facilitar o diagnóstico</Text>
 
           <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
             <Text style={estilos.uploadIcone}>📎</Text>
@@ -172,14 +202,14 @@ export default function CadastrarReparoScreen({ navigation }) {
           )}
 
           <BotaoPrimario
-            titulo="Enviar reparo para aprovação →"
+            titulo="Publicar reparo →"
             onPress={handleCadastrar}
             carregando={carregando}
             estilo={{ marginTop: 8 }}
           />
 
           <Text style={estilos.aviso}>
-            Após aprovação, profissionais qualificados da sua região poderão demonstrar interesse.
+            Seu reparo será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.
           </Text>
 
         </ScrollView>
@@ -193,7 +223,12 @@ const estilos = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
   btnVoltar: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
-  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 24, lineHeight: 20 },
+  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
+  // Banner de aviso de vídeo
+  avisoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1a2a1a', borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
+  avisoIcone: { fontSize: 32 },
+  avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
+  avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
   labelCategoria: { fontSize: 11, color: cores.textoFraco, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
@@ -201,7 +236,6 @@ const estilos = StyleSheet.create({
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   duasColunas: { flexDirection: 'row', gap: 12 },
-  dica: { fontSize: 12, color: cores.textoFraco, marginBottom: 10, lineHeight: 18 },
   uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
