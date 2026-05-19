@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert, TextInput
@@ -6,7 +6,8 @@ import {
 import { Video, ResizeMode } from 'expo-av'
 import { Image } from 'react-native'
 import api from '../../services/api'
-import { BotaoPrimario } from '../../components'
+import { useAuth } from '../../contexts/AuthContext'
+import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
@@ -26,8 +27,58 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
   </View>
 )
 
+const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
+  const [tempo, setTempo] = useState('')
+  const [expirou, setExpirou] = useState(false)
+
+  useEffect(() => {
+    const calcular = () => {
+      const inicio = new Date(matchFeitoEm)
+      const fim = new Date(inicio.getTime() + prazoHoras * 3600 * 1000)
+      const agora = new Date()
+      const diff = fim - agora
+
+      if (diff <= 0) {
+        setTempo('00:00:00')
+        setExpirou(true)
+        if (onExpirar) onExpirar()
+        return
+      }
+
+      const horas = Math.floor(diff / 3600000)
+      const minutos = Math.floor((diff % 3600000) / 60000)
+      const segundos = Math.floor((diff % 60000) / 1000)
+      setTempo(`${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`)
+    }
+
+    calcular()
+    const interval = setInterval(calcular, 1000)
+    return () => clearInterval(interval)
+  }, [matchFeitoEm, prazoHoras])
+
+  const urgente = tempo && tempo.startsWith('00:')
+
+  return (
+    <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
+      <Text style={estilos.relogioLabel}>
+        {expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}
+      </Text>
+      <Text style={[estilos.relogioTempo, urgente && !expirou && { color: '#f44336' }, expirou && { color: '#666' }]}>
+        {tempo}
+      </Text>
+      {!expirou && (
+        <Text style={estilos.relogioSub}>O prestador deve chegar dentro deste prazo</Text>
+      )}
+      {expirou && (
+        <Text style={estilos.relogioSub}>O reparo voltou para disponível</Text>
+      )}
+    </View>
+  )
+}
+
 export default function DetalheReparoScreen({ route, navigation }) {
   const { reparo: reparoInicial } = route.params
+  const { usuario } = useAuth()
   const [reparo, setReparo] = useState(reparoInicial)
   const [midias, setMidias] = useState([])
   const [meuInteresse, setMeuInteresse] = useState(null)
@@ -35,29 +86,29 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [enviando, setEnviando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
 
-  // Formulário de interesse
   const [tempoExperiencia, setTempoExperiencia] = useState('')
-  const [jaEnfrентоуProblemas, setJaEnfrентоуProblemas] = useState('')
+  const [jaEnfrentouProblemas, setJaEnfrentouProblemas] = useState('')
   const [sugestaoDurabilidade, setSugestaoDurabilidade] = useState('')
   const [possuiReferencias, setPossuiReferencias] = useState('')
   const [possuiFerramentas, setPossuiFerramentas] = useState('')
   const [mensagemAdicional, setMensagemAdicional] = useState('')
 
   useEffect(() => {
-    const buscar = async () => {
-      try {
-        const resposta = await api.get(`/reparos/${reparoInicial.id}`)
-        setReparo(resposta.reparo)
-        setMidias(resposta.midias || [])
-        setMeuInteresse(resposta.meu_interesse)
-      } catch (err) {
-        console.log('Erro ao buscar reparo:', err)
-      } finally {
-        setCarregando(false)
-      }
-    }
     buscar()
   }, [reparoInicial.id])
+
+  const buscar = async () => {
+    try {
+      const resposta = await api.get(`/reparos/${reparoInicial.id}`)
+      setReparo(resposta.reparo)
+      setMidias(resposta.midias || [])
+      setMeuInteresse(resposta.meu_interesse)
+    } catch (err) {
+      console.log('Erro ao buscar reparo:', err)
+    } finally {
+      setCarregando(false)
+    }
+  }
 
   const handleInteresse = async () => {
     if (!tempoExperiencia) {
@@ -68,12 +119,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('Atenção', 'Informe se possui as ferramentas necessárias.')
       return
     }
-
     setEnviando(true)
     try {
       const mensagem = [
         `⏱ Experiência: ${tempoExperiencia}`,
-        `⚠️ Já enfrentou problemas: ${jaEnfrентоуProblemas || 'Não informado'}`,
+        `⚠️ Já enfrentou problemas: ${jaEnfrentouProblemas || 'Não informado'}`,
         `💡 Sugestão durabilidade: ${sugestaoDurabilidade || 'Não informado'}`,
         `📋 Possui referências: ${possuiReferencias || 'Não informado'}`,
         `🔧 Possui ferramentas: ${possuiFerramentas}`,
@@ -90,6 +140,61 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setEnviando(false)
     }
   }
+
+  const handleMatch = async () => {
+    Alert.alert(
+      '🔧 Confirmar ida ao local?',
+      'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar', onPress: async () => {
+            try {
+              const resposta = await api.post(`/reparos/${reparo.id}/match`, {})
+              setReparo(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
+              Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!')
+            } catch (err) {
+              Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
+            }
+          }
+        }
+      ]
+    )
+  }
+
+  const handleEncerrar = async () => {
+    Alert.alert(
+      '✅ Encerrar reparo?',
+      'Confirme que o serviço foi concluído.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Encerrar', onPress: async () => {
+            try {
+              await api.post(`/reparos/${reparo.id}/encerrar`, {})
+              Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }])
+            } catch (err) {
+              Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.')
+            }
+          }
+        }
+      ]
+    )
+  }
+
+  const handleExpirarMatch = async () => {
+    try {
+      await api.post(`/reparos/${reparo.id}/expirar-match`, {})
+      setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null }))
+    } catch (err) {
+      console.log('Erro ao expirar match:', err)
+    }
+  }
+
+  const temMatch = reparo.match_feito_em && reparo.match_usuario_id
+  const souPrestadorDoMatch = temMatch && reparo.match_usuario_id === usuario?.id
+  const isPrestador = usuario?.role === 'prestador'
 
   if (carregando) {
     return (
@@ -112,7 +217,24 @@ export default function DetalheReparoScreen({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
-          {/* Valor em destaque no topo */}
+          {/* Urgência */}
+          {reparo.prazo_atendimento_horas && (
+            <View style={estilos.urgenciaBanner}>
+              <Text style={estilos.urgenciaTexto}>
+                {reparo.prazo_atendimento_horas <= 1 ? '🔴 Urgente agora!'
+                  : reparo.prazo_atendimento_horas <= 2 ? '🟠 Muito urgente'
+                  : reparo.prazo_atendimento_horas <= 4 ? '🟡 Urgente'
+                  : reparo.prazo_atendimento_horas <= 8 ? '🟢 Hoje'
+                  : reparo.prazo_atendimento_horas <= 24 ? '📅 Amanhã'
+                  : '📆 Esta semana'}
+              </Text>
+              <Text style={estilos.urgenciaHoras}>
+                Atender em até {reparo.prazo_atendimento_horas}h
+              </Text>
+            </View>
+          )}
+
+          {/* Valor em destaque */}
           {reparo.valor_estimado && (
             <View style={estilos.valorDestaque}>
               <View>
@@ -144,12 +266,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 {midias.map((midia, i) => (
                   <View key={i} style={estilos.midiaItem}>
                     {midia.tipo === 'video' ? (
-                      <Video
-                        source={{ uri: midia.url }}
-                        style={estilos.midiaImagem}
-                        useNativeControls
-                        resizeMode={ResizeMode.COVER}
-                      />
+                      <Video source={{ uri: midia.url }} style={estilos.midiaImagem} useNativeControls resizeMode={ResizeMode.COVER} />
                     ) : (
                       <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
                     )}
@@ -159,102 +276,121 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </>
           )}
 
-          {meuInteresse ? (
-            <View style={estilos.interesseFeito}>
-              <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
-                {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato'
-                  : meuInteresse.status === 'aprovada' ? '✅ Aprovado!'
-                  : '❌ Não selecionado'}
-              </Text>
-              <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>
-                {meuInteresse.status === 'pendente'
-                  ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
-                  : meuInteresse.status === 'aprovada'
-                  ? 'Parabéns! Você foi aprovado para este reparo.'
-                  : 'Sua solicitação não foi selecionada desta vez.'}
-              </Text>
-            </View>
-          ) : mostrarForm ? (
-            <View style={estilos.formInteresse}>
-              <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
-              <Text style={estilos.formSubtitulo}>
-                Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.
-              </Text>
+          {/* Relógio regressivo após match */}
+          {temMatch && reparo.prazo_atendimento_horas && (
+            <RelogioRegressivo
+              matchFeitoEm={reparo.match_feito_em}
+              prazoHoras={reparo.prazo_atendimento_horas}
+              onExpirar={handleExpirarMatch}
+            />
+          )}
 
-              <PerguntaOpcoes
-                label="⏱ Há quanto tempo realiza este tipo de serviço?"
-                opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']}
-                valor={tempoExperiencia}
-                onChange={setTempoExperiencia}
-              />
+          {/* Botão encerrar — para prestador do match ou dono */}
+          {temMatch && (souPrestadorDoMatch) && (
+            <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
+              <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
+            </TouchableOpacity>
+          )}
 
-              <PerguntaOpcoes
-                label="⚠️ Já enfrentou problemas com este tipo de serviço?"
-                opcoes={['Nunca', 'Raramente', 'Algumas vezes']}
-                valor={jaEnfrентоуProblemas}
-                onChange={setJaEnfrентоуProblemas}
-              />
-
-              <PerguntaOpcoes
-                label="📋 Possui referências neste tipo de reparo?"
-                opcoes={['Sim', 'Não', 'Tenho fotos de serviços']}
-                valor={possuiReferencias}
-                onChange={setPossuiReferencias}
-              />
-
-              <PerguntaOpcoes
-                label="🔧 Possui todas as ferramentas necessárias?"
-                opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']}
-                valor={possuiFerramentas}
-                onChange={setPossuiFerramentas}
-              />
-
-              <View style={estilos.perguntaWrap}>
-                <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
-                <TextInput
-                  style={estilos.textarea}
-                  placeholder="Ex: Recomendo usar vedante específico para tubulações de água quente..."
-                  placeholderTextColor={cores.textoMutado}
-                  value={sugestaoDurabilidade}
-                  onChangeText={setSugestaoDurabilidade}
-                  multiline
-                  numberOfLines={3}
-                />
+          {/* Ações do prestador */}
+          {isPrestador && !temMatch && (
+            meuInteresse ? (
+              <View style={estilos.interesseFeito}>
+                <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
+                  {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato' : meuInteresse.status === 'aprovada' ? '✅ Aprovado!' : '❌ Não selecionado'}
+                </Text>
+                <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>
+                  {meuInteresse.status === 'pendente'
+                    ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
+                    : meuInteresse.status === 'aprovada'
+                    ? 'Parabéns! Você foi selecionado. Confirme sua ida ao local:'
+                    : 'Sua solicitação não foi selecionada desta vez.'}
+                </Text>
+                {meuInteresse.status === 'aprovada' && (
+                  <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
+                    <Text style={estilos.btnMatchTexto}>🔧 Estou a caminho! Iniciar contagem →</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-
-              <View style={estilos.perguntaWrap}>
-                <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
-                <TextInput
-                  style={estilos.textarea}
-                  placeholder="Alguma informação extra que queira compartilhar..."
-                  placeholderTextColor={cores.textoMutado}
-                  value={mensagemAdicional}
-                  onChangeText={setMensagemAdicional}
-                  multiline
-                  numberOfLines={3}
+            ) : mostrarForm ? (
+              <View style={estilos.formInteresse}>
+                <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
+                <Text style={estilos.formSubtitulo}>
+                  Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.
+                </Text>
+                <PerguntaOpcoes
+                  label="⏱ Há quanto tempo realiza este tipo de serviço?"
+                  opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']}
+                  valor={tempoExperiencia}
+                  onChange={setTempoExperiencia}
                 />
+                <PerguntaOpcoes
+                  label="⚠️ Já enfrentou problemas com este tipo de serviço?"
+                  opcoes={['Nunca', 'Raramente', 'Algumas vezes']}
+                  valor={jaEnfrentouProblemas}
+                  onChange={setJaEnfrentouProblemas}
+                />
+                <PerguntaOpcoes
+                  label="📋 Possui referências neste tipo de reparo?"
+                  opcoes={['Sim', 'Não', 'Tenho fotos de serviços']}
+                  valor={possuiReferencias}
+                  onChange={setPossuiReferencias}
+                />
+                <PerguntaOpcoes
+                  label="🔧 Possui todas as ferramentas necessárias?"
+                  opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']}
+                  valor={possuiFerramentas}
+                  onChange={setPossuiFerramentas}
+                />
+                <View style={estilos.perguntaWrap}>
+                  <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
+                  <TextInput
+                    style={estilos.textarea}
+                    placeholder="Ex: Recomendo usar vedante específico..."
+                    placeholderTextColor={cores.textoMutado}
+                    value={sugestaoDurabilidade}
+                    onChangeText={setSugestaoDurabilidade}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+                <View style={estilos.perguntaWrap}>
+                  <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
+                  <TextInput
+                    style={estilos.textarea}
+                    placeholder="Alguma informação extra..."
+                    placeholderTextColor={cores.textoMutado}
+                    value={mensagemAdicional}
+                    onChangeText={setMensagemAdicional}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+                <BotaoPrimario
+                  titulo="Enviar minhas informações →"
+                  onPress={handleInteresse}
+                  carregando={enviando}
+                  estilo={{ marginBottom: 10, marginTop: 8 }}
+                />
+                <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
+                  <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
+                </TouchableOpacity>
               </View>
+            ) : (
+              <>
+                <BotaoPrimario titulo="Tenho interesse neste reparo →" onPress={() => setMostrarForm(true)} />
+                <Text style={estilos.aviso}>
+                  Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.
+                </Text>
+              </>
+            )
+          )}
 
-              <BotaoPrimario
-                titulo="Enviar minhas informações →"
-                onPress={handleInteresse}
-                carregando={enviando}
-                estilo={{ marginBottom: 10, marginTop: 8 }}
-              />
-              <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
-                <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <BotaoPrimario
-                titulo="Tenho interesse neste reparo →"
-                onPress={() => setMostrarForm(true)}
-              />
-              <Text style={estilos.aviso}>
-                Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.
-              </Text>
-            </>
+          {/* Botão encerrar para o dono */}
+          {!isPrestador && temMatch && (
+            <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
+              <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
+            </TouchableOpacity>
           )}
 
         </View>
@@ -269,6 +405,9 @@ const estilos = StyleSheet.create({
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   topbarTitulo: { fontSize: 14, color: cores.textoMedio, fontWeight: '500' },
   corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f4433644', borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
+  urgenciaTexto: { fontSize: 14, fontWeight: '700', color: '#f44336' },
+  urgenciaHoras: { fontSize: 12, color: '#f44336' },
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
   valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
   valorDestaqueValor: { fontSize: 24, fontWeight: '700', color: cores.sucesso },
@@ -280,6 +419,15 @@ const estilos = StyleSheet.create({
   descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
   midiaItem: { width: 160, height: 120, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
   midiaImagem: { width: '100%', height: '100%' },
+  relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
+  relogioExpirado: { backgroundColor: '#2a2a2a', borderColor: '#666' },
+  relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
+  relogioTempo: { fontSize: 52, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 2 },
+  relogioSub: { fontSize: 11, color: cores.textoFraco, marginTop: 6, textAlign: 'center' },
+  btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
+  btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  btnEncerrar: { backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginTop: 12, marginBottom: 8 },
+  btnEncerrarTexto: { fontSize: 14, fontWeight: '700', color: '#0A0A0A' },
   interesseFeito: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16 },
   formInteresse: { marginTop: 8 },
   formTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 6 },
