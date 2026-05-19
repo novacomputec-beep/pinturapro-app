@@ -18,6 +18,15 @@ const CATEGORIAS = [
   { id: 'outros',       label: '🔨 Outros'        },
 ]
 
+const URGENCIAS = [
+  { id: 1,   label: '🔴 1 hora',   desc: 'Urgência máxima' },
+  { id: 2,   label: '🟠 2 horas',  desc: 'Muito urgente'   },
+  { id: 4,   label: '🟡 4 horas',  desc: 'Urgente'         },
+  { id: 8,   label: '🟢 8 horas',  desc: 'Hoje'            },
+  { id: 24,  label: '📅 Amanhã',   desc: 'Sem pressa'      },
+  { id: 72,  label: '📆 Esta semana', desc: 'Flexível'     },
+]
+
 export default function CadastrarReparoScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -27,6 +36,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [valorEstimado, setValorEstimado] = useState('')
   const [cidade, setCidade] = useState('')
   const [bairro, setBairro] = useState('')
+  const [urgencia, setUrgencia] = useState(null)
   const [midias, setMidias] = useState([])
 
   const validar = () => {
@@ -34,6 +44,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva o reparo necessário'
     if (!cidade.trim()) novos.cidade = 'Informe a cidade'
+    if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -69,6 +80,7 @@ export default function CadastrarReparoScreen({ navigation }) {
         valor_estimado: valorEstimado ? parseFloat(valorEstimado.replace(',', '.')) : null,
         cidade: cidade.trim(),
         bairro: bairro.trim(),
+        prazo_atendimento_horas: urgencia,
       })
 
       if (midias.length > 0) {
@@ -144,6 +156,22 @@ export default function CadastrarReparoScreen({ navigation }) {
                 <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>
                   {c.label}
                 </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Urgência */}
+          <Text style={estilos.labelCategoria}>⏰ PRAZO DE ATENDIMENTO</Text>
+          {erros.urgencia && <Text style={estilos.erroTexto}>{erros.urgencia}</Text>}
+          <View style={estilos.urgenciasGrid}>
+            {URGENCIAS.map(u => (
+              <TouchableOpacity
+                key={u.id}
+                style={[estilos.urgenciaCard, urgencia === u.id && estilos.urgenciaCardAtivo]}
+                onPress={() => setUrgencia(u.id)}
+              >
+                <Text style={estilos.urgenciaLabel}>{u.label}</Text>
+                <Text style={estilos.urgenciaDesc}>{u.desc}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -224,17 +252,22 @@ const estilos = StyleSheet.create({
   btnVoltar: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
-  // Banner de aviso de vídeo
   avisoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1a2a1a', borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
   avisoIcone: { fontSize: 32 },
   avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
   avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
   labelCategoria: { fontSize: 11, color: cores.textoFraco, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  urgenciaCard: { width: '48%', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
+  urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  urgenciaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 2 },
+  urgenciaDesc: { fontSize: 11, color: cores.textoFraco },
   duasColunas: { flexDirection: 'row', gap: 12 },
   uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
