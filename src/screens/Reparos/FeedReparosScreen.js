@@ -18,8 +18,18 @@ const CATEGORIAS = [
   { id: 'outros',       label: '🔨 Outros'      },
 ]
 
+const getUrgenciaInfo = (horas) => {
+  if (!horas) return null
+  if (horas <= 1)  return { label: '🔴 Urgente agora!',  cor: '#f44336', bg: '#3a1a1a' }
+  if (horas <= 2)  return { label: '🟠 Muito urgente',   cor: '#FF6B35', bg: '#3a2a1a' }
+  if (horas <= 4)  return { label: '🟡 Urgente',         cor: '#FFC107', bg: '#3a3a1a' }
+  if (horas <= 8)  return { label: '🟢 Hoje',            cor: '#4caf50', bg: '#1a3a1a' }
+  if (horas <= 24) return { label: '📅 Amanhã',          cor: '#2196f3', bg: '#1a2a3a' }
+  return               { label: '📆 Esta semana',        cor: '#9e9e9e', bg: '#2a2a2a' }
+}
+
 const formatarValor = (v) =>
-  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : null
+  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
 
 export default function FeedReparosScreen({ navigation }) {
   const { usuario } = useAuth()
@@ -51,52 +61,62 @@ export default function FeedReparosScreen({ navigation }) {
     buscarReparos(cat)
   }
 
-  const CardReparo = ({ item }) => (
-    <TouchableOpacity
-      style={estilos.card}
-      onPress={() => navigation.navigate('DetalheReparo', { reparo: item })}
-      activeOpacity={0.85}
-    >
-      {/* Valor em destaque no topo */}
-      <View style={estilos.valorDestaque}>
-        <View style={estilos.valorDestaqueEsquerda}>
-          <Text style={estilos.valorDestaqueLabel}>💰 VALOR ESTIMADO</Text>
-          <Text style={estilos.valorDestaqueValor}>
-            {formatarValor(item.valor_estimado) || 'A combinar'}
-          </Text>
-        </View>
-        <View style={estilos.valorDestaqueDireita}>
+  const CardReparo = ({ item }) => {
+    const urgencia = getUrgenciaInfo(item.prazo_atendimento_horas)
+
+    return (
+      <TouchableOpacity
+        style={estilos.card}
+        onPress={() => navigation.navigate('DetalheReparo', { reparo: item })}
+        activeOpacity={0.85}
+      >
+        {/* Urgência em destaque no topo */}
+        {urgencia && (
+          <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.cor + '44' }]}>
+            <Text style={[estilos.urgenciaTexto, { color: urgencia.cor }]}>{urgencia.label}</Text>
+            <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>
+              Atender em até {item.prazo_atendimento_horas}h
+            </Text>
+          </View>
+        )}
+
+        {/* Valor em destaque */}
+        <View style={estilos.valorDestaque}>
+          <View style={estilos.valorDestaqueEsquerda}>
+            <Text style={estilos.valorDestaqueLabel}>💰 VALOR ESTIMADO</Text>
+            <Text style={estilos.valorDestaqueValor}>{formatarValor(item.valor_estimado)}</Text>
+          </View>
           <View style={estilos.categoriaPill}>
             <Text style={estilos.categoriaTexto}>{item.categoria}</Text>
           </View>
         </View>
-      </View>
 
-      {/* Foto se existir */}
-      {item.foto_capa && (
-        <Image source={{ uri: item.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
-      )}
-
-      {/* Corpo */}
-      <View style={estilos.cardCorpo}>
-        <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-        <Text style={estilos.cardLocal}>
-          📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
-        </Text>
-        {item.descricao && (
-          <Text style={estilos.cardDesc} numberOfLines={2}>{item.descricao}</Text>
+        {/* Foto se existir */}
+        {item.foto_capa && (
+          <Image source={{ uri: item.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
         )}
-        <View style={estilos.cardRodape}>
-          <Text style={estilos.interessados}>
-            🔧 {item.total_interessados || 0} prestador(es) interessado(s)
+
+        {/* Corpo */}
+        <View style={estilos.cardCorpo}>
+          <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+          <Text style={estilos.cardLocal}>
+            📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
           </Text>
-          <View style={estilos.btnVer}>
-            <Text style={estilos.btnVerTexto}>Ver reparo →</Text>
+          {item.descricao && (
+            <Text style={estilos.cardDesc} numberOfLines={2}>{item.descricao}</Text>
+          )}
+          <View style={estilos.cardRodape}>
+            <Text style={estilos.interessados}>
+              🔧 {item.total_interessados || 0} interessado(s)
+            </Text>
+            <View style={estilos.btnVer}>
+              <Text style={estilos.btnVerTexto}>Ver reparo →</Text>
+            </View>
           </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  )
+      </TouchableOpacity>
+    )
+  }
 
   return (
     <SafeAreaView style={estilos.container}>
@@ -108,14 +128,14 @@ export default function FeedReparosScreen({ navigation }) {
           </Text>
         </View>
         <TouchableOpacity style={estilos.avatar} onPress={() => navigation.navigate('Perfil')}>
-  {usuario?.foto_url ? (
-    <Image source={{ uri: usuario.foto_url }} style={{ width: 34, height: 34, borderRadius: 17 }} />
-  ) : (
-    <Text style={estilos.avatarTexto}>
-      {usuario?.nome?.substring(0, 2).toUpperCase()}
-    </Text>
-  )}
-</TouchableOpacity>
+          {usuario?.foto_url ? (
+            <Image source={{ uri: usuario.foto_url }} style={{ width: 34, height: 34, borderRadius: 17 }} />
+          ) : (
+            <Text style={estilos.avatarTexto}>
+              {usuario?.nome?.substring(0, 2).toUpperCase()}
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -150,7 +170,7 @@ export default function FeedReparosScreen({ navigation }) {
             <View style={estilos.vazio}>
               <Text style={estilos.vazioIcone}>🔧</Text>
               <Text style={estilos.vazioTitulo}>Nenhum reparo disponível</Text>
-              <Text style={estilos.vazioSub}>Novos reparos aparecem aqui quando forem aprovados.</Text>
+              <Text style={estilos.vazioSub}>Novos reparos aparecem aqui quando forem publicados.</Text>
             </View>
           )
         }
@@ -178,17 +198,16 @@ const estilos = StyleSheet.create({
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
   card: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden' },
-  // Valor destaque no topo
+  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 0.5 },
+  urgenciaTexto: { fontSize: 13, fontWeight: '700' },
+  urgenciaHoras: { fontSize: 11, fontWeight: '500' },
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
   valorDestaqueEsquerda: { flex: 1 },
   valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 },
   valorDestaqueValor: { fontSize: 20, fontWeight: '700', color: cores.sucesso },
-  valorDestaqueDireita: { alignItems: 'flex-end' },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4 },
   categoriaTexto: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize' },
-  // Foto
   fotoImagem: { width: '100%', height: 140 },
-  // Corpo
   cardCorpo: { padding: 14 },
   cardTitulo: { fontSize: 15, fontWeight: '600', color: cores.textoForte, lineHeight: 22, marginBottom: 6 },
   cardLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 6 },
