@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Alert, SectionList
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
@@ -47,13 +47,21 @@ export default function MinhasObrasScreen({ navigation }) {
 
   const renderItem = ({ item, tipo }) => {
     const info = statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente
+
+    // Badge especial se tem match ativo (cronômetro em andamento)
+    const temMatch = tipo === 'reparo' && item.match_feito_em && item.match_usuario_id
+
     return (
       <TouchableOpacity
         style={estilos.card}
-        onPress={() => navigation.navigate(
-          tipo === 'obra' ? 'DetalheMinhaObra' : 'DetalheMinhaObra',
-          { obra: item }
-        )}
+        onPress={() => {
+          if (tipo === 'obra') {
+            navigation.navigate('DetalheMinhaObra', { obra: item })
+          } else {
+            // Reparo: abre DetalheReparo passando o reparo como parâmetro
+            navigation.navigate('DetalheReparo', { reparo: item })
+          }
+        }}
         activeOpacity={0.85}
       >
         <View style={estilos.cardTopo}>
@@ -63,6 +71,14 @@ export default function MinhasObrasScreen({ navigation }) {
           </Text>
         </View>
         <Text style={estilos.cardLocal}>📍 {item.cidade}, MG</Text>
+
+        {/* Badge de match ativo */}
+        {temMatch && (
+          <View style={estilos.matchBadge}>
+            <Text style={estilos.matchBadgeTexto}>⏱ Prestador a caminho — toque para ver</Text>
+          </View>
+        )}
+
         <View style={[estilos.statusPill, { borderColor: info.cor }]}>
           <Text style={[estilos.statusTexto, { color: info.cor }]}>{info.label}</Text>
         </View>
@@ -181,6 +197,8 @@ const estilos = StyleSheet.create({
   cardTitulo: { flex: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
   cardValor: { fontSize: 14, fontWeight: '700', color: cores.sucesso },
   cardLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 10 },
+  matchBadge: { backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
+  matchBadgeTexto: { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
   statusPill: { alignSelf: 'flex-start', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
   statusTexto: { fontSize: 11, fontWeight: '500' },
   interessados: { fontSize: 12, color: cores.primaria, fontWeight: '500' },

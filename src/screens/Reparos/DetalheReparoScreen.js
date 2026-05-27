@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert, TextInput
@@ -40,8 +40,10 @@ const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
 
       if (diff <= 0) {
         setTempo('00:00:00')
-        setExpirou(true)
-        if (onExpirar) onExpirar()
+        if (!expirou) {
+          setExpirou(true)
+          if (onExpirar) onExpirar()
+        }
         return
       }
 
@@ -82,6 +84,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [reparo, setReparo] = useState(reparoInicial)
   const [midias, setMidias] = useState([])
   const [meuInteresse, setMeuInteresse] = useState(null)
+  const [interessados, setInteressados] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -93,6 +96,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [possuiFerramentas, setPossuiFerramentas] = useState('')
   const [mensagemAdicional, setMensagemAdicional] = useState('')
 
+  const isDono      = usuario?.id === reparo?.criado_por
+  const isPrestador = usuario?.role === 'prestador'
+
   useEffect(() => {
     buscar()
   }, [reparoInicial.id])
@@ -103,6 +109,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setReparo(resposta.reparo)
       setMidias(resposta.midias || [])
       setMeuInteresse(resposta.meu_interesse)
+      setInteressados(resposta.interessados || [])
     } catch (err) {
       console.log('Erro ao buscar reparo:', err)
     } finally {
@@ -187,6 +194,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     try {
       await api.post(`/reparos/${reparo.id}/expirar-match`, {})
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null }))
+      Alert.alert('⏰ Tempo esgotado', 'O prestador não chegou a tempo. O reparo está disponível novamente.')
     } catch (err) {
       console.log('Erro ao expirar match:', err)
     }
@@ -194,7 +202,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const temMatch = reparo.match_feito_em && reparo.match_usuario_id
   const souPrestadorDoMatch = temMatch && reparo.match_usuario_id === usuario?.id
-  const isPrestador = usuario?.role === 'prestador'
 
   if (carregando) {
     return (
@@ -210,7 +217,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
         </TouchableOpacity>
-        <Text style={estilos.topbarTitulo}>Detalhe do reparo</Text>
+        <Text style={estilos.topbarTitulo}>
+          {isDono ? 'Meu reparo' : 'Detalhe do reparo'}
+        </Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -276,7 +285,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </>
           )}
 
-          {/* Relógio regressivo após match */}
+          {/* Relógio regressivo após match — aparece para dono E prestador */}
           {temMatch && reparo.prazo_atendimento_horas && (
             <RelogioRegressivo
               matchFeitoEm={reparo.match_feito_em}
@@ -285,112 +294,161 @@ export default function DetalheReparoScreen({ route, navigation }) {
             />
           )}
 
-          {/* Botão encerrar — para prestador do match ou dono */}
-          {temMatch && (souPrestadorDoMatch) && (
-            <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
-              <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Ações do prestador */}
-          {isPrestador && !temMatch && (
-            meuInteresse ? (
-              <View style={estilos.interesseFeito}>
-                <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
-                  {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato' : meuInteresse.status === 'aprovada' ? '✅ Aprovado!' : '❌ Não selecionado'}
-                </Text>
-                <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>
-                  {meuInteresse.status === 'pendente'
-                    ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
-                    : meuInteresse.status === 'aprovada'
-                    ? 'Parabéns! Você foi selecionado. Confirme sua ida ao local:'
-                    : 'Sua solicitação não foi selecionada desta vez.'}
-                </Text>
-                {meuInteresse.status === 'aprovada' && (
-                  <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
-                    <Text style={estilos.btnMatchTexto}>🔧 Estou a caminho! Iniciar contagem →</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : mostrarForm ? (
-              <View style={estilos.formInteresse}>
-                <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
-                <Text style={estilos.formSubtitulo}>
-                  Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.
-                </Text>
-                <PerguntaOpcoes
-                  label="⏱ Há quanto tempo realiza este tipo de serviço?"
-                  opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']}
-                  valor={tempoExperiencia}
-                  onChange={setTempoExperiencia}
-                />
-                <PerguntaOpcoes
-                  label="⚠️ Já enfrentou problemas com este tipo de serviço?"
-                  opcoes={['Nunca', 'Raramente', 'Algumas vezes']}
-                  valor={jaEnfrentouProblemas}
-                  onChange={setJaEnfrentouProblemas}
-                />
-                <PerguntaOpcoes
-                  label="📋 Possui referências neste tipo de reparo?"
-                  opcoes={['Sim', 'Não', 'Tenho fotos de serviços']}
-                  valor={possuiReferencias}
-                  onChange={setPossuiReferencias}
-                />
-                <PerguntaOpcoes
-                  label="🔧 Possui todas as ferramentas necessárias?"
-                  opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']}
-                  valor={possuiFerramentas}
-                  onChange={setPossuiFerramentas}
-                />
-                <View style={estilos.perguntaWrap}>
-                  <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
-                  <TextInput
-                    style={estilos.textarea}
-                    placeholder="Ex: Recomendo usar vedante específico..."
-                    placeholderTextColor={cores.textoMutado}
-                    value={sugestaoDurabilidade}
-                    onChangeText={setSugestaoDurabilidade}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-                <View style={estilos.perguntaWrap}>
-                  <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
-                  <TextInput
-                    style={estilos.textarea}
-                    placeholder="Alguma informação extra..."
-                    placeholderTextColor={cores.textoMutado}
-                    value={mensagemAdicional}
-                    onChangeText={setMensagemAdicional}
-                    multiline
-                    numberOfLines={3}
-                  />
-                </View>
-                <BotaoPrimario
-                  titulo="Enviar minhas informações →"
-                  onPress={handleInteresse}
-                  carregando={enviando}
-                  estilo={{ marginBottom: 10, marginTop: 8 }}
-                />
-                <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
-                  <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
+          {/* ============================================
+              ÁREA DO DONO
+          ============================================ */}
+          {isDono && (
+            <>
+              {/* Botão encerrar para o dono quando tem match */}
+              {temMatch && (
+                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
+                  <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
                 </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <BotaoPrimario titulo="Tenho interesse neste reparo →" onPress={() => setMostrarForm(true)} />
-                <Text style={estilos.aviso}>
-                  Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.
-                </Text>
-              </>
-            )
+              )}
+
+              {/* Lista de interessados */}
+              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>
+                🔧 Prestadores interessados ({interessados.length})
+              </Text>
+
+              {interessados.length === 0 ? (
+                <View style={estilos.vazioInteressados}>
+                  <Text style={estilos.vazioInteressadosTexto}>
+                    Nenhum prestador demonstrou interesse ainda.{'\n'}
+                    Aguarde as notificações!
+                  </Text>
+                </View>
+              ) : (
+                interessados.map((item) => (
+                  <View key={item.id} style={estilos.interessadoCard}>
+                    <View style={estilos.interessadoHeader}>
+                      <Text style={estilos.interessadoNome}>{item.nome}</Text>
+                      {item.cidade && (
+                        <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>
+                      )}
+                    </View>
+                    {item.telefone && (
+                      <Text style={estilos.interessadoTelefone}>📱 {item.telefone}</Text>
+                    )}
+                    {item.mensagem && (
+                      <View style={estilos.mensagemBox}>
+                        <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              )}
+            </>
           )}
 
-          {/* Botão encerrar para o dono */}
-          {!isPrestador && temMatch && (
-            <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
-              <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
-            </TouchableOpacity>
+          {/* ============================================
+              ÁREA DO PRESTADOR
+          ============================================ */}
+          {isPrestador && !isDono && (
+            <>
+              {/* Botão encerrar para o prestador do match */}
+              {souPrestadorDoMatch && (
+                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
+                  <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Ações quando ainda não tem match */}
+              {!temMatch && (
+                meuInteresse ? (
+                  <View style={estilos.interesseFeito}>
+                    <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
+                      {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato'
+                        : meuInteresse.status === 'aprovada' ? '✅ Aprovado!'
+                        : '❌ Não selecionado'}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>
+                      {meuInteresse.status === 'pendente'
+                        ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
+                        : meuInteresse.status === 'aprovada'
+                        ? 'Parabéns! Você foi selecionado. Confirme sua ida ao local:'
+                        : 'Sua solicitação não foi selecionada desta vez.'}
+                    </Text>
+                    {meuInteresse.status === 'aprovada' && (
+                      <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
+                        <Text style={estilos.btnMatchTexto}>🔧 Estou a caminho! Iniciar contagem →</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : mostrarForm ? (
+                  <View style={estilos.formInteresse}>
+                    <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
+                    <Text style={estilos.formSubtitulo}>
+                      Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.
+                    </Text>
+                    <PerguntaOpcoes
+                      label="⏱ Há quanto tempo realiza este tipo de serviço?"
+                      opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']}
+                      valor={tempoExperiencia}
+                      onChange={setTempoExperiencia}
+                    />
+                    <PerguntaOpcoes
+                      label="⚠️ Já enfrentou problemas com este tipo de serviço?"
+                      opcoes={['Nunca', 'Raramente', 'Algumas vezes']}
+                      valor={jaEnfrentouProblemas}
+                      onChange={setJaEnfrentouProblemas}
+                    />
+                    <PerguntaOpcoes
+                      label="📋 Possui referências neste tipo de reparo?"
+                      opcoes={['Sim', 'Não', 'Tenho fotos de serviços']}
+                      valor={possuiReferencias}
+                      onChange={setPossuiReferencias}
+                    />
+                    <PerguntaOpcoes
+                      label="🔧 Possui todas as ferramentas necessárias?"
+                      opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']}
+                      valor={possuiFerramentas}
+                      onChange={setPossuiFerramentas}
+                    />
+                    <View style={estilos.perguntaWrap}>
+                      <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
+                      <TextInput
+                        style={estilos.textarea}
+                        placeholder="Ex: Recomendo usar vedante específico..."
+                        placeholderTextColor={cores.textoMutado}
+                        value={sugestaoDurabilidade}
+                        onChangeText={setSugestaoDurabilidade}
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+                    <View style={estilos.perguntaWrap}>
+                      <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
+                      <TextInput
+                        style={estilos.textarea}
+                        placeholder="Alguma informação extra..."
+                        placeholderTextColor={cores.textoMutado}
+                        value={mensagemAdicional}
+                        onChangeText={setMensagemAdicional}
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
+                    <BotaoPrimario
+                      titulo="Enviar minhas informações →"
+                      onPress={handleInteresse}
+                      carregando={enviando}
+                      estilo={{ marginBottom: 10, marginTop: 8 }}
+                    />
+                    <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
+                      <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <BotaoPrimario titulo="Tenho interesse neste reparo →" onPress={() => setMostrarForm(true)} />
+                    <Text style={estilos.aviso}>
+                      Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.
+                    </Text>
+                  </>
+                )
+              )}
+            </>
           )}
 
         </View>
@@ -441,4 +499,13 @@ const estilos = StyleSheet.create({
   opcaoTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   textarea: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 13, color: cores.textoForte, minHeight: 80, textAlignVertical: 'top' },
   aviso: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 10, lineHeight: 18 },
+  vazioInteressados: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 24, alignItems: 'center', marginBottom: 16 },
+  vazioInteressadosTexto: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
+  interessadoCard: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 14, marginBottom: 10 },
+  interessadoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  interessadoNome: { fontSize: 14, fontWeight: '600', color: cores.textoForte },
+  interessadoCidade: { fontSize: 11, color: cores.textoFraco },
+  interessadoTelefone: { fontSize: 12, color: cores.primaria, marginBottom: 6 },
+  mensagemBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6 },
+  mensagemTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
 })
