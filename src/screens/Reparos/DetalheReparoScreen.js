@@ -193,11 +193,100 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const handleExpirarMatch = async () => {
     try {
       await api.post(`/reparos/${reparo.id}/expirar-match`, {})
-      setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null }))
+      setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O prestador não chegou a tempo. O reparo está disponível novamente.')
     } catch (err) {
       console.log('Erro ao expirar match:', err)
     }
+  }
+
+  const handlePedirTempo = () => {
+    Alert.alert(
+      '⚠️ Preciso de mais tempo',
+      'Qual é o motivo?',
+      [
+        { text: '🚗 Veículo quebrou',        onPress: () => enviarPedidoTempo('Veículo quebrou') },
+        { text: '🚦 Trânsito intenso',        onPress: () => enviarPedidoTempo('Trânsito intenso') },
+        { text: '👮 Parada por fiscalização', onPress: () => enviarPedidoTempo('Parada por fiscalização') },
+        { text: '💥 Acidente',                onPress: () => enviarPedidoTempo('Acidente') },
+        { text: 'Cancelar', style: 'cancel' },
+      ]
+    )
+  }
+
+  const enviarPedidoTempo = async (motivo) => {
+    try {
+      await api.post(`/reparos/${reparo.id}/pedir-tempo`, { motivo })
+      setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
+      Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
+    } catch (err) {
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.')
+    }
+  }
+
+  const handleperguntarTempo = async () => {
+    try {
+      await api.post(`/reparos/${reparo.id}/perguntar-tempo`, {})
+      setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
+      Alert.alert('✅ Prestador notificado!', 'Ele vai informar quantos minutos precisa.')
+    } catch (err) {
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
+    }
+  }
+
+  const handleInformarTempo = () => {
+    Alert.prompt(
+      '⏱ Quantos minutos você precisa?',
+      'Digite o tempo em minutos',
+      async (minutos) => {
+        const min = parseInt(minutos)
+        if (!min || min <= 0) {
+          Alert.alert('Atenção', 'Informe um número válido de minutos.')
+          return
+        }
+        try {
+          await api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min })
+          setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
+          Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
+        } catch (err) {
+          Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
+        }
+      },
+      'plain-text',
+      '',
+      'numeric'
+    )
+  }
+
+  const handleResponderTempo = (aceito) => {
+    Alert.alert(
+      aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
+      aceito
+        ? `O prestador precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.`
+        : 'O reparo voltará para disponível e o prestador será bloqueado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: aceito ? 'Aceitar' : 'Recusar',
+          style: aceito ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              const resp = await api.post(`/reparos/${reparo.id}/responder-tempo`, { aceito })
+              if (aceito) {
+                setReparo(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
+                Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
+              } else {
+                setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
+                Alert.alert('❌ Recusado', 'O reparo voltou para disponível.')
+                navigation.goBack()
+              }
+            } catch (err) {
+              Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+            }
+          }
+        }
+      ]
+    )
   }
 
   const temMatch = reparo.match_feito_em && reparo.match_usuario_id
@@ -306,6 +395,41 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 </TouchableOpacity>
               )}
 
+              {/* Dono: prestador pediu mais tempo — botão para perguntar quantos minutos */}
+              {temMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && (
+                <View style={estilos.pedidoAlertaBox}>
+                  <Text style={estilos.pedidoAlertaTitulo}>⚠️ Prestador precisa de mais tempo</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
+                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleperguntarTempo}>
+                    <Text style={estilos.btnPerguntarTempoTexto}>⏱ Quanto tempo a mais você precisa?</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Dono aguardando prestador informar os minutos */}
+              {temMatch && reparo.pedido_tempo_status === 'aguardando_minutos' && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o prestador informar quantos minutos precisa...</Text>
+                </View>
+              )}
+
+              {/* Dono: aceitar ou recusar o tempo extra */}
+              {temMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && (
+                <View style={estilos.pedidoAlertaBox}>
+                  <Text style={estilos.pedidoAlertaTitulo}>⏳ Prestador precisa de mais tempo</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
+                  <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {reparo.pedido_tempo_minutos} minuto(s)</Text>
+                  <View style={estilos.pedidoBotoesRow}>
+                    <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
+                      <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderTempo(false)}>
+                      <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
               {/* Lista de interessados */}
               <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>
                 🔧 Prestadores interessados ({interessados.length})
@@ -351,6 +475,34 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
                 </TouchableOpacity>
+              )}
+
+              {/* Botão pedir mais tempo — só aparece se não há pedido em andamento */}
+              {souPrestadorDoMatch && !reparo.pedido_tempo_status && (
+                <TouchableOpacity style={estilos.btnPedirTempo} onPress={handlePedirTempo}>
+                  <Text style={estilos.btnPedirTempoTexto}>⚠️ Preciso de mais tempo para chegar</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Prestador aguardando dono perguntar o tempo */}
+              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
+                </View>
+              )}
+
+              {/* Prestador precisa informar os minutos */}
+              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_minutos' && (
+                <TouchableOpacity style={estilos.btnInformarTempo} onPress={handleInformarTempo}>
+                  <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Prestador aguardando aprovação do dono */}
+              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {reparo.pedido_tempo_minutos} minuto(s) extra...</Text>
+                </View>
               )}
 
               {/* Ações quando ainda não tem match */}
@@ -508,4 +660,21 @@ const estilos = StyleSheet.create({
   interessadoTelefone: { fontSize: 12, color: cores.primaria, marginBottom: 6 },
   mensagemBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6 },
   mensagemTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
+  btnPedirTempo: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
+  btnPedirTempoTexto: { fontSize: 13, fontWeight: '600', color: '#E8833A' },
+  btnInformarTempo: { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
+  btnInformarTempoTexto: { fontSize: 13, fontWeight: '600', color: cores.primaria },
+  btnPerguntarTempo: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
+  btnPerguntarTempoTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  pedidoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
+  pedidoTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
+  pedidoAlertaBox: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.grande, padding: 16, marginTop: 10 },
+  pedidoAlertaTitulo: { fontSize: 14, fontWeight: '700', color: '#E8833A', marginBottom: 4 },
+  pedidoAlertaMotivo: { fontSize: 12, color: cores.textoMedio, marginBottom: 4 },
+  pedidoAlertaMinutos: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 12 },
+  pedidoBotoesRow: { flexDirection: 'row', gap: 10 },
+  btnAceitar: { flex: 1, backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  btnRecusar: { flex: 1, backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f44336', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnRecusarTexto: { fontSize: 13, fontWeight: '700', color: '#f44336' },
 })
