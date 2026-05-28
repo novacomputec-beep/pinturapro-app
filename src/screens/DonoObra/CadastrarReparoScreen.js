@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
@@ -19,12 +19,12 @@ const CATEGORIAS = [
 ]
 
 const URGENCIAS = [
-  { id: 1,   label: '🔴 1 hora',   desc: 'Urgência máxima' },
-  { id: 2,   label: '🟠 2 horas',  desc: 'Muito urgente'   },
-  { id: 4,   label: '🟡 4 horas',  desc: 'Urgente'         },
-  { id: 8,   label: '🟢 8 horas',  desc: 'Hoje'            },
-  { id: 24,  label: '📅 Amanhã',   desc: 'Sem pressa'      },
-  { id: 72,  label: '📆 Esta semana', desc: 'Flexível'     },
+  { id: 1,   label: '🔴 1 hora',      desc: 'Urgência máxima' },
+  { id: 2,   label: '🟠 2 horas',     desc: 'Muito urgente'   },
+  { id: 4,   label: '🟡 4 horas',     desc: 'Urgente'         },
+  { id: 8,   label: '🟢 8 horas',     desc: 'Hoje'            },
+  { id: 24,  label: '📅 Amanhã',      desc: 'Sem pressa'      },
+  { id: 72,  label: '📆 Esta semana', desc: 'Flexível'        },
 ]
 
 export default function CadastrarReparoScreen({ navigation }) {
@@ -34,17 +34,72 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [categoria, setCategoria] = useState('hidraulica')
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
-  const [cidade, setCidade] = useState('')
-  const [bairro, setBairro] = useState('')
   const [urgencia, setUrgencia] = useState(null)
   const [midias, setMidias] = useState([])
+
+  // Campos de endereço
+  const [cep, setCep] = useState('')
+  const [logradouro, setLogradouro] = useState('')
+  const [numero, setNumero] = useState('')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [uf, setUf] = useState('')
+  const [latitude, setLatitude] = useState(null)
+  const [longitude, setLongitude] = useState(null)
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
+
+  const buscarCep = async (cepDigitado) => {
+    const cepLimpo = cepDigitado.replace(/\D/g, '')
+    setCep(cepLimpo)
+
+    if (cepLimpo.length !== 8) return
+
+    setBuscandoCep(true)
+    setEnderecoEncontrado(false)
+    try {
+      // Busca endereço via ViaCEP
+      const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+      const dados = await resp.json()
+
+      if (dados.erro) {
+        Alert.alert('CEP não encontrado', 'Verifique o CEP informado.')
+        return
+      }
+
+      setLogradouro(dados.logradouro || '')
+      setBairro(dados.bairro || '')
+      setCidade(dados.localidade || '')
+      setUf(dados.uf || '')
+      setEnderecoEncontrado(true)
+
+      // Geocoding via Nominatim para obter lat/lng
+      const endereco = `${dados.logradouro}, ${dados.localidade}, ${dados.uf}, Brasil`
+      const geoResp = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'PinturaPro/1.0' } }
+      )
+      const geoData = await geoResp.json()
+      if (geoData.length > 0) {
+        setLatitude(parseFloat(geoData[0].lat))
+        setLongitude(parseFloat(geoData[0].lon))
+      }
+    } catch (err) {
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
+    } finally {
+      setBuscandoCep(false)
+    }
+  }
 
   const validar = () => {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva o reparo necessário'
-    if (!cidade.trim()) novos.cidade = 'Informe a cidade'
     if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
+    if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
+    if (!numero.trim()) novos.numero = 'Informe o número'
+    if (!cidade.trim()) novos.cidade = 'Busque o CEP para preencher a cidade'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -73,6 +128,9 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!validar()) return
     setCarregando(true)
     try {
+      const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf]
+        .filter(Boolean).join(', ')
+
       const reparo = await api.post('/reparos/dono', {
         titulo: titulo.trim(),
         categoria,
@@ -81,6 +139,9 @@ export default function CadastrarReparoScreen({ navigation }) {
         cidade: cidade.trim(),
         bairro: bairro.trim(),
         prazo_atendimento_horas: urgencia,
+        endereco_obra: enderecoCompleto,
+        latitude,
+        longitude,
       })
 
       if (midias.length > 0) {
@@ -126,7 +187,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           <Text style={estilos.titulo}>Cadastrar{'\n'}reparo</Text>
           <Text style={estilos.subtitulo}>Descreva o reparo e encontre um profissional qualificado</Text>
 
-          {/* Aviso de vídeo destacado */}
+          {/* Aviso de vídeo */}
           <View style={estilos.avisoBanner}>
             <Text style={estilos.avisoIcone}>🎥</Text>
             <View style={{ flex: 1 }}>
@@ -160,7 +221,6 @@ export default function CadastrarReparoScreen({ navigation }) {
             ))}
           </View>
 
-          {/* Urgência */}
           <Text style={estilos.labelCategoria}>⏰ PRAZO DE ATENDIMENTO</Text>
           {erros.urgencia && <Text style={estilos.erroTexto}>{erros.urgencia}</Text>}
           <View style={estilos.urgenciasGrid}>
@@ -194,10 +254,76 @@ export default function CadastrarReparoScreen({ navigation }) {
             keyboardType="numeric"
           />
 
-          <View style={estilos.duasColunas}>
-            <Input label="CIDADE" placeholder="Uberlândia" value={cidade} onChangeText={setCidade} erro={erros.cidade} estilo={{ flex: 1 }} />
-            <Input label="BAIRRO" placeholder="Centro" value={bairro} onChangeText={setBairro} estilo={{ flex: 1 }} />
+          {/* Endereço da obra */}
+          <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
+
+          <View style={estilos.cepRow}>
+            <Input
+              label="CEP"
+              placeholder="00000-000"
+              value={cep}
+              onChangeText={buscarCep}
+              keyboardType="numeric"
+              maxLength={8}
+              erro={erros.cep}
+              estilo={{ flex: 1 }}
+            />
+            {buscandoCep && (
+              <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />
+            )}
+            {enderecoEncontrado && !buscandoCep && (
+              <Text style={estilos.cepOk}>✅</Text>
+            )}
           </View>
+
+          {enderecoEncontrado && (
+            <>
+              <Input
+                label="LOGRADOURO"
+                value={logradouro}
+                onChangeText={setLogradouro}
+                editable={false}
+                estilo={{ backgroundColor: cores.fundoElevado }}
+              />
+              <View style={estilos.duasColunas}>
+                <Input
+                  label="NÚMERO"
+                  placeholder="Ex: 123"
+                  value={numero}
+                  onChangeText={setNumero}
+                  keyboardType="numeric"
+                  erro={erros.numero}
+                  estilo={{ flex: 1 }}
+                />
+                <Input
+                  label="COMPLEMENTO"
+                  placeholder="Ap, sala..."
+                  value={complemento}
+                  onChangeText={setComplemento}
+                  estilo={{ flex: 1 }}
+                />
+              </View>
+              <View style={estilos.duasColunas}>
+                <Input
+                  label="BAIRRO"
+                  value={bairro}
+                  onChangeText={setBairro}
+                  estilo={{ flex: 1 }}
+                />
+                <Input
+                  label="CIDADE/UF"
+                  value={`${cidade}/${uf}`}
+                  editable={false}
+                  estilo={{ flex: 1, backgroundColor: cores.fundoElevado }}
+                />
+              </View>
+              {latitude && (
+                <View style={estilos.geoConfirm}>
+                  <Text style={estilos.geoConfirmTexto}>📍 Localização encontrada — prestadores próximos serão notificados!</Text>
+                </View>
+              )}
+            </>
+          )}
 
           <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
 
@@ -268,7 +394,11 @@ const estilos = StyleSheet.create({
   urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
   urgenciaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 2 },
   urgenciaDesc: { fontSize: 11, color: cores.textoFraco },
+  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
   duasColunas: { flexDirection: 'row', gap: 12 },
+  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
+  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
   uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
