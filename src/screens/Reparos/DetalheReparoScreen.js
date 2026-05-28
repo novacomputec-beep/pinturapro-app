@@ -159,7 +159,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
             try {
               const resposta = await api.post(`/reparos/${reparo.id}/match`, {})
               setReparo(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
-              Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!')
+              Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!
+
+Um contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.
+
+Bom trabalho para vocês! 🤝')
             } catch (err) {
               Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
             }
@@ -381,6 +385,16 @@ export default function DetalheReparoScreen({ route, navigation }) {
               prazoHoras={reparo.prazo_atendimento_horas}
               onExpirar={handleExpirarMatch}
             />
+          )}
+
+          {/* Banner de contrato — aparece para ambos quando tem match */}
+          {temMatch && (
+            <View style={estilos.contratoBanner}>
+              <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
+              <Text style={estilos.contratoBannerTexto}>
+                Um contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.{'\n\n'}Bom trabalho para vocês! 🤝
+              </Text>
+            </View>
           )}
 
           {/* ============================================
@@ -660,6 +674,9 @@ const estilos = StyleSheet.create({
   interessadoTelefone: { fontSize: 12, color: cores.primaria, marginBottom: 6 },
   mensagemBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6 },
   mensagemTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
+  contratoBanner: { backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: '#4a4a8a', borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  contratoBannerTitulo: { fontSize: 13, fontWeight: '700', color: '#8888cc', marginBottom: 8 },
+  contratoBannerTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 19 },
   btnPedirTempo: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
   btnPedirTempoTexto: { fontSize: 13, fontWeight: '600', color: '#E8833A' },
   btnInformarTempo: { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
