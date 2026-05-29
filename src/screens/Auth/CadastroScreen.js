@@ -73,8 +73,9 @@ export default function CadastroScreen({ navigation }) {
   const [enviandoDocs, setEnviandoDocs] = useState(false)
 
   const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
+  const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'
   // Prestador tem 4 passos: dados pessoais, profissional, plano, verificação
-  const totalPassos = tipoConta === 'dono_obra' ? 2 : 4
+  const totalPassos = isDono ? 2 : 4
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
@@ -130,7 +131,7 @@ export default function CadastroScreen({ navigation }) {
     if (passo === 4 && isPrestador && !validarPasso4()) return
     if (passo === totalPassos) { handleCadastrar(); return }
     // Para dono, passo 2 já é o último antes de cadastrar
-    if (tipoConta === 'dono_obra' && passo === 2) { handleCadastrar(); return }
+    if (isDono && passo === 2) { handleCadastrar(); return }
     setPasso(p => p + 1)
   }
 
@@ -270,7 +271,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
+          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_reparo')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🛠️</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Reparos domésticos</Text>
