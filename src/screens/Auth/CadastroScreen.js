@@ -3,8 +3,11 @@ import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert
 } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { Image } from 'react-native'
 import { BotaoPrimario, Input } from '../../components'
 import { authService } from '../../services/api'
+import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -18,6 +21,24 @@ const IndicadorPassos = ({ passo, total }) => (
       ]} />
     ))}
   </View>
+)
+
+const UploadFoto = ({ label, valor, onPress }) => (
+  <TouchableOpacity style={estilos.uploadFotoBtn} onPress={onPress} activeOpacity={0.8}>
+    {valor ? (
+      <Image source={{ uri: valor }} style={estilos.uploadFotoPreview} />
+    ) : (
+      <View style={estilos.uploadFotoVazio}>
+        <Text style={estilos.uploadFotoIcone}>📷</Text>
+        <Text style={estilos.uploadFotoTexto}>{label}</Text>
+      </View>
+    )}
+    {valor && (
+      <View style={estilos.uploadFotoOk}>
+        <Text style={{ color: cores.sucesso, fontSize: 11, fontWeight: '600' }}>✓ Adicionada</Text>
+      </View>
+    )}
+  </TouchableOpacity>
 )
 
 export default function CadastroScreen({ navigation }) {
@@ -40,16 +61,45 @@ export default function CadastroScreen({ navigation }) {
   const [especialidades, setEspecialidades] = useState('')
   const [planoSelecionado, setPlanoSelecionado] = useState('mensal')
 
-  const totalPassos = tipoConta === 'dono_obra' ? 2 : 3
+  // Campos de verificação (só para prestadores)
+  const [pixReembolso, setPixReembolso] = useState('')
+  const [ref1Nome, setRef1Nome] = useState('')
+  const [ref1Tel, setRef1Tel] = useState('')
+  const [ref2Nome, setRef2Nome] = useState('')
+  const [ref2Tel, setRef2Tel] = useState('')
+  const [docFrente, setDocFrente] = useState(null)
+  const [docVerso, setDocVerso] = useState(null)
+  const [selfie, setSelfie] = useState(null)
+  const [enviandoDocs, setEnviandoDocs] = useState(false)
+
+  const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
+  // Prestador tem 4 passos: dados pessoais, profissional, plano, verificação
+  const totalPassos = tipoConta === 'dono_obra' ? 2 : 4
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
+
+  const selecionarFoto = async (setter) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.')
+      return
+    }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    })
+    if (!resultado.canceled) {
+      setter(resultado.assets[0].uri)
+    }
+  }
 
   const validarPasso1 = () => {
     const novos = {}
     if (!nome.trim()) novos.nome = 'Informe o nome'
     if (!email.trim()) novos.email = 'Informe o e-mail'
     if (!senha.trim()) novos.senha = 'Informe a senha'
-    if (senha.length < 8) novos.senha = 'Minimo 8 caracteres'
+    if (senha.length < 8) novos.senha = 'Mínimo 8 caracteres'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -62,10 +112,25 @@ export default function CadastroScreen({ navigation }) {
     return Object.keys(novos).length === 0
   }
 
+  const validarPasso4 = () => {
+    const novos = {}
+    if (!pixReembolso.trim()) novos.pixReembolso = 'Informe sua chave PIX para eventual reembolso'
+    if (!ref1Nome.trim()) novos.ref1Nome = 'Informe o nome da referência 1'
+    if (!ref1Tel.trim()) novos.ref1Tel = 'Informe o telefone da referência 1'
+    if (!docFrente) novos.docFrente = 'Envie a frente do seu documento'
+    if (!docVerso) novos.docVerso = 'Envie o verso do seu documento'
+    if (!selfie) novos.selfie = 'Envie uma selfie segurando o documento'
+    setErros(novos)
+    return Object.keys(novos).length === 0
+  }
+
   const avancar = () => {
     if (passo === 1 && !validarPasso1()) return
     if (passo === 2 && !validarPasso2()) return
+    if (passo === 4 && isPrestador && !validarPasso4()) return
     if (passo === totalPassos) { handleCadastrar(); return }
+    // Para dono, passo 2 já é o último antes de cadastrar
+    if (tipoConta === 'dono_obra' && passo === 2) { handleCadastrar(); return }
     setPasso(p => p + 1)
   }
 
@@ -75,9 +140,41 @@ export default function CadastroScreen({ navigation }) {
     else navigation.goBack()
   }
 
+  const uploadFotoVerificacao = async (uri, tipo) => {
+    const formData = new FormData()
+    formData.append('arquivo', {
+      uri,
+      type: 'image/jpeg',
+      name: `${tipo}.jpg`,
+    })
+    formData.append('tipo', tipo)
+    const resp = await api.post('/auth/upload-verificacao', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    })
+    return resp.url
+  }
+
   const handleCadastrar = async () => {
     setCarregando(true)
     try {
+      let docFrenteUrl = null
+      let docVersoUrl = null
+      let selfieUrl = null
+
+      // Se for prestador, faz upload dos documentos primeiro
+      if (isPrestador && docFrente) {
+        setEnviandoDocs(true)
+        docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
+        docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
+        selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
+        setEnviandoDocs(false)
+      }
+
+      const referencias = []
+      if (ref1Nome.trim()) referencias.push({ nome: ref1Nome.trim(), telefone: ref1Tel.trim() })
+      if (ref2Nome.trim()) referencias.push({ nome: ref2Nome.trim(), telefone: ref2Tel.trim() })
+
       const dados = {
         nome: `${nome.trim()} ${sobrenome.trim()}`.trim(),
         email: email.trim().toLowerCase(),
@@ -86,29 +183,43 @@ export default function CadastroScreen({ navigation }) {
         cidade: cidade.trim(),
         cpf_cnpj: cpfCnpj.trim(),
         tipo_conta: tipoConta,
-        anos_experiencia: (tipoConta === 'pintor' || tipoConta === 'prestador') ? parseInt(anosExp) || 0 : 0,
-        tamanho_equipe: (tipoConta === 'pintor' || tipoConta === 'prestador') ? parseInt(equipe) || 1 : 1,
-        especialidades: (tipoConta === 'pintor' || tipoConta === 'prestador')
+        anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
+        tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
+        especialidades: isPrestador
           ? especialidades.split(',').map(s => s.trim()).filter(Boolean) : [],
+        pix_reembolso: pixReembolso.trim() || null,
+        referencias,
+        verificacao_doc_frente_url: docFrenteUrl,
+        verificacao_doc_verso_url: docVersoUrl,
+        verificacao_selfie_url: selfieUrl,
       }
 
       const resposta = await authService.cadastrar(dados)
 
       if (resposta?.token) {
-        // Login automático — entra direto no app!
         await loginComToken(resposta.token, resposta.usuario, resposta.assinatura)
+
+        // Se for prestador, mostra aviso de verificação pendente
+        if (isPrestador) {
+          Alert.alert(
+            '✅ Cadastro realizado!',
+            'Seus dados estão sendo verificados. Em até 1 hora você receberá a confirmação por e-mail.\n\nEnquanto isso, você já pode explorar o app!',
+            [{ text: 'Entendi!' }]
+          )
+        }
       } else {
         Alert.alert(
           'Conta criada!',
-          'Faca login para continuar.',
+          'Faça login para continuar.',
           [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
         )
       }
 
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err?.response?.data?.erro || 'Nao foi possivel criar sua conta.')
+      Alert.alert('Erro', err.mensagem || err?.response?.data?.erro || 'Não foi possível criar sua conta.')
     } finally {
       setCarregando(false)
+      setEnviandoDocs(false)
     }
   }
 
@@ -126,15 +237,15 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
           </TouchableOpacity>
-          <Text style={estilos.titulo}>Como voce{'\n'}quer usar?</Text>
-          <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve voce</Text>
+          <Text style={estilos.titulo}>Como você{'\n'}quer usar?</Text>
+          <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve você</Text>
 
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🖌️</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou pintor profissional</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar obras de pintura disponíveis na regiao</Text>
-              <Text style={estilos.tipoPreco}>R$ 99,90/mes</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar obras de pintura disponíveis na região</Text>
+              <Text style={estilos.tipoPreco}>R$ 99,90/mês</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
@@ -142,9 +253,9 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('prestador')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🔧</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Sou prestador de servicos</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar reparos e servicos gerais na regiao</Text>
-              <Text style={estilos.tipoPreco}>R$ 49,90/mes</Text>
+              <Text style={estilos.tipoNome}>Sou prestador de serviços</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na região</Text>
+              <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
@@ -184,16 +295,19 @@ export default function CadastroScreen({ navigation }) {
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
               : passo === 2 ? (tipoConta === 'dono_obra' ? 'Seus\ndados' : 'Perfil\nprofissional')
-              : 'Escolha\nseu plano'}
+              : passo === 3 ? 'Escolha\nseu plano'
+              : 'Verificação\nde identidade'}
           </Text>
           <Text style={estilos.subtitulo}>
             {`Passo ${passo} de ${totalPassos} — ${
               passo === 1 ? 'dados pessoais'
-              : passo === 2 ? (tipoConta === 'dono_obra' ? 'localizacao e documento' : 'informacoes profissionais')
-              : 'assinatura'}`}
+              : passo === 2 ? (tipoConta === 'dono_obra' ? 'localização e documento' : 'informações profissionais')
+              : passo === 3 ? 'assinatura'
+              : 'documentos e referências'}`}
           </Text>
           <IndicadorPassos passo={passo} total={totalPassos} />
 
+          {/* PASSO 1 — Dados pessoais */}
           {passo === 1 && (
             <View>
               <View style={estilos.duasColunas}>
@@ -203,7 +317,7 @@ export default function CadastroScreen({ navigation }) {
               <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" erro={erros.email} />
               <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
               <View>
-                <Input label="SENHA" placeholder="Minimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
+                <Input label="SENHA" placeholder="Mínimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
                 <TouchableOpacity style={estilos.olhoBtn} onPress={() => setMostrarSenha(!mostrarSenha)}>
                   <Text style={estilos.olhoTexto}>{mostrarSenha ? 'ocultar' : 'mostrar'}</Text>
                 </TouchableOpacity>
@@ -211,19 +325,20 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
+          {/* PASSO 2 — Perfil profissional */}
           {passo === 2 && (
             <View>
-              <Input label="CIDADE" placeholder="Ex: Uberlandia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
+              <Input label="CIDADE" placeholder="Ex: Uberlândia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
               <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={setCpfCnpj} keyboardType="numeric" erro={erros.cpfCnpj} />
-              {tipoConta !== 'dono_obra' && (
+              {isPrestador && (
                 <>
                   <View style={estilos.duasColunas}>
                     <Input label="ANOS DE EXP." placeholder="Ex: 8" value={anosExp} onChangeText={setAnosExp} keyboardType="numeric" estilo={{ flex: 1 }} />
                     <Input label="TAMANHO DA EQUIPE" placeholder="Ex: 4" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
                   </View>
                   <Input
-                    label={tipoConta === 'prestador' ? 'ESPECIALIDADES (ex: hidraulica, eletrica)' : 'ESPECIALIDADES (ex: textura, epoxi)'}
-                    placeholder="Separe por virgula"
+                    label={tipoConta === 'prestador' ? 'ESPECIALIDADES (ex: hidráulica, elétrica)' : 'ESPECIALIDADES (ex: textura, epóxi)'}
+                    placeholder="Separe por vírgula"
                     value={especialidades}
                     onChangeText={setEspecialidades}
                   />
@@ -232,10 +347,11 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
-          {passo === 3 && tipoConta !== 'dono_obra' && (
+          {/* PASSO 3 — Plano */}
+          {passo === 3 && isPrestador && (
             <View>
               <Text style={estilos.planoSubtitulo}>
-                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os reparos disponiveis' : 'as obras disponiveis'}:
+                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os reparos disponíveis' : 'as obras disponíveis'}:
               </Text>
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
                 <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>
@@ -247,7 +363,7 @@ export default function CadastroScreen({ navigation }) {
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={estilos.planoPreco}>{valores.mensal}</Text>
-                  <Text style={estilos.planoPeriodo}>/mes</Text>
+                  <Text style={estilos.planoPeriodo}>/mês</Text>
                 </View>
               </TouchableOpacity>
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'anual' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('anual')} activeOpacity={0.8}>
@@ -259,11 +375,11 @@ export default function CadastroScreen({ navigation }) {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.planoNome}>Plano Anual</Text>
-                  <Text style={estilos.planoDesc}>Melhor custo-beneficio</Text>
+                  <Text style={estilos.planoDesc}>Melhor custo-benefício</Text>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={estilos.planoPreco}>{valores.anual}</Text>
-                  <Text style={estilos.planoPeriodo}>/mes · {valores.anualTotal}</Text>
+                  <Text style={estilos.planoPeriodo}>/mês · {valores.anualTotal}</Text>
                 </View>
               </TouchableOpacity>
               <View style={estilos.segurancaBox}>
@@ -273,13 +389,90 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
 
+          {/* PASSO 4 — Verificação de identidade (só prestadores) */}
+          {passo === 4 && isPrestador && (
+            <View>
+              <View style={estilos.verificacaoBanner}>
+                <Text style={estilos.verificacaoBannerTitulo}>🔐 Para sua segurança e dos solicitantes</Text>
+                <Text style={estilos.verificacaoBannerTexto}>
+                  Verificamos a identidade de todos os prestadores antes de liberar o acesso. O processo leva menos de 1 hora!
+                </Text>
+              </View>
+
+              <Text style={estilos.labelSecao}>CHAVE PIX PARA REEMBOLSO</Text>
+              <Text style={estilos.labelSecaoDesc}>Necessária caso sua conta não seja aprovada</Text>
+              <Input
+                label="CHAVE PIX (CPF, e-mail, telefone ou chave aleatória)"
+                placeholder="Ex: 000.000.000-00"
+                value={pixReembolso}
+                onChangeText={setPixReembolso}
+                erro={erros.pixReembolso}
+              />
+
+              <Text style={[estilos.labelSecao, { marginTop: 16 }]}>REFERÊNCIAS DE TRABALHOS ANTERIORES</Text>
+              <Text style={estilos.labelSecaoDesc}>Informe pelo menos 1 pessoa que possa confirmar seu trabalho</Text>
+
+              <View style={estilos.referenciaBox}>
+                <Text style={estilos.referenciaLabel}>Referência 1 *</Text>
+                <Input label="NOME" placeholder="Nome completo" value={ref1Nome} onChangeText={setRef1Nome} erro={erros.ref1Nome} />
+                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref1Tel} onChangeText={setRef1Tel} keyboardType="phone-pad" erro={erros.ref1Tel} />
+              </View>
+
+              <View style={estilos.referenciaBox}>
+                <Text style={estilos.referenciaLabel}>Referência 2 (opcional)</Text>
+                <Input label="NOME" placeholder="Nome completo" value={ref2Nome} onChangeText={setRef2Nome} />
+                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={setRef2Tel} keyboardType="phone-pad" />
+              </View>
+
+              <Text style={[estilos.labelSecao, { marginTop: 16 }]}>DOCUMENTO DE IDENTIDADE</Text>
+              <Text style={estilos.labelSecaoDesc}>RG, CNH ou outro documento oficial com foto</Text>
+
+              <View style={estilos.fotosRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.fotoLabel}>Frente *</Text>
+                  <UploadFoto
+                    label="Tirar foto"
+                    valor={docFrente}
+                    onPress={() => selecionarFoto(setDocFrente)}
+                  />
+                  {erros.docFrente && <Text style={estilos.erroTexto}>{erros.docFrente}</Text>}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.fotoLabel}>Verso *</Text>
+                  <UploadFoto
+                    label="Tirar foto"
+                    valor={docVerso}
+                    onPress={() => selecionarFoto(setDocVerso)}
+                  />
+                  {erros.docVerso && <Text style={estilos.erroTexto}>{erros.docVerso}</Text>}
+                </View>
+              </View>
+
+              <Text style={[estilos.labelSecao, { marginTop: 16 }]}>SELFIE COM DOCUMENTO *</Text>
+              <Text style={estilos.labelSecaoDesc}>Segure seu documento ao lado do rosto</Text>
+              <UploadFoto
+                label="Tirar selfie com documento"
+                valor={selfie}
+                onPress={() => selecionarFoto(setSelfie)}
+              />
+              {erros.selfie && <Text style={estilos.erroTexto}>{erros.selfie}</Text>}
+
+              {enviandoDocs && (
+                <View style={estilos.enviandoBox}>
+                  <Text style={estilos.enviandoTexto}>📤 Enviando documentos... aguarde</Text>
+                </View>
+              )}
+            </View>
+          )}
+
           <View style={estilos.acoesRow}>
             <BotaoPrimario
-              titulo={passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →'}
+              titulo={passo === totalPassos ? (enviandoDocs ? 'Enviando...' : 'Finalizar cadastro →') : 'Continuar →'}
               onPress={avancar}
               carregando={carregando}
             />
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -320,4 +513,23 @@ const estilos = StyleSheet.create({
   segurancaIcone: { fontSize: 14 },
   segurancaTexto: { flex: 1, fontSize: 11, color: cores.textoFraco, lineHeight: 17 },
   acoesRow: { marginTop: 24 },
+  // Verificação
+  verificacaoBanner: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
+  verificacaoBannerTitulo: { fontSize: 13, fontWeight: '700', color: cores.sucesso, marginBottom: 6 },
+  verificacaoBannerTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
+  labelSecao: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  labelSecaoDesc: { fontSize: 11, color: cores.textoMutado, marginBottom: 10 },
+  referenciaBox: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 14, marginBottom: 10 },
+  referenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
+  fotosRow: { flexDirection: 'row', gap: 12 },
+  fotoLabel: { fontSize: 11, color: cores.textoFraco, marginBottom: 6 },
+  uploadFotoBtn: { backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, overflow: 'hidden', height: 100 },
+  uploadFotoVazio: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
+  uploadFotoIcone: { fontSize: 24 },
+  uploadFotoTexto: { fontSize: 11, color: cores.textoFraco, textAlign: 'center' },
+  uploadFotoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  uploadFotoOk: { position: 'absolute', bottom: 6, left: 0, right: 0, alignItems: 'center' },
+  enviandoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
+  enviandoTexto: { fontSize: 13, color: cores.textoMedio },
+  erroTexto: { fontSize: 11, color: cores.perigo, marginTop: 4 },
 })
