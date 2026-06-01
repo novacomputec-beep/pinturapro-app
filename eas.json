@@ -13,7 +13,14 @@
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.11.0"
+      "node": "20.11.0",
+      "env": {
+        "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m"
+      },
+      "android": {
+        "gradleCommand": ":app:bundleRelease",
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
