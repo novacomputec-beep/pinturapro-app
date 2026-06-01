@@ -159,11 +159,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             try {
               const resposta = await api.post(`/reparos/${reparo.id}/match`, {})
               setReparo(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
-              Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!
-
-Um contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.
-
-Bom trabalho para vocês! 🤝')
+              Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
             } catch (err) {
               Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
             }
