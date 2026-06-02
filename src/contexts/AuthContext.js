@@ -35,7 +35,6 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     configurarCanalAndroid()
-
     const restaurarSessao = async () => {
       try {
         const token = await SecureStore.getItemAsync('token')
@@ -59,16 +58,13 @@ export const AuthProvider = ({ children }) => {
     }
     restaurarSessao()
 
-    // Notificação recebida com app aberto
     notificacaoRecebidaRef.current = Notifications.addNotificationReceivedListener(notificacao => {
       console.log('Notificação recebida:', notificacao.request.content)
     })
 
-    // Usuário tocou na notificação
     notificacaoRespostaRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
       const data = resposta.notification.request.content.data
       console.log('Notificação tocada:', data)
-      // A navegação é tratada no AppNavigator via navigationRef
     })
 
     return () => {
@@ -99,6 +95,14 @@ export const AuthProvider = ({ children }) => {
     return resposta
   }
 
+  // Função usada após cadastro — recebe token e dados diretamente
+  const loginComToken = async (token, usuarioDados, assinaturaDados) => {
+    await SecureStore.setItemAsync('token', token)
+    setUsuario(usuarioDados)
+    setAssinatura(assinaturaDados || null)
+    setTimeout(() => registrarPushToken(), 1000)
+  }
+
   const logout = async () => {
     await SecureStore.deleteItemAsync('token')
     setUsuario(null)
@@ -114,6 +118,7 @@ export const AuthProvider = ({ children }) => {
       assinaturaAtiva,
       carregando,
       login,
+      loginComToken,
       logout,
       setUsuario,
       setAssinatura,
