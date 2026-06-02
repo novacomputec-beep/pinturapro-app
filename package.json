@@ -4,8 +4,8 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios",
     "postinstall": "node -e \"const fs=require('fs');const f='android/gradle/wrapper/gradle-wrapper.properties';if(fs.existsSync(f)){let c=fs.readFileSync(f,'utf8');c=c.replace(/gradle-[0-9.]+-.*\\.zip/,'gradle-8.3-all.zip');fs.writeFileSync(f,c);console.log('Gradle fixed to 8.3');}\""
@@ -19,6 +19,7 @@
     "expo": "~55.0.26",
     "expo-asset": "~9.0.2",
     "expo-av": "~13.10.6",
+    "expo-build-properties": "~55.0.14",
     "expo-constants": "~15.4.5",
     "expo-file-system": "~16.0.9",
     "expo-image-picker": "~14.7.1",
