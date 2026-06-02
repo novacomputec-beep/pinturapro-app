@@ -4,10 +4,11 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "build:android": "eas build --platform android",
-    "build:ios": "eas build --platform ios"
+    "build:ios": "eas build --platform ios",
+    "postinstall": "node -e \"const fs=require('fs');const f='android/gradle/wrapper/gradle-wrapper.properties';if(fs.existsSync(f)){let c=fs.readFileSync(f,'utf8');c=c.replace(/gradle-[0-9.]+-.*\\.zip/,'gradle-8.3-all.zip');fs.writeFileSync(f,c);console.log('Gradle fixed to 8.3');}\""
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "1.21.0",
@@ -27,12 +28,11 @@
     "expo-sharing": "~11.10.0",
     "expo-status-bar": "~1.11.1",
     "react": "18.2.0",
-    "react-native": "0.76",
+    "react-native": "0.73.6",
     "react-native-gesture-handler": "~2.14.0",
     "react-native-reanimated": "~3.6.2",
     "react-native-safe-area-context": "4.8.2",
-    "react-native-screens": "~3.29.0",
-    "undefined": "C:\\Users\\Luiz Melo\\Downloads\\pinturapro-app"
+    "react-native-screens": "~3.29.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
