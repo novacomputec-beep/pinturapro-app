@@ -357,14 +357,14 @@ export default function CadastroScreen({ navigation }) {
           </TouchableOpacity>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
-              : passo === 2 ? (tipoConta === 'dono_obra' ? 'Seus\ndados' : 'Perfil\nprofissional')
+              : passo === 2 ? (isDono ? 'Seus\ndados' : 'Perfil\nprofissional')
               : passo === 3 ? 'Escolha\nseu plano'
               : 'Verificação\nde identidade'}
           </Text>
           <Text style={estilos.subtitulo}>
             {`Passo ${passo} de ${totalPassos} — ${
               passo === 1 ? 'dados pessoais'
-              : passo === 2 ? (tipoConta === 'dono_obra' ? 'localização e documento' : 'informações profissionais')
+              : passo === 2 ? (isDono ? 'localização e documento' : 'informações profissionais')
               : passo === 3 ? 'assinatura'
               : 'documentos e referências'}`}
           </Text>
@@ -544,7 +544,7 @@ export default function CadastroScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 8 },
   btnVoltar: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },
