@@ -11,6 +11,64 @@ import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
+// ─── VALIDAÇÃO CPF/CNPJ ──────────────────────────────────────
+const validarCPF = (cpf) => {
+  const nums = cpf.replace(/\D/g, '')
+  if (nums.length !== 11) return false
+  if (/^(\d)\1+$/.test(nums)) return false
+  let soma = 0
+  for (let i = 0; i < 9; i++) soma += parseInt(nums[i]) * (10 - i)
+  let resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  if (resto !== parseInt(nums[9])) return false
+  soma = 0
+  for (let i = 0; i < 10; i++) soma += parseInt(nums[i]) * (11 - i)
+  resto = (soma * 10) % 11
+  if (resto === 10 || resto === 11) resto = 0
+  return resto === parseInt(nums[10])
+}
+
+const validarCNPJ = (cnpj) => {
+  const nums = cnpj.replace(/\D/g, '')
+  if (nums.length !== 14) return false
+  if (/^(\d)\1+$/.test(nums)) return false
+  const calc = (n, arr) => {
+    let soma = 0
+    let pos = arr.length - 7
+    for (let i = arr.length; i >= 1; i--) {
+      soma += parseInt(n.charAt(arr.length - i)) * pos--
+      if (pos < 2) pos = 9
+    }
+    return soma % 11 < 2 ? 0 : 11 - (soma % 11)
+  }
+  return (
+    calc(nums, nums.substring(0, 12)) === parseInt(nums[12]) &&
+    calc(nums, nums.substring(0, 13)) === parseInt(nums[13])
+  )
+}
+
+const validarCpfCnpj = (valor) => {
+  const nums = valor.replace(/\D/g, '')
+  if (nums.length === 11) return validarCPF(nums)
+  if (nums.length === 14) return validarCNPJ(nums)
+  return false
+}
+
+const mascararCpfCnpj = (valor) => {
+  const nums = valor.replace(/\D/g, '').slice(0, 14)
+  if (nums.length <= 11) {
+    return nums
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+  }
+  return nums
+    .replace(/(\d{2})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1/$2')
+    .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+}
+
 const IndicadorPassos = ({ passo, total }) => (
   <View style={estilos.indicador}>
     {Array.from({ length: total }).map((_, i) => (
@@ -108,7 +166,11 @@ export default function CadastroScreen({ navigation }) {
   const validarPasso2 = () => {
     const novos = {}
     if (!cidade.trim()) novos.cidade = 'Informe sua cidade'
-    if (!cpfCnpj.trim()) novos.cpfCnpj = 'Informe CPF ou CNPJ'
+    if (!cpfCnpj.trim()) {
+      novos.cpfCnpj = 'Informe CPF ou CNPJ'
+    } else if (!validarCpfCnpj(cpfCnpj)) {
+      novos.cpfCnpj = 'CPF ou CNPJ inválido'
+    }
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -274,7 +336,7 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_reparo')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🛠️</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Reparos domésticos</Text>
+              <Text style={estilos.tipoNome}>Preciso de Reparos domésticos</Text>
               <Text style={estilos.tipoDesc}>Torneira, elétrica, marcenaria e outros reparos do dia a dia</Text>
               <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
@@ -330,7 +392,7 @@ export default function CadastroScreen({ navigation }) {
           {passo === 2 && (
             <View>
               <Input label="CIDADE" placeholder="Ex: Uberlândia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
-              <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={setCpfCnpj} keyboardType="numeric" erro={erros.cpfCnpj} />
+              <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={(t) => setCpfCnpj(mascararCpfCnpj(t))} keyboardType="numeric" erro={erros.cpfCnpj} />
               {isPrestador && (
                 <>
                   <View style={estilos.duasColunas}>
