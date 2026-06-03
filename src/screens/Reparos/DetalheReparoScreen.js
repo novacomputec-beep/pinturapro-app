@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, ActivityIndicator, Alert, TextInput
+  TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking
 } from 'react-native'
-import { Video, ResizeMode } from 'expo-av'
 import { Image } from 'react-native'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -30,50 +29,41 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
   const [tempo, setTempo] = useState('')
   const [expirou, setExpirou] = useState(false)
+  const expirouRef = React.useRef(false)
 
   useEffect(() => {
+    expirouRef.current = false
     const calcular = () => {
       const inicio = new Date(matchFeitoEm)
       const fim = new Date(inicio.getTime() + prazoHoras * 3600 * 1000)
       const agora = new Date()
       const diff = fim - agora
-
       if (diff <= 0) {
         setTempo('00:00:00')
-        if (!expirou) {
+        if (!expirouRef.current) {
+          expirouRef.current = true
           setExpirou(true)
           if (onExpirar) onExpirar()
         }
         return
       }
-
       const horas = Math.floor(diff / 3600000)
       const minutos = Math.floor((diff % 3600000) / 60000)
       const segundos = Math.floor((diff % 60000) / 1000)
       setTempo(`${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`)
     }
-
     calcular()
     const interval = setInterval(calcular, 1000)
     return () => clearInterval(interval)
   }, [matchFeitoEm, prazoHoras])
 
   const urgente = tempo && tempo.startsWith('00:')
-
   return (
     <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
-      <Text style={estilos.relogioLabel}>
-        {expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}
-      </Text>
-      <Text style={[estilos.relogioTempo, urgente && !expirou && { color: '#f44336' }, expirou && { color: '#666' }]}>
-        {tempo}
-      </Text>
-      {!expirou && (
-        <Text style={estilos.relogioSub}>O prestador deve chegar dentro deste prazo</Text>
-      )}
-      {expirou && (
-        <Text style={estilos.relogioSub}>O reparo voltou para disponível</Text>
-      )}
+      <Text style={estilos.relogioLabel}>{expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}</Text>
+      <Text style={[estilos.relogioTempo, urgente && !expirou && { color: '#f44336' }, expirou && { color: '#666' }]}>{tempo}</Text>
+      {!expirou && <Text style={estilos.relogioSub}>O prestador deve chegar dentro deste prazo</Text>}
+      {expirou && <Text style={estilos.relogioSub}>O reparo voltou para disponível</Text>}
     </View>
   )
 }
@@ -88,7 +78,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
-
   const [tempoExperiencia, setTempoExperiencia] = useState('')
   const [jaEnfrentouProblemas, setJaEnfrentouProblemas] = useState('')
   const [sugestaoDurabilidade, setSugestaoDurabilidade] = useState('')
@@ -96,12 +85,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [possuiFerramentas, setPossuiFerramentas] = useState('')
   const [mensagemAdicional, setMensagemAdicional] = useState('')
 
-  const isDono      = usuario?.id === reparo?.criado_por
+  const isDono = usuario?.id === reparo?.criado_por
   const isPrestador = usuario?.role === 'prestador'
 
-  useEffect(() => {
-    buscar()
-  }, [reparoInicial.id])
+  useEffect(() => { buscar() }, [reparoInicial.id])
 
   const buscar = async () => {
     try {
@@ -118,14 +105,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const handleInteresse = async () => {
-    if (!tempoExperiencia) {
-      Alert.alert('Atenção', 'Informe há quanto tempo realiza este tipo de serviço.')
-      return
-    }
-    if (!possuiFerramentas) {
-      Alert.alert('Atenção', 'Informe se possui as ferramentas necessárias.')
-      return
-    }
+    if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza este tipo de serviço.'); return }
+    if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui as ferramentas necessárias.'); return }
     setEnviando(true)
     try {
       const mensagem = [
@@ -136,7 +117,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
         `🔧 Possui ferramentas: ${possuiFerramentas}`,
         mensagemAdicional ? `💬 Observação: ${mensagemAdicional}` : '',
       ].filter(Boolean).join('\n')
-
       await api.post(`/reparos/${reparo.id}/interesse`, { mensagem })
       setMeuInteresse({ status: 'pendente' })
       setMostrarForm(false)
@@ -149,45 +129,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const handleMatch = async () => {
-    Alert.alert(
-      '🔧 Confirmar ida ao local?',
-      'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar', onPress: async () => {
-            try {
-              const resposta = await api.post(`/reparos/${reparo.id}/match`, {})
-              setReparo(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
-              Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
-            } catch (err) {
-              Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
-            }
-          }
-        }
-      ]
-    )
+    Alert.alert('🔧 Confirmar ida ao local?', 'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Confirmar', onPress: async () => {
+        try {
+          const resposta = await api.post(`/reparos/${reparo.id}/match`, {})
+          setReparo(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
+          Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
+        } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.') }
+      }}
+    ])
   }
 
   const handleEncerrar = async () => {
-    Alert.alert(
-      '✅ Encerrar reparo?',
-      'Confirme que o serviço foi concluído.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Encerrar', onPress: async () => {
-            try {
-              await api.post(`/reparos/${reparo.id}/encerrar`, {})
-              Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.',
-                [{ text: 'OK', onPress: () => navigation.goBack() }])
-            } catch (err) {
-              Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.')
-            }
-          }
-        }
-      ]
-    )
+    Alert.alert('✅ Encerrar reparo?', 'Confirme que o serviço foi concluído.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Encerrar', onPress: async () => {
+        try {
+          await api.post(`/reparos/${reparo.id}/encerrar`, {})
+          Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+        } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
+      }}
+    ])
   }
 
   const handleExpirarMatch = async () => {
@@ -195,23 +158,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await api.post(`/reparos/${reparo.id}/expirar-match`, {})
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O prestador não chegou a tempo. O reparo está disponível novamente.')
-    } catch (err) {
-      console.log('Erro ao expirar match:', err)
-    }
+    } catch (err) { console.log('Erro ao expirar match:', err) }
   }
 
   const handlePedirTempo = () => {
-    Alert.alert(
-      '⚠️ Preciso de mais tempo',
-      'Qual é o motivo?',
-      [
-        { text: '🚗 Veículo quebrou',        onPress: () => enviarPedidoTempo('Veículo quebrou') },
-        { text: '🚦 Trânsito intenso',        onPress: () => enviarPedidoTempo('Trânsito intenso') },
-        { text: '👮 Parada por fiscalização', onPress: () => enviarPedidoTempo('Parada por fiscalização') },
-        { text: '💥 Acidente',                onPress: () => enviarPedidoTempo('Acidente') },
-        { text: 'Cancelar', style: 'cancel' },
-      ]
-    )
+    Alert.alert('⚠️ Preciso de mais tempo', 'Qual é o motivo?', [
+      { text: '🚗 Veículo quebrou', onPress: () => enviarPedidoTempo('Veículo quebrou') },
+      { text: '🚦 Trânsito intenso', onPress: () => enviarPedidoTempo('Trânsito intenso') },
+      { text: '👮 Parada por fiscalização', onPress: () => enviarPedidoTempo('Parada por fiscalização') },
+      { text: '💥 Acidente', onPress: () => enviarPedidoTempo('Acidente') },
+      { text: 'Cancelar', style: 'cancel' },
+    ])
   }
 
   const enviarPedidoTempo = async (motivo) => {
@@ -219,9 +176,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await api.post(`/reparos/${reparo.id}/pedir-tempo`, { motivo })
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
       Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
-    } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.')
-    }
+    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
   }
 
   const handleperguntarTempo = async () => {
@@ -229,73 +184,66 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await api.post(`/reparos/${reparo.id}/perguntar-tempo`, {})
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
       Alert.alert('✅ Prestador notificado!', 'Ele vai informar quantos minutos precisa.')
-    } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
-    }
+    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
   }
 
   const handleInformarTempo = () => {
-    Alert.prompt(
-      '⏱ Quantos minutos você precisa?',
-      'Digite o tempo em minutos',
-      async (minutos) => {
-        const min = parseInt(minutos)
-        if (!min || min <= 0) {
-          Alert.alert('Atenção', 'Informe um número válido de minutos.')
-          return
-        }
-        try {
-          await api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min })
-          setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
-          Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
-        } catch (err) {
-          Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
-        }
-      },
-      'plain-text',
-      '',
-      'numeric'
-    )
+    Alert.prompt('⏱ Quantos minutos você precisa?', 'Digite o tempo em minutos', async (minutos) => {
+      const min = parseInt(minutos)
+      if (!min || min <= 0) { Alert.alert('Atenção', 'Informe um número válido de minutos.'); return }
+      try {
+        await api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min })
+        setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
+        Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
+      } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+    }, 'plain-text', '', 'numeric')
   }
 
   const handleResponderTempo = (aceito) => {
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito
-        ? `O prestador precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.`
-        : 'O reparo voltará para disponível e o prestador será bloqueado.',
+      aceito ? `O prestador precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.` : 'O reparo voltará para disponível e o prestador será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        {
-          text: aceito ? 'Aceitar' : 'Recusar',
-          style: aceito ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              const resp = await api.post(`/reparos/${reparo.id}/responder-tempo`, { aceito })
-              if (aceito) {
-                setReparo(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
-                Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
-              } else {
-                setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
-                Alert.alert('❌ Recusado', 'O reparo voltou para disponível.')
-                navigation.goBack()
-              }
-            } catch (err) {
-              Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+        { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
+          try {
+            const resp = await api.post(`/reparos/${reparo.id}/responder-tempo`, { aceito })
+            if (aceito) {
+              setReparo(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
+              Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
+            } else {
+              setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
+              Alert.alert('❌ Recusado', 'O reparo voltou para disponível.')
+              navigation.goBack()
             }
-          }
-        }
+          } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível responder.') }
+        }}
       ]
     )
   }
 
-  const temMatch = reparo.match_feito_em && reparo.match_usuario_id
-  const souPrestadorDoMatch = temMatch && reparo.match_usuario_id === usuario?.id
+  const temMatch = reparo?.match_feito_em && reparo?.match_usuario_id
+  const souPrestadorDoMatch = temMatch && reparo?.match_usuario_id === usuario?.id
 
   if (carregando) {
     return (
       <SafeAreaView style={estilos.container}>
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
+      </SafeAreaView>
+    )
+  }
+
+  if (!reparo) {
+    return (
+      <SafeAreaView style={estilos.container}>
+        <View style={estilos.topbar}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+            <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: cores.textoFraco }}>Reparo não encontrado</Text>
+        </View>
       </SafeAreaView>
     )
   }
@@ -306,16 +254,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
         </TouchableOpacity>
-        <Text style={estilos.topbarTitulo}>
-          {isDono ? 'Meu reparo' : 'Detalhe do reparo'}
-        </Text>
+        <Text style={estilos.topbarTitulo}>{isDono ? 'Meu reparo' : 'Detalhe do reparo'}</Text>
         <View style={{ width: 36 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
-          {/* Urgência */}
           {reparo.prazo_atendimento_horas && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
@@ -326,17 +271,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   : reparo.prazo_atendimento_horas <= 24 ? '📅 Amanhã'
                   : '📆 Esta semana'}
               </Text>
-              <Text style={estilos.urgenciaHoras}>
-                Atender em até {reparo.prazo_atendimento_horas}h
-              </Text>
+              <Text style={estilos.urgenciaHoras}>Atender em até {reparo.prazo_atendimento_horas}h</Text>
             </View>
           )}
 
-          {/* Valor em destaque */}
           {reparo.valor_estimado && (
             <View style={estilos.valorDestaque}>
               <View>
-                <Text style={estilos.valorDestaqueLabel}>💰 VALOR ESTIMADO</Text>
+                <Text style={estilos.valorDestaqueLabel}>💰 VALOR COMBINADO</Text>
                 <Text style={estilos.valorDestaqueValor}>
                   R$ {Number(reparo.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
@@ -362,19 +304,24 @@ export default function DetalheReparoScreen({ route, navigation }) {
               <Text style={estilos.secaoTitulo}>Fotos e vídeos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
                 {midias.map((midia, i) => (
-                  <View key={i} style={estilos.midiaItem}>
-                    {midia.tipo === 'video' ? (
-                      <Video source={{ uri: midia.url }} style={estilos.midiaImagem} useNativeControls resizeMode={ResizeMode.COVER} />
-                    ) : (
-                      <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
+                  <TouchableOpacity
+                    key={i}
+                    style={estilos.midiaItem}
+                    onPress={() => midia.tipo === 'video' ? Linking.openURL(midia.url) : null}
+                    activeOpacity={midia.tipo === 'video' ? 0.7 : 1}
+                  >
+                    <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
+                    {midia.tipo === 'video' && (
+                      <View style={estilos.videoOverlay}>
+                        <Text style={{ fontSize: 32, color: 'white' }}>▶</Text>
+                      </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             </>
           )}
 
-          {/* Relógio regressivo após match — aparece para dono E prestador */}
           {temMatch && reparo.prazo_atendimento_horas && (
             <RelogioRegressivo
               matchFeitoEm={reparo.match_feito_em}
@@ -383,7 +330,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
             />
           )}
 
-          {/* Banner de contrato — aparece para ambos quando tem match */}
           {temMatch && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
@@ -393,19 +339,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* ============================================
-              ÁREA DO DONO
-          ============================================ */}
           {isDono && (
             <>
-              {/* Botão encerrar para o dono quando tem match */}
               {temMatch && (
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Dono: prestador pediu mais tempo — botão para perguntar quantos minutos */}
               {temMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && (
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⚠️ Prestador precisa de mais tempo</Text>
@@ -415,15 +355,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   </TouchableOpacity>
                 </View>
               )}
-
-              {/* Dono aguardando prestador informar os minutos */}
               {temMatch && reparo.pedido_tempo_status === 'aguardando_minutos' && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o prestador informar quantos minutos precisa...</Text>
                 </View>
               )}
-
-              {/* Dono: aceitar ou recusar o tempo extra */}
               {temMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && (
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⏳ Prestador precisa de mais tempo</Text>
@@ -439,31 +375,19 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
-
-              {/* Lista de interessados */}
-              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>
-                🔧 Prestadores interessados ({interessados.length})
-              </Text>
-
+              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🔧 Prestadores interessados ({interessados.length})</Text>
               {interessados.length === 0 ? (
                 <View style={estilos.vazioInteressados}>
-                  <Text style={estilos.vazioInteressadosTexto}>
-                    Nenhum prestador demonstrou interesse ainda.{'\n'}
-                    Aguarde as notificações!
-                  </Text>
+                  <Text style={estilos.vazioInteressadosTexto}>Nenhum prestador demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
                 </View>
               ) : (
                 interessados.map((item) => (
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.interessadoHeader}>
                       <Text style={estilos.interessadoNome}>{item.nome}</Text>
-                      {item.cidade && (
-                        <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>
-                      )}
+                      {item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
                     </View>
-                    {item.telefone && (
-                      <Text style={estilos.interessadoTelefone}>📱 {item.telefone}</Text>
-                    )}
+                    {item.telefone && <Text style={estilos.interessadoTelefone}>📱 {item.telefone}</Text>}
                     {item.mensagem && (
                       <View style={estilos.mensagemBox}>
                         <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
@@ -475,60 +399,42 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </>
           )}
 
-          {/* ============================================
-              ÁREA DO PRESTADOR
-          ============================================ */}
           {isPrestador && !isDono && (
             <>
-              {/* Botão encerrar para o prestador do match */}
               {souPrestadorDoMatch && (
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Botão pedir mais tempo — só aparece se não há pedido em andamento */}
               {souPrestadorDoMatch && !reparo.pedido_tempo_status && (
                 <TouchableOpacity style={estilos.btnPedirTempo} onPress={handlePedirTempo}>
                   <Text style={estilos.btnPedirTempoTexto}>⚠️ Preciso de mais tempo para chegar</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Prestador aguardando dono perguntar o tempo */}
               {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
                 </View>
               )}
-
-              {/* Prestador precisa informar os minutos */}
               {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_minutos' && (
                 <TouchableOpacity style={estilos.btnInformarTempo} onPress={handleInformarTempo}>
                   <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
                 </TouchableOpacity>
               )}
-
-              {/* Prestador aguardando aprovação do dono */}
               {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {reparo.pedido_tempo_minutos} minuto(s) extra...</Text>
                 </View>
               )}
-
-              {/* Ações quando ainda não tem match */}
               {!temMatch && (
                 meuInteresse ? (
                   <View style={estilos.interesseFeito}>
                     <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
-                      {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato'
-                        : meuInteresse.status === 'aprovada' ? '✅ Aprovado!'
-                        : '❌ Não selecionado'}
+                      {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato' : meuInteresse.status === 'aprovada' ? '✅ Aprovado!' : '❌ Não selecionado'}
                     </Text>
                     <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>
-                      {meuInteresse.status === 'pendente'
-                        ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
-                        : meuInteresse.status === 'aprovada'
-                        ? 'Parabéns! Você foi selecionado. Confirme sua ida ao local:'
+                      {meuInteresse.status === 'pendente' ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
+                        : meuInteresse.status === 'aprovada' ? 'Parabéns! Você foi selecionado. Confirme sua ida ao local:'
                         : 'Sua solicitação não foi selecionada desta vez.'}
                     </Text>
                     {meuInteresse.status === 'aprovada' && (
@@ -540,63 +446,20 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 ) : mostrarForm ? (
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
-                    <Text style={estilos.formSubtitulo}>
-                      Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.
-                    </Text>
-                    <PerguntaOpcoes
-                      label="⏱ Há quanto tempo realiza este tipo de serviço?"
-                      opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']}
-                      valor={tempoExperiencia}
-                      onChange={setTempoExperiencia}
-                    />
-                    <PerguntaOpcoes
-                      label="⚠️ Já enfrentou problemas com este tipo de serviço?"
-                      opcoes={['Nunca', 'Raramente', 'Algumas vezes']}
-                      valor={jaEnfrentouProblemas}
-                      onChange={setJaEnfrentouProblemas}
-                    />
-                    <PerguntaOpcoes
-                      label="📋 Possui referências neste tipo de reparo?"
-                      opcoes={['Sim', 'Não', 'Tenho fotos de serviços']}
-                      valor={possuiReferencias}
-                      onChange={setPossuiReferencias}
-                    />
-                    <PerguntaOpcoes
-                      label="🔧 Possui todas as ferramentas necessárias?"
-                      opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']}
-                      valor={possuiFerramentas}
-                      onChange={setPossuiFerramentas}
-                    />
+                    <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
+                    <PerguntaOpcoes label="⏱ Há quanto tempo realiza este tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
+                    <PerguntaOpcoes label="⚠️ Já enfrentou problemas com este tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
+                    <PerguntaOpcoes label="📋 Possui referências neste tipo de reparo?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
+                    <PerguntaOpcoes label="🔧 Possui todas as ferramentas necessárias?" opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']} valor={possuiFerramentas} onChange={setPossuiFerramentas} />
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
-                      <TextInput
-                        style={estilos.textarea}
-                        placeholder="Ex: Recomendo usar vedante específico..."
-                        placeholderTextColor={cores.textoMutado}
-                        value={sugestaoDurabilidade}
-                        onChangeText={setSugestaoDurabilidade}
-                        multiline
-                        numberOfLines={3}
-                      />
+                      <TextInput style={estilos.textarea} placeholder="Ex: Recomendo usar vedante específico..." placeholderTextColor={cores.textoMutado} value={sugestaoDurabilidade} onChangeText={setSugestaoDurabilidade} multiline numberOfLines={3} />
                     </View>
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
-                      <TextInput
-                        style={estilos.textarea}
-                        placeholder="Alguma informação extra..."
-                        placeholderTextColor={cores.textoMutado}
-                        value={mensagemAdicional}
-                        onChangeText={setMensagemAdicional}
-                        multiline
-                        numberOfLines={3}
-                      />
+                      <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.textoMutado} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
                     </View>
-                    <BotaoPrimario
-                      titulo="Enviar minhas informações →"
-                      onPress={handleInteresse}
-                      carregando={enviando}
-                      estilo={{ marginBottom: 10, marginTop: 8 }}
-                    />
+                    <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
                       <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
                     </TouchableOpacity>
@@ -604,15 +467,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 ) : (
                   <>
                     <BotaoPrimario titulo="Tenho interesse neste reparo →" onPress={() => setMostrarForm(true)} />
-                    <Text style={estilos.aviso}>
-                      Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.
-                    </Text>
+                    <Text style={estilos.aviso}>Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.</Text>
                   </>
                 )
               )}
             </>
           )}
-
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -639,6 +499,7 @@ const estilos = StyleSheet.create({
   descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
   midiaItem: { width: 160, height: 120, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
   midiaImagem: { width: '100%', height: '100%' },
+  videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
   relogioExpirado: { backgroundColor: '#2a2a2a', borderColor: '#666' },
   relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },

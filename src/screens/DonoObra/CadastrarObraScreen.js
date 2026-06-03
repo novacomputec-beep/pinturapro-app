@@ -210,9 +210,9 @@ export default function CadastrarObraScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 8 },
+  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
   btnVoltar: {
-    marginTop: 8, width: 36, height: 36,
+    marginTop: 4, width: 36, height: 36,
     backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
     borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
   },
