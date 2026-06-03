@@ -87,25 +87,52 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
     if (!numero.trim()) novos.numero = 'Informe o número'
-    if (!cidade.trim()) novos.cidade = 'Busque o CEP para preencher a cidade'
+    if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
 
   const selecionarMidia = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    })
-    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+    Alert.alert(
+      'Adicionar mídia',
+      'Como deseja adicionar?',
+      [
+        {
+          text: '📷 Câmera (foto ou vídeo)',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+            const resultado = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.All,
+              quality: 0.7,
+              videoMaxDuration: 60,
+            })
+            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+          }
+        },
+        {
+          text: '🖼️ Galeria',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
+            const resultado = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.All,
+              allowsMultipleSelection: true,
+              quality: 0.7,
+              videoMaxDuration: 60,
+            })
+            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+          }
+        },
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    )
   }
 
   const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
 
   const handleCadastrar = async () => {
+    if (carregando) return
     if (!validar()) return
     setCarregando(true)
     try {
@@ -177,7 +204,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             ))}
           </View>
           <Input label="DESCRIÇÃO DO PROBLEMA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
-          <Input label="VALOR ESTIMADO (R$) — opcional" placeholder="Ex: 150" value={valorEstimado} onChangeText={setValorEstimado} keyboardType="numeric" />
+          <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150" value={valorEstimado} onChangeText={setValorEstimado} keyboardType="numeric" erro={erros.valorEstimado} />
           <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
           <View style={estilos.cepRow}>
             <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />

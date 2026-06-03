@@ -138,19 +138,44 @@ export default function CadastroScreen({ navigation }) {
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
   const selecionarFoto = async (setter) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.')
-      return
-    }
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    })
-    if (!resultado.canceled) {
-      setter(resultado.assets[0].uri)
-    }
+    Alert.alert(
+      'Adicionar foto',
+      'Como deseja adicionar a foto?',
+      [
+        {
+          text: '📷 Tirar foto agora',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== 'granted') {
+              Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.')
+              return
+            }
+            const resultado = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              quality: 0.6,
+            })
+            if (!resultado.canceled) setter(resultado.assets[0].uri)
+          }
+        },
+        {
+          text: '🖼️ Escolher da galeria',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== 'granted') {
+              Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.')
+              return
+            }
+            const resultado = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              quality: 0.6,
+            })
+            if (!resultado.canceled) setter(resultado.assets[0].uri)
+          }
+        },
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    )
   }
 
   const validarPasso1 = () => {

@@ -43,19 +43,38 @@ export default function CadastrarObraScreen({ navigation }) {
   }
 
   const selecionarMidia = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para adicionar fotos e vídeos.')
-      return
-    }
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    })
-    if (!resultado.canceled) {
-      setMidias(prev => [...prev, ...resultado.assets])
-    }
+    Alert.alert(
+      'Adicionar mídia',
+      'Como deseja adicionar?',
+      [
+        {
+          text: '📷 Câmera (foto ou vídeo)',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+            const resultado = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.All,
+              quality: 0.7,
+            })
+            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+          }
+        },
+        {
+          text: '🖼️ Galeria',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
+            const resultado = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.All,
+              allowsMultipleSelection: true,
+              quality: 0.7,
+            })
+            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+          }
+        },
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    )
   }
 
   const removerMidia = (index) => {
@@ -63,6 +82,7 @@ export default function CadastrarObraScreen({ navigation }) {
   }
 
   const handleCadastrar = async () => {
+    if (carregando) return
     if (!validar()) return
     setCarregando(true)
     try {
