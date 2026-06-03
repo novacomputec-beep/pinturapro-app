@@ -47,8 +47,6 @@ export default function MinhasObrasScreen({ navigation }) {
 
   const renderItem = ({ item, tipo }) => {
     const info = statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente
-
-    // Badge especial se tem match ativo (cronômetro em andamento)
     const temMatch = tipo === 'reparo' && item.match_feito_em && item.match_usuario_id
 
     return (
@@ -58,7 +56,6 @@ export default function MinhasObrasScreen({ navigation }) {
           if (tipo === 'obra') {
             navigation.navigate('DetalheMinhaObra', { obra: item })
           } else {
-            // Reparo: abre DetalheReparo passando o reparo como parâmetro
             navigation.navigate('DetalheReparo', { reparo: item })
           }
         }}
@@ -71,14 +68,11 @@ export default function MinhasObrasScreen({ navigation }) {
           </Text>
         </View>
         <Text style={estilos.cardLocal}>📍 {item.cidade}, MG</Text>
-
-        {/* Badge de match ativo */}
         {temMatch && (
           <View style={estilos.matchBadge}>
             <Text style={estilos.matchBadgeTexto}>⏱ Prestador a caminho — toque para ver</Text>
           </View>
         )}
-
         <View style={[estilos.statusPill, { borderColor: info.cor }]}>
           <Text style={[estilos.statusTexto, { color: info.cor }]}>{info.label}</Text>
         </View>
@@ -111,14 +105,14 @@ export default function MinhasObrasScreen({ navigation }) {
       <View style={estilos.botoesRow}>
         <TouchableOpacity
           style={estilos.btnNovo}
-          onPress={() => navigation.navigate('DicasCadastro', { tipo: 'pintura' })}
+          onPress={() => navigation.navigate('CadastrarObra')}
           activeOpacity={0.85}
         >
           <Text style={estilos.btnNovoTexto}>🖌️ Nova obra</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[estilos.btnNovo, { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda }]}
-          onPress={() => navigation.navigate('DicasCadastro', { tipo: 'reparo' })}
+          onPress={() => navigation.navigate('CadastrarReparo')}
           activeOpacity={0.85}
         >
           <Text style={[estilos.btnNovoTexto, { color: cores.textoForte }]}>🔧 Novo reparo</Text>
@@ -174,7 +168,7 @@ export default function MinhasObrasScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
   saudacao: { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
   titulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   btnSair: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
