@@ -19,7 +19,6 @@ const CATEGORIAS = [
 export default function CadastrarObraScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
-
   const [titulo, setTitulo] = useState('')
   const [categoria, setCategoria] = useState('residencial')
   const [valor, setValor] = useState('')
@@ -49,13 +48,11 @@ export default function CadastrarObraScreen({ navigation }) {
       Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para adicionar fotos e vídeos.')
       return
     }
-
     const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsMultipleSelection: true,
       quality: 0.8,
     })
-
     if (!resultado.canceled) {
       setMidias(prev => [...prev, ...resultado.assets])
     }
@@ -68,9 +65,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const handleCadastrar = async () => {
     if (!validar()) return
     setCarregando(true)
-
     try {
-      // Cria a obra
       const obra = await api.post('/obras/dono', {
         titulo: titulo.trim(),
         categoria,
@@ -83,8 +78,6 @@ export default function CadastrarObraScreen({ navigation }) {
         tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         horas_para_expirar: 720,
       })
-
-      // Faz upload das mídias
       if (midias.length > 0) {
         setEnviandoMidias(true)
         for (let i = 0; i < midias.length; i++) {
@@ -98,19 +91,17 @@ export default function CadastrarObraScreen({ navigation }) {
           })
           formData.append('obra_id', obra.id)
           formData.append('ordem', i + 1)
-
           await api.post('/upload/dono', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 120000,
           })
         }
       }
-
       Alert.alert(
         'Obra enviada! 🎉',
         'Sua obra foi enviada para aprovação. Nossa equipe irá analisá-la em breve e você será notificado.',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       )
-
     } catch (err) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível cadastrar a obra.')
     } finally {
@@ -123,16 +114,12 @@ export default function CadastrarObraScreen({ navigation }) {
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
           </TouchableOpacity>
-
           <Text style={estilos.titulo}>Cadastrar{'\n'}nova obra</Text>
           <Text style={estilos.subtitulo}>Preencha os dados da sua obra para encontrar pintores qualificados</Text>
-
           <Input label="TÍTULO DA OBRA" placeholder="Ex: Pintura completa apartamento 3 quartos" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
-
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
             {CATEGORIAS.map(c => (
@@ -147,31 +134,23 @@ export default function CadastrarObraScreen({ navigation }) {
               </TouchableOpacity>
             ))}
           </View>
-
           <View style={estilos.duasColunas}>
             <Input label="VALOR ESTIMADO (R$)" placeholder="5000" value={valor} onChangeText={setValor} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
             <Input label="PRAZO (dias)" placeholder="30" value={prazo} onChangeText={setPrazo} keyboardType="numeric" erro={erros.prazo} estilo={{ flex: 1 }} />
           </View>
-
           <View style={estilos.duasColunas}>
             <Input label="CIDADE" placeholder="Uberlândia" value={cidade} onChangeText={setCidade} erro={erros.cidade} estilo={{ flex: 1 }} />
             <Input label="BAIRRO" placeholder="Centro" value={bairro} onChangeText={setBairro} estilo={{ flex: 1 }} />
           </View>
-
           <Input label="METRAGEM (m²)" placeholder="Ex: 150" value={metragem} onChangeText={setMetragem} keyboardType="numeric" />
-
           <Input label="DESCRIÇÃO DETALHADA" placeholder="Descreva os serviços necessários, condições especiais, materiais..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
-
           <Input label="TAGS (separadas por vírgula)" placeholder="tinta acrílica, massa corrida, selador" value={tags} onChangeText={setTags} />
-
           <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS DA OBRA</Text>
           <Text style={estilos.dicaMidia}>💡 Dica: grave um vídeo com o encarregado explicando os detalhes da obra</Text>
-
           <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
             <Text style={estilos.uploadIcone}>📎</Text>
             <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
           </TouchableOpacity>
-
           {midias.length > 0 && (
             <FlatList
               data={midias}
@@ -194,18 +173,15 @@ export default function CadastrarObraScreen({ navigation }) {
               )}
             />
           )}
-
           <BotaoPrimario
             titulo={enviandoMidias ? 'Enviando mídias...' : 'Enviar obra para aprovação →'}
             onPress={handleCadastrar}
             carregando={carregando}
             estilo={{ marginTop: 8 }}
           />
-
           <Text style={estilos.aviso}>
             Após o envio, nossa equipe irá analisar sua obra e você receberá uma notificação com o resultado.
           </Text>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -214,9 +190,9 @@ export default function CadastrarObraScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 8 },
   btnVoltar: {
-    marginTop: 14, width: 36, height: 36,
+    marginTop: 8, width: 36, height: 36,
     backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
     borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
   },
@@ -224,29 +200,18 @@ const estilos = StyleSheet.create({
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 24, lineHeight: 20 },
   labelCategoria: { fontSize: 11, color: cores.textoFraco, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  categoriaPill: {
-    backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7,
-  },
+  categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   duasColunas: { flexDirection: 'row', gap: 12 },
   dicaMidia: { fontSize: 12, color: cores.textoFraco, marginBottom: 10, lineHeight: 18 },
-  uploadBtn: {
-    borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed',
-    borderRadius: raios.medio, padding: 20, alignItems: 'center',
-    marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10,
-  },
+  uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
   midiaItem: { width: 100, height: 100, marginRight: 8, borderRadius: 10, overflow: 'hidden', position: 'relative' },
   midiaImagem: { width: '100%', height: '100%' },
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
-  midiaRemover: {
-    position: 'absolute', top: 4, right: 4,
-    backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10,
-    width: 20, height: 20, alignItems: 'center', justifyContent: 'center',
-  },
+  midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
 })
