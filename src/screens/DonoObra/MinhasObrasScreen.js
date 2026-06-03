@@ -43,7 +43,30 @@ export default function MinhasObrasScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { buscarDados() }, []))
 
-  const onRefresh = () => { setAtualizando(true); buscarDados() }
+  const deletarItem = async (item, tipo) => {
+    const jaPublicado = item.status === 'aberta' || item.status_aprovacao === 'aprovada'
+    const aviso = jaPublicado
+      ? `⚠️ ATENÇÃO: Este ${tipo === 'obra' ? 'obra' : 'reparo'} já foi publicado e prestadores podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
+      : `Deseja excluir "${item.titulo}"?`
+
+    Alert.alert('Excluir', aviso, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir', style: 'destructive', onPress: async () => {
+          try {
+            if (tipo === 'obra') {
+              await api.delete(`/obras/${item.id}`)
+            } else {
+              await api.post(`/reparos/${item.id}/encerrar`, {})
+            }
+            buscarDados()
+          } catch (err) {
+            Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
+          }
+        }
+      }
+    ])
+  }
 
   const renderItem = ({ item, tipo }) => {
     const info = statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente
@@ -73,8 +96,17 @@ export default function MinhasObrasScreen({ navigation }) {
             <Text style={estilos.matchBadgeTexto}>⏱ Prestador a caminho — toque para ver</Text>
           </View>
         )}
-        <View style={[estilos.statusPill, { borderColor: info.cor }]}>
-          <Text style={[estilos.statusTexto, { color: info.cor }]}>{info.label}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={[estilos.statusPill, { borderColor: info.cor }]}>
+            <Text style={[estilos.statusTexto, { color: info.cor }]}>{info.label}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => deletarItem(item, tipo)}
+            style={estilos.btnLixeira}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 16 }}>🗑️</Text>
+          </TouchableOpacity>
         </View>
         {item.total_interessados > 0 && (
           <Text style={estilos.interessados}>
@@ -195,5 +227,5 @@ const estilos = StyleSheet.create({
   matchBadgeTexto: { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
   statusPill: { alignSelf: 'flex-start', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
   statusTexto: { fontSize: 11, fontWeight: '500' },
-  interessados: { fontSize: 12, color: cores.primaria, fontWeight: '500' },
+  btnLixeira: { padding: 6, borderRadius: 8, backgroundColor: '#3a1a1a' },
 })

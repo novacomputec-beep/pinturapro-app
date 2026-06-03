@@ -27,7 +27,6 @@ const formatarValor = (v) =>
 export default function DetalheMinhaObraScreen({ route, navigation }) {
   const { obra } = route.params
   const [candidaturas, setCandidaturas] = useState([])
-  const [negociacoes, setNegociacoes] = useState({})
   const [carregando, setCarregando] = useState(true)
   const [modalNegociar, setModalNegociar] = useState(false)
   const [candidaturaSelecionada, setCandidaturaSelecionada] = useState(null)
@@ -36,15 +35,12 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
   const [mensagemNegociacao, setMensagemNegociacao] = useState('')
   const [enviando, setEnviando] = useState(false)
 
-  useEffect(() => {
-    buscar()
-  }, [obra.id])
+  useEffect(() => { buscar() }, [obra.id])
 
   const buscar = async () => {
     try {
       const resposta = await api.get(`/candidaturas/obra/${obra.id}`)
-      const lista = resposta || []
-      setCandidaturas(lista)
+      setCandidaturas(resposta || [])
     } catch (err) {
       console.log('Erro ao buscar candidaturas:', err)
     } finally {
@@ -64,10 +60,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
   }
 
   const handleNegociar = async () => {
-    if (!valorNegociacao.trim()) {
-      Alert.alert('Atenção', 'Informe o valor da contra-oferta.')
-      return
-    }
+    if (!valorNegociacao.trim()) { Alert.alert('Atenção', 'Informe o valor da contra-oferta.'); return }
     setEnviando(true)
     try {
       await api.post(`/candidaturas/${candidaturaSelecionada.id}/negociar`, {
@@ -86,6 +79,34 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
     }
   }
 
+  const handleDeletar = () => {
+    const jaPublicado = obra.status === 'aberta' || obra.status_aprovacao === 'aprovada'
+    const isReparo = obra.valor_estimado !== undefined && obra.valor === undefined
+    const tipo = isReparo ? 'reparo' : 'obra'
+    const aviso = jaPublicado
+      ? `⚠️ ATENÇÃO: Este ${tipo} já foi publicado e prestadores podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
+      : `Deseja excluir "${obra.titulo}"?`
+
+    Alert.alert('Excluir', aviso, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Excluir', style: 'destructive', onPress: async () => {
+          try {
+            if (isReparo) {
+              await api.post(`/reparos/${obra.id}/encerrar`, {})
+            } else {
+              await api.delete(`/obras/${obra.id}`)
+            }
+            Alert.alert('Excluído!', `${tipo === 'reparo' ? 'Reparo' : 'Obra'} removido com sucesso.`,
+              [{ text: 'OK', onPress: () => navigation.goBack() }])
+          } catch (err) {
+            Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
+          }
+        }
+      }
+    ])
+  }
+
   const info = statusInfo[obra.status_aprovacao] || statusInfo[obra.status] || statusInfo.pendente
   const isReparo = obra.valor_estimado !== undefined && obra.valor === undefined
 
@@ -96,7 +117,9 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
           <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
         </TouchableOpacity>
         <Text style={estilos.topbarTitulo}>{isReparo ? 'Detalhe do reparo' : 'Detalhe da obra'}</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity style={estilos.btnLixeira} onPress={handleDeletar}>
+          <Text style={{ fontSize: 18 }}>🗑️</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -111,9 +134,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
 
           <View style={estilos.statsRow}>
             <View style={estilos.statCard}>
-              <Text style={estilos.statValor}>
-                {formatarValor(obra.valor || obra.valor_estimado)}
-              </Text>
+              <Text style={estilos.statValor}>{formatarValor(obra.valor || obra.valor_estimado)}</Text>
               <Text style={estilos.statLabel}>Valor estimado</Text>
             </View>
             {obra.prazo_execucao_dias && (
@@ -171,30 +192,17 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
                       <Text style={[estilos.statusPillTexto, { color: sc.cor }]}>{sc.label}</Text>
                     </View>
                   </View>
-
                   {c.valor_oferta && (
                     <View style={estilos.ofertaBox}>
                       <Text style={estilos.ofertaLabel}>💰 Oferta do profissional</Text>
                       <Text style={estilos.ofertaValor}>{formatarValor(c.valor_oferta)}</Text>
-                      {c.mensagem_oferta && (
-                        <Text style={estilos.ofertaMensagem}>"{c.mensagem_oferta}"</Text>
-                      )}
+                      {c.mensagem_oferta && <Text style={estilos.ofertaMensagem}>"{c.mensagem_oferta}"</Text>}
                     </View>
                   )}
-
-                  {c.referencias && (
-                    <Text style={estilos.referencias}>"{c.referencias}"</Text>
-                  )}
-
-                  {c.telefone && (
-                    <Text style={estilos.contato}>📱 {c.telefone}</Text>
-                  )}
-
+                  {c.referencias && <Text style={estilos.referencias}>"{c.referencias}"</Text>}
+                  {c.telefone && <Text style={estilos.contato}>📱 {c.telefone}</Text>}
                   {c.status === 'pendente' && (
-                    <TouchableOpacity
-                      style={estilos.btnNegociar}
-                      onPress={() => abrirNegociacao(c)}
-                    >
+                    <TouchableOpacity style={estilos.btnNegociar} onPress={() => abrirNegociacao(c)}>
                       <Text style={estilos.btnNegociarTexto}>💬 Negociar / Contra-oferta</Text>
                       <Text style={{ color: cores.primaria }}>→</Text>
                     </TouchableOpacity>
@@ -206,23 +214,19 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      {/* Modal de negociação */}
       <Modal visible={modalNegociar} animationType="slide" transparent onRequestClose={() => setModalNegociar(false)}>
         <View style={estilos.modalOverlay}>
           <View style={estilos.modalSheet}>
             <View style={estilos.modalHandle} />
             <Text style={estilos.modalTitulo}>Negociação</Text>
             <Text style={estilos.modalSub}>{candidaturaSelecionada?.nome || 'Profissional'}</Text>
-
             {histNegociacoes.length > 0 && (
               <>
                 <Text style={estilos.secaoTitulo}>Histórico</Text>
                 <ScrollView style={{ maxHeight: 160, marginBottom: 12 }} showsVerticalScrollIndicator={false}>
                   {histNegociacoes.map((neg, i) => (
                     <View key={i} style={[estilos.negCard, neg.autor_role !== 'dono_obra' && estilos.negCardProfissional]}>
-                      <Text style={estilos.negAutor}>
-                        {neg.autor_role === 'dono_obra' ? '🏠 Você' : '👷 Profissional'}
-                      </Text>
+                      <Text style={estilos.negAutor}>{neg.autor_role === 'dono_obra' ? '🏠 Você' : '👷 Profissional'}</Text>
                       <Text style={estilos.negValor}>{formatarValor(neg.valor)}</Text>
                       {neg.mensagem && <Text style={estilos.negMensagem}>{neg.mensagem}</Text>}
                     </View>
@@ -230,32 +234,11 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
                 </ScrollView>
               </>
             )}
-
             <Text style={estilos.inputLabel}>MINHA CONTRA-OFERTA (R$)</Text>
-            <TextInput
-              style={estilos.inputSimples}
-              placeholder="Ex: 4500"
-              placeholderTextColor={cores.textoMutado}
-              value={valorNegociacao}
-              onChangeText={setValorNegociacao}
-              keyboardType="numeric"
-            />
+            <TextInput style={estilos.inputSimples} placeholder="Ex: 4500" placeholderTextColor={cores.textoMutado} value={valorNegociacao} onChangeText={setValorNegociacao} keyboardType="numeric" />
             <Text style={estilos.inputLabel}>MENSAGEM (opcional)</Text>
-            <TextInput
-              style={estilos.textarea}
-              placeholder="Explique sua proposta..."
-              placeholderTextColor={cores.textoMutado}
-              value={mensagemNegociacao}
-              onChangeText={setMensagemNegociacao}
-              multiline
-              numberOfLines={3}
-            />
-            <BotaoPrimario
-              titulo="Enviar contra-oferta →"
-              onPress={handleNegociar}
-              carregando={enviando}
-              estilo={{ marginTop: 8, marginBottom: 10 }}
-            />
+            <TextInput style={estilos.textarea} placeholder="Explique sua proposta..." placeholderTextColor={cores.textoMutado} value={mensagemNegociacao} onChangeText={setMensagemNegociacao} multiline numberOfLines={3} />
+            <BotaoPrimario titulo="Enviar contra-oferta →" onPress={handleNegociar} carregando={enviando} estilo={{ marginTop: 8, marginBottom: 10 }} />
             <BotaoSecundario titulo="Fechar" onPress={() => setModalNegociar(false)} />
           </View>
         </View>
@@ -268,6 +251,7 @@ const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: espacos.tela, paddingVertical: 12 },
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  btnLixeira: { width: 36, height: 36, backgroundColor: '#3a1a1a', borderWidth: 0.5, borderColor: '#f44336', borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   topbarTitulo: { fontSize: 14, color: cores.textoMedio, fontWeight: '500' },
   corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 28, marginBottom: 6 },
