@@ -211,11 +211,18 @@ export default function CadastroScreen({ navigation }) {
       name: `${tipo}.jpg`,
     })
     formData.append('tipo', tipo)
-    const resp = await api.post('/auth/upload-verificacao', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000,
-    })
-    return resp.url
+    
+    // Usa axios direto pois o usuário ainda não tem token neste momento
+    const axios = require('axios')
+    const resp = await axios.post(
+      'https://pinturapro-api-production.up.railway.app/api/auth/upload-verificacao',
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+      }
+    )
+    return resp.data.url
   }
 
   const handleCadastrar = async () => {
@@ -397,7 +404,7 @@ export default function CadastroScreen({ navigation }) {
                 <>
                   <View style={estilos.duasColunas}>
                     <Input label="ANOS DE EXP." placeholder="Ex: 8" value={anosExp} onChangeText={setAnosExp} keyboardType="numeric" estilo={{ flex: 1 }} />
-                    <Input label="TAMANHO DA EQUIPE" placeholder="Ex: 4" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
+                    <Input label="TAMANHO DA EQUIPE" placeholder="Nº de pessoas" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
                   </View>
                   <Input
                     label={tipoConta === 'prestador' ? 'ESPECIALIDADES (ex: hidráulica, elétrica)' : 'ESPECIALIDADES (ex: textura, epóxi)'}
