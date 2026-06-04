@@ -43,6 +43,8 @@ export default function MinhasObrasScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { buscarDados() }, []))
 
+  const onRefresh = () => { setAtualizando(true); buscarDados() }
+
   const deletarItem = async (item, tipo) => {
     const jaPublicado = item.status === 'aberta' || item.status_aprovacao === 'aprovada'
     const aviso = jaPublicado
