@@ -164,7 +164,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           formData.append('arquivo', { uri: midia.uri, type: isVideo ? 'video/mp4' : 'image/jpeg', name: isVideo ? `video_${i}.mp4` : `foto_${i}.jpg` })
           formData.append('reparo_id', reparo.id)
           formData.append('ordem', i + 1)
-          await api.post('/upload/reparo', formData, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000 })
+          await api.post('/upload/reparo', formData, { timeout: 120000 })
         }
       }
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])

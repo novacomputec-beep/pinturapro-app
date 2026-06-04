@@ -112,7 +112,6 @@ export default function CadastrarObraScreen({ navigation }) {
           formData.append('obra_id', obra.id)
           formData.append('ordem', i + 1)
           await api.post('/upload/dono', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
             timeout: 120000,
           })
         }

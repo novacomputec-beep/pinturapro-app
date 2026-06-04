@@ -244,16 +244,14 @@ export default function CadastroScreen({ navigation }) {
       name: `${tipo}.jpg`,
     })
     formData.append('tipo', tipo)
-    
-    // Usa axios direto pois o usuário ainda não tem token neste momento
+
+    // IMPORTANTE: não definir Content-Type manualmente no React Native
+    // O axios define automaticamente com o boundary correto para multipart/form-data
     const axios = require('axios')
     const resp = await axios.post(
       'https://pinturapro-api-production.up.railway.app/api/auth/upload-verificacao',
       formData,
-      {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000,
-      }
+      { timeout: 120000 }
     )
     return resp.data.url
   }
@@ -518,13 +516,13 @@ export default function CadastroScreen({ navigation }) {
               <View style={estilos.referenciaBox}>
                 <Text style={estilos.referenciaLabel}>Referência 1 *</Text>
                 <Input label="NOME" placeholder="Nome completo" value={ref1Nome} onChangeText={setRef1Nome} erro={erros.ref1Nome} />
-                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref1Tel} onChangeText={setRef1Tel} keyboardType="phone-pad" erro={erros.ref1Tel} />
+                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref1Tel} onChangeText={(t) => setRef1Tel(mascararTelefone(t))} keyboardType="phone-pad" erro={erros.ref1Tel} />
               </View>
 
               <View style={estilos.referenciaBox}>
                 <Text style={estilos.referenciaLabel}>Referência 2 (opcional)</Text>
                 <Input label="NOME" placeholder="Nome completo" value={ref2Nome} onChangeText={setRef2Nome} />
-                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={setRef2Tel} keyboardType="phone-pad" />
+                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={(t) => setRef2Tel(mascararTelefone(t))} keyboardType="phone-pad" />
               </View>
 
               <Text style={[estilos.labelSecao, { marginTop: 16 }]}>DOCUMENTO DE IDENTIDADE</Text>
