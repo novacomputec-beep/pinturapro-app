@@ -52,9 +52,12 @@ export default function CadastrarObraScreen({ navigation }) {
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+            const { Audio } = require('expo-av')
+            await Audio.requestPermissionsAsync()
             const resultado = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.All,
               quality: 0.7,
+              allowsEditing: false,
             })
             if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
           }
