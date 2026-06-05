@@ -289,6 +289,7 @@ export default function CadastroScreen({ navigation }) {
         cidade: cidade.trim(),
         cpf_cnpj: cpfCnpj.trim(),
         tipo_conta: tipoConta,
+        plano: isPrestador ? planoSelecionado : null,
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
         especialidades: isPrestador
@@ -588,7 +589,7 @@ export default function CadastroScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
-  btnVoltar: { marginTop: 4, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  btnVoltar: { marginTop: 20, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },
   indicador: { flexDirection: 'row', gap: 6, marginBottom: 28 },

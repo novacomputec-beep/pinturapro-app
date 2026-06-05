@@ -95,7 +95,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!descricao.trim()) novos.descricao = 'Descreva o reparo necessário'
     if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
-    if (!numero.trim()) novos.numero = 'Informe o número'
+    if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
     if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
     setErros(novos)
     return Object.keys(novos).length === 0
@@ -287,7 +287,7 @@ export default function CadastrarReparoScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
-  btnVoltar: { marginTop: 4, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  btnVoltar: { marginTop: 20, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
   avisoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1a2a1a', borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
