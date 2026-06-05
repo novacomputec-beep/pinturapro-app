@@ -5,6 +5,8 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
+import { Audio } from 'expo-av'
+import * as SecureStore from 'expo-secure-store'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -109,8 +111,6 @@ export default function CadastrarReparoScreen({ navigation }) {
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-            // Solicita permissão de microfone para gravação de vídeo
-            const { Audio } = require('expo-av')
             await Audio.requestPermissionsAsync()
             const resultado = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -168,7 +168,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           formData.append('arquivo', { uri: midia.uri, type: isVideo ? 'video/mp4' : 'image/jpeg', name: isVideo ? `video_${i}.mp4` : `foto_${i}.jpg` })
           formData.append('reparo_id', reparo.id)
           formData.append('ordem', i + 1)
-          const token = await require('expo-secure-store').getItemAsync('token')
+          const token = await SecureStore.getItemAsync('token')
           const uploadResp = await fetch(
             'https://pinturapro-api-production.up.railway.app/api/upload/reparo',
             {

@@ -7,7 +7,6 @@ import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { BotaoPrimario, Input } from '../../components'
 import { authService } from '../../services/api'
-import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
