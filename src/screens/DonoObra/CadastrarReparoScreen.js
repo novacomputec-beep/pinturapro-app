@@ -168,7 +168,16 @@ export default function CadastrarReparoScreen({ navigation }) {
           formData.append('arquivo', { uri: midia.uri, type: isVideo ? 'video/mp4' : 'image/jpeg', name: isVideo ? `video_${i}.mp4` : `foto_${i}.jpg` })
           formData.append('reparo_id', reparo.id)
           formData.append('ordem', i + 1)
-          await api.post('/upload/reparo', formData, { timeout: 120000 })
+          const token = await require('expo-secure-store').getItemAsync('token')
+          const uploadResp = await fetch(
+            'https://pinturapro-api-production.up.railway.app/api/upload/reparo',
+            {
+              method: 'POST',
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+              body: formData,
+            }
+          )
+          if (!uploadResp.ok) throw new Error('Erro ao fazer upload')
         }
       }
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])

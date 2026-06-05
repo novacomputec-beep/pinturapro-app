@@ -245,15 +245,21 @@ export default function CadastroScreen({ navigation }) {
     })
     formData.append('tipo', tipo)
 
-    // IMPORTANTE: não definir Content-Type manualmente no React Native
-    // O axios define automaticamente com o boundary correto para multipart/form-data
-    const axios = require('axios')
-    const resp = await axios.post(
+    const resp = await fetch(
       'https://pinturapro-api-production.up.railway.app/api/auth/upload-verificacao',
-      formData,
-      { timeout: 120000 }
+      {
+        method: 'POST',
+        body: formData,
+      }
     )
-    return resp.data.url
+
+    if (!resp.ok) {
+      const erro = await resp.json().catch(() => ({}))
+      throw new Error(erro.erro || `Erro ao enviar ${tipo}`)
+    }
+
+    const data = await resp.json()
+    return data.url
   }
 
   const handleCadastrar = async () => {

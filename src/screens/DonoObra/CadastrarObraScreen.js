@@ -114,9 +114,16 @@ export default function CadastrarObraScreen({ navigation }) {
           })
           formData.append('obra_id', obra.id)
           formData.append('ordem', i + 1)
-          await api.post('/upload/dono', formData, {
-            timeout: 120000,
-          })
+          const token = await require('expo-secure-store').getItemAsync('token')
+          const uploadResp = await fetch(
+            'https://pinturapro-api-production.up.railway.app/api/upload/dono',
+            {
+              method: 'POST',
+              headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+              body: formData,
+            }
+          )
+          if (!uploadResp.ok) throw new Error('Erro ao fazer upload')
         }
       }
       Alert.alert(
