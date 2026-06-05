@@ -37,14 +37,16 @@ export default function FeedReparosScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
+  const [erro, setErro] = useState(null)
 
   const buscarReparos = async (cat = categoria) => {
     try {
+      setErro(null)
       const params = cat !== 'todas' ? `?categoria=${cat}` : ''
       const resposta = await api.get(`/reparos${params}`)
       setReparos(resposta.reparos || [])
     } catch (err) {
-      console.log('Erro ao buscar reparos:', err)
+      setErro(err.mensagem || 'Erro ao buscar reparos')
     } finally {
       setCarregando(false)
       setAtualizando(false)
@@ -138,6 +140,15 @@ export default function FeedReparosScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
+      {erro && (
+        <View style={estilos.erroBox}>
+          <Text style={estilos.erroTexto}>{erro}</Text>
+          <TouchableOpacity onPress={buscarReparos} style={{ marginTop: 8 }}>
+            <Text style={{ color: cores.primaria, fontSize: 13 }}>Tentar novamente</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <FlatList
         data={reparos}
         keyExtractor={(item) => item.id}
@@ -193,6 +204,8 @@ const estilos = StyleSheet.create({
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 12 },
+  erroBox: { alignItems: 'center', padding: 20 },
+  erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },
   vazio: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
   vazioIcone: { fontSize: 48, marginBottom: 16 },
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },

@@ -31,7 +31,7 @@ export default function LoginScreen({ navigation }) {
     try {
       const resposta = await login(email.trim().toLowerCase(), senha)
       if (resposta?.assinatura?.status === 'pendente' || !resposta?.assinatura) {
-        if (resposta?.usuario?.role === 'assinante') {
+        if (resposta?.usuario?.role === 'prestador' || resposta?.usuario?.role === 'assinante') {
           try {
             const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: 'mensal' })
             if (pagamento.init_point) {

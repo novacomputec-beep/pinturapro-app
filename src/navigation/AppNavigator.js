@@ -74,7 +74,7 @@ const TabIcone = ({ nome, focado }) => {
 }
 
 function PagamentoPendenteScreen() {
-  const { logout, usuario } = useAuth()
+  const { logout, usuario, assinatura } = useAuth()
   const [link, setLink] = React.useState(null)
   const [carregando, setCarregando] = React.useState(true)
 
@@ -89,8 +89,9 @@ function PagamentoPendenteScreen() {
     buscar()
   }, [])
 
-  const valor = usuario?.role === 'prestador' ? 'R$ 49,90' : 'R$ 99,90'
-  const tipo = usuario?.role === 'prestador' ? 'reparos e serviços' : 'obras de pintura'
+  const valorMensal = assinatura?.valor_mensal
+    ? `R$ ${Number(assinatura.valor_mensal).toFixed(2).replace('.', ',')}`
+    : usuario?.role === 'prestador' ? 'R$ 49,90' : 'R$ 99,90'
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
@@ -100,10 +101,10 @@ function PagamentoPendenteScreen() {
           Assinatura pendente
         </Text>
         <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
-          Para acessar {tipo} disponíveis, finalize seu pagamento.
+          Para acessar os serviços disponíveis, finalize seu pagamento.
         </Text>
         <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 32 }}>
-          {valor}/mês
+          {valorMensal}/mês
         </Text>
         {carregando ? (
           <Text style={{ color: cores.textoFraco }}>Gerando link...</Text>
@@ -171,7 +172,7 @@ const TabsPintorNavigator = () => (
   </Tab.Navigator>
 )
 
-// Tabs do Prestador
+// Tabs do Prestador (inclui Obras para pintores e Reparos para todos)
 const TabsPrestadorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -183,6 +184,7 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
+    <Tab.Screen name="Obras"     component={FeedStackNavigator} options={{ title: 'Obras' }} />
     <Tab.Screen name="Reparos"   component={ReparoStackNavigator} options={{ title: 'Reparos' }} />
     <Tab.Screen name="Mensagens" component={MensagensScreen} />
     <Tab.Screen name="Perfil"    component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
