@@ -322,7 +322,7 @@ export default function CadastroScreen({ navigation }) {
       }
 
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err?.response?.data?.erro || 'Não foi possível criar sua conta.')
+      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
     } finally {
       setCarregando(false)
       setEnviandoDocs(false)

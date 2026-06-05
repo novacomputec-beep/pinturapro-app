@@ -166,8 +166,8 @@ export default function CadastrarReparoScreen({ navigation }) {
           const formData = new FormData()
           const isVideo = midia.type === 'video'
           formData.append('arquivo', { uri: midia.uri, type: isVideo ? 'video/mp4' : 'image/jpeg', name: isVideo ? `video_${i}.mp4` : `foto_${i}.jpg` })
-          formData.append('reparo_id', reparo.id)
-          formData.append('ordem', i + 1)
+          formData.append('reparo_id', String(reparo.id))
+          formData.append('ordem', String(i + 1))
           const token = await SecureStore.getItemAsync('token')
           const uploadResp = await fetch(
             'https://pinturapro-api-production.up.railway.app/api/upload/reparo',
@@ -177,12 +177,15 @@ export default function CadastrarReparoScreen({ navigation }) {
               body: formData,
             }
           )
-          if (!uploadResp.ok) throw new Error('Erro ao fazer upload')
+          if (!uploadResp.ok) {
+            const erro = await uploadResp.json().catch(() => ({}))
+            throw new Error(erro.erro || erro.mensagem || `Erro no upload (${uploadResp.status})`)
+          }
         }
       }
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível cadastrar o reparo.')
+      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar o reparo.')
     } finally {
       setCarregando(false)
     }
