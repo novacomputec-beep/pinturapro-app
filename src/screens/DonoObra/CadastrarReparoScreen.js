@@ -179,6 +179,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           )
           if (!uploadResp.ok) {
             const erro = await uploadResp.json().catch(() => ({}))
+            await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
             throw new Error(erro.erro || erro.mensagem || `Erro no upload (${uploadResp.status})`)
           }
         }

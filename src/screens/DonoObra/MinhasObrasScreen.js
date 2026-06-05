@@ -59,7 +59,7 @@ export default function MinhasObrasScreen({ navigation }) {
             if (tipo === 'obra') {
               await api.delete(`/obras/dono/${item.id}`)
             } else {
-              await api.post(`/reparos/${item.id}/encerrar`, {})
+              await api.delete(`/reparos/dono/${item.id}`)
             }
             buscarDados()
           } catch (err) {
