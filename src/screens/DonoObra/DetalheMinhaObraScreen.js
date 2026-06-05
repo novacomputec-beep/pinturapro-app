@@ -95,7 +95,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
             if (isReparo) {
               await api.post(`/reparos/${obra.id}/encerrar`, {})
             } else {
-              await api.delete(`/obras/${obra.id}`)
+              await api.delete(`/obras/dono/${obra.id}`)
             }
             Alert.alert('Excluído!', `${tipo === 'reparo' ? 'Reparo' : 'Obra'} removido com sucesso.`,
               [{ text: 'OK', onPress: () => navigation.goBack() }])

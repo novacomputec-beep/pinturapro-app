@@ -57,7 +57,7 @@ export default function MinhasObrasScreen({ navigation }) {
         text: 'Excluir', style: 'destructive', onPress: async () => {
           try {
             if (tipo === 'obra') {
-              await api.delete(`/obras/${item.id}`)
+              await api.delete(`/obras/dono/${item.id}`)
             } else {
               await api.post(`/reparos/${item.id}/encerrar`, {})
             }
