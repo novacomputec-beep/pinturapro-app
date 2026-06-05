@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, Image } from 'react-native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos } from '../../utils/tema'
 
@@ -9,9 +9,11 @@ export default function SplashScreen({ navigation }) {
 
       {/* Logo */}
       <View style={estilos.logoArea}>
-        <View style={estilos.logoIcone}>
-          <Text style={estilos.logoIconeTexto}>PP</Text>
-        </View>
+        <Image
+          source={require('../../../assets/logo.png')}
+          style={estilos.logoIcone}
+          resizeMode="contain"
+        />
         <Text style={estilos.logoNome}>
           Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
         </Text>
@@ -77,18 +79,7 @@ const estilos = StyleSheet.create({
   logoIcone: {
     width: 72,
     height: 72,
-    backgroundColor: cores.primariaSuave,
-    borderWidth: 0.5,
-    borderColor: cores.primariaBorda,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 16,
-  },
-  logoIconeTexto: {
-    color: cores.primaria,
-    fontSize: 22,
-    fontWeight: '700',
   },
   logoNome: {
     fontSize: 28,
