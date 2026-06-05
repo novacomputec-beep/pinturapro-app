@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
-import { BotaoPrimario, Input } from '../../components'
+import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import { authService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -120,6 +120,7 @@ export default function CadastroScreen({ navigation }) {
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [cidade, setCidade] = useState('')
+  const [uf, setUf] = useState('')
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
@@ -197,7 +198,8 @@ export default function CadastroScreen({ navigation }) {
 
   const validarPasso2 = () => {
     const novos = {}
-    if (!cidade.trim()) novos.cidade = 'Informe sua cidade'
+    if (!uf.trim()) novos.uf = 'Selecione o estado'
+    if (!cidade.trim()) novos.cidade = 'Selecione a cidade'
     if (!cpfCnpj.trim()) {
       novos.cpfCnpj = 'Informe CPF ou CNPJ'
     } else if (!validarCpfCnpj(cpfCnpj)) {
@@ -290,6 +292,8 @@ export default function CadastroScreen({ navigation }) {
         cpf_cnpj: cpfCnpj.trim(),
         tipo_conta: tipoConta,
         plano: isPrestador ? planoSelecionado : null,
+        pais: 'Brasil',
+        uf: uf.trim(),
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
         especialidades: isPrestador
@@ -435,7 +439,13 @@ export default function CadastroScreen({ navigation }) {
           {/* PASSO 2 — Perfil profissional */}
           {passo === 2 && (
             <View>
-              <Input label="CIDADE" placeholder="Ex: Uberlândia, MG" value={cidade} onChangeText={setCidade} erro={erros.cidade} />
+              <SeletorLocalidade
+                uf={uf}
+                cidade={cidade}
+                onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+                erroEstado={erros.uf}
+                erroCidade={erros.cidade}
+              />
               <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={(t) => setCpfCnpj(mascararCpfCnpj(t))} keyboardType="numeric" erro={erros.cpfCnpj} />
               {isPrestador && (
                 <>

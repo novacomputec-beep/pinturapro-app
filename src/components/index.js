@@ -80,6 +80,9 @@ export const Tag = ({ texto }) => (
   </View>
 )
 
+// ─── SELETOR DE LOCALIDADE ───────────────────────────────────
+export { default as SeletorLocalidade } from './SeletorLocalidade'
+
 // ─── ESTILOS ─────────────────────────────────────────────────
 const estilos = StyleSheet.create({
   btnPrimario: {

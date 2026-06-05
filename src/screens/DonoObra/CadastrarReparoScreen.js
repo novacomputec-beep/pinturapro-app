@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { Audio } from 'expo-av'
 import * as SecureStore from 'expo-secure-store'
-import { BotaoPrimario, Input } from '../../components'
+import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -94,6 +94,8 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva o reparo necessário'
     if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
+    if (!uf) novos.uf = 'Selecione o estado'
+    if (!cidade) novos.cidade = 'Selecione a cidade'
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
     if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
@@ -153,6 +155,8 @@ export default function CadastrarReparoScreen({ navigation }) {
         categoria,
         descricao: descricao.trim(),
         valor_estimado: valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
+        pais: 'Brasil',
+        uf: uf.trim(),
         cidade: cidade.trim(),
         bairro: bairro.trim(),
         prazo_atendimento_horas: urgencia,
@@ -230,6 +234,14 @@ export default function CadastrarReparoScreen({ navigation }) {
           <Input label="DESCRIÇÃO DO PROBLEMA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
           <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
           <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
+          <SeletorLocalidade
+            uf={uf}
+            cidade={cidade}
+            onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erroEstado={erros.uf}
+            erroCidade={erros.cidade}
+          />
+          <Text style={[estilos.labelCategoria, { marginTop: 16 }]}>CEP E ENDEREÇO</Text>
           <View style={estilos.cepRow}>
             <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
@@ -242,10 +254,7 @@ export default function CadastrarReparoScreen({ navigation }) {
                 <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" erro={erros.numero} estilo={{ flex: 1 }} />
                 <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={setComplemento} estilo={{ flex: 1 }} />
               </View>
-              <View style={estilos.duasColunas}>
-                <Input label="BAIRRO" value={bairro} onChangeText={setBairro} estilo={{ flex: 1 }} />
-                <Input label="CIDADE/UF" value={`${cidade}/${uf}`} editable={false} estilo={{ flex: 1, backgroundColor: cores.fundoElevado }} />
-              </View>
+              <Input label="BAIRRO" value={bairro} onChangeText={setBairro} />
               {latitude && (
                 <View style={estilos.geoConfirm}>
                   <Text style={estilos.geoConfirmTexto}>📍 Localização encontrada — prestadores próximos serão notificados!</Text>
