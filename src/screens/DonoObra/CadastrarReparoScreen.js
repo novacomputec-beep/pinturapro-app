@@ -54,8 +54,11 @@ export default function CadastrarReparoScreen({ navigation }) {
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
     if (!nums) return ''
-    const numero = parseInt(nums) / 100
-    return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const centavos = Math.min(parseInt(nums, 10), 9999999999)
+    const reais = Math.floor(centavos / 100)
+    const cents = centavos % 100
+    const reaisStr = reais.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    return `${reaisStr},${String(cents).padStart(2, '0')}`
   }
 
   const buscarCep = async (cepDigitado) => {
@@ -106,14 +109,25 @@ export default function CadastrarReparoScreen({ navigation }) {
 
   const selecionarMidia = () => setShowMediaPicker(true)
 
-  const usarCamera = async () => {
+  const usarCameraFoto = async () => {
+    setShowMediaPicker(false)
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+    const resultado = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: false,
+    })
+    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+  }
+
+  const usarCameraVideo = async () => {
     setShowMediaPicker(false)
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     await Audio.requestPermissionsAsync()
     const resultado = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      quality: 0.7,
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       videoMaxDuration: 60,
       allowsEditing: false,
     })
@@ -314,8 +328,11 @@ export default function CadastrarReparoScreen({ navigation }) {
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
             <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCamera}>
-              <Text style={estilos.modalOpcaoTexto}>📷 Câmera (foto ou vídeo)</Text>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraFoto}>
+              <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraVideo}>
+              <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
             </TouchableOpacity>
             <TouchableOpacity style={estilos.modalOpcao} onPress={usarGaleria}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
