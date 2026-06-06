@@ -78,21 +78,29 @@ function PagamentoPendenteScreen() {
   const [link, setLink] = React.useState(null)
   const [carregando, setCarregando] = React.useState(true)
   const [verificando, setVerificando] = React.useState(false)
+  const [erro, setErro] = React.useState(null)
 
-  React.useEffect(() => {
-    const buscar = async () => {
-      try {
-        const plano = assinatura?.plano || 'mensal'
-        const pagamento = await api.post('/pagamentos/criar-assinatura', { plano })
-        if (pagamento.init_point) {
-          setLink(pagamento.init_point)
-          Linking.openURL(pagamento.init_point)
-        }
-      } catch {}
-      finally { setCarregando(false) }
+  const buscarLink = React.useCallback(async () => {
+    setCarregando(true)
+    setErro(null)
+    try {
+      const plano = assinatura?.plano || 'mensal'
+      const pagamento = await api.post('/pagamentos/criar-assinatura', { plano })
+      if (pagamento.init_point) {
+        setLink(pagamento.init_point)
+        Linking.openURL(pagamento.init_point).catch(() => {})
+      } else {
+        setErro('Link de pagamento não retornado. Toque em "Tentar novamente".')
+      }
+    } catch (err) {
+      const msg = err?.erro || err?.message || 'Não foi possível gerar o link de pagamento.'
+      setErro(msg)
+    } finally {
+      setCarregando(false)
     }
-    buscar()
-  }, [])
+  }, [assinatura?.plano])
+
+  React.useEffect(() => { buscarLink() }, [])
 
   const verificarPagamento = async () => {
     setVerificando(true)
@@ -115,26 +123,43 @@ function PagamentoPendenteScreen() {
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
           Finalize seu pagamento
         </Text>
-        <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
-          {carregando
-            ? 'Gerando link de pagamento...'
-            : 'Você está sendo redirecionado para o pagamento. Se não abriu automaticamente, toque no botão abaixo.'}
-        </Text>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 32 }}>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
           {valorMensal}/mês
         </Text>
-        {link ? (
-          <TouchableOpacity
-            style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
-            onPress={() => Linking.openURL(link)}
-          >
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Abrir pagamento →</Text>
-          </TouchableOpacity>
-        ) : !carregando && (
-          <Text style={{ color: cores.textoFraco, textAlign: 'center', marginBottom: 12 }}>
-            Entre em contato para ativar seu acesso.
+
+        {carregando && (
+          <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+            Gerando link de pagamento...
           </Text>
         )}
+
+        {erro && !carregando && (
+          <View style={{ backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f4433644', borderRadius: raios.medio, padding: 14, width: '100%', marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, color: '#f44336', textAlign: 'center', lineHeight: 20 }}>{erro}</Text>
+          </View>
+        )}
+
+        {link ? (
+          <>
+            <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 16 }}>
+              Você está sendo redirecionado. Se não abriu automaticamente, toque no botão abaixo.
+            </Text>
+            <TouchableOpacity
+              style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
+              onPress={() => Linking.openURL(link).catch(() => {})}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Abrir página de pagamento →</Text>
+            </TouchableOpacity>
+          </>
+        ) : !carregando && (
+          <TouchableOpacity
+            style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
+            onPress={buscarLink}
+          >
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Tentar novamente →</Text>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 0.5, borderColor: cores.borda }}
           onPress={verificarPagamento}
@@ -250,7 +275,7 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: false, statusBarTranslucent: false, statusBarColor: '#0A0A0A', statusBarStyle: 'light' }}>
         {usuario ? (
           usuario.role === 'dono_obra' ? (
             <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
