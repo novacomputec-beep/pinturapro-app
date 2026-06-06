@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, Modal,
-  FlatList, ActivityIndicator, StyleSheet,
+  FlatList, ActivityIndicator, StyleSheet, TextInput,
 } from 'react-native'
 import { cores, raios, espacos } from '../utils/tema'
 
@@ -24,6 +24,7 @@ export default function SeletorLocalidade({
   const [carregandoEstados, setCarregandoEstados] = useState(false)
   const [carregandoCidades, setCarregandoCidades] = useState(false)
   const [modalAberto, setModalAberto] = useState(null) // 'estado' | 'cidade'
+  const [busca, setBusca] = useState('')
 
   useEffect(() => {
     setCarregandoEstados(true)
@@ -105,17 +106,30 @@ export default function SeletorLocalidade({
         visible={modalAberto !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setModalAberto(null)}
+        onRequestClose={() => { setModalAberto(null); setBusca('') }}
       >
         <View style={estilos.overlay}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => setModalAberto(null)} activeOpacity={1} />
+          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setModalAberto(null); setBusca('') }} activeOpacity={1} />
           <View style={estilos.sheet}>
             <View style={estilos.handle} />
             <Text style={estilos.sheetTitulo}>
               {modalAberto === 'estado' ? 'Selecione o estado' : 'Selecione a cidade'}
             </Text>
+            <TextInput
+              style={estilos.buscaInput}
+              placeholder={modalAberto === 'estado' ? 'Buscar estado...' : 'Buscar cidade...'}
+              placeholderTextColor={cores.textoMutado}
+              value={busca}
+              onChangeText={setBusca}
+              autoCorrect={false}
+            />
             <FlatList
-              data={modalAberto === 'estado' ? estados : cidades}
+              data={(modalAberto === 'estado' ? estados : cidades).filter(item => {
+                const nome = modalAberto === 'estado'
+                  ? `${item.nome} ${item.sigla}`
+                  : item.nome
+                return nome.toLowerCase().includes(busca.toLowerCase())
+              })}
               keyExtractor={(item) => modalAberto === 'estado' ? item.sigla : String(item.id)}
               renderItem={({ item }) => {
                 const ativo = modalAberto === 'estado' ? item.sigla === uf : item.nome === cidade
@@ -190,6 +204,18 @@ const estilos = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20, paddingBottom: 12, marginBottom: 4,
     borderBottomWidth: 0.5, borderBottomColor: cores.borda,
+  },
+  buscaInput: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: cores.fundoInput,
+    borderWidth: 0.5,
+    borderColor: cores.borda,
+    borderRadius: raios.medio,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: cores.textoForte,
   },
   opcao: {
     paddingHorizontal: 20, paddingVertical: 15,

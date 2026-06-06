@@ -265,6 +265,7 @@ export default function CadastroScreen({ navigation }) {
 
   const handleCadastrar = async () => {
     setCarregando(true)
+    let timeoutId = null
     try {
       let docFrenteUrl = null
       let docVersoUrl = null
@@ -273,9 +274,20 @@ export default function CadastroScreen({ navigation }) {
       // Se for prestador, faz upload dos documentos primeiro
       if (isPrestador && docFrente) {
         setEnviandoDocs(true)
+        timeoutId = setTimeout(() => {
+          setCarregando(false)
+          setEnviandoDocs(false)
+          Alert.alert(
+            'Tempo esgotado',
+            'O envio demorou muito. Verifique sua conexão e tente novamente.',
+            [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+          )
+        }, 10000)
         docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
         docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
         selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
+        clearTimeout(timeoutId)
+        timeoutId = null
         setEnviandoDocs(false)
       }
 
@@ -329,6 +341,7 @@ export default function CadastroScreen({ navigation }) {
     } catch (err) {
       Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
     } finally {
+      if (timeoutId) clearTimeout(timeoutId)
       setCarregando(false)
       setEnviandoDocs(false)
     }
@@ -599,7 +612,7 @@ export default function CadastroScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
-  btnVoltar: { marginTop: 20, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  btnVoltar: { marginTop: 40, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },
   indicador: { flexDirection: 'row', gap: 6, marginBottom: 28 },
