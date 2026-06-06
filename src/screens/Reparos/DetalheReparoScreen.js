@@ -224,6 +224,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const temMatch = reparo?.match_feito_em && reparo?.match_usuario_id
   const souPrestadorDoMatch = temMatch && reparo?.match_usuario_id === usuario?.id
+  const prestadorMatch = temMatch ? interessados.find(i => i.usuario_id === reparo.match_usuario_id) : null
+
+  const abrirWhatsApp = (telefone) => {
+    const digitos = telefone.replace(/\D/g, '')
+    const numero = digitos.length <= 11 ? `55${digitos}` : digitos
+    Linking.openURL(`whatsapp://send?phone=${numero}`)
+  }
 
   if (carregando) {
     return (
@@ -341,6 +348,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {isDono && (
             <>
+              {temMatch && prestadorMatch?.telefone && (
+                <TouchableOpacity
+                  style={estilos.btnWhatsApp}
+                  onPress={() => abrirWhatsApp(prestadorMatch.telefone)}
+                >
+                  <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do prestador: {prestadorMatch.telefone}</Text>
+                </TouchableOpacity>
+              )}
               {temMatch && (
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
@@ -387,7 +402,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       <Text style={estilos.interessadoNome}>{item.nome}</Text>
                       {item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
                     </View>
-                    {item.telefone && <Text style={estilos.interessadoTelefone}>📱 {item.telefone}</Text>}
+                    {item.telefone && (
+                      <TouchableOpacity onPress={() => abrirWhatsApp(item.telefone)}>
+                        <Text style={estilos.interessadoTelefone}>💬 {item.telefone} — WhatsApp</Text>
+                      </TouchableOpacity>
+                    )}
                     {item.mensagem && (
                       <View style={estilos.mensagemBox}>
                         <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
@@ -507,6 +526,8 @@ const estilos = StyleSheet.create({
   relogioSub: { fontSize: 11, color: cores.textoFraco, marginTop: 6, textAlign: 'center' },
   btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
   btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  btnWhatsApp: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#25D366', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 8 },
+  btnWhatsAppTexto: { fontSize: 13, fontWeight: '600', color: '#25D366' },
   btnEncerrar: { backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginTop: 12, marginBottom: 8 },
   btnEncerrarTexto: { fontSize: 14, fontWeight: '700', color: '#0A0A0A' },
   interesseFeito: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16 },

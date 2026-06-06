@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
@@ -49,6 +49,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [longitude, setLongitude] = useState(null)
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
+  const [showMediaPicker, setShowMediaPicker] = useState(false)
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -103,43 +104,33 @@ export default function CadastrarReparoScreen({ navigation }) {
     return Object.keys(novos).length === 0
   }
 
-  const selecionarMidia = async () => {
-    Alert.alert(
-      'Adicionar mídia',
-      'Como deseja adicionar?',
-      [
-        {
-          text: '📷 Câmera (foto ou vídeo)',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-            await Audio.requestPermissionsAsync()
-            const resultado = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.All,
-              quality: 0.7,
-              videoMaxDuration: 60,
-              allowsEditing: false,
-            })
-            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-          }
-        },
-        {
-          text: '🖼️ Galeria',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
-            const resultado = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.All,
-              allowsMultipleSelection: true,
-              quality: 0.7,
-              videoMaxDuration: 60,
-            })
-            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-          }
-        },
-        { text: 'Cancelar', style: 'cancel' }
-      ]
-    )
+  const selecionarMidia = () => setShowMediaPicker(true)
+
+  const usarCamera = async () => {
+    setShowMediaPicker(false)
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+    await Audio.requestPermissionsAsync()
+    const resultado = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      quality: 0.7,
+      videoMaxDuration: 60,
+      allowsEditing: false,
+    })
+    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+  }
+
+  const usarGaleria = async () => {
+    setShowMediaPicker(false)
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsMultipleSelection: true,
+      quality: 0.7,
+      videoMaxDuration: 60,
+    })
+    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
   }
 
   const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
@@ -318,6 +309,23 @@ export default function CadastrarReparoScreen({ navigation }) {
           <Text style={estilos.aviso}>Seu reparo será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
+        <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
+          <View style={estilos.modalSheet}>
+            <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCamera}>
+              <Text style={estilos.modalOpcaoTexto}>📷 Câmera (foto ou vídeo)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarGaleria}>
+              <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
+              <Text style={[estilos.modalOpcaoTexto, { color: cores.textoFraco }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -357,4 +365,9 @@ const estilos = StyleSheet.create({
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
+  modalOpcao: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginBottom: 8 },
+  modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, fontWeight: '500' },
 })
