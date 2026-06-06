@@ -84,6 +84,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [possuiReferencias, setPossuiReferencias] = useState('')
   const [possuiFerramentas, setPossuiFerramentas] = useState('')
   const [mensagemAdicional, setMensagemAdicional] = useState('')
+  const [valorProposto, setValorProposto] = useState('')
+
+  const mascararValor = (v) => {
+    const nums = v.replace(/\D/g, '')
+    if (!nums) return ''
+    const centavos = Math.min(parseInt(nums, 10), 9999999999)
+    const reaisStr = Math.floor(centavos / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    return `${reaisStr},${String(centavos % 100).padStart(2, '0')}`
+  }
 
   const isDono = usuario?.id === reparo?.criado_por
   const isPrestador = usuario?.role === 'prestador'
@@ -117,7 +126,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
         `🔧 Possui ferramentas: ${possuiFerramentas}`,
         mensagemAdicional ? `💬 Observação: ${mensagemAdicional}` : '',
       ].filter(Boolean).join('\n')
-      await api.post(`/reparos/${reparo.id}/interesse`, { mensagem })
+      const valorNumerico = valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null
+      await api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico })
       setMeuInteresse({ status: 'pendente' })
       setMostrarForm(false)
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.')
@@ -478,6 +488,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
                       <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.textoMutado} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
                     </View>
+                    <View style={estilos.perguntaWrap}>
+                      <Text style={estilos.perguntaLabel}>💰 Propor outro valor (opcional)</Text>
+                      <TextInput
+                        style={estilos.input}
+                        placeholder="Ex: 350,00"
+                        placeholderTextColor={cores.textoMutado}
+                        keyboardType="numeric"
+                        value={valorProposto}
+                        onChangeText={v => setValorProposto(mascararValor(v))}
+                      />
+                    </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
                       <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
@@ -542,6 +563,7 @@ const estilos = StyleSheet.create({
   opcaoTexto: { fontSize: 12, color: cores.textoMedio },
   opcaoTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   textarea: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 13, color: cores.textoForte, minHeight: 80, textAlignVertical: 'top' },
+  input: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 15, color: cores.textoForte },
   aviso: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 10, lineHeight: 18 },
   vazioInteressados: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 24, alignItems: 'center', marginBottom: 16 },
   vazioInteressadosTexto: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
