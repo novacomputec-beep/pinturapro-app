@@ -74,20 +74,35 @@ const TabIcone = ({ nome, focado }) => {
 }
 
 function PagamentoPendenteScreen() {
-  const { logout, usuario, assinatura } = useAuth()
+  const { logout, usuario, assinatura, setUsuario, setAssinatura } = useAuth()
   const [link, setLink] = React.useState(null)
   const [carregando, setCarregando] = React.useState(true)
+  const [verificando, setVerificando] = React.useState(false)
 
   React.useEffect(() => {
     const buscar = async () => {
       try {
-        const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: 'mensal' })
-        if (pagamento.init_point) setLink(pagamento.init_point)
+        const plano = assinatura?.plano || 'mensal'
+        const pagamento = await api.post('/pagamentos/criar-assinatura', { plano })
+        if (pagamento.init_point) {
+          setLink(pagamento.init_point)
+          Linking.openURL(pagamento.init_point)
+        }
       } catch {}
       finally { setCarregando(false) }
     }
     buscar()
   }, [])
+
+  const verificarPagamento = async () => {
+    setVerificando(true)
+    try {
+      const dados = await api.get('/auth/perfil')
+      setUsuario(dados.usuario)
+      setAssinatura(dados.assinatura)
+    } catch {}
+    finally { setVerificando(false) }
+  }
 
   const valorMensal = assinatura?.valor_mensal
     ? `R$ ${Number(assinatura.valor_mensal).toFixed(2).replace('.', ',')}`
@@ -98,28 +113,37 @@ function PagamentoPendenteScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
-          Assinatura pendente
+          Finalize seu pagamento
         </Text>
         <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
-          Para acessar os serviços disponíveis, finalize seu pagamento.
+          {carregando
+            ? 'Gerando link de pagamento...'
+            : 'Você está sendo redirecionado para o pagamento. Se não abriu automaticamente, toque no botão abaixo.'}
         </Text>
         <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 32 }}>
           {valorMensal}/mês
         </Text>
-        {carregando ? (
-          <Text style={{ color: cores.textoFraco }}>Gerando link...</Text>
-        ) : link ? (
+        {link ? (
           <TouchableOpacity
             style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
             onPress={() => Linking.openURL(link)}
           >
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Pagar agora →</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Abrir pagamento →</Text>
           </TouchableOpacity>
-        ) : (
+        ) : !carregando && (
           <Text style={{ color: cores.textoFraco, textAlign: 'center', marginBottom: 12 }}>
             Entre em contato para ativar seu acesso.
           </Text>
         )}
+        <TouchableOpacity
+          style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 0.5, borderColor: cores.borda }}
+          onPress={verificarPagamento}
+          disabled={verificando}
+        >
+          <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
+            {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
           <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
         </TouchableOpacity>

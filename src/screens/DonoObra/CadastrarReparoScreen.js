@@ -167,24 +167,53 @@ export default function CadastrarReparoScreen({ navigation }) {
       if (midias.length > 0) {
         for (let i = 0; i < midias.length; i++) {
           const midia = midias[i]
-          const formData = new FormData()
           const isVideo = midia.type === 'video'
-          formData.append('arquivo', { uri: midia.uri, type: isVideo ? 'video/mp4' : 'image/jpeg', name: isVideo ? `video_${i}.mp4` : `foto_${i}.jpg` })
-          formData.append('reparo_id', String(reparo.id))
-          formData.append('ordem', String(i + 1))
-          const token = await SecureStore.getItemAsync('token')
-          const uploadResp = await fetch(
-            'https://pinturapro-api-production.up.railway.app/api/upload/reparo',
-            {
-              method: 'POST',
-              headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-              body: formData,
+
+          if (isVideo) {
+            // Upload direto ao Cloudinary para evitar timeout no Railway
+            const params = await api.get('/upload/assinatura-cloudinary')
+            const cloudForm = new FormData()
+            cloudForm.append('file', { uri: midia.uri, type: 'video/mp4', name: `video_${i}.mp4` })
+            cloudForm.append('timestamp', String(params.timestamp))
+            cloudForm.append('signature', params.signature)
+            cloudForm.append('api_key', params.api_key)
+            cloudForm.append('folder', params.folder)
+            const cloudResp = await fetch(
+              `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`,
+              { method: 'POST', body: cloudForm }
+            )
+            if (!cloudResp.ok) {
+              const erro = await cloudResp.json().catch(() => ({}))
+              await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
+              throw new Error(erro.error?.message || 'Erro no upload do vídeo')
             }
-          )
-          if (!uploadResp.ok) {
-            const erro = await uploadResp.json().catch(() => ({}))
-            await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
-            throw new Error(erro.erro || erro.mensagem || `Erro no upload (${uploadResp.status})`)
+            const cloudData = await cloudResp.json()
+            await api.post('/upload/reparo-url', {
+              reparo_id: reparo.id,
+              url: cloudData.secure_url,
+              tipo: 'video',
+              ordem: i + 1,
+            })
+          } else {
+            // Upload de foto via servidor
+            const formData = new FormData()
+            formData.append('arquivo', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
+            formData.append('reparo_id', String(reparo.id))
+            formData.append('ordem', String(i + 1))
+            const token = await SecureStore.getItemAsync('token')
+            const uploadResp = await fetch(
+              'https://pinturapro-api-production.up.railway.app/api/upload/reparo',
+              {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData,
+              }
+            )
+            if (!uploadResp.ok) {
+              const erro = await uploadResp.json().catch(() => ({}))
+              await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
+              throw new Error(erro.erro || erro.mensagem || `Erro no upload (${uploadResp.status})`)
+            }
           }
         }
       }
