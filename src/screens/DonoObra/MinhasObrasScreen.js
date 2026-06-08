@@ -17,13 +17,14 @@ const statusInfo = {
   cancelada: { cor: '#f44336', label: '❌ Cancelada' },
 }
 
-export default function MinhasObrasScreen({ navigation }) {
+export default function MinhasObrasScreen({ navigation, route }) {
   const { usuario, logout } = useAuth()
+  const soAba = route?.params?.soAba || null
   const [obras, setObras] = useState([])
   const [reparos, setReparos] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
-  const [aba, setAba] = useState('obras')
+  const [aba, setAba] = useState(soAba || 'obras')
 
   const buscarDados = async () => {
     try {
@@ -136,41 +137,45 @@ export default function MinhasObrasScreen({ navigation }) {
         </TouchableOpacity>
       </View>
 
-      <View style={estilos.botoesRow}>
-        <TouchableOpacity
-          style={estilos.btnNovo}
-          onPress={() => navigation.navigate('CadastrarObra')}
-          activeOpacity={0.85}
-        >
-          <Text style={estilos.btnNovoTexto}>🖌️ Nova obra</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[estilos.btnNovo, { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda }]}
-          onPress={() => navigation.navigate('CadastrarReparo')}
-          activeOpacity={0.85}
-        >
-          <Text style={[estilos.btnNovoTexto, { color: cores.textoForte }]}>🔧 Novo reparo</Text>
-        </TouchableOpacity>
-      </View>
+      {!soAba && (
+        <View style={estilos.botoesRow}>
+          <TouchableOpacity
+            style={estilos.btnNovo}
+            onPress={() => navigation.navigate('CadastrarObra')}
+            activeOpacity={0.85}
+          >
+            <Text style={estilos.btnNovoTexto}>🖌️ Nova obra</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[estilos.btnNovo, { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda }]}
+            onPress={() => navigation.navigate('CadastrarReparo')}
+            activeOpacity={0.85}
+          >
+            <Text style={[estilos.btnNovoTexto, { color: cores.textoForte }]}>🔧 Novo reparo</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-      <View style={estilos.abas}>
-        <TouchableOpacity
-          style={[estilos.abaBtn, aba === 'obras' && estilos.abaBtnAtivo]}
-          onPress={() => setAba('obras')}
-        >
-          <Text style={[estilos.abaTexto, aba === 'obras' && estilos.abaTextoAtivo]}>
-            🖌️ Obras ({obras.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[estilos.abaBtn, aba === 'reparos' && estilos.abaBtnAtivo]}
-          onPress={() => setAba('reparos')}
-        >
-          <Text style={[estilos.abaTexto, aba === 'reparos' && estilos.abaTextoAtivo]}>
-            🔧 Reparos ({reparos.length})
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {!soAba && (
+        <View style={estilos.abas}>
+          <TouchableOpacity
+            style={[estilos.abaBtn, aba === 'obras' && estilos.abaBtnAtivo]}
+            onPress={() => setAba('obras')}
+          >
+            <Text style={[estilos.abaTexto, aba === 'obras' && estilos.abaTextoAtivo]}>
+              🖌️ Obras ({obras.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[estilos.abaBtn, aba === 'reparos' && estilos.abaBtnAtivo]}
+            onPress={() => setAba('reparos')}
+          >
+            <Text style={[estilos.abaTexto, aba === 'reparos' && estilos.abaTextoAtivo]}>
+              🔧 Reparos ({reparos.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {carregando ? (
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />

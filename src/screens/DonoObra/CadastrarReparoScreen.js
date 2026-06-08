@@ -277,9 +277,9 @@ export default function CadastrarReparoScreen({ navigation }) {
             erroEstado={erros.uf}
             erroCidade={erros.cidade}
           />
-          <Text style={[estilos.labelCategoria, { marginTop: 16 }]}>CEP E ENDEREÇO</Text>
+          <Text style={[estilos.labelCategoria, { marginTop: 16 }]}>CEP DO LOCAL DO SERVIÇO</Text>
           <View style={estilos.cepRow}>
-            <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
+            <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
             {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
           </View>

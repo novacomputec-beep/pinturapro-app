@@ -4,6 +4,7 @@ import {
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
 } from 'react-native'
 import { Image } from 'react-native'
+import { Video, ResizeMode } from 'expo-av'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
@@ -86,6 +87,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [mensagemAdicional, setMensagemAdicional] = useState('')
   const [valorProposto, setValorProposto] = useState('')
   const [fotoFullscreen, setFotoFullscreen] = useState(null)
+  const [videoFullscreen, setVideoFullscreen] = useState(null)
+  const [contrapropostaInteresseId, setContrapropostaInteresseId] = useState(null)
+  const [valorContraproposta, setValorContraproposta] = useState('')
+  const [enviandoResposta, setEnviandoResposta] = useState(false)
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -170,6 +175,47 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O prestador não chegou a tempo. O reparo está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
+  }
+
+  const handleResponderInteresse = async (interesseId, action) => {
+    if (action === 'contraproposta' && !valorContraproposta) {
+      Alert.alert('Atenção', 'Informe o valor da contraproposta.')
+      return
+    }
+    setEnviandoResposta(true)
+    try {
+      const valorNumerico = valorContraproposta
+        ? parseFloat(valorContraproposta.replace(/\./g, '').replace(',', '.'))
+        : null
+      await api.post(`/reparos/${reparo.id}/interesse/${interesseId}/responder`, { action, valor: valorNumerico })
+      setContrapropostaInteresseId(null)
+      setValorContraproposta('')
+      await buscar()
+      const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!' }
+      Alert.alert('Sucesso', msgs[action])
+    } catch (err) {
+      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+    } finally {
+      setEnviandoResposta(false)
+    }
+  }
+
+  const handlePrestadorResponder = async (action) => {
+    setEnviandoResposta(true)
+    try {
+      await api.post(`/reparos/${reparo.id}/interesse/${meuInteresse.id}/prestador-responder`, { action })
+      await buscar()
+      Alert.alert(
+        action === 'aceitar' ? '✅ Contraproposta aceita!' : 'Proposta recusada.',
+        action === 'aceitar'
+          ? 'Ótimo! O solicitante foi notificado. Confirme sua ida ao local quando estiver pronto.'
+          : 'O solicitante foi notificado.'
+      )
+    } catch (err) {
+      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+    } finally {
+      setEnviandoResposta(false)
+    }
   }
 
   const handlePedirTempo = () => {
@@ -288,6 +334,26 @@ export default function DetalheReparoScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      <Modal visible={!!videoFullscreen} transparent animationType="fade" onRequestClose={() => setVideoFullscreen(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 52, right: 20, zIndex: 10, width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
+            onPress={() => setVideoFullscreen(null)}
+          >
+            <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>✕</Text>
+          </TouchableOpacity>
+          {videoFullscreen && (
+            <Video
+              source={{ uri: videoFullscreen }}
+              style={{ width: '100%', height: '50%' }}
+              useNativeControls
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay
+            />
+          )}
+        </View>
+      </Modal>
+
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
@@ -337,7 +403,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <TouchableOpacity
                     key={i}
                     style={estilos.midiaItem}
-                    onPress={() => midia.tipo === 'video' ? Linking.openURL(midia.url) : setFotoFullscreen(midia.url)}
+                    onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
                     activeOpacity={0.7}
                   >
                     <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
@@ -425,14 +491,93 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       <Text style={estilos.interessadoNome}>{item.nome}</Text>
                       {item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
                     </View>
-                    {item.telefone && (
-                      <TouchableOpacity onPress={() => abrirWhatsApp(item.telefone)}>
-                        <Text style={estilos.interessadoTelefone}>💬 {item.telefone} — WhatsApp</Text>
-                      </TouchableOpacity>
+                    {item.valor_proposto && (
+                      <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
+                        💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    )}
+                    {item.valor_contraproposta && (
+                      <Text style={{ fontSize: 13, color: '#E8833A', marginBottom: 4 }}>
+                        🤝 Minha contraproposta: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
                     )}
                     {item.mensagem && (
                       <View style={estilos.mensagemBox}>
                         <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
+                      </View>
+                    )}
+                    {item.status === 'pendente' && !temMatch && (
+                      <View style={{ marginTop: 10 }}>
+                        {contrapropostaInteresseId === item.id ? (
+                          <View>
+                            <TextInput
+                              style={[estilos.input, { marginBottom: 8 }]}
+                              placeholder="Valor da contraproposta (ex: 350,00)"
+                              placeholderTextColor={cores.textoMutado}
+                              keyboardType="numeric"
+                              value={valorContraproposta}
+                              onChangeText={v => setValorContraproposta(mascararValor(v))}
+                            />
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              <TouchableOpacity
+                                style={[estilos.btnAceitar, { flex: 1 }]}
+                                onPress={() => handleResponderInteresse(item.id, 'contraproposta')}
+                                disabled={enviandoResposta}
+                              >
+                                <Text style={estilos.btnAceitarTexto}>Enviar →</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[estilos.btnRecusar, { flex: 1 }]}
+                                onPress={() => { setContrapropostaInteresseId(null); setValorContraproposta('') }}
+                              >
+                                <Text style={estilos.btnRecusarTexto}>Cancelar</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                            <TouchableOpacity
+                              style={[estilos.btnAceitar, { flex: 1 }]}
+                              onPress={() => handleResponderInteresse(item.id, 'aceitar')}
+                              disabled={enviandoResposta}
+                            >
+                              <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[estilos.btnRecusar, { flex: 1 }]}
+                              onPress={() => handleResponderInteresse(item.id, 'recusar')}
+                              disabled={enviandoResposta}
+                            >
+                              <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={{ flex: 1, backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 10, alignItems: 'center' }}
+                              onPress={() => setContrapropostaInteresseId(item.id)}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contra</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {item.status === 'contraproposta_dono' && (
+                      <View style={{ marginTop: 8, padding: 8, backgroundColor: '#2a1a00', borderRadius: raios.medio }}>
+                        <Text style={{ fontSize: 12, color: '#E8833A' }}>⏳ Aguardando resposta do prestador...</Text>
+                      </View>
+                    )}
+                    {item.status === 'aceito' && (
+                      <View style={{ marginTop: 8 }}>
+                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
+                        {item.telefone && (
+                          <TouchableOpacity style={estilos.btnWhatsApp} onPress={() => abrirWhatsApp(item.telefone)}>
+                            <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp: {item.telefone}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+                    {item.status === 'recusado' && (
+                      <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1a0a0a', borderRadius: raios.medio }}>
+                        <Text style={{ fontSize: 12, color: '#f44336' }}>❌ Recusado</Text>
                       </View>
                     )}
                   </View>
@@ -471,18 +616,44 @@ export default function DetalheReparoScreen({ route, navigation }) {
               {!temMatch && (
                 meuInteresse ? (
                   <View style={estilos.interesseFeito}>
-                    <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
-                      {meuInteresse.status === 'pendente' ? '⏳ Aguardando contato' : meuInteresse.status === 'aprovada' ? '✅ Aprovado!' : '❌ Não selecionado'}
-                    </Text>
-                    <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>
-                      {meuInteresse.status === 'pendente' ? 'Suas informações foram enviadas ao solicitante. Aguarde o contato!'
-                        : meuInteresse.status === 'aprovada' ? 'Parabéns! Você foi selecionado. Confirme sua ida ao local:'
-                        : 'Sua solicitação não foi selecionada desta vez.'}
-                    </Text>
-                    {meuInteresse.status === 'aprovada' && (
-                      <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
-                        <Text style={estilos.btnMatchTexto}>🔧 Estou a caminho! Iniciar contagem →</Text>
-                      </TouchableOpacity>
+                    {meuInteresse.status === 'pendente' && (
+                      <>
+                        <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>⏳ Aguardando resposta</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Suas informações foram enviadas. Aguarde a resposta do solicitante!</Text>
+                      </>
+                    )}
+                    {meuInteresse.status === 'contraproposta_dono' && (
+                      <>
+                        <Text style={{ color: '#E8833A', fontWeight: '600', marginBottom: 6 }}>💬 O solicitante fez uma contraproposta!</Text>
+                        {meuInteresse.valor_contraproposta && (
+                          <Text style={{ fontSize: 18, fontWeight: '700', color: cores.sucesso, marginBottom: 12 }}>
+                            R$ {Number(meuInteresse.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </Text>
+                        )}
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                          <TouchableOpacity style={[estilos.btnAceitar, { flex: 1 }]} onPress={() => handlePrestadorResponder('aceitar')} disabled={enviandoResposta}>
+                            <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={[estilos.btnRecusar, { flex: 1 }]} onPress={() => handlePrestadorResponder('recusar')} disabled={enviandoResposta}>
+                            <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </>
+                    )}
+                    {meuInteresse.status === 'aceito' && (
+                      <>
+                        <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>
+                        <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
+                          <Text style={estilos.btnMatchTexto}>🔧 Estou a caminho! Iniciar contagem →</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                    {meuInteresse.status === 'recusado' && (
+                      <>
+                        <Text style={{ color: '#f44336', fontWeight: '600', marginBottom: 6 }}>❌ Não selecionado</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta não foi aceita desta vez.</Text>
+                      </>
                     )}
                   </View>
                 ) : mostrarForm ? (

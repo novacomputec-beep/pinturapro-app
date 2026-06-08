@@ -118,7 +118,7 @@ export default function FeedReparosScreen({ navigation }) {
               🔧 {item.total_interessados || 0} interessado(s)
             </Text>
             <View style={estilos.btnVer}>
-              <Text style={estilos.btnVerTexto}>Ver reparo →</Text>
+              <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
             </View>
           </View>
         </View>

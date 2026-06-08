@@ -36,12 +36,18 @@ import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
 import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
 import DetalheMinhaObraScreen from '../screens/DonoObra/DetalheMinhaObraScreen'
 
-const Stack       = createNativeStackNavigator()
-const Tab         = createBottomTabNavigator()
-const FeedStack   = createNativeStackNavigator()
-const ReparoStack = createNativeStackNavigator()
-const DonoStack   = createNativeStackNavigator()
-const PerfilStack = createNativeStackNavigator()
+const Stack            = createNativeStackNavigator()
+const Tab              = createBottomTabNavigator()
+const FeedStack        = createNativeStackNavigator()
+const ReparoStack      = createNativeStackNavigator()
+const DonoStack        = createNativeStackNavigator()
+const PerfilStack      = createNativeStackNavigator()
+const NovoReparoStack  = createNativeStackNavigator()
+const MeusReparosStack = createNativeStackNavigator()
+const NovaObraStack    = createNativeStackNavigator()
+const MinhasObrasStack = createNativeStackNavigator()
+const DonoReparoTab    = createBottomTabNavigator()
+const DonoObraTab      = createBottomTabNavigator()
 
 export const navigationRef = React.createRef()
 
@@ -67,7 +73,7 @@ const navegarParaNotificacao = (data) => {
 }
 
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧' }
+  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️' }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
@@ -241,7 +247,65 @@ const TabsPrestadorNavigator = () => (
   </Tab.Navigator>
 )
 
-// Stack do Dono de Obra
+// Tab: Novo Reparo (dono_reparo)
+const NovoReparoTabStack = () => (
+  <NovoReparoStack.Navigator screenOptions={{ headerShown: false }}>
+    <NovoReparoStack.Screen name="CadastrarReparoMain" component={CadastrarReparoScreen} />
+  </NovoReparoStack.Navigator>
+)
+
+// Tab: Meus Reparos (dono_reparo)
+const MeusReparosTabStack = () => (
+  <MeusReparosStack.Navigator screenOptions={{ headerShown: false }}>
+    <MeusReparosStack.Screen name="ListaReparos" component={MinhasObrasScreen} initialParams={{ soAba: 'reparos' }} />
+    <MeusReparosStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
+  </MeusReparosStack.Navigator>
+)
+
+// Tab Navigator para dono de reparo
+const donoTabOpts = {
+  headerShown: false,
+  tabBarStyle: { backgroundColor: cores.fundo, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, height: 72, paddingBottom: 14, paddingTop: 8 },
+  tabBarActiveTintColor: cores.primaria,
+  tabBarInactiveTintColor: cores.textoFraco,
+  tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
+}
+const DonoReparoTabNavigator = () => (
+  <DonoReparoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
+    <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} />
+    <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} />
+    <DonoReparoTab.Screen name="Mensagens"     component={MensagensScreen} />
+    <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
+  </DonoReparoTab.Navigator>
+)
+
+// Tab: Nova Obra (dono_obra)
+const NovaObraTabStack = () => (
+  <NovaObraStack.Navigator screenOptions={{ headerShown: false }}>
+    <NovaObraStack.Screen name="CadastrarObraMain" component={CadastrarObraScreen} />
+  </NovaObraStack.Navigator>
+)
+
+// Tab: Minhas Obras (dono_obra)
+const MinhasObrasTabStack = () => (
+  <MinhasObrasStack.Navigator screenOptions={{ headerShown: false }}>
+    <MinhasObrasStack.Screen name="ListaObras" component={MinhasObrasScreen} initialParams={{ soAba: 'obras' }} />
+    <MinhasObrasStack.Screen name="DetalheMinhaObra" component={DetalheMinhaObraScreen} />
+    <MinhasObrasStack.Screen name="DetalheReparo"    component={DetalheReparoScreen} />
+  </MinhasObrasStack.Navigator>
+)
+
+// Tab Navigator para dono de pintura
+const DonoObraTabNavigator = () => (
+  <DonoObraTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
+    <DonoObraTab.Screen name="Nova Obra"      component={NovaObraTabStack} />
+    <DonoObraTab.Screen name="Minhas Obras"   component={MinhasObrasTabStack} />
+    <DonoObraTab.Screen name="Mensagens"      component={MensagensScreen} />
+    <DonoObraTab.Screen name="Perfil"         component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
+  </DonoObraTab.Navigator>
+)
+
+// Stack do Dono de Obra (fallback para tipo_dono não definido)
 const DonoObraNavigator = () => (
   <DonoStack.Navigator screenOptions={{ headerShown: false }}>
     <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
@@ -279,7 +343,13 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false, statusBarTranslucent: false, statusBarColor: '#0A0A0A', statusBarStyle: 'light' }}>
         {usuario ? (
           usuario.role === 'dono_obra' ? (
-            <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
+            usuario.tipo_dono === 'reparo' ? (
+              <Stack.Screen name="DonoReparoApp" component={DonoReparoTabNavigator} />
+            ) : usuario.tipo_dono === 'pintura' ? (
+              <Stack.Screen name="DonoObraApp" component={DonoObraTabNavigator} />
+            ) : (
+              <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
+            )
           ) : usuario.role === 'prestador' ? (
             assinatura?.status === 'ativa' ? (
               <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />
