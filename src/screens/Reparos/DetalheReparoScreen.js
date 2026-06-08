@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking
+  TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
 } from 'react-native'
 import { Image } from 'react-native'
 import api from '../../services/api'
@@ -85,6 +85,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [possuiFerramentas, setPossuiFerramentas] = useState('')
   const [mensagemAdicional, setMensagemAdicional] = useState('')
   const [valorProposto, setValorProposto] = useState('')
+  const [fotoFullscreen, setFotoFullscreen] = useState(null)
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -255,7 +256,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       <SafeAreaView style={estilos.container}>
         <View style={estilos.topbar}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -269,11 +270,23 @@ export default function DetalheReparoScreen({ route, navigation }) {
     <SafeAreaView style={estilos.container}>
       <View style={estilos.topbar}>
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
+          <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
         </TouchableOpacity>
         <Text style={estilos.topbarTitulo}>{isDono ? 'Meu reparo' : 'Detalhe do reparo'}</Text>
         <View style={{ width: 36 }} />
       </View>
+
+      <Modal visible={!!fotoFullscreen} transparent animationType="fade" onRequestClose={() => setFotoFullscreen(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.97)', alignItems: 'center', justifyContent: 'center' }}>
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 52, right: 20, zIndex: 10, width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
+            onPress={() => setFotoFullscreen(null)}
+          >
+            <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>✕</Text>
+          </TouchableOpacity>
+          <Image source={{ uri: fotoFullscreen }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+        </View>
+      </Modal>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
@@ -324,8 +337,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <TouchableOpacity
                     key={i}
                     style={estilos.midiaItem}
-                    onPress={() => midia.tipo === 'video' ? Linking.openURL(midia.url) : null}
-                    activeOpacity={midia.tipo === 'video' ? 0.7 : 1}
+                    onPress={() => midia.tipo === 'video' ? Linking.openURL(midia.url) : setFotoFullscreen(midia.url)}
+                    activeOpacity={0.7}
                   >
                     <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
                     {midia.tipo === 'video' && (

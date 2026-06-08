@@ -14,6 +14,8 @@ import SplashScreen        from '../screens/Auth/SplashScreen'
 import LoginScreen         from '../screens/Auth/LoginScreen'
 import CadastroScreen      from '../screens/Auth/CadastroScreen'
 import EsqueciSenhaScreen  from '../screens/Auth/EsqueciSenhaScreen'
+import TermosScreen        from '../screens/Auth/TermosScreen'
+import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 
 // App — Pintor
 import FeedScreen          from '../screens/Feed/FeedScreen'
@@ -221,7 +223,7 @@ const TabsPintorNavigator = () => (
   </Tab.Navigator>
 )
 
-// Tabs do Prestador (inclui Obras para pintores e Reparos para todos)
+// Tabs do Prestador (Reparos, Mensagens, Perfil)
 const TabsPrestadorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -233,7 +235,6 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Obras"     component={FeedStackNavigator} options={{ title: 'Obras' }} />
     <Tab.Screen name="Reparos"   component={ReparoStackNavigator} options={{ title: 'Reparos' }} />
     <Tab.Screen name="Mensagens" component={MensagensScreen} />
     <Tab.Screen name="Perfil"    component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
@@ -298,6 +299,8 @@ export default function AppNavigator() {
             <Stack.Screen name="Login"         component={LoginScreen} />
             <Stack.Screen name="Cadastro"      component={CadastroScreen} />
             <Stack.Screen name="EsqueciSenha"  component={EsqueciSenhaScreen} />
+            <Stack.Screen name="Termos"        component={TermosScreen} />
+            <Stack.Screen name="Privacidade"   component={PrivacidadeScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet, SafeAreaView, Image } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity } from 'react-native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos } from '../../utils/tema'
 
@@ -56,9 +56,9 @@ export default function SplashScreen({ navigation }) {
         />
         <Text style={estilos.termos}>
           Ao continuar, você concorda com os{' '}
-          <Text style={{ color: cores.textoMedio }}>Termos de uso</Text>
+          <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Termos')}>Termos de uso</Text>
           {' '}e{' '}
-          <Text style={{ color: cores.textoMedio }}>Política de privacidade</Text>
+          <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Privacidade')}>Política de privacidade</Text>
         </Text>
       </View>
 

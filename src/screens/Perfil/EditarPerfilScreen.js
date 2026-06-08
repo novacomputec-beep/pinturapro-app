@@ -19,33 +19,11 @@ export default function EditarPerfilScreen({ navigation }) {
   const [uploadandoFoto, setUploadandoFoto] = useState(false)
   const [fotoUrl, setFotoUrl] = useState(usuario?.foto_url || null)
 
-  const handleEscolherFoto = async () => {
+  const processarFoto = async (uri) => {
+    setUploadandoFoto(true)
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria para alterar a foto.')
-        return
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      })
-
-      if (result.canceled) return
-
-      const uri = result.assets[0].uri
-      setUploadandoFoto(true)
-
       const formData = new FormData()
-      formData.append('arquivo', {
-        uri,
-        type: 'image/jpeg',
-        name: 'foto_perfil.jpg',
-      })
-
+      formData.append('arquivo', { uri, type: 'image/jpeg', name: 'foto_perfil.jpg' })
       const resposta = await api.uploadFotoPerfil(formData)
       setFotoUrl(resposta.foto_url)
       setUsuario(prev => ({ ...prev, foto_url: resposta.foto_url }))
@@ -55,6 +33,34 @@ export default function EditarPerfilScreen({ navigation }) {
     } finally {
       setUploadandoFoto(false)
     }
+  }
+
+  const handleEscolherFoto = () => {
+    Alert.alert('Foto de perfil', 'Como deseja enviar a foto?', [
+      {
+        text: '📷 Câmera',
+        onPress: async () => {
+          try {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+            const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+            if (!result.canceled) processarFoto(result.assets[0].uri)
+          } catch { Alert.alert('Erro', 'Não foi possível abrir a câmera.') }
+        }
+      },
+      {
+        text: '🖼️ Galeria',
+        onPress: async () => {
+          try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria.'); return }
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+            if (!result.canceled) processarFoto(result.assets[0].uri)
+          } catch { Alert.alert('Erro', 'Não foi possível abrir a galeria.') }
+        }
+      },
+      { text: 'Cancelar', style: 'cancel' }
+    ])
   }
 
   const handleSalvar = async () => {
@@ -85,7 +91,7 @@ export default function EditarPerfilScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
           </TouchableOpacity>
 
           <Text style={estilos.titulo}>Editar{'\n'}perfil</Text>

@@ -114,7 +114,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
     <SafeAreaView style={estilos.container}>
       <View style={estilos.topbar}>
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
+          <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
         </TouchableOpacity>
         <Text style={estilos.topbarTitulo}>{isReparo ? 'Detalhe do reparo' : 'Detalhe da obra'}</Text>
         <TouchableOpacity style={estilos.btnLixeira} onPress={handleDeletar}>

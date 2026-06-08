@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image, TextInput
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
@@ -15,6 +15,8 @@ const CATEGORIAS = [
   { id: 'marcenaria',   label: '🪚 Marcenaria'  },
   { id: 'alvenaria',    label: '🧱 Alvenaria'   },
   { id: 'climatizacao', label: '❄️ Climatização' },
+  { id: 'chaveiro',     label: '🔑 Chaveiro'    },
+  { id: 'faxina',       label: '🧹 Faxina'      },
   { id: 'outros',       label: '🔨 Outros'      },
 ]
 
@@ -37,13 +39,17 @@ export default function FeedReparosScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
+  const [distancia, setDistancia] = useState('')
   const [erro, setErro] = useState(null)
 
   const buscarReparos = async (cat = categoria) => {
     try {
       setErro(null)
-      const params = cat !== 'todas' ? `?categoria=${cat}` : ''
-      const resposta = await api.get(`/reparos${params}`)
+      const params = []
+      if (cat !== 'todas') params.push(`categoria=${cat}`)
+      if (distancia) params.push(`raio_km=${distancia}`)
+      const query = params.length ? `?${params.join('&')}` : ''
+      const resposta = await api.get(`/reparos${query}`)
       setReparos(resposta.reparos || [])
     } catch (err) {
       setErro(err.mensagem || 'Erro ao buscar reparos')
@@ -156,23 +162,39 @@ export default function FeedReparosScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         ListHeaderComponent={
-          <FlatList
-            data={CATEGORIAS}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            style={estilos.filtros}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[estilos.filtroPill, categoria === item.id && estilos.filtroPillAtivo]}
-                onPress={() => mudarCategoria(item.id)}
-              >
-                <Text style={[estilos.filtroTexto, categoria === item.id && estilos.filtroTextoAtivo]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
+          <>
+            <FlatList
+              data={CATEGORIAS}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              style={estilos.filtros}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[estilos.filtroPill, categoria === item.id && estilos.filtroPillAtivo]}
+                  onPress={() => mudarCategoria(item.id)}
+                >
+                  <Text style={[estilos.filtroTexto, categoria === item.id && estilos.filtroTextoAtivo]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
+            <View style={estilos.distanciaRow}>
+              <Text style={estilos.distanciaLabel}>📍 Distância máx.:</Text>
+              <TextInput
+                style={estilos.distanciaInput}
+                placeholder="Qualquer km"
+                placeholderTextColor={cores.textoMutado}
+                keyboardType="numeric"
+                value={distancia}
+                onChangeText={setDistancia}
+                onEndEditing={() => { setCarregando(true); buscarReparos(categoria) }}
+                returnKeyType="search"
+              />
+              <Text style={estilos.distanciaUnidade}>km</Text>
+            </View>
+          </>
         }
         ListEmptyComponent={
           carregando ? (
@@ -203,6 +225,10 @@ const estilos = StyleSheet.create({
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  distanciaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espacos.tela, paddingBottom: 10, gap: 8 },
+  distanciaLabel: { fontSize: 12, color: cores.textoFraco, flexShrink: 0 },
+  distanciaInput: { flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, color: cores.textoForte },
+  distanciaUnidade: { fontSize: 12, color: cores.textoFraco },
   lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 12 },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },

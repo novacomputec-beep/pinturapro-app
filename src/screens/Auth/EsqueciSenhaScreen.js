@@ -55,7 +55,7 @@ export default function EsqueciSenhaScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
           </TouchableOpacity>
 
           <Text style={estilos.titulo}>Esqueceu{'\n'}sua senha?</Text>
