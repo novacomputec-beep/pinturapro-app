@@ -17,6 +17,8 @@ const CATEGORIAS = [
   { id: 'marcenaria',   label: '🪚 Marcenaria'    },
   { id: 'alvenaria',    label: '🏠 Alvenaria'     },
   { id: 'climatizacao', label: '❄️ Climatização'  },
+  { id: 'chaveiro',     label: '🔑 Chaveiro'      },
+  { id: 'faxina',       label: '🧹 Faxina'        },
   { id: 'outros',       label: '🔨 Outros'        },
 ]
 
@@ -224,9 +226,9 @@ export default function CadastrarReparoScreen({ navigation }) {
       }
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar o reparo.')
-    } finally {
-      setCarregando(false)
+      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar o reparo.', [
+        { text: 'OK', onPress: () => setCarregando(false) }
+      ])
     }
   }
 
@@ -235,7 +237,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>Cadastrar{'\n'}reparo</Text>
           <Text style={estilos.subtitulo}>Descreva o reparo e encontre um profissional qualificado</Text>

@@ -255,7 +255,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       <SafeAreaView style={estilos.container}>
         <View style={estilos.topbar}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>

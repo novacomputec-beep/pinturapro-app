@@ -85,7 +85,7 @@ export default function EditarPerfilScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoMedio, fontSize: 16 }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 26, fontWeight: '700' }}>←</Text>
           </TouchableOpacity>
 
           <Text style={estilos.titulo}>Editar{'\n'}perfil</Text>
