@@ -170,7 +170,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico })
       setMeuInteresse({ status: 'pendente' })
       setMostrarForm(false)
-      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.')
+      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {

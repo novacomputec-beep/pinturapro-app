@@ -27,8 +27,9 @@ import EditarPerfilScreen  from '../screens/Perfil/EditarPerfilScreen'
 import AlterarSenhaScreen  from '../screens/Perfil/AlterarSenhaScreen'
 
 // App — Prestador
-import FeedReparosScreen   from '../screens/Reparos/FeedReparosScreen'
-import DetalheReparoScreen from '../screens/Reparos/DetalheReparoScreen'
+import FeedReparosScreen      from '../screens/Reparos/FeedReparosScreen'
+import DetalheReparoScreen    from '../screens/Reparos/DetalheReparoScreen'
+import MeusInteressesScreen   from '../screens/Reparos/MeusInteressesScreen'
 
 // App — Dono de Obra
 import MinhasObrasScreen      from '../screens/DonoObra/MinhasObrasScreen'
@@ -36,18 +37,19 @@ import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
 import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
 import DetalheMinhaObraScreen from '../screens/DonoObra/DetalheMinhaObraScreen'
 
-const Stack            = createNativeStackNavigator()
-const Tab              = createBottomTabNavigator()
-const FeedStack        = createNativeStackNavigator()
-const ReparoStack      = createNativeStackNavigator()
-const DonoStack        = createNativeStackNavigator()
-const PerfilStack      = createNativeStackNavigator()
-const NovoReparoStack  = createNativeStackNavigator()
-const MeusReparosStack = createNativeStackNavigator()
-const NovaObraStack    = createNativeStackNavigator()
-const MinhasObrasStack = createNativeStackNavigator()
-const DonoReparoTab    = createBottomTabNavigator()
-const DonoObraTab      = createBottomTabNavigator()
+const Stack                = createNativeStackNavigator()
+const Tab                  = createBottomTabNavigator()
+const FeedStack            = createNativeStackNavigator()
+const ReparoStack          = createNativeStackNavigator()
+const DonoStack            = createNativeStackNavigator()
+const PerfilStack          = createNativeStackNavigator()
+const NovoReparoStack      = createNativeStackNavigator()
+const MeusReparosStack     = createNativeStackNavigator()
+const NovaObraStack        = createNativeStackNavigator()
+const MinhasObrasStack     = createNativeStackNavigator()
+const MeusInteressesStack  = createNativeStackNavigator()
+const DonoReparoTab        = createBottomTabNavigator()
+const DonoObraTab          = createBottomTabNavigator()
 
 export const navigationRef = React.createRef()
 
@@ -73,7 +75,7 @@ const navegarParaNotificacao = (data) => {
 }
 
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️' }
+  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️', 'Meus Serviços': '📋' }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
@@ -210,6 +212,14 @@ const ReparoStackNavigator = () => (
   </ReparoStack.Navigator>
 )
 
+// Stack de Meus Interesses (prestador)
+const MeusInteressesNavigator = () => (
+  <MeusInteressesStack.Navigator screenOptions={{ headerShown: false }}>
+    <MeusInteressesStack.Screen name="MeusInteressesMain" component={MeusInteressesScreen} />
+    <MeusInteressesStack.Screen name="DetalheReparo"      component={DetalheReparoScreen} />
+  </MeusInteressesStack.Navigator>
+)
+
 // Tabs do Pintor
 const TabsPintorNavigator = () => (
   <Tab.Navigator
@@ -229,7 +239,7 @@ const TabsPintorNavigator = () => (
   </Tab.Navigator>
 )
 
-// Tabs do Prestador (Reparos, Mensagens, Perfil)
+// Tabs do Prestador (Reparos, Meus Serviços, Mensagens, Perfil)
 const TabsPrestadorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -241,9 +251,10 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Reparos"   component={ReparoStackNavigator} options={{ title: 'Reparos' }} />
-    <Tab.Screen name="Mensagens" component={MensagensScreen} />
-    <Tab.Screen name="Perfil"    component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
+    <Tab.Screen name="Reparos"        component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
+    <Tab.Screen name="Meus Serviços"  component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
+    <Tab.Screen name="Mensagens"      component={MensagensScreen} />
+    <Tab.Screen name="Perfil"         component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
 )
 

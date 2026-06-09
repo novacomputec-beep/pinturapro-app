@@ -27,12 +27,11 @@ const CATEGORIA_EMOJIS = {
 
 const getUrgenciaInfo = (horas) => {
   if (!horas) return null
-  if (horas <= 1)  return { label: '🔴 Urgente agora!',  cor: '#f44336', bg: '#3a1a1a' }
-  if (horas <= 2)  return { label: '🟠 Muito urgente',   cor: '#FF6B35', bg: '#3a2a1a' }
-  if (horas <= 4)  return { label: '🟡 Urgente',         cor: '#FFC107', bg: '#3a3a1a' }
-  if (horas <= 8)  return { label: '🟢 Hoje',            cor: '#4caf50', bg: '#1a3a1a' }
-  if (horas <= 24) return { label: '📅 Amanhã',          cor: '#2196f3', bg: '#1a2a3a' }
-  return               { label: '📆 Esta semana',        cor: '#9e9e9e', bg: '#2a2a2a' }
+  if (horas <= 1)  return { label: '🔴 URGENTE',       cor: '#f44336', bg: '#3a1a1a' }
+  if (horas <= 4)  return { label: '🟠 Muito urgente', cor: '#FF6B35', bg: '#3a2a1a' }
+  if (horas <= 24) return { label: '🟡 Urgente',       cor: '#FFC107', bg: '#3a3a1a' }
+  if (horas <= 72) return { label: '🟢 Normal',        cor: '#4caf50', bg: '#1a3a1a' }
+  return               { label: '⚪ Sem urgência',    cor: '#9e9e9e', bg: '#2a2a2a' }
 }
 
 const formatarValor = (v) =>

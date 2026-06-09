@@ -1,0 +1,145 @@
+import React, { useState, useCallback } from 'react'
+import {
+  View, Text, StyleSheet, SafeAreaView, FlatList,
+  TouchableOpacity, RefreshControl, ActivityIndicator
+} from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
+import api from '../../services/api'
+import { cores, espacos, raios } from '../../utils/tema'
+
+const STATUS_INFO = {
+  pendente:       { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
+  aceito:         { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
+  recusado:       { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
+  contraproposta: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
+}
+
+const formatarValor = (v) =>
+  (v == null || isNaN(Number(v)))
+    ? 'A combinar'
+    : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+
+export default function MeusInteressesScreen({ navigation }) {
+  const [interesses, setInteresses] = useState([])
+  const [carregando, setCarregando] = useState(true)
+  const [atualizando, setAtualizando] = useState(false)
+
+  const buscar = async () => {
+    try {
+      const data = await api.get('/reparos/meus-interesses')
+      setInteresses(data.interesses || [])
+    } catch (err) {
+      console.log('Erro ao buscar interesses:', err)
+    } finally {
+      setCarregando(false)
+      setAtualizando(false)
+    }
+  }
+
+  useFocusEffect(useCallback(() => { buscar() }, []))
+
+  const onRefresh = () => { setAtualizando(true); buscar() }
+
+  if (carregando) {
+    return (
+      <SafeAreaView style={estilos.container}>
+        <ActivityIndicator color={cores.primaria} style={{ marginTop: 60 }} />
+      </SafeAreaView>
+    )
+  }
+
+  const renderItem = ({ item }) => {
+    const s = STATUS_INFO[item.status] || STATUS_INFO.pendente
+    return (
+      <View style={estilos.card}>
+        <View style={estilos.cardHeader}>
+          <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+          <View style={[estilos.statusBadge, { backgroundColor: s.bg }]}>
+            <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
+          </View>
+        </View>
+        <Text style={estilos.cardMeta}>{item.categoria} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}</Text>
+        <View style={estilos.valoresRow}>
+          <View>
+            <Text style={estilos.valorLabel}>Valor do reparo</Text>
+            <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
+          </View>
+          {item.valor_proposto != null && (
+            <View>
+              <Text style={estilos.valorLabel}>Sua proposta</Text>
+              <Text style={[estilos.valorTexto, { color: cores.primaria }]}>{formatarValor(item.valor_proposto)}</Text>
+            </View>
+          )}
+          {item.valor_contraproposta != null && (
+            <View>
+              <Text style={estilos.valorLabel}>Contraproposta</Text>
+              <Text style={[estilos.valorTexto, { color: '#FF6B35' }]}>{formatarValor(item.valor_contraproposta)}</Text>
+            </View>
+          )}
+        </View>
+        {item.status === 'contraproposta' && (
+          <View style={estilos.alertaBanner}>
+            <Text style={estilos.alertaTexto}>⚡ O solicitante enviou uma contraproposta — veja os detalhes</Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={estilos.btnVer}
+          onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, cidade: item.cidade } })}
+        >
+          <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
+  return (
+    <SafeAreaView style={estilos.container}>
+      <View style={estilos.header}>
+        <Text style={estilos.titulo}>Meus Serviços</Text>
+        <Text style={estilos.subtitulo}>{interesses.length} interesse{interesses.length !== 1 ? 's' : ''} registrado{interesses.length !== 1 ? 's' : ''}</Text>
+      </View>
+      {interesses.length === 0 ? (
+        <View style={estilos.vazio}>
+          <Text style={estilos.vazioIcone}>📋</Text>
+          <Text style={estilos.vazioTitulo}>Nenhum interesse ainda</Text>
+          <Text style={estilos.vazioSub}>Explore os reparos disponíveis e demonstre interesse para aparecer aqui.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={interesses}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={renderItem}
+          contentContainerStyle={estilos.lista}
+          refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
+          showsVerticalScrollIndicator={false}
+          ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+        />
+      )}
+    </SafeAreaView>
+  )
+}
+
+const estilos = StyleSheet.create({
+  container: { flex: 1, backgroundColor: cores.fundo },
+  header: { paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
+  titulo: { fontSize: 24, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
+  subtitulo: { fontSize: 13, color: cores.textoFraco, marginTop: 2 },
+  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, paddingTop: 8 },
+  card: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
+  cardTitulo: { fontSize: 14, fontWeight: '600', color: cores.textoForte, flex: 1, marginRight: 8, lineHeight: 20 },
+  statusBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
+  statusTexto: { fontSize: 11, fontWeight: '700' },
+  cardMeta: { fontSize: 12, color: cores.textoFraco, marginBottom: 12, textTransform: 'capitalize' },
+  valoresRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 },
+  valorLabel: { fontSize: 10, color: cores.textoMutado, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  valorTexto: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  alertaBanner: { backgroundColor: '#3a2a1a', borderWidth: 1, borderColor: '#FF6B3544', borderRadius: raios.medio, padding: 10, marginBottom: 12 },
+  alertaTexto: { fontSize: 12, color: '#FF6B35', textAlign: 'center' },
+  btnVer: { backgroundColor: cores.primaria, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+  btnVerTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  vazioIcone: { fontSize: 48, marginBottom: 16 },
+  vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
+  vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
+})
