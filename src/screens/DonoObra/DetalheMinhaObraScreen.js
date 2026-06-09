@@ -135,7 +135,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
           <View style={estilos.statsRow}>
             <View style={estilos.statCard}>
               <Text style={estilos.statValor}>{formatarValor(obra.valor || obra.valor_estimado)}</Text>
-              <Text style={estilos.statLabel}>Valor estimado</Text>
+              <Text style={estilos.statLabel}>Valor oferecido</Text>
             </View>
             {obra.prazo_execucao_dias && (
               <View style={estilos.statCard}>

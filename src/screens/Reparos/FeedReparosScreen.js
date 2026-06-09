@@ -10,7 +10,7 @@ import { cores, espacos, raios } from '../../utils/tema'
 
 const CATEGORIAS = [
   { id: 'todas',        label: 'Todas'          },
-  { id: 'hidraulica',   label: '🔵 Hidráulica'  },
+  { id: 'hidraulica',   label: '🚿 Hidráulica'  },
   { id: 'eletrica',     label: '⚡ Elétrica'    },
   { id: 'marcenaria',   label: '🪚 Marcenaria'  },
   { id: 'alvenaria',    label: '🧱 Alvenaria'   },
@@ -20,7 +20,26 @@ const CATEGORIAS = [
   { id: 'outros',       label: '🔨 Outros'      },
 ]
 
-const ContadorExpiracao = ({ expiraEm, cor, onExpirar }) => {
+const CATEGORIA_EMOJIS = {
+  hidraulica: '🚿', eletrica: '⚡', marcenaria: '🪚', alvenaria: '🧱',
+  climatizacao: '❄️', chaveiro: '🔑', faxina: '🧹', outros: '🔨',
+}
+
+const getUrgenciaInfo = (horas) => {
+  if (!horas) return null
+  if (horas <= 1)  return { label: '🔴 Urgente agora!',  cor: '#f44336', bg: '#3a1a1a' }
+  if (horas <= 2)  return { label: '🟠 Muito urgente',   cor: '#FF6B35', bg: '#3a2a1a' }
+  if (horas <= 4)  return { label: '🟡 Urgente',         cor: '#FFC107', bg: '#3a3a1a' }
+  if (horas <= 8)  return { label: '🟢 Hoje',            cor: '#4caf50', bg: '#1a3a1a' }
+  if (horas <= 24) return { label: '📅 Amanhã',          cor: '#2196f3', bg: '#1a2a3a' }
+  return               { label: '📆 Esta semana',        cor: '#9e9e9e', bg: '#2a2a2a' }
+}
+
+const formatarValor = (v) =>
+  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
+
+// Defined outside FeedReparosScreen so the component reference is stable across renders
+const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   const [restante, setRestante] = useState(null)
   const expiradoRef = useRef(false)
 
@@ -46,27 +65,78 @@ const ContadorExpiracao = ({ expiraEm, cor, onExpirar }) => {
     return () => clearInterval(interval)
   }, [expiraEm])
 
-  if (!restante) {
-    return <Text style={[estilos.urgenciaHoras, { color: '#f44336', fontWeight: '700' }]}>EXPIRADO</Text>
-  }
+  if (!restante) return null
 
+  const menosUmaHora = restante.h < 1
   const urgente = restante.h === 0 && restante.m < 10
-  const texto = `Expira em: ${restante.h > 0 ? `${restante.h}h ` : ''}${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
-  return <Text style={[estilos.urgenciaHoras, { color: urgente ? '#f44336' : cor }]}>{texto}</Text>
+  const texto = restante.h > 0
+    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
+    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+
+  return (
+    <View style={[estilos.countdownBadge, menosUmaHora && estilos.countdownBadgeUrgente]}>
+      {menosUmaHora && <View style={estilos.countdownDot} />}
+      <Text style={[estilos.countdownTexto, urgente && { color: '#FF5555' }]}>⏱ {texto}</Text>
+    </View>
+  )
 }
 
-const getUrgenciaInfo = (horas) => {
-  if (!horas) return null
-  if (horas <= 1)  return { label: '🔴 Urgente agora!',  cor: '#f44336', bg: '#3a1a1a' }
-  if (horas <= 2)  return { label: '🟠 Muito urgente',   cor: '#FF6B35', bg: '#3a2a1a' }
-  if (horas <= 4)  return { label: '🟡 Urgente',         cor: '#FFC107', bg: '#3a3a1a' }
-  if (horas <= 8)  return { label: '🟢 Hoje',            cor: '#4caf50', bg: '#1a3a1a' }
-  if (horas <= 24) return { label: '📅 Amanhã',          cor: '#2196f3', bg: '#1a2a3a' }
-  return               { label: '📆 Esta semana',        cor: '#9e9e9e', bg: '#2a2a2a' }
-}
+// Defined outside to prevent re-creation on every parent render (which resets timer state)
+const CardReparo = ({ item, onPress, onExpirar }) => {
+  const urgencia = getUrgenciaInfo(item.prazo_atendimento_horas)
+  const emoji = CATEGORIA_EMOJIS[item.categoria] || '🔨'
 
-const formatarValor = (v) =>
-  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
+  return (
+    <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
+      {/* Orange left accent strip */}
+      <View style={estilos.acentoEsq} />
+
+      {/* Countdown badge — top right */}
+      {item.expira_em && (
+        <ContadorExpiracao expiraEm={item.expira_em} onExpirar={onExpirar} />
+      )}
+
+      {/* Urgency banner */}
+      {urgencia && (
+        <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.cor + '44' }]}>
+          <Text style={[estilos.urgenciaTexto, { color: urgencia.cor }]}>{urgencia.label}</Text>
+          <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>Atender em até {item.prazo_atendimento_horas}h</Text>
+        </View>
+      )}
+
+      {/* Value + Category */}
+      <View style={estilos.valorDestaque}>
+        <View style={estilos.valorDestaqueEsquerda}>
+          <Text style={estilos.valorDestaqueLabel}>💰 VALOR OFERECIDO</Text>
+          <Text style={estilos.valorDestaqueValor}>{formatarValor(item.valor_estimado)}</Text>
+        </View>
+        <View style={estilos.categoriaPill}>
+          <Text style={estilos.categoriaTexto}>{emoji} {item.categoria}</Text>
+        </View>
+      </View>
+
+      {/* Photo */}
+      {item.foto_capa && (
+        <Image source={{ uri: item.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
+      )}
+
+      {/* Body */}
+      <View style={estilos.cardCorpo}>
+        <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+        <Text style={estilos.cardLocal}>📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}</Text>
+        {item.descricao && (
+          <Text style={estilos.cardDesc} numberOfLines={2}>{item.descricao}</Text>
+        )}
+        <View style={estilos.cardRodape}>
+          <Text style={estilos.interessados}>🔧 {item.total_interessados || 0} interessado(s)</Text>
+          <View style={estilos.btnVer}>
+            <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  )
+}
 
 export default function FeedReparosScreen({ navigation }) {
   const { usuario } = useAuth()
@@ -102,71 +172,6 @@ export default function FeedReparosScreen({ navigation }) {
     setCategoria(cat)
     setCarregando(true)
     buscarReparos(cat)
-  }
-
-  const CardReparo = ({ item }) => {
-    const urgencia = getUrgenciaInfo(item.prazo_atendimento_horas)
-
-    return (
-      <TouchableOpacity
-        style={estilos.card}
-        onPress={() => navigation.navigate('DetalheReparo', { reparo: item })}
-        activeOpacity={0.85}
-      >
-        {/* Urgência em destaque no topo */}
-        {urgencia && (
-          <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.cor + '44' }]}>
-            <Text style={[estilos.urgenciaTexto, { color: urgencia.cor }]}>{urgencia.label}</Text>
-            {item.expira_em ? (
-              <ContadorExpiracao
-                expiraEm={item.expira_em}
-                cor={urgencia.cor}
-                onExpirar={() => setReparos(prev => prev.filter(r => r.id !== item.id))}
-              />
-            ) : (
-              <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>
-                Atender em até {item.prazo_atendimento_horas}h
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Valor em destaque */}
-        <View style={estilos.valorDestaque}>
-          <View style={estilos.valorDestaqueEsquerda}>
-            <Text style={estilos.valorDestaqueLabel}>💰 VALOR ESTIMADO</Text>
-            <Text style={estilos.valorDestaqueValor}>{formatarValor(item.valor_estimado)}</Text>
-          </View>
-          <View style={estilos.categoriaPill}>
-            <Text style={estilos.categoriaTexto}>{item.categoria}</Text>
-          </View>
-        </View>
-
-        {/* Foto se existir */}
-        {item.foto_capa && (
-          <Image source={{ uri: item.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
-        )}
-
-        {/* Corpo */}
-        <View style={estilos.cardCorpo}>
-          <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-          <Text style={estilos.cardLocal}>
-            📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
-          </Text>
-          {item.descricao && (
-            <Text style={estilos.cardDesc} numberOfLines={2}>{item.descricao}</Text>
-          )}
-          <View style={estilos.cardRodape}>
-            <Text style={estilos.interessados}>
-              🔧 {item.total_interessados || 0} interessado(s)
-            </Text>
-            <View style={estilos.btnVer}>
-              <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    )
   }
 
   return (
@@ -250,7 +255,13 @@ export default function FeedReparosScreen({ navigation }) {
             </View>
           )
         }
-        renderItem={({ item }) => <CardReparo item={item} />}
+        renderItem={({ item }) => (
+          <CardReparo
+            item={item}
+            onPress={() => navigation.navigate('DetalheReparo', { reparo: item })}
+            onExpirar={() => setReparos(prev => prev.filter(r => r.id !== item.id))}
+          />
+        )}
       />
     </SafeAreaView>
   )
@@ -268,29 +279,62 @@ const estilos = StyleSheet.create({
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  distanciaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espacos.tela, paddingBottom: 10, gap: 8 },
+  distanciaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espacos.tela, paddingBottom: 12, gap: 8 },
   distanciaLabel: { fontSize: 12, color: cores.textoFraco, flexShrink: 0 },
   distanciaInput: { flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, color: cores.textoForte },
   distanciaUnidade: { fontSize: 12, color: cores.textoFraco },
-  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 12 },
+  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 16 },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },
   vazio: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },
   vazioIcone: { fontSize: 48, marginBottom: 16 },
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
-  card: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden' },
-  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: 0.5 },
+
+  // Card
+  card: {
+    backgroundColor: cores.fundoCard,
+    borderRadius: 16,
+    borderWidth: 0.5,
+    borderColor: cores.borda,
+    overflow: 'hidden',
+    elevation: 4,
+  },
+  acentoEsq: {
+    position: 'absolute', left: 0, top: 0, bottom: 0,
+    width: 4, backgroundColor: cores.primaria, zIndex: 2,
+  },
+
+  // Countdown badge
+  countdownBadge: {
+    position: 'absolute', top: 10, right: 10, zIndex: 10,
+    backgroundColor: 'rgba(10,10,10,0.88)',
+    borderWidth: 0.5, borderColor: cores.borda,
+    borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+  },
+  countdownBadgeUrgente: { backgroundColor: 'rgba(139,0,0,0.92)', borderColor: '#FF4444' },
+  countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF4444' },
+  countdownTexto: { fontSize: 10, fontWeight: '600', color: cores.textoFraco },
+
+  // Urgency banner
+  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 0.5 },
   urgenciaTexto: { fontSize: 13, fontWeight: '700' },
   urgenciaHoras: { fontSize: 11, fontWeight: '500' },
-  valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
+
+  // Value row
+  valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
   valorDestaqueEsquerda: { flex: 1 },
   valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 },
-  valorDestaqueValor: { fontSize: 20, fontWeight: '700', color: cores.sucesso },
-  categoriaPill: { backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4 },
-  categoriaTexto: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize' },
+  valorDestaqueValor: { fontSize: 22, fontWeight: '700', color: cores.sucesso },
+  categoriaPill: { backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  categoriaTexto: { fontSize: 12, color: cores.textoFraco, textTransform: 'capitalize' },
+
+  // Photo
   fotoImagem: { width: '100%', height: 140 },
-  cardCorpo: { padding: 14 },
+
+  // Body
+  cardCorpo: { padding: 16 },
   cardTitulo: { fontSize: 15, fontWeight: '600', color: cores.textoForte, lineHeight: 22, marginBottom: 6 },
   cardLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 6 },
   cardDesc: { fontSize: 12, color: cores.textoMedio, lineHeight: 18, marginBottom: 10 },

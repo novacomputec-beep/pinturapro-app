@@ -34,7 +34,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const validar = () => {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
-    if (!valor.trim()) novos.valor = 'Informe o valor estimado'
+    if (!valor.trim()) novos.valor = 'Informe o valor oferecido'
     if (!cidade.trim()) novos.cidade = 'Informe a cidade'
     if (!prazo.trim()) novos.prazo = 'Informe o prazo'
     if (!descricao.trim()) novos.descricao = 'Descreva a obra'
@@ -164,7 +164,7 @@ export default function CadastrarObraScreen({ navigation }) {
             ))}
           </View>
           <View style={estilos.duasColunas}>
-            <Input label="VALOR ESTIMADO (R$)" placeholder="5000" value={valor} onChangeText={setValor} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
+            <Input label="VALOR OFERECIDO (R$)" placeholder="5000" value={valor} onChangeText={setValor} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
             <Input label="PRAZO (dias)" placeholder="30" value={prazo} onChangeText={setPrazo} keyboardType="numeric" erro={erros.prazo} estilo={{ flex: 1 }} />
           </View>
           <View style={estilos.duasColunas}>

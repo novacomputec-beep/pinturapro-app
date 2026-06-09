@@ -53,10 +53,13 @@ const CardObra = ({ obra, onPress }) => {
       onPress={() => onPress(obra)}
       activeOpacity={0.85}
     >
+      {/* Orange left accent strip */}
+      <View style={estilos.acentoEsq} />
+
       {/* Valor em destaque no topo */}
       <View style={estilos.valorDestaque}>
         <View style={estilos.valorDestaqueEsquerda}>
-          <Text style={estilos.valorDestaqueLabel}>💰 VALOR ESTIMADO</Text>
+          <Text style={estilos.valorDestaqueLabel}>💰 VALOR OFERECIDO</Text>
           <Text style={estilos.valorDestaqueValor}>
             R$ {Number(obra.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </Text>
@@ -166,7 +169,11 @@ export default function FeedScreen({ navigation }) {
         return { ...o, distancia_km: dist }
       })
       .filter(o => o.distancia_km == null || o.distancia_km <= raioFiltro)
-      .sort((a, b) => (a.distancia_km ?? 9999) - (b.distancia_km ?? 9999))
+      .sort((a, b) => {
+        const distDiff = (a.distancia_km ?? 9999) - (b.distancia_km ?? 9999)
+        if (distDiff !== 0) return distDiff
+        return new Date(a.expira_em) - new Date(b.expira_em)
+      })
     setObrasFiltradas(filtradas)
   }, [obras, raioFiltro, coordenadas])
 
@@ -311,8 +318,9 @@ const estilos = StyleSheet.create({
   vazioIcone: { fontSize: 36, marginBottom: 16 },
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
-  card: { backgroundColor: cores.fundoCard, borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden' },
+  card: { backgroundColor: cores.fundoCard, borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden', elevation: 4 },
   cardUrgente: { borderColor: cores.primaria + '44' },
+  acentoEsq: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: cores.primaria, zIndex: 2 },
   // Valor destaque no topo
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
   valorDestaqueEsquerda: { flex: 1 },
