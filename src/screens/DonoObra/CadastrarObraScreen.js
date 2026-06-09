@@ -177,12 +177,20 @@ export default function CadastrarObraScreen({ navigation }) {
             cloudForm.append('signature', params.signature)
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
-            const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`, { method: 'POST', body: cloudForm })
-            if (!cloudResp.ok) {
+            const cloudData = await new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest()
+              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
+              xhr.onload = () => {
+                try { resolve(JSON.parse(xhr.responseText)) }
+                catch(e) { reject(new Error('Invalid JSON response')) }
+              }
+              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
+              xhr.send(cloudForm)
+            })
+            if (cloudData.error) {
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
-              throw new Error('Erro ao fazer upload do vídeo')
+              throw new Error(cloudData.error?.message || 'Erro ao fazer upload do vídeo')
             }
-            const cloudData = await cloudResp.json()
             await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
           } else {
             let params
@@ -194,7 +202,7 @@ export default function CadastrarObraScreen({ navigation }) {
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
-            let cloudResp
+            let cloudData
             try {
               console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
               const cloudForm = new FormData()
@@ -203,22 +211,26 @@ export default function CadastrarObraScreen({ navigation }) {
               cloudForm.append('signature', params.signature)
               cloudForm.append('api_key', params.api_key)
               cloudForm.append('folder', params.folder)
-              cloudResp = await fetch(
-                `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`,
-                { method: 'POST', body: cloudForm }
-              )
+              cloudData = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)
+                xhr.onload = () => {
+                  try { resolve(JSON.parse(xhr.responseText)) }
+                  catch(e) { reject(new Error('Invalid JSON response')) }
+                }
+                xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
+                xhr.send(cloudForm)
+              })
             } catch (e) {
               Alert.alert('Erro no Cloudinary', `${e.message} | ${e.code || ''}`)
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
-            if (!cloudResp.ok) {
-              const cloudData = await cloudResp.json().catch(() => ({}))
-              Alert.alert('Erro no Cloudinary', `${cloudResp.status} ${JSON.stringify(cloudData)}`)
+            if (cloudData.error) {
+              Alert.alert('Erro no Cloudinary', JSON.stringify(cloudData.error))
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw new Error(cloudData.error?.message || 'Erro ao fazer upload da foto')
             }
-            const cloudData = await cloudResp.json()
             try {
               console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
               await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })

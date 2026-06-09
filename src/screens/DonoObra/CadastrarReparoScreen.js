@@ -197,16 +197,20 @@ export default function CadastrarReparoScreen({ navigation }) {
             cloudForm.append('signature', params.signature)
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
-            const cloudResp = await fetch(
-              `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`,
-              { method: 'POST', body: cloudForm }
-            )
-            if (!cloudResp.ok) {
-              const erro = await cloudResp.json().catch(() => ({}))
+            const cloudData = await new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest()
+              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
+              xhr.onload = () => {
+                try { resolve(JSON.parse(xhr.responseText)) }
+                catch(e) { reject(new Error('Invalid JSON response')) }
+              }
+              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
+              xhr.send(cloudForm)
+            })
+            if (cloudData.error) {
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
-              throw new Error(erro.error?.message || 'Erro no upload do vídeo')
+              throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
             }
-            const cloudData = await cloudResp.json()
             await api.post('/upload/reparo-url', {
               reparo_id: reparo.id,
               url: cloudData.secure_url,
@@ -223,7 +227,7 @@ export default function CadastrarReparoScreen({ navigation }) {
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw e
             }
-            let cloudResp
+            let cloudData
             try {
               console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
               const cloudForm = new FormData()
@@ -232,22 +236,26 @@ export default function CadastrarReparoScreen({ navigation }) {
               cloudForm.append('signature', params.signature)
               cloudForm.append('api_key', params.api_key)
               cloudForm.append('folder', params.folder)
-              cloudResp = await fetch(
-                `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`,
-                { method: 'POST', body: cloudForm }
-              )
+              cloudData = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)
+                xhr.onload = () => {
+                  try { resolve(JSON.parse(xhr.responseText)) }
+                  catch(e) { reject(new Error('Invalid JSON response')) }
+                }
+                xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
+                xhr.send(cloudForm)
+              })
             } catch (e) {
               Alert.alert('Erro no Cloudinary', `${e.message} | ${e.code || ''}`)
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw e
             }
-            if (!cloudResp.ok) {
-              const cloudData = await cloudResp.json().catch(() => ({}))
-              Alert.alert('Erro no Cloudinary', `${cloudResp.status} ${JSON.stringify(cloudData)}`)
+            if (cloudData.error) {
+              Alert.alert('Erro no Cloudinary', JSON.stringify(cloudData.error))
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }
-            const cloudData = await cloudResp.json()
             try {
               console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
               await api.post('/upload/reparo-url', {
