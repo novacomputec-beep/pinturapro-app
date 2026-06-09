@@ -51,10 +51,11 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
         }
         return
       }
-      const h = Math.floor(diff / 3600000)
+      const dias = Math.floor(diff / 86400000)
+      const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ h, m, s })
+      const totalMin = Math.floor(diff / 60000)
+      setRestante({ dias, h, m, totalMin })
     }
     tick()
     const interval = setInterval(tick, 1000)
@@ -62,16 +63,25 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   }, [expiraEm])
 
   if (!restante) return null
-  const menosUmaHora = restante.h < 1
-  const urgente = restante.h === 0 && restante.m < 10
-  const texto = restante.h > 0
-    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
-    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+
+  const { dias, h, m, totalMin } = restante
+  const muitoUrgente = totalMin < 10
+  const mm = String(m).padStart(2, '0')
+  let texto
+  if (muitoUrgente) {
+    texto = `🔴 Faltam ${m}min — URGENTE!`
+  } else if (dias >= 1) {
+    texto = `⏰ Faltam ${dias} ${dias === 1 ? 'dia' : 'dias'}, ${h}h${mm}min — Ainda tem tempo, aproveite!`
+  } else {
+    texto = `⏰ Faltam ${h}h${mm}min — aproveite!`
+  }
 
   return (
-    <View style={[estilos.countdownBadge, menosUmaHora && estilos.countdownBadgeUrgente]}>
-      {menosUmaHora && <View style={estilos.countdownDot} />}
-      <Text style={[estilos.countdownTexto, urgente && { color: '#FF5555' }]}>⏱ {texto}</Text>
+    <View style={[estilos.countdownBadge, muitoUrgente && estilos.countdownBadgeUrgente]}>
+      {muitoUrgente && <View style={estilos.countdownDot} />}
+      <Text style={[estilos.countdownTexto, muitoUrgente && { color: '#FF5555', fontWeight: '700' }]}>
+        {texto}
+      </Text>
     </View>
   )
 }
@@ -352,10 +362,10 @@ const estilos = StyleSheet.create({
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
   card: { backgroundColor: cores.fundoCard, borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden', elevation: 4 },
   acentoEsq: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: cores.primaria, zIndex: 2 },
-  countdownBadge: { position: 'absolute', top: 10, right: 10, zIndex: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.borda, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  countdownBadge: { position: 'absolute', top: 10, right: 10, zIndex: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.borda, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '88%' },
   countdownBadgeUrgente: { backgroundColor: 'rgba(139,0,0,0.92)', borderColor: '#FF4444' },
   countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF4444' },
-  countdownTexto: { fontSize: 10, fontWeight: '600', color: cores.textoFraco },
+  countdownTexto: { fontSize: 10, fontWeight: '600', color: cores.textoFraco, flexShrink: 1 },
   // Valor destaque no topo
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
   valorDestaqueEsquerda: { flex: 1 },

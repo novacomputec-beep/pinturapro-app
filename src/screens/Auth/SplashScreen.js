@@ -1,9 +1,18 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity } from 'react-native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos } from '../../utils/tema'
 
 export default function SplashScreen({ navigation }) {
+  const [stats, setStats] = useState({ total_valor_obras: null, total_obras_ativas: null })
+
+  useEffect(() => {
+    fetch('https://pinturapro-api-production.up.railway.app/api/stats/publico')
+      .then(r => r.json())
+      .then(data => setStats({ total_valor_obras: data.total_valor_obras, total_obras_ativas: data.total_obras_ativas }))
+      .catch(() => {})
+  }, [])
+
   return (
     <SafeAreaView style={estilos.container}>
 
@@ -36,8 +45,16 @@ export default function SplashScreen({ navigation }) {
             <View style={[estilos.artBloco, { flex: 3 }]} />
           </View>
           <View style={estilos.artValor}>
-            <Text style={estilos.artValorTexto}>R$ 8.400</Text>
-            <Text style={estilos.artValorLabel}>empreitada disponível</Text>
+            <Text style={estilos.artValorTexto}>
+              {stats.total_valor_obras != null
+                ? `R$ ${stats.total_valor_obras.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+                : '—'}
+            </Text>
+            <Text style={estilos.artValorLabel}>
+              {stats.total_obras_ativas != null
+                ? `${stats.total_obras_ativas} vagas ativas agora`
+                : 'empreitada disponível'}
+            </Text>
           </View>
         </View>
       </View>

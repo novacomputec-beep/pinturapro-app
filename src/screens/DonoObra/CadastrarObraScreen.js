@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
-  Image, FlatList, Modal
+  Image, FlatList, Modal, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import * as SecureStore from 'expo-secure-store'
@@ -26,6 +26,14 @@ export default function CadastrarObraScreen({ navigation }) {
   const [valor, setValor] = useState('')
   const [cidade, setCidade] = useState('')
   const [bairro, setBairro] = useState('')
+  const [logradouro, setLogradouro] = useState('')
+  const [uf, setUf] = useState('')
+  const [numero, setNumero] = useState('')
+  const [complemento, setComplemento] = useState('')
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
+  const [latitude, setLatitude] = useState(null)
+  const [longitude, setLongitude] = useState(null)
   const [metragem, setMetragem] = useState('')
   const [prazo, setPrazo] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -45,11 +53,43 @@ export default function CadastrarObraScreen({ navigation }) {
     return `${reaisStr},${String(cents).padStart(2, '0')}`
   }
 
+  const buscarCep = async (cepDigitado) => {
+    const cepLimpo = cepDigitado.replace(/\D/g, '')
+    setCep(cepLimpo)
+    if (cepLimpo.length !== 8) return
+    setBuscandoCep(true)
+    setEnderecoEncontrado(false)
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+      const dados = await resp.json()
+      if (dados.erro) { Alert.alert('CEP não encontrado', 'Verifique o CEP informado.'); return }
+      setLogradouro(dados.logradouro || '')
+      setBairro(dados.bairro || '')
+      setCidade(dados.localidade || '')
+      setUf(dados.uf || '')
+      setEnderecoEncontrado(true)
+      const endereco = `${dados.logradouro}, ${dados.localidade}, ${dados.uf}, Brasil`
+      const geoResp = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'PinturaPro/1.0' } }
+      )
+      const geoData = await geoResp.json()
+      if (geoData.length > 0) {
+        setLatitude(parseFloat(geoData[0].lat))
+        setLongitude(parseFloat(geoData[0].lon))
+      }
+    } catch (err) {
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
+    } finally {
+      setBuscandoCep(false)
+    }
+  }
+
   const validar = () => {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!valor.trim()) novos.valor = 'Informe o valor oferecido'
-    if (!cidade.trim()) novos.cidade = 'Informe a cidade'
+    if (!cep.trim()) novos.cep = 'Informe o CEP'
     if (!prazo.trim()) novos.prazo = 'Informe o prazo'
     if (!descricao.trim()) novos.descricao = 'Descreva a obra'
     setErros(novos)
@@ -105,13 +145,18 @@ export default function CadastrarObraScreen({ navigation }) {
     setCarregando(true)
     let obra = null
     try {
+      const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
       obra = await api.post('/obras/dono', {
         titulo: titulo.trim(),
         categoria,
         valor: parseFloat(valor.replace(/\./g, '').replace(',', '.')),
-        cidade: cidade.trim(),
-        bairro: bairro.trim(),
-        cep: cep.trim() || null,
+        cidade: cidade,
+        bairro: bairro,
+        cep: cep || null,
+        uf: uf || null,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        endereco_obra: enderecoCompleto || null,
         metragem: parseFloat(metragem) || null,
         prazo_execucao_dias: parseInt(prazo),
         descricao: descricao.trim(),
@@ -200,11 +245,27 @@ export default function CadastrarObraScreen({ navigation }) {
             <Input label="VALOR OFERECIDO (R$)" placeholder="5.000,00" value={valor} onChangeText={(t) => setValor(mascararValor(t))} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
             <Input label="PRAZO (dias)" placeholder="30" value={prazo} onChangeText={setPrazo} keyboardType="numeric" erro={erros.prazo} estilo={{ flex: 1 }} />
           </View>
-          <View style={estilos.duasColunas}>
-            <Input label="CIDADE" placeholder="Uberlândia" value={cidade} onChangeText={setCidade} erro={erros.cidade} estilo={{ flex: 1 }} />
-            <Input label="BAIRRO" placeholder="Centro" value={bairro} onChangeText={setBairro} estilo={{ flex: 1 }} />
+          <Text style={[estilos.labelCategoria, { marginTop: 16 }]}>📍 CEP DO LOCAL DO SERVIÇO</Text>
+          <View style={estilos.cepRow}>
+            <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
+            {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
+            {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
           </View>
-          <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="Ex: 38400-000" value={cep} onChangeText={setCep} keyboardType="numeric" />
+          {enderecoEncontrado && (
+            <>
+              <Input label="LOGRADOURO" value={logradouro} onChangeText={setLogradouro} editable={false} estilo={{ backgroundColor: cores.fundoElevado }} />
+              <View style={estilos.duasColunas}>
+                <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" erro={erros.numero} estilo={{ flex: 1 }} />
+                <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={setComplemento} estilo={{ flex: 1 }} />
+              </View>
+              <Input label="BAIRRO" value={bairro} onChangeText={setBairro} />
+              {latitude && (
+                <View style={estilos.geoConfirm}>
+                  <Text style={estilos.geoConfirmTexto}>📍 Localização encontrada — pintores próximos serão notificados!</Text>
+                </View>
+              )}
+            </>
+          )}
           <Input label="METRAGEM (m²)" placeholder="Ex: 150" value={metragem} onChangeText={setMetragem} keyboardType="numeric" />
           <Input label="DESCRIÇÃO DETALHADA" placeholder="Descreva os serviços necessários, condições especiais, materiais..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
           <Input label="TAGS (separadas por vírgula)" placeholder="tinta acrílica, massa corrida, selador" value={tags} onChangeText={setTags} />
@@ -301,4 +362,8 @@ const estilos = StyleSheet.create({
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
   modalOpcao: { paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: cores.borda },
   modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, textAlign: 'center' },
+  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
+  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
+  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
 })

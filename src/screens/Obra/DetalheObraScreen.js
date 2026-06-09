@@ -13,7 +13,9 @@ import { cores, espacos, raios } from '../../utils/tema'
 const { width } = Dimensions.get('window')
 
 const formatarValor = (v) =>
-  `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+  (v == null || isNaN(Number(v)))
+    ? 'A combinar'
+    : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
 // Live countdown pill for the gallery header
 const ContadorExpiracao = ({ expiraEm }) => {
@@ -227,7 +229,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item) => String(item.id)}
               onMomentumScrollEnd={(e) => {
                 const index = Math.round(e.nativeEvent.contentOffset.x / width)
                 setFotoAtiva(index)
@@ -302,7 +304,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </>
           )}
 
-          {dadosObra.tags?.length > 0 && (
+          {Array.isArray(dadosObra.tags) && dadosObra.tags.length > 0 && (
             <>
               <Text style={estilos.secaoTitulo}>Serviços inclusos</Text>
               <View style={estilos.tagsWrap}>
