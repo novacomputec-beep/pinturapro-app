@@ -77,7 +77,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { status } = await Notifications.requestPermissionsAsync()
       if (status !== 'granted') return
-      const tokenData = await Notifications.getExpoPushTokenAsync()
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: 'bf289259-dbe3-429f-9032-dcaca21f0a8a' })
       const pushToken = tokenData.data
       await api.post('/auth/push-token', { token: pushToken })
       console.log('Push token registrado:', pushToken)
