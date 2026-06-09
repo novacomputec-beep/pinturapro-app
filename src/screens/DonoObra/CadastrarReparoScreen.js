@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList, ActivityIndicator
@@ -51,6 +51,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
+  const enviandoRef = useRef(false)
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -151,8 +152,9 @@ export default function CadastrarReparoScreen({ navigation }) {
   const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
 
   const handleCadastrar = async () => {
-    if (carregando) return
+    if (enviandoRef.current) return
     if (!validar()) return
+    enviandoRef.current = true
     setCarregando(true)
     try {
       const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -201,41 +203,59 @@ export default function CadastrarReparoScreen({ navigation }) {
               ordem: i + 1,
             })
           } else {
-            // Upload direto ao Cloudinary para evitar timeout no Railway
-            console.log('[UPLOAD FOTO] Buscando assinatura...')
-            const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
-            console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
-            const cloudForm = new FormData()
-            cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
-            cloudForm.append('timestamp', String(params.timestamp))
-            cloudForm.append('signature', params.signature)
-            cloudForm.append('api_key', params.api_key)
-            cloudForm.append('folder', params.folder)
-            const cloudResp = await fetch(
-              `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`,
-              { method: 'POST', body: cloudForm }
-            )
-            if (!cloudResp.ok) {
-              const erro = await cloudResp.json().catch(() => ({}))
-              console.log('[UPLOAD FOTO] Cloudinary erro:', cloudResp.status, JSON.stringify(erro))
+            let params
+            try {
+              console.log('[UPLOAD FOTO] Buscando assinatura...')
+              params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+            } catch (e) {
+              Alert.alert('Erro na assinatura Cloudinary', e.mensagem || e.message)
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
-              throw new Error(erro.error?.message || 'Erro no upload da foto')
+              throw e
+            }
+            let cloudResp
+            try {
+              console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
+              const cloudForm = new FormData()
+              cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
+              cloudForm.append('timestamp', String(params.timestamp))
+              cloudForm.append('signature', params.signature)
+              cloudForm.append('api_key', params.api_key)
+              cloudForm.append('folder', params.folder)
+              cloudResp = await fetch(
+                `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`,
+                { method: 'POST', body: cloudForm }
+              )
+            } catch (e) {
+              Alert.alert('Erro no Cloudinary', e.message)
+              await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
+              throw e
+            }
+            if (!cloudResp.ok) {
+              const cloudData = await cloudResp.json().catch(() => ({}))
+              Alert.alert('Erro no Cloudinary', `${cloudResp.status} ${JSON.stringify(cloudData)}`)
+              await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
+              throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }
             const cloudData = await cloudResp.json()
-            console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
-            await api.post('/upload/reparo-url', {
-              reparo_id: reparo.id,
-              url: cloudData.secure_url,
-              tipo: 'foto',
-              ordem: i + 1,
-            })
+            try {
+              console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
+              await api.post('/upload/reparo-url', {
+                reparo_id: reparo.id,
+                url: cloudData.secure_url,
+                tipo: 'foto',
+                ordem: i + 1,
+              })
+            } catch (e) {
+              Alert.alert('Erro ao salvar URL', e.mensagem || e.message)
+              throw e
+            }
           }
         }
       }
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar o reparo.', [
-        { text: 'OK', onPress: () => setCarregando(false) }
+        { text: 'OK', onPress: () => { enviandoRef.current = false; setCarregando(false) } }
       ])
     }
   }
