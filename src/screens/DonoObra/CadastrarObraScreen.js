@@ -2,9 +2,11 @@ import React, { useState } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
-  Image, FlatList
+  Image, FlatList, Modal
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
+import * as SecureStore from 'expo-secure-store'
+import { Audio } from 'expo-av'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -31,6 +33,17 @@ export default function CadastrarObraScreen({ navigation }) {
   const [cep, setCep] = useState('')
   const [midias, setMidias] = useState([])
   const [enviandoMidias, setEnviandoMidias] = useState(false)
+  const [showMediaPicker, setShowMediaPicker] = useState(false)
+
+  const mascararValor = (v) => {
+    const nums = v.replace(/\D/g, '')
+    if (!nums) return ''
+    const centavos = Math.min(parseInt(nums, 10), 9999999999)
+    const reais = Math.floor(centavos / 100)
+    const cents = centavos % 100
+    const reaisStr = reais.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    return `${reaisStr},${String(cents).padStart(2, '0')}`
+  }
 
   const validar = () => {
     const novos = {}
@@ -43,55 +56,43 @@ export default function CadastrarObraScreen({ navigation }) {
     return Object.keys(novos).length === 0
   }
 
-  const selecionarMidia = async () => {
-    Alert.alert(
-      'Adicionar mídia',
-      'Como deseja adicionar?',
-      [
-        {
-          text: '📷 Câmera Foto',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-            const resultado = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              quality: 0.7,
-              allowsEditing: false,
-            })
-            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-          }
-        },
-        {
-          text: '🎥 Câmera Vídeo',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-            const { Audio } = require('expo-av')
-            await Audio.requestPermissionsAsync()
-            const resultado = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              quality: 0.7,
-              allowsEditing: false,
-            })
-            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-          }
-        },
-        {
-          text: '🖼️ Galeria',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
-            const resultado = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.All,
-              allowsMultipleSelection: true,
-              quality: 0.7,
-            })
-            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-          }
-        },
-        { text: 'Cancelar', style: 'cancel' }
-      ]
-    )
+  const usarCameraFoto = async () => {
+    setShowMediaPicker(false)
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+    const resultado = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      allowsEditing: false,
+    })
+    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+  }
+
+  const usarCameraVideo = async () => {
+    setShowMediaPicker(false)
+    const { status } = await ImagePicker.requestCameraPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+    await Audio.requestPermissionsAsync()
+    const resultado = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      quality: 0.7,
+      allowsEditing: false,
+      videoMaxDuration: 60,
+    })
+    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+  }
+
+  const usarGaleria = async () => {
+    setShowMediaPicker(false)
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsMultipleSelection: true,
+      quality: 0.7,
+      videoMaxDuration: 60,
+    })
+    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
   }
 
   const removerMidia = (index) => {
@@ -102,11 +103,12 @@ export default function CadastrarObraScreen({ navigation }) {
     if (carregando) return
     if (!validar()) return
     setCarregando(true)
+    let obra = null
     try {
-      const obra = await api.post('/obras/dono', {
+      obra = await api.post('/obras/dono', {
         titulo: titulo.trim(),
         categoria,
-        valor: parseFloat(valor.replace(',', '.')),
+        valor: parseFloat(valor.replace(/\./g, '').replace(',', '.')),
         cidade: cidade.trim(),
         bairro: bairro.trim(),
         cep: cep.trim() || null,
@@ -120,25 +122,41 @@ export default function CadastrarObraScreen({ navigation }) {
         setEnviandoMidias(true)
         for (let i = 0; i < midias.length; i++) {
           const midia = midias[i]
-          const formData = new FormData()
           const isVideo = midia.type === 'video'
-          formData.append('arquivo', {
-            uri: midia.uri,
-            type: isVideo ? 'video/mp4' : 'image/jpeg',
-            name: isVideo ? `video_${i}.mp4` : `foto_${i}.jpg`,
-          })
-          formData.append('obra_id', obra.id)
-          formData.append('ordem', i + 1)
-          const token = await require('expo-secure-store').getItemAsync('token')
-          const uploadResp = await fetch(
-            'https://pinturapro-api-production.up.railway.app/api/upload/dono',
-            {
-              method: 'POST',
-              headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-              body: formData,
+          if (isVideo) {
+            const params = await api.get('/upload/assinatura-cloudinary')
+            const cloudForm = new FormData()
+            cloudForm.append('file', { uri: midia.uri, type: 'video/mp4', name: `video_${i}.mp4` })
+            cloudForm.append('timestamp', String(params.timestamp))
+            cloudForm.append('signature', params.signature)
+            cloudForm.append('api_key', params.api_key)
+            cloudForm.append('folder', params.folder)
+            const cloudResp = await fetch(`https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`, { method: 'POST', body: cloudForm })
+            if (!cloudResp.ok) {
+              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              throw new Error('Erro ao fazer upload do vídeo')
             }
-          )
-          if (!uploadResp.ok) throw new Error('Erro ao fazer upload')
+            const cloudData = await cloudResp.json()
+            await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
+          } else {
+            const formData = new FormData()
+            formData.append('arquivo', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
+            formData.append('obra_id', String(obra.id))
+            formData.append('ordem', String(i + 1))
+            const token = await SecureStore.getItemAsync('token')
+            const uploadResp = await fetch(
+              'https://pinturapro-api-production.up.railway.app/api/upload/dono',
+              {
+                method: 'POST',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+                body: formData,
+              }
+            )
+            if (!uploadResp.ok) {
+              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              throw new Error('Erro ao fazer upload da foto')
+            }
+          }
         }
       }
       Alert.alert(
@@ -147,7 +165,7 @@ export default function CadastrarObraScreen({ navigation }) {
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       )
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível cadastrar a obra.')
+      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar a obra.')
     } finally {
       setCarregando(false)
       setEnviandoMidias(false)
@@ -179,7 +197,7 @@ export default function CadastrarObraScreen({ navigation }) {
             ))}
           </View>
           <View style={estilos.duasColunas}>
-            <Input label="VALOR OFERECIDO (R$)" placeholder="5000" value={valor} onChangeText={setValor} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
+            <Input label="VALOR OFERECIDO (R$)" placeholder="5.000,00" value={valor} onChangeText={(t) => setValor(mascararValor(t))} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
             <Input label="PRAZO (dias)" placeholder="30" value={prazo} onChangeText={setPrazo} keyboardType="numeric" erro={erros.prazo} estilo={{ flex: 1 }} />
           </View>
           <View style={estilos.duasColunas}>
@@ -192,7 +210,7 @@ export default function CadastrarObraScreen({ navigation }) {
           <Input label="TAGS (separadas por vírgula)" placeholder="tinta acrílica, massa corrida, selador" value={tags} onChangeText={setTags} />
           <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS DA OBRA</Text>
           <Text style={estilos.dicaMidia}>💡 Dica: grave um vídeo com o encarregado explicando os detalhes da obra</Text>
-          <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
+          <TouchableOpacity style={estilos.uploadBtn} onPress={() => setShowMediaPicker(true)}>
             <Text style={estilos.uploadIcone}>📎</Text>
             <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
           </TouchableOpacity>
@@ -229,6 +247,25 @@ export default function CadastrarObraScreen({ navigation }) {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
+        <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
+          <View style={estilos.modalSheet}>
+            <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraFoto}>
+              <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraVideo}>
+              <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={usarGaleria}>
+              <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
+              <Text style={[estilos.modalOpcaoTexto, { color: cores.textoFraco }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -259,4 +296,9 @@ const estilos = StyleSheet.create({
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: cores.fundoElevado, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
+  modalOpcao: { paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: cores.borda },
+  modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, textAlign: 'center' },
 })

@@ -7,6 +7,7 @@ import { obrasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLocalizacao } from '../../hooks/useLocalizacao'
 import { cores, espacos, raios } from '../../utils/tema'
+import { useFocusEffect } from '@react-navigation/native'
 
 const CATEGORIAS = [
   { id: 'todas',       label: 'Todas'       },
@@ -93,7 +94,7 @@ const CardObra = ({ obra, onPress, onExpirar }) => {
         <View style={estilos.valorDestaqueEsquerda}>
           <Text style={estilos.valorDestaqueLabel}>💰 VALOR OFERECIDO</Text>
           <Text style={estilos.valorDestaqueValor}>
-            R$ {Number(obra.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            {obra.valor != null ? `R$ ${Number(obra.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'}
           </Text>
         </View>
         <View style={estilos.valorDestaqueDireita}>
@@ -174,7 +175,7 @@ export default function FeedScreen({ navigation }) {
     }
   }, [categoria])
 
-  useEffect(() => { buscarObras() }, [categoria])
+  useFocusEffect(useCallback(() => { buscarObras() }, [categoria]))
 
   useEffect(() => {
     coordsRef.current = coordenadas
