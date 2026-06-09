@@ -34,27 +34,59 @@ const calcularDistanciaKm = (lat1, lon1, lat2, lon2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
 }
 
-const formatarCountdown = (expiraEm) => {
-  const diff = new Date(expiraEm) - new Date()
-  if (diff <= 0) return null
-  const horas = Math.floor(diff / 3600000)
-  const minutos = Math.floor((diff % 3600000) / 60000)
-  if (horas < 24) return `${horas}h ${minutos}m`
-  return `${Math.floor(horas / 24)} dias`
-}
+const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
+  const [restante, setRestante] = useState(null)
+  const expiradoRef = useRef(false)
 
-const CardObra = ({ obra, onPress }) => {
-  const countdown = formatarCountdown(obra.expira_em)
-  const urgente = countdown && !countdown.includes('dia')
+  useEffect(() => {
+    expiradoRef.current = false
+    const tick = () => {
+      const diff = new Date(expiraEm) - new Date()
+      if (diff <= 0) {
+        setRestante(null)
+        if (!expiradoRef.current) {
+          expiradoRef.current = true
+          if (onExpirar) onExpirar()
+        }
+        return
+      }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setRestante({ h, m, s })
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiraEm])
+
+  if (!restante) return null
+  const menosUmaHora = restante.h < 1
+  const urgente = restante.h === 0 && restante.m < 10
+  const texto = restante.h > 0
+    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
+    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
 
   return (
+    <View style={[estilos.countdownBadge, menosUmaHora && estilos.countdownBadgeUrgente]}>
+      {menosUmaHora && <View style={estilos.countdownDot} />}
+      <Text style={[estilos.countdownTexto, urgente && { color: '#FF5555' }]}>⏱ {texto}</Text>
+    </View>
+  )
+}
+
+const CardObra = ({ obra, onPress, onExpirar }) => {
+  return (
     <TouchableOpacity
-      style={[estilos.card, urgente && estilos.cardUrgente]}
+      style={estilos.card}
       onPress={() => onPress(obra)}
       activeOpacity={0.85}
     >
       {/* Orange left accent strip */}
       <View style={estilos.acentoEsq} />
+
+      {/* Live countdown badge — top right */}
+      {obra.expira_em && <ContadorExpiracao expiraEm={obra.expira_em} onExpirar={onExpirar} />}
 
       {/* Valor em destaque no topo */}
       <View style={estilos.valorDestaque}>
@@ -78,14 +110,6 @@ const CardObra = ({ obra, onPress }) => {
           <Image source={{ uri: obra.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
         ) : (
           <Text style={estilos.cardImagemIcone}>🏠</Text>
-        )}
-        {countdown && (
-          <View style={[estilos.countdownPill, urgente && estilos.countdownUrgente]}>
-            {urgente && <View style={estilos.countdownDot} />}
-            <Text style={[estilos.countdownTexto, urgente && { color: cores.primaria }]}>
-              {urgente ? `Expira ${countdown}` : `Expira em ${countdown}`}
-            </Text>
-          </View>
         )}
         {obra.total_midias > 0 && (
           <View style={estilos.midiasBadge}>
@@ -282,7 +306,14 @@ export default function FeedScreen({ navigation }) {
           data={dadosExibidos}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <CardObra obra={item} onPress={(obra) => navigation.navigate('DetalheObra', { obra })} />
+            <CardObra
+              obra={item}
+              onPress={(obra) => navigation.navigate('DetalheObra', { obra })}
+              onExpirar={() => {
+                setObras(prev => prev.filter(o => o.id !== item.id))
+                setObrasFiltradas(prev => prev.filter(o => o.id !== item.id))
+              }}
+            />
           )}
           contentContainerStyle={estilos.lista}
           ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
@@ -319,8 +350,11 @@ const estilos = StyleSheet.create({
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
   card: { backgroundColor: cores.fundoCard, borderRadius: 20, borderWidth: 0.5, borderColor: cores.borda, overflow: 'hidden', elevation: 4 },
-  cardUrgente: { borderColor: cores.primaria + '44' },
   acentoEsq: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: cores.primaria, zIndex: 2 },
+  countdownBadge: { position: 'absolute', top: 10, right: 10, zIndex: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.borda, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  countdownBadgeUrgente: { backgroundColor: 'rgba(139,0,0,0.92)', borderColor: '#FF4444' },
+  countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF4444' },
+  countdownTexto: { fontSize: 10, fontWeight: '600', color: cores.textoFraco },
   // Valor destaque no topo
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
   valorDestaqueEsquerda: { flex: 1 },
@@ -333,10 +367,6 @@ const estilos = StyleSheet.create({
   cardImagem: { height: 150, backgroundColor: cores.fundoElevado, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   fotoImagem: { width: '100%', height: '100%' },
   cardImagemIcone: { fontSize: 40, opacity: 0.15 },
-  countdownPill: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.borda, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  countdownUrgente: { borderColor: cores.primaria },
-  countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: cores.primaria },
-  countdownTexto: { fontSize: 10, fontWeight: '500', color: cores.textoFraco },
   midiasBadge: { position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   midiasTexto: { fontSize: 10, color: cores.textoForte },
   distanciaBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(10,10,10,0.88)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },

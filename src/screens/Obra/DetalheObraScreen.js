@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator,
@@ -15,13 +15,57 @@ const { width } = Dimensions.get('window')
 const formatarValor = (v) =>
   `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
-const formatarCountdown = (expiraEm) => {
-  const diff = new Date(expiraEm) - new Date()
-  if (diff <= 0) return 'Expirado'
-  const horas = Math.floor(diff / 3600000)
-  const minutos = Math.floor((diff % 3600000) / 60000)
-  if (horas < 24) return `${horas}h ${minutos}m`
-  return `${Math.floor(horas / 24)} dias`
+// Live countdown pill for the gallery header
+const ContadorExpiracao = ({ expiraEm }) => {
+  const [restante, setRestante] = useState(null)
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(expiraEm) - new Date()
+      if (diff <= 0) { setRestante(null); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setRestante({ h, m, s })
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiraEm])
+  if (!restante) return null
+  const menosUmaHora = restante.h < 1
+  const texto = restante.h > 0
+    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
+    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+  return (
+    <View style={[estilos.countdownPill, menosUmaHora && { backgroundColor: 'rgba(139,0,0,0.92)', borderColor: '#FF4444' }]}>
+      <View style={[estilos.countdownDot, menosUmaHora && { backgroundColor: '#FF4444' }]} />
+      <Text style={[estilos.countdownTexto, menosUmaHora && { color: '#FF4444' }]}>⏱ {texto}</Text>
+    </View>
+  )
+}
+
+// Live countdown for the stats card
+const ContadorExpiracaoObra = ({ expiraEm }) => {
+  const [restante, setRestante] = useState(null)
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(expiraEm) - new Date()
+      if (diff <= 0) { setRestante(null); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setRestante({ h, m, s })
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiraEm])
+  if (!restante) return <Text style={[estilos.statValor, { color: '#f44336' }]}>Expirado</Text>
+  const urgente = restante.h === 0 && restante.m < 10
+  const texto = restante.h > 0
+    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
+    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+  return <Text style={[estilos.statValor, urgente && { color: '#f44336' }]}>{texto}</Text>
 }
 
 export default function DetalheObraScreen({ route, navigation }) {
@@ -43,6 +87,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [enviandoDuvida, setEnviandoDuvida] = useState(false)
   const [fotoAtiva, setFotoAtiva] = useState(0)
   const [usarContraOferta, setUsarContraOferta] = useState(false)
+  const [midiaFullscreen, setMidiaFullscreen] = useState(null)
 
   useEffect(() => {
     buscar()
@@ -134,6 +179,22 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
+  const handlePintorResponder = async (action) => {
+    setEnviando(true)
+    try {
+      await api.post(`/candidaturas/${minhaCandidatura.id}/pintor-responder`, { action })
+      await buscar()
+      Alert.alert(
+        action === 'aceitar' ? '✅ Proposta aceita!' : 'Proposta recusada',
+        action === 'aceitar' ? 'O dono da obra será notificado. Combine os detalhes!' : 'Sua candidatura foi encerrada.'
+      )
+    } catch (err) {
+      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   if (carregando) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -143,8 +204,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const dadosObra = obra || obraInicial
-  const countdown = formatarCountdown(dadosObra.expira_em)
-  const urgente = countdown && !countdown.includes('dia') && countdown !== 'Expirado'
+  const ultimaOfertaDono = negociacoes.length > 0 && negociacoes[negociacoes.length - 1].autor_role === 'dono_obra'
+    ? negociacoes[negociacoes.length - 1]
+    : null
 
   return (
     <SafeAreaView style={estilos.container}>
@@ -171,13 +233,17 @@ export default function DetalheObraScreen({ route, navigation }) {
                 setFotoAtiva(index)
               }}
               renderItem={({ item }) => (
-                <View style={estilos.fotoSlide}>
+                <TouchableOpacity
+                  style={estilos.fotoSlide}
+                  onPress={() => setMidiaFullscreen({ url: item.url_assinada || item.url, tipo: item.tipo })}
+                  activeOpacity={0.9}
+                >
                   {item.tipo === 'foto' ? (
                     <Image source={{ uri: item.url_assinada || item.url }} style={estilos.fotoImagem} resizeMode="cover" />
                   ) : (
                     <Video source={{ uri: item.url_assinada || item.url }} style={estilos.fotoImagem} useNativeControls resizeMode={ResizeMode.COVER} isLooping={false} />
                   )}
-                </View>
+                </TouchableOpacity>
               )}
             />
             <View style={estilos.indicadoresRow}>
@@ -185,23 +251,13 @@ export default function DetalheObraScreen({ route, navigation }) {
                 <View key={i} style={[estilos.indicadorDot, i === fotoAtiva && estilos.indicadorDotAtivo]} />
               ))}
             </View>
-            {urgente && (
-              <View style={estilos.countdownPill}>
-                <View style={estilos.countdownDot} />
-                <Text style={estilos.countdownTexto}>Expira {countdown}</Text>
-              </View>
-            )}
+            {dadosObra.expira_em && <ContadorExpiracao expiraEm={dadosObra.expira_em} />}
           </View>
         ) : (
           <View style={estilos.galeria}>
             <View style={estilos.fotoMain}>
               <Text style={estilos.fotoIcone}>🏠</Text>
-              {urgente && (
-                <View style={estilos.countdownPill}>
-                  <View style={estilos.countdownDot} />
-                  <Text style={estilos.countdownTexto}>Expira {countdown}</Text>
-                </View>
-              )}
+              {dadosObra.expira_em && <ContadorExpiracao expiraEm={dadosObra.expira_em} />}
             </View>
           </View>
         )}
@@ -230,8 +286,11 @@ export default function DetalheObraScreen({ route, navigation }) {
               <Text style={estilos.statValor}>{dadosObra.prazo_execucao_dias} dias</Text>
               <Text style={estilos.statLabel}>Prazo execução</Text>
             </View>
-            <View style={[estilos.statCard, urgente && { borderColor: cores.primaria + '33' }]}>
-              <Text style={[estilos.statValor, urgente && { color: cores.primaria }]}>{countdown}</Text>
+            <View style={estilos.statCard}>
+              {dadosObra.expira_em
+                ? <ContadorExpiracaoObra expiraEm={dadosObra.expira_em} />
+                : <Text style={estilos.statValor}>—</Text>
+              }
               <Text style={estilos.statLabel}>Expira em</Text>
             </View>
           </View>
@@ -294,19 +353,49 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {minhaCandidatura ? (
             <View style={estilos.candidaturaFeita}>
-              <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>
+              <Text style={{
+                color: minhaCandidatura.status === 'aprovada' ? cores.sucesso
+                  : minhaCandidatura.status === 'recusada' ? '#f44336' : cores.primaria,
+                fontWeight: '600', marginBottom: 6
+              }}>
                 {minhaCandidatura.status === 'pendente' ? '⏳ Aguardando análise'
                   : minhaCandidatura.status === 'aprovada' ? '✅ Aprovado!'
                   : '❌ Não selecionado'}
               </Text>
               <Text style={estilos.candidaturaFeitaTexto}>
                 {minhaCandidatura.status === 'pendente'
-                  ? 'Sua candidatura está sendo analisada pela equipe.'
+                  ? 'Sua candidatura está sendo analisada.'
                   : minhaCandidatura.status === 'aprovada'
                   ? 'Parabéns! Você foi aprovado para esta obra.'
                   : 'Sua candidatura não foi selecionada desta vez.'}
               </Text>
-              {minhaCandidatura.status === 'pendente' && negociacoes.length === 0 && (
+
+              {/* Dono made a counter-offer — show Accept/Reject */}
+              {minhaCandidatura.status === 'pendente' && ultimaOfertaDono && (
+                <View style={estilos.contraOfertaBox}>
+                  <Text style={estilos.contraOfertaLabel}>💬 O dono fez uma proposta:</Text>
+                  <Text style={estilos.contraOfertaValor}>{formatarValor(ultimaOfertaDono.valor)}</Text>
+                  {ultimaOfertaDono.mensagem ? <Text style={estilos.contraOfertaMensagem}>"{ultimaOfertaDono.mensagem}"</Text> : null}
+                  <View style={estilos.respostaRow}>
+                    <TouchableOpacity
+                      style={estilos.btnAceitar}
+                      onPress={() => handlePintorResponder('aceitar')}
+                      disabled={enviando}
+                    >
+                      <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={estilos.btnRecusar}
+                      onPress={() => handlePintorResponder('recusar')}
+                      disabled={enviando}
+                    >
+                      <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+
+              {minhaCandidatura.status === 'pendente' && !ultimaOfertaDono && (
                 <TouchableOpacity style={[estilos.btnNegociar, { marginTop: 12 }]} onPress={() => setModalNegociar(true)}>
                   <Text style={estilos.btnNegociarTexto}>💰 Fazer contra-oferta</Text>
                 </TouchableOpacity>
@@ -423,6 +512,26 @@ export default function DetalheObraScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      {/* Fullscreen photo/video modal */}
+      <Modal visible={!!midiaFullscreen} animationType="fade" transparent onRequestClose={() => setMidiaFullscreen(null)}>
+        <View style={estilos.fullscreenOverlay}>
+          <TouchableOpacity style={estilos.fullscreenFechar} onPress={() => setMidiaFullscreen(null)}>
+            <Text style={estilos.fullscreenFecharTexto}>✕</Text>
+          </TouchableOpacity>
+          {midiaFullscreen?.tipo === 'foto' ? (
+            <Image source={{ uri: midiaFullscreen.url }} style={estilos.fullscreenMidia} resizeMode="contain" />
+          ) : (
+            <Video
+              source={{ uri: midiaFullscreen?.url }}
+              style={estilos.fullscreenMidia}
+              useNativeControls
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay
+            />
+          )}
+        </View>
+      </Modal>
+
     </SafeAreaView>
   )
 }
@@ -485,4 +594,19 @@ const estilos = StyleSheet.create({
   modalHandle: { width: 40, height: 4, backgroundColor: cores.borda, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   modalTitulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, marginBottom: 4 },
   modalSub: { fontSize: 12, color: cores.textoFraco, marginBottom: 20 },
+  // Negotiation — pintor responds to dono's offer
+  contraOfertaBox: { marginTop: 14, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.primaria + '66', borderRadius: raios.medio, padding: 14 },
+  contraOfertaLabel: { fontSize: 11, color: cores.primaria, fontWeight: '600', marginBottom: 4 },
+  contraOfertaValor: { fontSize: 18, fontWeight: '700', color: cores.sucesso, marginBottom: 4 },
+  contraOfertaMensagem: { fontSize: 12, color: cores.textoMedio, fontStyle: 'italic', marginBottom: 10 },
+  respostaRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  btnAceitar: { flex: 1, backgroundColor: '#1a3a1a', borderWidth: 0.5, borderColor: '#4caf50', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#4caf50' },
+  btnRecusar: { flex: 1, backgroundColor: '#3a1a1a', borderWidth: 0.5, borderColor: '#f44336', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnRecusarTexto: { fontSize: 13, fontWeight: '700', color: '#f44336' },
+  // Fullscreen media modal
+  fullscreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.97)', justifyContent: 'center', alignItems: 'center' },
+  fullscreenMidia: { width: '100%', height: '80%' },
+  fullscreenFechar: { position: 'absolute', top: 48, right: 20, zIndex: 10, width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  fullscreenFecharTexto: { color: '#fff', fontSize: 22, fontWeight: '400' },
 })

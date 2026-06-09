@@ -28,6 +28,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [prazo, setPrazo] = useState('')
   const [descricao, setDescricao] = useState('')
   const [tags, setTags] = useState('')
+  const [cep, setCep] = useState('')
   const [midias, setMidias] = useState([])
   const [enviandoMidias, setEnviandoMidias] = useState(false)
 
@@ -48,14 +49,27 @@ export default function CadastrarObraScreen({ navigation }) {
       'Como deseja adicionar?',
       [
         {
-          text: '📷 Câmera (foto ou vídeo)',
+          text: '📷 Câmera Foto',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
+            const resultado = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              quality: 0.7,
+              allowsEditing: false,
+            })
+            if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
+          }
+        },
+        {
+          text: '🎥 Câmera Vídeo',
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
             const { Audio } = require('expo-av')
             await Audio.requestPermissionsAsync()
             const resultado = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.All,
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
               quality: 0.7,
               allowsEditing: false,
             })
@@ -95,6 +109,7 @@ export default function CadastrarObraScreen({ navigation }) {
         valor: parseFloat(valor.replace(',', '.')),
         cidade: cidade.trim(),
         bairro: bairro.trim(),
+        cep: cep.trim() || null,
         metragem: parseFloat(metragem) || null,
         prazo_execucao_dias: parseInt(prazo),
         descricao: descricao.trim(),
@@ -171,6 +186,7 @@ export default function CadastrarObraScreen({ navigation }) {
             <Input label="CIDADE" placeholder="Uberlândia" value={cidade} onChangeText={setCidade} erro={erros.cidade} estilo={{ flex: 1 }} />
             <Input label="BAIRRO" placeholder="Centro" value={bairro} onChangeText={setBairro} estilo={{ flex: 1 }} />
           </View>
+          <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="Ex: 38400-000" value={cep} onChangeText={setCep} keyboardType="numeric" />
           <Input label="METRAGEM (m²)" placeholder="Ex: 150" value={metragem} onChangeText={setMetragem} keyboardType="numeric" />
           <Input label="DESCRIÇÃO DETALHADA" placeholder="Descreva os serviços necessários, condições especiais, materiais..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
           <Input label="TAGS (separadas por vírgula)" placeholder="tinta acrílica, massa corrida, selador" value={tags} onChangeText={setTags} />

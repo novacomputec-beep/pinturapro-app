@@ -34,6 +34,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
   const [valorNegociacao, setValorNegociacao] = useState('')
   const [mensagemNegociacao, setMensagemNegociacao] = useState('')
   const [enviando, setEnviando] = useState(false)
+  const [respondendo, setRespondendo] = useState(null)
 
   useEffect(() => { buscar() }, [obra.id])
 
@@ -77,6 +78,33 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
     } finally {
       setEnviando(false)
     }
+  }
+
+  const handleDonoResponder = async (candidaturaId, action) => {
+    Alert.alert(
+      action === 'aceitar' ? 'Aprovar candidatura?' : 'Recusar candidatura?',
+      action === 'aceitar'
+        ? 'O profissional será notificado e selecionado para a obra.'
+        : 'A candidatura será recusada e o profissional notificado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: action === 'aceitar' ? 'Aprovar' : 'Recusar',
+          style: action === 'aceitar' ? 'default' : 'destructive',
+          onPress: async () => {
+            setRespondendo(candidaturaId)
+            try {
+              await api.post(`/candidaturas/${candidaturaId}/dono-responder`, { action })
+              await buscar()
+            } catch (err) {
+              Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+            } finally {
+              setRespondendo(null)
+            }
+          }
+        }
+      ]
+    )
   }
 
   const handleDeletar = () => {
@@ -202,10 +230,30 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
                   {c.referencias && <Text style={estilos.referencias}>"{c.referencias}"</Text>}
                   {c.telefone && <Text style={estilos.contato}>📱 {c.telefone}</Text>}
                   {c.status === 'pendente' && (
-                    <TouchableOpacity style={estilos.btnNegociar} onPress={() => abrirNegociacao(c)}>
-                      <Text style={estilos.btnNegociarTexto}>💬 Negociar / Contra-oferta</Text>
-                      <Text style={{ color: cores.primaria }}>→</Text>
-                    </TouchableOpacity>
+                    <>
+                      <View style={estilos.acaoRow}>
+                        <TouchableOpacity
+                          style={[estilos.btnAcao, { backgroundColor: '#1a3a1a', borderColor: '#4caf50' }]}
+                          onPress={() => handleDonoResponder(c.id, 'aceitar')}
+                          disabled={respondendo === c.id}
+                        >
+                          <Text style={{ color: '#4caf50', fontSize: 12, fontWeight: '700' }}>
+                            {respondendo === c.id ? '...' : '✅ Aprovar'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[estilos.btnAcao, { backgroundColor: '#3a1a1a', borderColor: '#f44336' }]}
+                          onPress={() => handleDonoResponder(c.id, 'recusar')}
+                          disabled={respondendo === c.id}
+                        >
+                          <Text style={{ color: '#f44336', fontSize: 12, fontWeight: '700' }}>❌ Recusar</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity style={estilos.btnNegociar} onPress={() => abrirNegociacao(c)}>
+                        <Text style={estilos.btnNegociarTexto}>💬 Negociar / Contra-oferta</Text>
+                        <Text style={{ color: cores.primaria }}>→</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
                 </View>
               )
@@ -280,6 +328,8 @@ const estilos = StyleSheet.create({
   ofertaMensagem: { fontSize: 12, color: cores.sucesso, fontStyle: 'italic' },
   referencias: { fontSize: 12, color: cores.textoMedio, fontStyle: 'italic', lineHeight: 18, marginBottom: 6 },
   contato: { fontSize: 12, color: cores.primaria, marginBottom: 8 },
+  acaoRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  btnAcao: { flex: 1, borderWidth: 0.5, borderRadius: raios.medio, padding: 10, alignItems: 'center' },
   btnNegociar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 10, marginTop: 8 },
   btnNegociarTexto: { fontSize: 12, color: cores.primaria, fontWeight: '500' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
