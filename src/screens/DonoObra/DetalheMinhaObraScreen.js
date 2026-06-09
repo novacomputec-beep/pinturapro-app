@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput
@@ -6,6 +6,35 @@ import {
 import api from '../../services/api'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
+
+const ContadorExpiracaoObra = ({ expiraEm }) => {
+  const [restante, setRestante] = useState(null)
+  const expiradoRef = useRef(false)
+
+  useEffect(() => {
+    expiradoRef.current = false
+    const tick = () => {
+      const diff = new Date(expiraEm) - new Date()
+      if (diff <= 0) {
+        if (!expiradoRef.current) { expiradoRef.current = true; setRestante(null) }
+        return
+      }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      setRestante({ h, m })
+    }
+    tick()
+    const interval = setInterval(tick, 60000)
+    return () => clearInterval(interval)
+  }, [expiraEm])
+
+  if (!restante) return <Text style={{ fontSize: 13, fontWeight: '700', color: '#f44336' }}>Expirado</Text>
+  const urgente = restante.h < 2
+  const texto = restante.h > 0
+    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
+    : `${String(restante.m).padStart(2, '0')}m`
+  return <Text style={{ fontSize: 13, fontWeight: '700', color: urgente ? '#f44336' : '#4caf50' }}>⏱ {texto}</Text>
+}
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação', desc: 'Nossa equipe está analisando sua publicação.' },
@@ -179,6 +208,12 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
               <Text style={[estilos.statValor, { color: cores.textoFraco }]}>{obra.total_visitas || 0}</Text>
               <Text style={estilos.statLabel}>Visitas</Text>
             </View>
+            {obra.expira_em && (
+              <View style={estilos.statCard}>
+                <ContadorExpiracaoObra expiraEm={obra.expira_em} />
+                <Text style={estilos.statLabel}>Expira em</Text>
+              </View>
+            )}
           </View>
 
           {obra.descricao && (
