@@ -5,7 +5,6 @@ import {
   Image, FlatList, Modal, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import * as SecureStore from 'expo-secure-store'
 import { Audio } from 'expo-av'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
@@ -184,23 +183,25 @@ export default function CadastrarObraScreen({ navigation }) {
             const cloudData = await cloudResp.json()
             await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
           } else {
-            const formData = new FormData()
-            formData.append('arquivo', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
-            formData.append('obra_id', String(obra.id))
-            formData.append('ordem', String(i + 1))
-            const token = await SecureStore.getItemAsync('token')
-            const uploadResp = await fetch(
-              'https://pinturapro-api-production.up.railway.app/api/upload/dono',
-              {
-                method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                body: formData,
-              }
+            // Upload direto ao Cloudinary para evitar timeout no Railway
+            const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+            const cloudForm = new FormData()
+            cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
+            cloudForm.append('timestamp', String(params.timestamp))
+            cloudForm.append('signature', params.signature)
+            cloudForm.append('api_key', params.api_key)
+            cloudForm.append('folder', params.folder)
+            const cloudResp = await fetch(
+              `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`,
+              { method: 'POST', body: cloudForm }
             )
-            if (!uploadResp.ok) {
+            if (!cloudResp.ok) {
+              const erro = await cloudResp.json().catch(() => ({}))
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
-              throw new Error('Erro ao fazer upload da foto')
+              throw new Error(erro.error?.message || 'Erro ao fazer upload da foto')
             }
+            const cloudData = await cloudResp.json()
+            await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })
           }
         }
       }
@@ -275,6 +276,7 @@ export default function CadastrarObraScreen({ navigation }) {
             <Text style={estilos.uploadIcone}>📎</Text>
             <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
           </TouchableOpacity>
+          <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
           {midias.length > 0 && (
             <FlatList
               data={midias}

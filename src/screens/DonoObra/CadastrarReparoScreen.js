@@ -6,7 +6,6 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { Audio } from 'expo-av'
-import * as SecureStore from 'expo-secure-store'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -202,25 +201,30 @@ export default function CadastrarReparoScreen({ navigation }) {
               ordem: i + 1,
             })
           } else {
-            // Upload de foto via servidor
-            const formData = new FormData()
-            formData.append('arquivo', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
-            formData.append('reparo_id', String(reparo.id))
-            formData.append('ordem', String(i + 1))
-            const token = await SecureStore.getItemAsync('token')
-            const uploadResp = await fetch(
-              'https://pinturapro-api-production.up.railway.app/api/upload/reparo',
-              {
-                method: 'POST',
-                headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-                body: formData,
-              }
+            // Upload direto ao Cloudinary para evitar timeout no Railway
+            const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+            const cloudForm = new FormData()
+            cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
+            cloudForm.append('timestamp', String(params.timestamp))
+            cloudForm.append('signature', params.signature)
+            cloudForm.append('api_key', params.api_key)
+            cloudForm.append('folder', params.folder)
+            const cloudResp = await fetch(
+              `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`,
+              { method: 'POST', body: cloudForm }
             )
-            if (!uploadResp.ok) {
-              const erro = await uploadResp.json().catch(() => ({}))
+            if (!cloudResp.ok) {
+              const erro = await cloudResp.json().catch(() => ({}))
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
-              throw new Error(erro.erro || erro.mensagem || `Erro no upload (${uploadResp.status})`)
+              throw new Error(erro.error?.message || 'Erro no upload da foto')
             }
+            const cloudData = await cloudResp.json()
+            await api.post('/upload/reparo-url', {
+              reparo_id: reparo.id,
+              url: cloudData.secure_url,
+              tipo: 'foto',
+              ordem: i + 1,
+            })
           }
         }
       }
@@ -303,6 +307,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             <Text style={estilos.uploadIcone}>📎</Text>
             <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
           </TouchableOpacity>
+          <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
           {midias.length > 0 && (
             <FlatList
               data={midias}
@@ -376,7 +381,8 @@ const estilos = StyleSheet.create({
   duasColunas: { flexDirection: 'row', gap: 12 },
   geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
   geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
-  uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10 },
+  dicaMidia: { fontSize: 12, color: cores.textoFraco, marginBottom: 10, lineHeight: 18 },
+  uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
   midiaItem: { width: 100, height: 100, marginRight: 8, borderRadius: 10, overflow: 'hidden', position: 'relative' },
