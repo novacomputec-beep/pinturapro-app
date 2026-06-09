@@ -202,7 +202,9 @@ export default function CadastrarReparoScreen({ navigation }) {
             })
           } else {
             // Upload direto ao Cloudinary para evitar timeout no Railway
+            console.log('[UPLOAD FOTO] Buscando assinatura...')
             const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+            console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
             const cloudForm = new FormData()
             cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
             cloudForm.append('timestamp', String(params.timestamp))
@@ -215,10 +217,12 @@ export default function CadastrarReparoScreen({ navigation }) {
             )
             if (!cloudResp.ok) {
               const erro = await cloudResp.json().catch(() => ({}))
+              console.log('[UPLOAD FOTO] Cloudinary erro:', cloudResp.status, JSON.stringify(erro))
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw new Error(erro.error?.message || 'Erro no upload da foto')
             }
             const cloudData = await cloudResp.json()
+            console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
             await api.post('/upload/reparo-url', {
               reparo_id: reparo.id,
               url: cloudData.secure_url,

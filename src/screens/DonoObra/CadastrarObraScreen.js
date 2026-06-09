@@ -184,7 +184,9 @@ export default function CadastrarObraScreen({ navigation }) {
             await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
           } else {
             // Upload direto ao Cloudinary para evitar timeout no Railway
+            console.log('[UPLOAD FOTO] Buscando assinatura...')
             const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+            console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
             const cloudForm = new FormData()
             cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
             cloudForm.append('timestamp', String(params.timestamp))
@@ -197,10 +199,12 @@ export default function CadastrarObraScreen({ navigation }) {
             )
             if (!cloudResp.ok) {
               const erro = await cloudResp.json().catch(() => ({}))
+              console.log('[UPLOAD FOTO] Cloudinary erro:', cloudResp.status, JSON.stringify(erro))
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw new Error(erro.error?.message || 'Erro ao fazer upload da foto')
             }
             const cloudData = await cloudResp.json()
+            console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
             await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })
           }
         }
