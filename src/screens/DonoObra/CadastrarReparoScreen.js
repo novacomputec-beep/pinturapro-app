@@ -156,9 +156,12 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!validar()) return
     enviandoRef.current = true
     setCarregando(true)
+    const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
+    let reparo
     try {
-      const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
-      const reparo = await api.post('/reparos/dono', {
+      console.log('[CADASTRO] Iniciando POST /reparos/dono...')
+      Alert.alert('Debug', 'Iniciando cadastro...')
+      reparo = await api.post('/reparos/dono', {
         titulo: titulo.trim(),
         categoria,
         descricao: descricao.trim(),
@@ -172,6 +175,14 @@ export default function CadastrarReparoScreen({ navigation }) {
         latitude,
         longitude,
       })
+      console.log('[CADASTRO] Reparo criado:', reparo.id)
+    } catch (e) {
+      Alert.alert('Erro no POST /reparos/dono', `${e.mensagem} | code: ${e.code} | status: ${e.status}`)
+      enviandoRef.current = false
+      setCarregando(false)
+      return
+    }
+    try {
       if (midias.length > 0) {
         for (let i = 0; i < midias.length; i++) {
           const midia = midias[i]
