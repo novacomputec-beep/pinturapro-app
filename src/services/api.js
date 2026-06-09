@@ -24,7 +24,7 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    console.log('Erro API:', error.response?.status, error.response?.data)
+    console.log('Erro API:', error.response?.status, error.response?.data, '| msg:', error.message, '| code:', error.code)
     const msg = error.response?.data?.erro || 'Erro de conexão. Verifique sua internet.'
     return Promise.reject({ mensagem: msg, status: error.response?.status })
   }
