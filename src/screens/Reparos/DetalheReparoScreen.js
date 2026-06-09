@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
@@ -9,6 +9,40 @@ import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
+
+const ContadorExpiracaoReparo = ({ expiraEm }) => {
+  const [restante, setRestante] = useState(null)
+  const expiradoRef = useRef(false)
+
+  useEffect(() => {
+    expiradoRef.current = false
+    const tick = () => {
+      const diff = new Date(expiraEm) - new Date()
+      if (diff <= 0) {
+        if (!expiradoRef.current) {
+          expiradoRef.current = true
+          setRestante(null)
+        }
+        return
+      }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setRestante({ h, m, s })
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiraEm])
+
+  if (!restante) {
+    return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: '700' }}>EXPIRADO</Text>
+  }
+
+  const urgente = restante.h === 0 && restante.m < 10
+  const texto = `Expira em: ${restante.h > 0 ? `${restante.h}h ` : ''}${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+  return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
+}
 
 const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
   <View style={estilos.perguntaWrap}>
@@ -367,7 +401,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   : reparo.prazo_atendimento_horas <= 24 ? '📅 Amanhã'
                   : '📆 Esta semana'}
               </Text>
-              <Text style={estilos.urgenciaHoras}>Atender em até {reparo.prazo_atendimento_horas}h</Text>
+              {reparo.expira_em
+                ? <ContadorExpiracaoReparo expiraEm={reparo.expira_em} />
+                : <Text style={estilos.urgenciaHoras}>Atender em até {reparo.prazo_atendimento_horas}h</Text>
+              }
             </View>
           )}
 

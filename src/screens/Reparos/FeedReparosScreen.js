@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, TextInput
@@ -19,6 +19,41 @@ const CATEGORIAS = [
   { id: 'faxina',       label: '🧹 Faxina'      },
   { id: 'outros',       label: '🔨 Outros'      },
 ]
+
+const ContadorExpiracao = ({ expiraEm, cor, onExpirar }) => {
+  const [restante, setRestante] = useState(null)
+  const expiradoRef = useRef(false)
+
+  useEffect(() => {
+    expiradoRef.current = false
+    const tick = () => {
+      const diff = new Date(expiraEm) - new Date()
+      if (diff <= 0) {
+        setRestante(null)
+        if (!expiradoRef.current) {
+          expiradoRef.current = true
+          if (onExpirar) onExpirar()
+        }
+        return
+      }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setRestante({ h, m, s })
+    }
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiraEm])
+
+  if (!restante) {
+    return <Text style={[estilos.urgenciaHoras, { color: '#f44336', fontWeight: '700' }]}>EXPIRADO</Text>
+  }
+
+  const urgente = restante.h === 0 && restante.m < 10
+  const texto = `Expira em: ${restante.h > 0 ? `${restante.h}h ` : ''}${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+  return <Text style={[estilos.urgenciaHoras, { color: urgente ? '#f44336' : cor }]}>{texto}</Text>
+}
 
 const getUrgenciaInfo = (horas) => {
   if (!horas) return null
@@ -82,9 +117,17 @@ export default function FeedReparosScreen({ navigation }) {
         {urgencia && (
           <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.cor + '44' }]}>
             <Text style={[estilos.urgenciaTexto, { color: urgencia.cor }]}>{urgencia.label}</Text>
-            <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>
-              Atender em até {item.prazo_atendimento_horas}h
-            </Text>
+            {item.expira_em ? (
+              <ContadorExpiracao
+                expiraEm={item.expira_em}
+                cor={urgencia.cor}
+                onExpirar={() => setReparos(prev => prev.filter(r => r.id !== item.id))}
+              />
+            ) : (
+              <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>
+                Atender em até {item.prazo_atendimento_horas}h
+              </Text>
+            )}
           </View>
         )}
 
