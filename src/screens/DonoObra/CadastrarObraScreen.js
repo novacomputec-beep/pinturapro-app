@@ -190,7 +190,7 @@ export default function CadastrarObraScreen({ navigation }) {
               console.log('[UPLOAD FOTO] Buscando assinatura...')
               params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
             } catch (e) {
-              Alert.alert('Erro na assinatura Cloudinary', e.mensagem || e.message)
+              Alert.alert('Erro na assinatura Cloudinary', `${e.mensagem || e.message} | ${e.code || ''}`)
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
@@ -208,7 +208,7 @@ export default function CadastrarObraScreen({ navigation }) {
                 { method: 'POST', body: cloudForm }
               )
             } catch (e) {
-              Alert.alert('Erro no Cloudinary', e.message)
+              Alert.alert('Erro no Cloudinary', `${e.message} | ${e.code || ''}`)
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
@@ -223,7 +223,7 @@ export default function CadastrarObraScreen({ navigation }) {
               console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
               await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })
             } catch (e) {
-              Alert.alert('Erro ao salvar URL', e.mensagem || e.message)
+              Alert.alert('Erro ao salvar URL', `${e.mensagem || e.message} | ${e.code || ''}`)
               throw e
             }
           }

@@ -24,24 +24,11 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    console.log('Erro API:', error.response?.status, error.response?.data, '| msg:', error.message, '| code:', error.code)
-    const msg = error.response?.data?.erro || 'Erro de conexão. Verifique sua internet.'
-    return Promise.reject({ mensagem: msg, status: error.response?.status })
+    console.log('Erro API:', error.response?.status, error.response?.data, '| network:', error.message, '| code:', error.code)
+    const msg = error.response?.data?.erro || `Erro de conexão (${error.code || error.message})`
+    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code })
   }
 )
-
-// Upload de mídia de obra/reparo
-export const uploadMidia = async (formData, onProgress) => {
-  const token = await SecureStore.getItemAsync('token')
-  return axios.post(`${API_URL}/upload/dono`, formData, {
-    timeout: 120000,
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      'Authorization': `Bearer ${token}`
-    },
-    onUploadProgress: onProgress
-  })
-}
 
 // Upload foto de perfil
 api.uploadFotoPerfil = async (formData) => {
