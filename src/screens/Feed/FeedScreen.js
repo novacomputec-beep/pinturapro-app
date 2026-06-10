@@ -315,11 +315,17 @@ export default function FeedScreen({ navigation }) {
       ) : (
         <FlatList
           data={dadosExibidos}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <CardObra
               obra={item}
-              onPress={(obra) => navigation.navigate('DetalheObra', { obra })}
+              onPress={(obra) => navigation.navigate('DetalheObra', {
+                obra: {
+                  ...obra,
+                  expira_em: obra.expira_em ? new Date(obra.expira_em).toISOString() : null,
+                  tags: Array.isArray(obra.tags) ? obra.tags : [],
+                }
+              })}
               onExpirar={() => {
                 setObras(prev => prev.filter(o => o.id !== item.id))
                 setObrasFiltradas(prev => prev.filter(o => o.id !== item.id))
