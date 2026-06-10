@@ -144,58 +144,85 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!validar()) return
     enviandoRef.current = true
     setCarregando(true)
+    Alert.alert('Debug', 'Iniciando cadastro de obra...')
     let obra = null
     try {
       const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
-      obra = await api.post('/obras/dono', {
-        titulo: titulo.trim(),
-        categoria,
-        valor: parseFloat(valor.replace(/\./g, '').replace(',', '.')),
-        cidade: cidade,
-        bairro: bairro,
-        cep: cep || null,
-        uf: uf || null,
-        latitude: latitude || null,
-        longitude: longitude || null,
-        endereco_obra: enderecoCompleto || null,
-        metragem: parseFloat(metragem) || null,
-        prazo_execucao_dias: parseInt(prazo),
-        descricao: descricao.trim(),
-        tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-        horas_para_expirar: 720,
-      })
+      try {
+        obra = await api.post('/obras/dono', {
+          titulo: titulo.trim(),
+          categoria,
+          valor: parseFloat(valor.replace(/\./g, '').replace(',', '.')),
+          cidade: cidade,
+          bairro: bairro,
+          cep: cep || null,
+          uf: uf || null,
+          latitude: latitude || null,
+          longitude: longitude || null,
+          endereco_obra: enderecoCompleto || null,
+          metragem: parseFloat(metragem) || null,
+          prazo_execucao_dias: parseInt(prazo),
+          descricao: descricao.trim(),
+          tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+          horas_para_expirar: 720,
+        })
+      } catch (e) {
+        Alert.alert('Erro no POST /obras/dono', `${e.mensagem || e.message} | code: ${e.code} | status: ${e.status}`)
+        enviandoRef.current = false
+        setCarregando(false)
+        return
+      }
       if (midias.length > 0) {
         setEnviandoMidias(true)
         for (let i = 0; i < midias.length; i++) {
           const midia = midias[i]
           const isVideo = midia.type === 'video'
           if (isVideo) {
-            const params = await api.get('/upload/assinatura-cloudinary')
+            let params
+            try {
+              params = await api.get('/upload/assinatura-cloudinary')
+            } catch (e) {
+              Alert.alert('Erro na assinatura Cloudinary (vídeo)', `${e.mensagem || e.message} | ${e.code || ''}`)
+              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              throw e
+            }
             const cloudForm = new FormData()
             cloudForm.append('file', { uri: midia.uri, type: 'video/mp4', name: `video_${i}.mp4` })
             cloudForm.append('timestamp', String(params.timestamp))
             cloudForm.append('signature', params.signature)
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
-            const cloudData = await new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest()
-              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
-              xhr.onload = () => {
-                try { resolve(JSON.parse(xhr.responseText)) }
-                catch(e) { reject(new Error('Invalid JSON response')) }
-              }
-              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
-              xhr.send(cloudForm)
-            })
+            let cloudData
+            try {
+              cloudData = await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest()
+                xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
+                xhr.onload = () => {
+                  try { resolve(JSON.parse(xhr.responseText)) }
+                  catch(e) { reject(new Error('Invalid JSON response')) }
+                }
+                xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
+                xhr.send(cloudForm)
+              })
+            } catch (e) {
+              Alert.alert('Erro no upload de vídeo Cloudinary', `${e.message}`)
+              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              throw e
+            }
             if (cloudData.error) {
+              Alert.alert('Erro Cloudinary (vídeo)', JSON.stringify(cloudData.error))
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw new Error(cloudData.error?.message || 'Erro ao fazer upload do vídeo')
             }
-            await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
+            try {
+              await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
+            } catch (e) {
+              Alert.alert('Erro ao salvar URL (vídeo)', `${e.mensagem || e.message} | ${e.code || ''}`)
+              throw e
+            }
           } else {
             let params
             try {
-              console.log('[UPLOAD FOTO] Buscando assinatura...')
               params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
             } catch (e) {
               Alert.alert('Erro na assinatura Cloudinary', `${e.mensagem || e.message} | ${e.code || ''}`)
@@ -204,7 +231,6 @@ export default function CadastrarObraScreen({ navigation }) {
             }
             let cloudData
             try {
-              console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
               const cloudForm = new FormData()
               cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
               cloudForm.append('timestamp', String(params.timestamp))
@@ -232,7 +258,6 @@ export default function CadastrarObraScreen({ navigation }) {
               throw new Error(cloudData.error?.message || 'Erro ao fazer upload da foto')
             }
             try {
-              console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
               await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })
             } catch (e) {
               Alert.alert('Erro ao salvar URL', `${e.mensagem || e.message} | ${e.code || ''}`)
@@ -241,13 +266,19 @@ export default function CadastrarObraScreen({ navigation }) {
           }
         }
       }
+      enviandoRef.current = false
+      setCarregando(false)
+      setEnviandoMidias(false)
       Alert.alert(
         'Obra enviada! 🎉',
         'Sua obra foi enviada para aprovação. Nossa equipe irá analisá-la em breve e você será notificado.',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       )
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar a obra.', [
+      const msg = err.status === 409
+        ? (err.mensagem || 'Dados já cadastrados.')
+        : (err.mensagem || err.message || 'Não foi possível cadastrar a obra.')
+      Alert.alert('Erro', msg, [
         { text: 'OK', onPress: () => { enviandoRef.current = false; setCarregando(false); setEnviandoMidias(false) } }
       ])
     }
