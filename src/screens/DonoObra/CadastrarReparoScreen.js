@@ -159,8 +159,6 @@ export default function CadastrarReparoScreen({ navigation }) {
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
     let reparo
     try {
-      console.log('[CADASTRO] Iniciando POST /reparos/dono...')
-      Alert.alert('Debug', 'Iniciando cadastro...')
       reparo = await api.post('/reparos/dono', {
         titulo: titulo.trim(),
         categoria,
@@ -175,7 +173,6 @@ export default function CadastrarReparoScreen({ navigation }) {
         latitude,
         longitude,
       })
-      console.log('[CADASTRO] Reparo criado:', reparo.id)
     } catch (e) {
       Alert.alert('Erro no POST /reparos/dono', `${e.mensagem} | code: ${e.code} | status: ${e.status}`)
       enviandoRef.current = false
@@ -220,7 +217,6 @@ export default function CadastrarReparoScreen({ navigation }) {
           } else {
             let params
             try {
-              console.log('[UPLOAD FOTO] Buscando assinatura...')
               params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
             } catch (e) {
               Alert.alert('Erro na assinatura Cloudinary', `${e.mensagem || e.message} | ${e.code || ''}`)
@@ -229,7 +225,6 @@ export default function CadastrarReparoScreen({ navigation }) {
             }
             let cloudData
             try {
-              console.log('[UPLOAD FOTO] Enviando para Cloudinary...', params.cloud_name, params.folder)
               const cloudForm = new FormData()
               cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
               cloudForm.append('timestamp', String(params.timestamp))
@@ -257,7 +252,6 @@ export default function CadastrarReparoScreen({ navigation }) {
               throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }
             try {
-              console.log('[UPLOAD FOTO] Salvando URL...', cloudData.secure_url)
               await api.post('/upload/reparo-url', {
                 reparo_id: reparo.id,
                 url: cloudData.secure_url,
@@ -271,6 +265,8 @@ export default function CadastrarReparoScreen({ navigation }) {
           }
         }
       }
+      enviandoRef.current = false
+      setCarregando(false)
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar o reparo.', [
@@ -324,7 +320,6 @@ export default function CadastrarReparoScreen({ navigation }) {
             erroEstado={erros.uf}
             erroCidade={erros.cidade}
           />
-          <Text style={[estilos.labelCategoria, { marginTop: 16 }]}>CEP DO LOCAL DO SERVIÇO</Text>
           <View style={estilos.cepRow}>
             <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}

@@ -127,6 +127,10 @@ export default function CadastroScreen({ navigation }) {
   const [especialidades, setEspecialidades] = useState('')
   const [planoSelecionado, setPlanoSelecionado] = useState('mensal')
 
+  const [rg, setRg] = useState('')
+  const [rgOrgao, setRgOrgao] = useState('SSP')
+  const [rgEstado, setRgEstado] = useState('')
+
   // Campos de verificação (só para prestadores)
   const [pixReembolso, setPixReembolso] = useState('')
   const [ref1Nome, setRef1Nome] = useState('')
@@ -315,6 +319,9 @@ export default function CadastroScreen({ navigation }) {
         verificacao_doc_frente_url: docFrenteUrl,
         verificacao_doc_verso_url: docVersoUrl,
         verificacao_selfie_url: selfieUrl,
+        rg: isPrestador ? rg.trim() || null : null,
+        rg_orgao: isPrestador ? rgOrgao : null,
+        rg_estado: isPrestador ? rgEstado || null : null,
       }
 
       const resposta = await authService.cadastrar(dados)
@@ -472,6 +479,23 @@ export default function CadastroScreen({ navigation }) {
                     value={especialidades}
                     onChangeText={setEspecialidades}
                   />
+                  <Input label="RG (somente números)" placeholder="000000000" value={rg} onChangeText={(t) => setRg(t.replace(/\D/g, '').slice(0, 9))} keyboardType="numeric" />
+                  <Text style={estilos.labelSecao}>ÓRGÃO EMISSOR DO RG</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                    {['SSP', 'PC', 'PM', 'IFP', 'DETRAN', 'Outro'].map(o => (
+                      <TouchableOpacity key={o} style={[estilos.categoriaPill, rgOrgao === o && estilos.categoriaPillAtivo]} onPress={() => setRgOrgao(o)}>
+                        <Text style={[estilos.categoriaPillTexto, rgOrgao === o && estilos.categoriaPillTextoAtivo]}>{o}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <Text style={estilos.labelSecao}>ESTADO EMISSOR DO RG</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+                    {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(s => (
+                      <TouchableOpacity key={s} style={[estilos.categoriaPill, rgEstado === s && estilos.categoriaPillAtivo]} onPress={() => setRgEstado(s)}>
+                        <Text style={[estilos.categoriaPillTexto, rgEstado === s && estilos.categoriaPillTextoAtivo]}>{s}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </>
               )}
             </View>

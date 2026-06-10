@@ -153,6 +153,36 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
+  const comRetry = async (fn) => {
+    try {
+      return await fn()
+    } catch (err) {
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        await new Promise(r => setTimeout(r, 2000))
+        return await fn()
+      }
+      throw err
+    }
+  }
+
+  const handleAceitarValorProposto = async () => {
+    setEnviando(true)
+    try {
+      await api.post(`/reparos/${reparo.id}/interesse`, {
+        mensagem: '✅ Aceito o valor proposto pelo solicitante.',
+        valor_proposto: reparo.valor_estimado,
+      })
+      setMeuInteresse({ status: 'pendente' })
+      setMostrarForm(false)
+      Alert.alert('✅ Interesse registrado!', 'Você aceitou o valor proposto. O solicitante receberá suas informações.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+    } catch (err) {
+      Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   const handleInteresse = async () => {
     if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza este tipo de serviço.'); return }
     if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui as ferramentas necessárias.'); return }
@@ -221,14 +251,22 @@ export default function DetalheReparoScreen({ route, navigation }) {
       const valorNumerico = valorContraproposta
         ? parseFloat(valorContraproposta.replace(/\./g, '').replace(',', '.'))
         : null
-      await api.post(`/reparos/${reparo.id}/interesse/${interesseId}/responder`, { action, valor: valorNumerico })
+      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse/${interesseId}/responder`, { action, valor: valorNumerico }))
       setContrapropostaInteresseId(null)
       setValorContraproposta('')
       await buscar()
       const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!' }
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+          { text: 'Tentar novamente', onPress: () => handleResponderInteresse(interesseId, action) },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else {
+        Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      }
     } finally {
       setEnviandoResposta(false)
     }
@@ -237,7 +275,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const handlePrestadorResponder = async (action) => {
     setEnviandoResposta(true)
     try {
-      await api.post(`/reparos/${reparo.id}/interesse/${meuInteresse.id}/prestador-responder`, { action })
+      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse/${meuInteresse.id}/prestador-responder`, { action }))
       await buscar()
       Alert.alert(
         action === 'aceitar' ? '✅ Contraproposta aceita!' : 'Proposta recusada.',
@@ -246,7 +284,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
           : 'O solicitante foi notificado.'
       )
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+          { text: 'Tentar novamente', onPress: () => handlePrestadorResponder(action) },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else {
+        Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      }
     } finally {
       setEnviandoResposta(false)
     }
@@ -684,6 +730,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
                           <Text style={estilos.btnMatchTexto}>🔧 Estou a caminho! Iniciar contagem →</Text>
                         </TouchableOpacity>
+                        <Text style={estilos.avisoDeslocamento}>⚠️ Este cronômetro é apenas informativo para seu deslocamento. O prazo estabelecido pelo solicitante continua valendo independentemente.</Text>
                       </>
                     )}
                     {meuInteresse.status === 'recusado' && (
@@ -697,6 +744,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
+                    {reparo.valor_estimado && (
+                      <TouchableOpacity
+                        style={estilos.btnAceitarValorProposto}
+                        onPress={handleAceitarValorProposto}
+                        disabled={enviando}
+                      >
+                        <Text style={estilos.btnAceitarValorPropostoTexto}>
+                          ✅ Aceitar o valor proposto (R$ {Number(reparo.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                     <PerguntaOpcoes label="⏱ Há quanto tempo realiza este tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
                     <PerguntaOpcoes label="⚠️ Já enfrentou problemas com este tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
                     <PerguntaOpcoes label="📋 Possui referências neste tipo de reparo?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
@@ -815,4 +873,7 @@ const estilos = StyleSheet.create({
   btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   btnRecusar: { flex: 1, backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f44336', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   btnRecusarTexto: { fontSize: 13, fontWeight: '700', color: '#f44336' },
+  btnAceitarValorProposto: { backgroundColor: cores.sucessoSuave, borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
+  btnAceitarValorPropostoTexto: { fontSize: 14, fontWeight: '700', color: cores.sucesso },
+  avisoDeslocamento: { fontSize: 11, color: '#E8833A', textAlign: 'center', marginTop: 8, lineHeight: 16, paddingHorizontal: 8 },
 })
