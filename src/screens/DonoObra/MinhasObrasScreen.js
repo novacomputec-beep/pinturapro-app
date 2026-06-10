@@ -59,10 +59,11 @@ export default function MinhasObrasScreen({ navigation, route }) {
           try {
             if (tipo === 'obra') {
               await api.delete(`/obras/dono/${item.id}`)
+              setObras(prev => prev.filter(o => o.id !== item.id))
             } else {
               await api.delete(`/reparos/dono/${item.id}`)
+              setReparos(prev => prev.filter(r => r.id !== item.id))
             }
-            buscarDados()
           } catch (err) {
             Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
           }
@@ -120,7 +121,9 @@ export default function MinhasObrasScreen({ navigation, route }) {
     )
   }
 
-  const dados = aba === 'obras' ? obras : reparos
+  const dados = aba === 'obras'
+    ? obras.filter(o => o.status !== 'cancelada')
+    : reparos.filter(r => r.status !== 'cancelada')
 
   return (
     <SafeAreaView style={estilos.container}>

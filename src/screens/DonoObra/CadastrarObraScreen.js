@@ -266,14 +266,7 @@ export default function CadastrarObraScreen({ navigation }) {
           }
         }
       }
-      enviandoRef.current = false
-      setCarregando(false)
-      setEnviandoMidias(false)
-      Alert.alert(
-        'Obra enviada! 🎉',
-        'Sua obra foi enviada para aprovação. Nossa equipe irá analisá-la em breve e você será notificado.',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      )
+      navigation.goBack()
     } catch (err) {
       const msg = err.status === 409
         ? (err.mensagem || 'Dados já cadastrados.')
@@ -369,6 +362,7 @@ export default function CadastrarObraScreen({ navigation }) {
             titulo={enviandoMidias ? 'Enviando mídias...' : 'Enviar obra para aprovação →'}
             onPress={handleCadastrar}
             carregando={carregando}
+            desabilitado={carregando}
             estilo={{ marginTop: 8 }}
           />
           <Text style={estilos.aviso}>

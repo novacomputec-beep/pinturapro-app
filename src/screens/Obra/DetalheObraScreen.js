@@ -92,20 +92,25 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [midiaFullscreen, setMidiaFullscreen] = useState(null)
 
   useEffect(() => {
-    buscar()
-  }, [obraInicial.id])
+    if (obraInicial?.id) buscar()
+  }, [obraInicial?.id])
 
   const buscar = async () => {
     try {
       const resposta = await obrasService.detalhe(obraInicial.id)
-      setObra(resposta.obra)
+      setObra(resposta.obra || resposta)
       setMidias(resposta.midias || [])
-      setMinhaCandidatura(resposta.minha_candidatura)
+      setMinhaCandidatura(resposta.minha_candidatura || null)
       if (resposta.minha_candidatura?.id) {
-        const negResp = await api.get(`/candidaturas/${resposta.minha_candidatura.id}/negociacoes`)
-        setNegociacoes(negResp.negociacoes || [])
+        try {
+          const negResp = await api.get(`/candidaturas/${resposta.minha_candidatura.id}/negociacoes`)
+          setNegociacoes(negResp.negociacoes || [])
+        } catch (e) {
+          console.log('Erro ao buscar negociações:', e)
+        }
       }
-    } catch {
+    } catch (e) {
+      console.log('Erro ao buscar obra:', e)
       setObra(obraInicial)
     } finally {
       setCarregando(false)
@@ -124,7 +129,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     setEnviando(true)
     try {
       await api.post('/candidaturas', {
-        obra_id: obra.id,
+        obra_id: obra?.id || obraInicial?.id,
         referencias,
         valor_oferta: usarContraOferta ? parseFloat(valorOferta.replace(',', '.')) : null,
         mensagem_oferta: usarContraOferta ? mensagemOferta : null,
@@ -151,7 +156,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
     setEnviando(true)
     try {
-      await api.post(`/candidaturas/${minhaCandidatura.id}/negociar`, {
+      await api.post(`/candidaturas/${minhaCandidatura?.id}/negociar`, {
         valor: parseFloat(valorNegociacao.replace(',', '.')),
         mensagem: mensagemNegociacao,
       })
@@ -171,7 +176,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (!duvida.trim()) return
     setEnviandoDuvida(true)
     try {
-      await mensagensService.enviar(obra.id, duvida)
+      await mensagensService.enviar(obra?.id || obraInicial?.id, duvida)
       setDuvida('')
       Alert.alert('Dúvida enviada!', 'A equipe responderá em breve.')
     } catch (err) {
@@ -184,7 +189,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const handlePintorResponder = async (action) => {
     setEnviando(true)
     try {
-      await api.post(`/candidaturas/${minhaCandidatura.id}/pintor-responder`, { action })
+      await api.post(`/candidaturas/${minhaCandidatura?.id}/pintor-responder`, { action })
       await buscar()
       Alert.alert(
         action === 'aceitar' ? '✅ Proposta aceita!' : 'Proposta recusada',
@@ -206,6 +211,20 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const dadosObra = obra || obraInicial
+  if (!dadosObra) {
+    return (
+      <SafeAreaView style={estilos.container}>
+        <View style={estilos.topbar}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: cores.textoFraco }}>Obra não encontrada</Text>
+        </View>
+      </SafeAreaView>
+    )
+  }
   const ultimaOfertaDono = negociacoes.length > 0 && negociacoes[negociacoes.length - 1].autor_role === 'dono_obra'
     ? negociacoes[negociacoes.length - 1]
     : null
@@ -285,7 +304,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               <Text style={estilos.statLabel}>Empreitada</Text>
             </View>
             <View style={estilos.statCard}>
-              <Text style={estilos.statValor}>{dadosObra.prazo_execucao_dias} dias</Text>
+              <Text style={estilos.statValor}>{dadosObra.prazo_execucao_dias != null ? `${dadosObra.prazo_execucao_dias} dias` : '—'}</Text>
               <Text style={estilos.statLabel}>Prazo execução</Text>
             </View>
             <View style={estilos.statCard}>
