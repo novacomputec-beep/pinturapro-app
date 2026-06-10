@@ -71,7 +71,7 @@ const ContadorExpiracaoObra = ({ expiraEm }) => {
 }
 
 export default function DetalheObraScreen({ route, navigation }) {
-  const { obra: obraInicial } = route.params
+  const { obra: obraInicial } = route.params || {}
   const [obra, setObra] = useState(null)
   const [midias, setMidias] = useState([])
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
@@ -93,6 +93,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   useEffect(() => {
     if (obraInicial?.id) buscar()
+    else setCarregando(false)
   }, [obraInicial?.id])
 
   const buscar = async () => {
