@@ -212,7 +212,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const dadosObra = obra || obraInicial
-  if (!dadosObra) {
+  if (!dadosObra || !dadosObra?.id) {
     return (
       <SafeAreaView style={estilos.container}>
         <View style={estilos.topbar}>
@@ -221,7 +221,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: cores.textoFraco }}>Obra não encontrada</Text>
+          <ActivityIndicator color={cores.primaria} size="large" />
         </View>
       </SafeAreaView>
     )
@@ -273,13 +273,13 @@ export default function DetalheObraScreen({ route, navigation }) {
                 <View key={i} style={[estilos.indicadorDot, i === fotoAtiva && estilos.indicadorDotAtivo]} />
               ))}
             </View>
-            {dadosObra.expira_em && <ContadorExpiracao expiraEm={dadosObra.expira_em} />}
+            {dadosObra?.expira_em && <ContadorExpiracao expiraEm={dadosObra.expira_em} />}
           </View>
         ) : (
           <View style={estilos.galeria}>
             <View style={estilos.fotoMain}>
               <Text style={estilos.fotoIcone}>🏠</Text>
-              {dadosObra.expira_em && <ContadorExpiracao expiraEm={dadosObra.expira_em} />}
+              {dadosObra?.expira_em && <ContadorExpiracao expiraEm={dadosObra.expira_em} />}
             </View>
           </View>
         )}
@@ -287,29 +287,29 @@ export default function DetalheObraScreen({ route, navigation }) {
         <View style={estilos.corpo}>
           <View style={estilos.obraHeader}>
             <View style={estilos.categoriaPill}>
-              <Text style={estilos.categoriaPillTexto}>{dadosObra.categoria}</Text>
+              <Text style={estilos.categoriaPillTexto}>{dadosObra?.categoria || ''}</Text>
             </View>
-            <Text style={estilos.obraTitulo}>{dadosObra.titulo}</Text>
+            <Text style={estilos.obraTitulo}>{dadosObra?.titulo || ''}</Text>
             <Text style={estilos.localTexto}>
-              📍 {dadosObra.cidade}, MG
-              {dadosObra.bairro ? ` · ${dadosObra.bairro}` : ''}
-              {dadosObra.metragem ? ` · ${dadosObra.metragem}m²` : ''}
+              📍 {dadosObra?.cidade || ''}
+              {dadosObra?.bairro ? ` · ${dadosObra.bairro}` : ''}
+              {dadosObra?.metragem ? ` · ${dadosObra.metragem}m²` : ''}
             </Text>
           </View>
 
           <View style={estilos.statsRow}>
             <View style={estilos.statCard}>
               <Text style={[estilos.statValor, { color: cores.sucesso }]}>
-                {formatarValor(dadosObra.valor)}
+                {formatarValor(dadosObra?.valor)}
               </Text>
               <Text style={estilos.statLabel}>Empreitada</Text>
             </View>
             <View style={estilos.statCard}>
-              <Text style={estilos.statValor}>{dadosObra.prazo_execucao_dias != null ? `${dadosObra.prazo_execucao_dias} dias` : '—'}</Text>
+              <Text style={estilos.statValor}>{dadosObra?.prazo_execucao_dias != null ? `${dadosObra.prazo_execucao_dias} dias` : '—'}</Text>
               <Text style={estilos.statLabel}>Prazo execução</Text>
             </View>
             <View style={estilos.statCard}>
-              {dadosObra.expira_em
+              {dadosObra?.expira_em
                 ? <ContadorExpiracaoObra expiraEm={dadosObra.expira_em} />
                 : <Text style={estilos.statValor}>—</Text>
               }
@@ -317,18 +317,18 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           </View>
 
-          {dadosObra.descricao && (
+          {dadosObra?.descricao ? (
             <>
               <Text style={estilos.secaoTitulo}>Descrição da obra</Text>
               <Text style={estilos.descricaoTexto}>{dadosObra.descricao}</Text>
             </>
-          )}
+          ) : null}
 
-          {Array.isArray(dadosObra.tags) && dadosObra.tags.length > 0 && (
+          {Array.isArray(dadosObra?.tags) && dadosObra.tags.length > 0 && (
             <>
               <Text style={estilos.secaoTitulo}>Serviços inclusos</Text>
               <View style={estilos.tagsWrap}>
-                {dadosObra.tags.map((tag, i) => <Tag key={i} texto={tag} />)}
+                {(dadosObra?.tags || []).map((tag, i) => <Tag key={i} texto={String(tag)} />)}
               </View>
             </>
           )}
@@ -467,7 +467,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             {usarContraOferta && (
               <>
                 <Text style={estilos.valorAtualTexto}>
-                  Valor atual da obra: {formatarValor(dadosObra.valor)}
+                  Valor atual da obra: {formatarValor(dadosObra?.valor)}
                 </Text>
                 <Text style={estilos.inputLabel}>MINHA OFERTA (R$)</Text>
                 <TextInput
@@ -509,7 +509,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             <View style={estilos.modalHandle} />
             <Text style={estilos.modalTitulo}>Contra-oferta</Text>
             <Text style={estilos.modalSub}>Proponha um novo valor para negociação</Text>
-            <Text style={estilos.valorAtualTexto}>Valor da obra: {formatarValor(dadosObra.valor)}</Text>
+            <Text style={estilos.valorAtualTexto}>Valor da obra: {formatarValor(dadosObra?.valor)}</Text>
             <Text style={estilos.inputLabel}>MEU VALOR (R$)</Text>
             <TextInput
               style={estilos.inputSimples}
