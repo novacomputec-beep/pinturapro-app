@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator,
-  Image, FlatList, Dimensions
+  Image, Dimensions
 } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 import { obrasService, candidaturasService, mensagensService } from '../../services/api'
@@ -244,18 +244,18 @@ export default function DetalheObraScreen({ route, navigation }) {
 
         {midias.length > 0 ? (
           <View style={estilos.galeriaWrap}>
-            <FlatList
-              data={midias}
+            <ScrollView
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              keyExtractor={(item) => String(item.id)}
               onMomentumScrollEnd={(e) => {
                 const index = Math.round(e.nativeEvent.contentOffset.x / width)
                 setFotoAtiva(index)
               }}
-              renderItem={({ item }) => (
+            >
+              {midias.map((item) => (
                 <TouchableOpacity
+                  key={String(item.id)}
                   style={estilos.fotoSlide}
                   onPress={() => setMidiaFullscreen({ url: item.url_assinada || item.url, tipo: item.tipo })}
                   activeOpacity={0.9}
@@ -266,8 +266,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                     <Video source={{ uri: item.url_assinada || item.url }} style={estilos.fotoImagem} useNativeControls resizeMode={ResizeMode.COVER} isLooping={false} />
                   )}
                 </TouchableOpacity>
-              )}
-            />
+              ))}
+            </ScrollView>
             <View style={estilos.indicadoresRow}>
               {midias.map((_, i) => (
                 <View key={i} style={[estilos.indicadorDot, i === fotoAtiva && estilos.indicadorDotAtivo]} />
