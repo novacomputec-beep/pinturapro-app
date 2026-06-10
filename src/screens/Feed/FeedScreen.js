@@ -144,9 +144,9 @@ const CardObra = ({ obra, onPress, onExpirar }) => {
           <Text style={estilos.cardCandidaturas}>
             👷 {obra.total_candidaturas || 0} interessados
           </Text>
-          <TouchableOpacity style={estilos.btnVerObra} onPress={() => onPress(obra)}>
+          <View style={estilos.btnVerObra}>
             <Text style={estilos.btnVerObraTexto}>Ver obra →</Text>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
     </TouchableOpacity>
