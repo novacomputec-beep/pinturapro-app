@@ -174,7 +174,7 @@ export default function CadastrarReparoScreen({ navigation }) {
         longitude,
       })
     } catch (e) {
-      Alert.alert('Erro no POST /reparos/dono', `${e.mensagem} | code: ${e.code} | status: ${e.status}`)
+      Alert.alert('Erro', 'Não foi possível cadastrar o reparo. Tente novamente.')
       enviandoRef.current = false
       setCarregando(false)
       return
@@ -219,7 +219,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             try {
               params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
             } catch (e) {
-              Alert.alert('Erro na assinatura Cloudinary', `${e.mensagem || e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao preparar upload. Tente novamente.')
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw e
             }
@@ -242,12 +242,12 @@ export default function CadastrarReparoScreen({ navigation }) {
                 xhr.send(cloudForm)
               })
             } catch (e) {
-              Alert.alert('Erro no Cloudinary', `${e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw e
             }
             if (cloudData.error) {
-              Alert.alert('Erro no Cloudinary', JSON.stringify(cloudData.error))
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/reparos/dono/${reparo.id}`).catch(() => {})
               throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }
@@ -259,7 +259,7 @@ export default function CadastrarReparoScreen({ navigation }) {
                 ordem: i + 1,
               })
             } catch (e) {
-              Alert.alert('Erro ao salvar URL', `${e.mensagem || e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao finalizar cadastro. Tente novamente.')
               throw e
             }
           }

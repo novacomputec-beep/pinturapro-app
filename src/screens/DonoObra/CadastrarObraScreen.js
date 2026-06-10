@@ -144,7 +144,6 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!validar()) return
     enviandoRef.current = true
     setCarregando(true)
-    Alert.alert('Debug', 'Iniciando cadastro de obra...')
     let obra = null
     try {
       const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -167,7 +166,7 @@ export default function CadastrarObraScreen({ navigation }) {
           horas_para_expirar: 720,
         })
       } catch (e) {
-        Alert.alert('Erro no POST /obras/dono', `${e.mensagem || e.message} | code: ${e.code} | status: ${e.status}`)
+        Alert.alert('Erro', 'Não foi possível cadastrar a obra. Tente novamente.')
         enviandoRef.current = false
         setCarregando(false)
         return
@@ -182,7 +181,7 @@ export default function CadastrarObraScreen({ navigation }) {
             try {
               params = await api.get('/upload/assinatura-cloudinary')
             } catch (e) {
-              Alert.alert('Erro na assinatura Cloudinary (vídeo)', `${e.mensagem || e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao preparar upload. Tente novamente.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
@@ -205,19 +204,19 @@ export default function CadastrarObraScreen({ navigation }) {
                 xhr.send(cloudForm)
               })
             } catch (e) {
-              Alert.alert('Erro no upload de vídeo Cloudinary', `${e.message}`)
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
             if (cloudData.error) {
-              Alert.alert('Erro Cloudinary (vídeo)', JSON.stringify(cloudData.error))
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw new Error(cloudData.error?.message || 'Erro ao fazer upload do vídeo')
             }
             try {
               await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
             } catch (e) {
-              Alert.alert('Erro ao salvar URL (vídeo)', `${e.mensagem || e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao finalizar cadastro. Tente novamente.')
               throw e
             }
           } else {
@@ -225,7 +224,7 @@ export default function CadastrarObraScreen({ navigation }) {
             try {
               params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
             } catch (e) {
-              Alert.alert('Erro na assinatura Cloudinary', `${e.mensagem || e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao preparar upload. Tente novamente.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
@@ -248,19 +247,19 @@ export default function CadastrarObraScreen({ navigation }) {
                 xhr.send(cloudForm)
               })
             } catch (e) {
-              Alert.alert('Erro no Cloudinary', `${e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
             if (cloudData.error) {
-              Alert.alert('Erro no Cloudinary', JSON.stringify(cloudData.error))
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw new Error(cloudData.error?.message || 'Erro ao fazer upload da foto')
             }
             try {
               await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })
             } catch (e) {
-              Alert.alert('Erro ao salvar URL', `${e.mensagem || e.message} | ${e.code || ''}`)
+              Alert.alert('Erro', 'Erro ao finalizar cadastro. Tente novamente.')
               throw e
             }
           }
