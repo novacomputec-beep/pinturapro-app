@@ -8,10 +8,10 @@ import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const STATUS_INFO = {
-  pendente:       { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
-  aceito:         { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
-  recusado:       { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
-  contraproposta: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
+  pendente:            { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
+  aceito:              { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
+  recusado:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
+  contraproposta_dono: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
 }
 
 const formatarValor = (v) =>
@@ -77,7 +77,7 @@ export default function MeusInteressesScreen({ navigation }) {
             </View>
           )}
         </View>
-        {item.status === 'contraproposta' && (
+        {item.status === 'contraproposta_dono' && (
           <View style={estilos.alertaBanner}>
             <Text style={estilos.alertaTexto}>⚡ O solicitante enviou uma contraproposta — veja os detalhes</Text>
           </View>

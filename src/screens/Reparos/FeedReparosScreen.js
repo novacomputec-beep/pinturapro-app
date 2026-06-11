@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image, TextInput
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
@@ -152,16 +152,12 @@ export default function FeedReparosScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
-  const [distancia, setDistancia] = useState('')
   const [erro, setErro] = useState(null)
 
   const buscarReparos = async (cat = categoria) => {
     try {
       setErro(null)
-      const params = []
-      if (cat !== 'todas') params.push(`categoria=${cat}`)
-      if (distancia) params.push(`raio_km=${distancia}`)
-      const query = params.length ? `?${params.join('&')}` : ''
+      const query = cat !== 'todas' ? `?categoria=${cat}` : ''
       const resposta = await api.get(`/reparos${query}`)
       setReparos(resposta.reparos || [])
     } catch (err) {
@@ -236,20 +232,6 @@ export default function FeedReparosScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             />
-            <View style={estilos.distanciaRow}>
-              <Text style={estilos.distanciaLabel}>📍 Distância máx.:</Text>
-              <TextInput
-                style={estilos.distanciaInput}
-                placeholder="Qualquer km"
-                placeholderTextColor={cores.textoMutado}
-                keyboardType="numeric"
-                value={distancia}
-                onChangeText={setDistancia}
-                onEndEditing={() => { setCarregando(true); buscarReparos(categoria) }}
-                returnKeyType="search"
-              />
-              <Text style={estilos.distanciaUnidade}>km</Text>
-            </View>
           </>
         }
         ListEmptyComponent={
@@ -287,10 +269,6 @@ const estilos = StyleSheet.create({
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  distanciaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espacos.tela, paddingBottom: 12, gap: 8 },
-  distanciaLabel: { fontSize: 12, color: cores.textoFraco, flexShrink: 0 },
-  distanciaInput: { flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, color: cores.textoForte },
-  distanciaUnidade: { fontSize: 12, color: cores.textoFraco },
   lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 16 },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },

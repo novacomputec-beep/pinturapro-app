@@ -56,17 +56,37 @@ const navegarParaNotificacao = (data) => {
   if (!navigationRef.current || !data?.tipo) return
   try {
     switch (data.tipo) {
+      // Obras feed (pintor)
       case 'nova_obra':
         navigationRef.current.navigate('Obras'); break
+      // Contratos / candidaturas antigas (pintor)
       case 'candidatura_aprovada':
-      case 'candidatura_recusada':
         navigationRef.current.navigate('Contratos'); break
+      // Mensagens
       case 'nova_mensagem':
         navigationRef.current.navigate('Mensagens'); break
-      case 'novo_reparo':
-        navigationRef.current.navigate('Reparos'); break
+      // Dono de obra recebe — navegar para Obras ou Minhas Obras
       case 'nova_candidatura':
-        navigationRef.current.navigate('MinhasObras'); break
+      case 'match_obra':
+        navigationRef.current.navigate('Obras'); break
+      // Reparos feed ou dono de reparo
+      case 'novo_reparo':
+      case 'novo_interesse':
+      case 'match_reparo':
+      case 'pedido_tempo':
+      case 'aprovar_tempo':
+      case 'reparo_encerrado':
+        navigationRef.current.navigate('Reparos'); break
+      // Prestador — navegar para Meus Serviços
+      case 'interesse_aceito':
+      case 'interesse_recusado':
+      case 'contraproposta_dono':
+      case 'perguntar_tempo':
+      case 'tempo_aceito':
+      case 'tempo_recusado':
+      case 'candidatura_aceita':
+      case 'candidatura_recusada':
+        navigationRef.current.navigate('Meus Serviços'); break
     }
   } catch (err) {
     console.log('Erro ao navegar para notificação:', err)
