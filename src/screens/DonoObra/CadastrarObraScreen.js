@@ -263,7 +263,7 @@ export default function CadastrarObraScreen({ navigation }) {
       }
       enviandoRef.current = false
       setCarregando(false)
-      Alert.alert('✅ Obra publicada!', 'Sua obra já está visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar a obra.', [
         { text: 'OK', onPress: () => { enviandoRef.current = false; setCarregando(false) } }
@@ -356,7 +356,7 @@ export default function CadastrarObraScreen({ navigation }) {
             </ScrollView>
           )}
           <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
-          <Text style={estilos.aviso}>Sua obra será publicada imediatamente e pintores qualificados da sua região poderão demonstrar interesse.</Text>
+          <Text style={estilos.aviso}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, pintores qualificados da sua região serão notificados.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
