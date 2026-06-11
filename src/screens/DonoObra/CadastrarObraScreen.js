@@ -41,6 +41,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [midias, setMidias] = useState([])
   const [enviandoMidias, setEnviandoMidias] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
+  const [acaoPendente, setAcaoPendente] = useState(null)
   const enviandoRef = useRef(false)
 
   const mascararValor = (v) => {
@@ -97,7 +98,6 @@ export default function CadastrarObraScreen({ navigation }) {
   }
 
   const usarCameraFoto = async () => {
-    setShowMediaPicker(false)
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     const resultado = await ImagePicker.launchCameraAsync({
@@ -109,7 +109,6 @@ export default function CadastrarObraScreen({ navigation }) {
   }
 
   const usarCameraVideo = async () => {
-    setShowMediaPicker(false)
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     await Audio.requestPermissionsAsync()
@@ -123,7 +122,6 @@ export default function CadastrarObraScreen({ navigation }) {
   }
 
   const usarGaleria = async () => {
-    setShowMediaPicker(false)
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
     const resultado = await ImagePicker.launchImageLibraryAsync({
@@ -364,17 +362,23 @@ export default function CadastrarObraScreen({ navigation }) {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
+      <Modal
+        visible={showMediaPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMediaPicker(false)}
+        onDismiss={() => { if (acaoPendente) { acaoPendente(); setAcaoPendente(null) } }}
+      >
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
             <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraFoto}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarCameraFoto); setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraVideo}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarCameraVideo); setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarGaleria}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarGaleria); setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>

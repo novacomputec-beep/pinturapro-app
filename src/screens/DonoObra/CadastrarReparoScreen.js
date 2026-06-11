@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
-  InteractionManager
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
@@ -52,20 +51,8 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
+  const [acaoPendente, setAcaoPendente] = useState(null)
   const enviandoRef = useRef(false)
-  const acaoPendenteRef = useRef(null)
-
-  useEffect(() => {
-    if (!showMediaPicker && acaoPendenteRef.current) {
-      const acao = acaoPendenteRef.current
-      acaoPendenteRef.current = null
-      InteractionManager.runAfterInteractions(async () => {
-        if (acao === 'foto') await usarCameraFoto()
-        else if (acao === 'video') await usarCameraVideo()
-        else if (acao === 'galeria') await usarGaleria()
-      })
-    }
-  }, [showMediaPicker])
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -375,17 +362,23 @@ export default function CadastrarReparoScreen({ navigation }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
+      <Modal
+        visible={showMediaPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMediaPicker(false)}
+        onDismiss={() => { if (acaoPendente) { acaoPendente(); setAcaoPendente(null) } }}
+      >
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
             <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { acaoPendenteRef.current = 'foto'; setShowMediaPicker(false) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarCameraFoto); setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { acaoPendenteRef.current = 'video'; setShowMediaPicker(false) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarCameraVideo); setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { acaoPendenteRef.current = 'galeria'; setShowMediaPicker(false) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarGaleria); setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
