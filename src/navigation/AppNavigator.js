@@ -321,7 +321,7 @@ const DonoObraNavigator = () => (
     <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
     <DonoStack.Screen name="CadastrarObra"    component={CadastrarObraScreen} />
     <DonoStack.Screen name="CadastrarReparo"  component={CadastrarReparoScreen} />
-    <DonoStack.Screen name="DetalheMinhaObra" component={DetalheObraScreen} />
+    <DonoStack.Screen name="DetalheObra"      component={DetalheObraScreen} />
     <DonoStack.Screen name="DetalheReparo"    component={DetalheReparoScreen} />
     <DonoStack.Screen name="EditarPerfil"     component={EditarPerfilScreen} />
     <DonoStack.Screen name="AlterarSenha"     component={AlterarSenhaScreen} />
