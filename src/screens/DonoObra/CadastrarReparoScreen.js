@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList, ActivityIndicator
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList, ActivityIndicator,
+  InteractionManager
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
@@ -52,6 +53,19 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const enviandoRef = useRef(false)
+  const acaoPendenteRef = useRef(null)
+
+  useEffect(() => {
+    if (!showMediaPicker && acaoPendenteRef.current) {
+      const acao = acaoPendenteRef.current
+      acaoPendenteRef.current = null
+      InteractionManager.runAfterInteractions(async () => {
+        if (acao === 'foto') await usarCameraFoto()
+        else if (acao === 'video') await usarCameraVideo()
+        else if (acao === 'galeria') await usarGaleria()
+      })
+    }
+  }, [showMediaPicker])
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -112,7 +126,6 @@ export default function CadastrarReparoScreen({ navigation }) {
   const selecionarMidia = () => setShowMediaPicker(true)
 
   const usarCameraFoto = async () => {
-    setShowMediaPicker(false)
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     const resultado = await ImagePicker.launchCameraAsync({
@@ -124,7 +137,6 @@ export default function CadastrarReparoScreen({ navigation }) {
   }
 
   const usarCameraVideo = async () => {
-    setShowMediaPicker(false)
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     await Audio.requestPermissionsAsync()
@@ -137,7 +149,6 @@ export default function CadastrarReparoScreen({ navigation }) {
   }
 
   const usarGaleria = async () => {
-    setShowMediaPicker(false)
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
     const resultado = await ImagePicker.launchImageLibraryAsync({
@@ -373,13 +384,13 @@ export default function CadastrarReparoScreen({ navigation }) {
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
             <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraFoto}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { acaoPendenteRef.current = 'foto'; setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarCameraVideo}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { acaoPendenteRef.current = 'video'; setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={usarGaleria}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { acaoPendenteRef.current = 'galeria'; setShowMediaPicker(false) }}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
