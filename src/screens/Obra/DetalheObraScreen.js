@@ -1,572 +1,431 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, TextInput, Modal, Alert, ActivityIndicator,
-  Image, Dimensions
+  TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
 } from 'react-native'
+import { Image } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
-import { obrasService, candidaturasService, mensagensService } from '../../services/api'
-import api from '../../services/api'
-import { BotaoPrimario, BotaoSecundario, Tag, Separador } from '../../components'
+import api, { obrasService } from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
+import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
 
-const { width } = Dimensions.get('window')
-
-const formatarValor = (v) =>
-  (v == null || isNaN(Number(v)))
-    ? 'A combinar'
-    : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-
-const ContadorPill = ({ expiraEm }) => {
+const ContadorExpiracaoObra = ({ expiraEm }) => {
   const [restante, setRestante] = useState(null)
+  const expiradoRef = useRef(false)
+
   useEffect(() => {
+    expiradoRef.current = false
     const tick = () => {
       const diff = new Date(expiraEm) - new Date()
-      if (diff <= 0) { setRestante(null); return }
+      if (diff <= 0) {
+        if (!expiradoRef.current) {
+          expiradoRef.current = true
+          setRestante(null)
+        }
+        return
+      }
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
       setRestante({ h, m, s })
     }
     tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
   }, [expiraEm])
-  if (!restante) return null
-  const urgente = restante.h < 1
-  const texto = restante.h > 0
-    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
-    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+
+  if (!restante) {
+    return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: '700' }}>EXPIRADO</Text>
+  }
+
+  const urgente = restante.h === 0 && restante.m < 10
+  const texto = `Expira em: ${restante.h > 0 ? `${restante.h}h ` : ''}${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+  return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
+}
+
+const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
+  <View style={estilos.perguntaWrap}>
+    <Text style={estilos.perguntaLabel}>{label}</Text>
+    <View style={estilos.opcoesRow}>
+      {opcoes.map(op => (
+        <TouchableOpacity
+          key={op}
+          style={[estilos.opcaoPill, valor === op && estilos.opcaoPillAtivo]}
+          onPress={() => onChange(op)}
+        >
+          <Text style={[estilos.opcaoTexto, valor === op && estilos.opcaoTextoAtivo]}>{op}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  </View>
+)
+
+const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
+  const [tempo, setTempo] = useState('')
+  const [expirou, setExpirou] = useState(false)
+  const expirouRef = React.useRef(false)
+
+  useEffect(() => {
+    expirouRef.current = false
+    const calcular = () => {
+      const inicio = new Date(matchFeitoEm)
+      const fim = new Date(inicio.getTime() + prazoHoras * 3600 * 1000)
+      const agora = new Date()
+      const diff = fim - agora
+      if (diff <= 0) {
+        setTempo('00:00:00')
+        if (!expirouRef.current) {
+          expirouRef.current = true
+          setExpirou(true)
+          if (onExpirar) onExpirar()
+        }
+        return
+      }
+      const horas = Math.floor(diff / 3600000)
+      const minutos = Math.floor((diff % 3600000) / 60000)
+      const segundos = Math.floor((diff % 60000) / 1000)
+      setTempo(`${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`)
+    }
+    calcular()
+    const interval = setInterval(calcular, 1000)
+    return () => clearInterval(interval)
+  }, [matchFeitoEm, prazoHoras])
+
+  const urgente = tempo && tempo.startsWith('00:')
   return (
-    <View style={[st.countdownPill, urgente && { backgroundColor: 'rgba(139,0,0,0.92)', borderColor: '#FF4444' }]}>
-      <View style={[st.countdownDot, urgente && { backgroundColor: '#FF4444' }]} />
-      <Text style={[st.countdownTexto, urgente && { color: '#FF4444' }]}>⏱ {texto}</Text>
+    <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
+      <Text style={estilos.relogioLabel}>{expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}</Text>
+      <Text style={[estilos.relogioTempo, urgente && !expirou && { color: '#f44336' }, expirou && { color: '#666' }]}>{tempo}</Text>
+      {!expirou && <Text style={estilos.relogioSub}>O pintor deve chegar dentro deste prazo</Text>}
+      {expirou && <Text style={estilos.relogioSub}>A obra voltou para disponível</Text>}
     </View>
   )
 }
 
-const ContadorStat = ({ expiraEm }) => {
-  const [restante, setRestante] = useState(null)
-  useEffect(() => {
-    const tick = () => {
-      const diff = new Date(expiraEm) - new Date()
-      if (diff <= 0) { setRestante(null); return }
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ h, m, s })
-    }
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [expiraEm])
-  if (!restante) return <Text style={[st.statValor, { color: '#f44336' }]}>Expirado</Text>
-  const urgente = restante.h === 0 && restante.m < 10
-  const texto = restante.h > 0
-    ? `${restante.h}h ${String(restante.m).padStart(2, '0')}m`
-    : `${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
-  return <Text style={[st.statValor, urgente && { color: '#f44336' }]}>{texto}</Text>
-}
-
 export default function DetalheObraScreen({ route, navigation }) {
-  const { obra: obraInicial } = route.params || {}
-  const [obra, setObra] = useState(null)
+  const { obra: obraInicial } = route.params
+  const { usuario } = useAuth()
+  const [obra, setObra] = useState(obraInicial)
   const [midias, setMidias] = useState([])
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
-  const [negociacoes, setNegociacoes] = useState([])
+  const [candidatos, setCandidatos] = useState([])
   const [carregando, setCarregando] = useState(true)
-  const [modalAberto, setModalAberto] = useState(false)
-  const [modalNegociar, setModalNegociar] = useState(false)
   const [enviando, setEnviando] = useState(false)
-  const [referencias, setReferencias] = useState('')
-  const [valorOferta, setValorOferta] = useState('')
-  const [mensagemOferta, setMensagemOferta] = useState('')
-  const [valorNegociacao, setValorNegociacao] = useState('')
-  const [mensagemNegociacao, setMensagemNegociacao] = useState('')
-  const [duvida, setDuvida] = useState('')
-  const [enviandoDuvida, setEnviandoDuvida] = useState(false)
-  const [fotoAtiva, setFotoAtiva] = useState(0)
-  const [usarContraOferta, setUsarContraOferta] = useState(false)
-  const [midiaFullscreen, setMidiaFullscreen] = useState(null)
+  const [mostrarForm, setMostrarForm] = useState(false)
+  const [tempoExperiencia, setTempoExperiencia] = useState('')
+  const [jaEnfrentouProblemas, setJaEnfrentouProblemas] = useState('')
+  const [sugestaoDurabilidade, setSugestaoDurabilidade] = useState('')
+  const [possuiReferencias, setPossuiReferencias] = useState('')
+  const [possuiFerramentas, setPossuiFerramentas] = useState('')
+  const [mensagemAdicional, setMensagemAdicional] = useState('')
+  const [valorProposto, setValorProposto] = useState('')
+  const [fotoFullscreen, setFotoFullscreen] = useState(null)
+  const [videoFullscreen, setVideoFullscreen] = useState(null)
+  const [contrapropostaCandidaturaId, setContrapropostaCandidaturaId] = useState(null)
+  const [valorContraproposta, setValorContraproposta] = useState('')
+  const [enviandoResposta, setEnviandoResposta] = useState(false)
 
-  useEffect(() => {
-    if (obraInicial?.id) buscar()
-    else setCarregando(false)
-  }, [obraInicial?.id])
+  const mascararValor = (v) => {
+    const nums = v.replace(/\D/g, '')
+    if (!nums) return ''
+    const centavos = Math.min(parseInt(nums, 10), 9999999999)
+    const reaisStr = Math.floor(centavos / 100).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+    return `${reaisStr},${String(centavos % 100).padStart(2, '0')}`
+  }
+
+  const isDono = usuario?.id === obra?.criado_por
+  const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
+
+  useEffect(() => { buscar() }, [obraInicial.id])
 
   const buscar = async () => {
     try {
       const resposta = await obrasService.detalhe(obraInicial.id)
       setObra(resposta.obra || resposta)
       setMidias(resposta.midias || [])
-      setMinhaCandidatura(resposta.minha_candidatura || null)
-      if (resposta.minha_candidatura?.id) {
-        try {
-          const negResp = await api.get(`/candidaturas/${resposta.minha_candidatura.id}/negociacoes`)
-          setNegociacoes(negResp.negociacoes || [])
-        } catch (e) {}
-      }
-    } catch (e) {
-      setObra(obraInicial)
+      setMinhaCandidatura(resposta.minha_candidatura)
+      setCandidatos(resposta.candidatos || [])
+    } catch (err) {
+      console.log('Erro ao buscar obra:', err)
     } finally {
       setCarregando(false)
     }
   }
 
-  const handleCandidatar = async () => {
-    if (!referencias.trim()) {
-      Alert.alert('Atenção', 'Descreva sua experiência e referências.')
-      return
+  const comRetry = async (fn) => {
+    try {
+      return await fn()
+    } catch (err) {
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        await new Promise(r => setTimeout(r, 2000))
+        return await fn()
+      }
+      throw err
     }
-    if (usarContraOferta && !valorOferta.trim()) {
-      Alert.alert('Atenção', 'Informe o valor da sua oferta.')
-      return
-    }
+  }
+
+  const handleAceitarValorProposto = async () => {
     setEnviando(true)
     try {
-      await api.post('/candidaturas', {
-        obra_id: obra?.id || obraInicial?.id,
-        referencias,
-        valor_oferta: usarContraOferta ? parseFloat(valorOferta.replace(',', '.')) : null,
-        mensagem_oferta: usarContraOferta ? mensagemOferta : null,
+      await api.post(`/obras/${obra.id}/candidatura`, {
+        mensagem: '✅ Aceito o valor proposto pelo solicitante.',
+        valor_proposto: obra.valor_estimado,
       })
       setMinhaCandidatura({ status: 'pendente' })
-      setModalAberto(false)
-      Alert.alert(
-        'Solicitação enviada! 🎉',
-        usarContraOferta
-          ? `Sua oferta de R$ ${valorOferta} foi enviada para análise.`
-          : 'Sua candidatura foi recebida. A equipe irá analisá-la em breve.'
-      )
+      setMostrarForm(false)
+      Alert.alert('✅ Interesse registrado!', 'Você aceitou o valor proposto. O solicitante receberá suas informações.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar sua candidatura.')
+      Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
     }
   }
 
-  const handleNegociar = async () => {
-    if (!valorNegociacao.trim()) {
-      Alert.alert('Atenção', 'Informe o valor da sua contra-oferta.')
-      return
-    }
+  const handleInteresse = async () => {
+    if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza este tipo de serviço.'); return }
+    if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui os materiais e equipamentos necessários.'); return }
     setEnviando(true)
     try {
-      await api.post(`/candidaturas/${minhaCandidatura?.id}/negociar`, {
-        valor: parseFloat(valorNegociacao.replace(',', '.')),
-        mensagem: mensagemNegociacao,
-      })
-      setModalNegociar(false)
-      setValorNegociacao('')
-      setMensagemNegociacao('')
-      await buscar()
-      Alert.alert('Contra-oferta enviada!', 'O dono da obra será notificado.')
+      const mensagem = [
+        `⏱ Experiência: ${tempoExperiencia}`,
+        `⚠️ Já enfrentou problemas: ${jaEnfrentouProblemas || 'Não informado'}`,
+        `💡 Sugestão de acabamento: ${sugestaoDurabilidade || 'Não informado'}`,
+        `📋 Possui referências: ${possuiReferencias || 'Não informado'}`,
+        `🎨 Possui materiais e equipamentos: ${possuiFerramentas}`,
+        mensagemAdicional ? `💬 Observação: ${mensagemAdicional}` : '',
+      ].filter(Boolean).join('\n')
+      const valorNumerico = valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null
+      await api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico })
+      setMinhaCandidatura({ status: 'pendente' })
+      setMostrarForm(false)
+      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a contra-oferta.')
+      Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
     }
   }
 
-  const handleEnviarDuvida = async () => {
-    if (!duvida.trim()) return
-    setEnviandoDuvida(true)
+  const handleMatch = async () => {
+    Alert.alert('🎨 Confirmar ida ao local?', 'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Confirmar', onPress: async () => {
+        try {
+          const resposta = await api.post(`/obras/${obra.id}/match`, {})
+          setObra(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
+          Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
+        } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.') }
+      }}
+    ])
+  }
+
+  const handleEncerrar = async () => {
+    Alert.alert('✅ Encerrar obra?', 'Confirme que o serviço foi concluído.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Encerrar', onPress: async () => {
+        try {
+          await api.post(`/obras/${obra.id}/encerrar`, {})
+          Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+        } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
+      }}
+    ])
+  }
+
+  const handleExpirarMatch = async () => {
     try {
-      await mensagensService.enviar(obra?.id || obraInicial?.id, duvida)
-      setDuvida('')
-      Alert.alert('Dúvida enviada!', 'A equipe responderá em breve.')
+      await api.post(`/obras/${obra.id}/expirar-match`, {})
+      setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
+      Alert.alert('⏰ Tempo esgotado', 'O pintor não chegou a tempo. A obra está disponível novamente.')
+    } catch (err) { console.log('Erro ao expirar match:', err) }
+  }
+
+  const handleResponderCandidatura = async (candidaturaId, action) => {
+    if (action === 'contraproposta' && !valorContraproposta) {
+      Alert.alert('Atenção', 'Informe o valor da contraproposta.')
+      return
+    }
+    setEnviandoResposta(true)
+    try {
+      const valorNumerico = valorContraproposta
+        ? parseFloat(valorContraproposta.replace(/\./g, '').replace(',', '.'))
+        : null
+      await comRetry(() => api.post(`/obras/${obra.id}/candidatura/${candidaturaId}/responder`, { action, valor: valorNumerico }))
+      setContrapropostaCandidaturaId(null)
+      setValorContraproposta('')
+      await buscar()
+      const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!' }
+      Alert.alert('Sucesso', msgs[action])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem)
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+          { text: 'Tentar novamente', onPress: () => handleResponderCandidatura(candidaturaId, action) },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else {
+        Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      }
     } finally {
-      setEnviandoDuvida(false)
+      setEnviandoResposta(false)
     }
   }
 
   const handlePintorResponder = async (action) => {
-    setEnviando(true)
+    setEnviandoResposta(true)
     try {
-      await api.post(`/candidaturas/${minhaCandidatura?.id}/pintor-responder`, { action })
+      await comRetry(() => api.post(`/obras/${obra.id}/candidatura/${minhaCandidatura.id}/pintor-responder`, { action }))
       await buscar()
       Alert.alert(
-        action === 'aceitar' ? '✅ Proposta aceita!' : 'Proposta recusada',
+        action === 'aceitar' ? '✅ Contraproposta aceita!' : 'Proposta recusada.',
         action === 'aceitar'
-          ? 'O dono da obra será notificado. Combine os detalhes!'
-          : 'Sua candidatura foi encerrada.'
+          ? 'Ótimo! O solicitante foi notificado. Confirme sua ida ao local quando estiver pronto.'
+          : 'O solicitante foi notificado.'
       )
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+          { text: 'Tentar novamente', onPress: () => handlePintorResponder(action) },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else {
+        Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+      }
     } finally {
-      setEnviando(false)
+      setEnviandoResposta(false)
     }
+  }
+
+  const handlePedirTempo = () => {
+    Alert.alert('⚠️ Preciso de mais tempo', 'Qual é o motivo?', [
+      { text: '🚗 Veículo quebrou', onPress: () => enviarPedidoTempo('Veículo quebrou') },
+      { text: '🚦 Trânsito intenso', onPress: () => enviarPedidoTempo('Trânsito intenso') },
+      { text: '👮 Parada por fiscalização', onPress: () => enviarPedidoTempo('Parada por fiscalização') },
+      { text: '💥 Acidente', onPress: () => enviarPedidoTempo('Acidente') },
+      { text: 'Cancelar', style: 'cancel' },
+    ])
+  }
+
+  const enviarPedidoTempo = async (motivo) => {
+    try {
+      await api.post(`/obras/${obra.id}/pedir-tempo`, { motivo })
+      setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
+      Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
+    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
+  }
+
+  const handleperguntarTempo = async () => {
+    try {
+      await api.post(`/obras/${obra.id}/perguntar-tempo`, {})
+      setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
+      Alert.alert('✅ Pintor notificado!', 'Ele vai informar quantos minutos precisa.')
+    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+  }
+
+  const handleInformarTempo = () => {
+    Alert.prompt('⏱ Quantos minutos você precisa?', 'Digite o tempo em minutos', async (minutos) => {
+      const min = parseInt(minutos)
+      if (!min || min <= 0) { Alert.alert('Atenção', 'Informe um número válido de minutos.'); return }
+      try {
+        await api.post(`/obras/${obra.id}/informar-tempo`, { minutos: min })
+        setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
+        Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
+      } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+    }, 'plain-text', '', 'numeric')
+  }
+
+  const handleResponderTempo = (aceito) => {
+    Alert.alert(
+      aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
+      aceito ? `O pintor precisará de ${obra.pedido_tempo_minutos} minuto(s) a mais.` : 'A obra voltará para disponível e o pintor será bloqueado.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
+          try {
+            const resp = await api.post(`/obras/${obra.id}/responder-tempo`, { aceito })
+            if (aceito) {
+              setObra(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
+              Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
+            } else {
+              setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
+              Alert.alert('❌ Recusado', 'A obra voltou para disponível.')
+              navigation.goBack()
+            }
+          } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível responder.') }
+        }}
+      ]
+    )
+  }
+
+  const temMatch = obra?.match_feito_em && obra?.match_usuario_id
+  const souPintorDoMatch = temMatch && obra?.match_usuario_id === usuario?.id
+  const pintorMatch = temMatch ? candidatos.find(c => c.usuario_id === obra.match_usuario_id) : null
+
+  const abrirWhatsApp = (telefone) => {
+    const digitos = telefone.replace(/\D/g, '')
+    const numero = digitos.length <= 11 ? `55${digitos}` : digitos
+    Linking.openURL(`whatsapp://send?phone=${numero}`)
   }
 
   if (carregando) {
     return (
-      <SafeAreaView style={st.container}>
+      <SafeAreaView style={estilos.container}>
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
       </SafeAreaView>
     )
   }
 
-  const dadosObra = obra || obraInicial
-  if (!dadosObra?.id) {
+  if (!obra) {
     return (
-      <SafeAreaView style={st.container}>
-        <View style={st.topbar}>
-          <TouchableOpacity style={st.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={st.voltarIcone}>←</Text>
+      <SafeAreaView style={estilos.container}>
+        <View style={estilos.topbar}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={cores.primaria} size="large" />
+          <Text style={{ color: cores.textoFraco }}>Obra não encontrada</Text>
         </View>
       </SafeAreaView>
     )
   }
 
-  const ultimaOfertaDono = negociacoes.length > 0 && negociacoes[negociacoes.length - 1].autor_role === 'dono_obra'
-    ? negociacoes[negociacoes.length - 1]
-    : null
-
   return (
-    <SafeAreaView style={st.container}>
-
-      {/* Top bar */}
-      <View style={st.topbar}>
-        <TouchableOpacity style={st.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={st.voltarIcone}>←</Text>
+    <SafeAreaView style={estilos.container}>
+      <View style={estilos.topbar}>
+        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+          <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
         </TouchableOpacity>
-        <Text style={st.topbarTitulo}>Detalhe da obra</Text>
+        <Text style={estilos.topbarTitulo}>{isDono ? 'Minha obra' : 'Detalhe da obra'}</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Gallery — standalone horizontal ScrollView, NOT nested inside vertical ScrollView */}
-      {midias.length > 0 ? (
-        <View>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(e.nativeEvent.contentOffset.x / width)
-              setFotoAtiva(index)
-            }}
-          >
-            {midias.map((item) => (
-              <TouchableOpacity
-                key={String(item.id)}
-                style={st.fotoSlide}
-                onPress={() => setMidiaFullscreen({ url: item.url_assinada || item.url, tipo: item.tipo })}
-                activeOpacity={0.9}
-              >
-                {item.tipo === 'foto' ? (
-                  <Image
-                    source={{ uri: item.url_assinada || item.url }}
-                    style={st.fotoImagem}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <Video
-                    source={{ uri: item.url_assinada || item.url }}
-                    style={st.fotoImagem}
-                    useNativeControls
-                    resizeMode={ResizeMode.COVER}
-                    isLooping={false}
-                  />
-                )}
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <View style={st.indicadoresRow}>
-            {midias.map((_, i) => (
-              <View key={i} style={[st.indicadorDot, i === fotoAtiva && st.indicadorDotAtivo]} />
-            ))}
-          </View>
-          {dadosObra?.expira_em && <ContadorPill expiraEm={dadosObra.expira_em} />}
-        </View>
-      ) : (
-        <View style={st.galeriaVazia}>
-          <Text style={st.galeriaVaziaIcone}>🏠</Text>
-          {dadosObra?.expira_em && <ContadorPill expiraEm={dadosObra.expira_em} />}
-        </View>
-      )}
-
-      {/* Single vertical ScrollView for all content — no nesting */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={st.corpo}>
-
-        <View style={st.obraHeader}>
-          <View style={st.categoriaPill}>
-            <Text style={st.categoriaPillTexto}>{dadosObra?.categoria || ''}</Text>
-          </View>
-          <Text style={st.obraTitulo}>{dadosObra?.titulo || ''}</Text>
-          <Text style={st.localTexto}>
-            📍 {dadosObra?.cidade || ''}
-            {dadosObra?.bairro ? ` · ${dadosObra.bairro}` : ''}
-            {dadosObra?.metragem ? ` · ${dadosObra.metragem}m²` : ''}
-          </Text>
-        </View>
-
-        <View style={st.statsRow}>
-          <View style={st.statCard}>
-            <Text style={[st.statValor, { color: cores.sucesso }]}>{formatarValor(dadosObra?.valor)}</Text>
-            <Text style={st.statLabel}>Empreitada</Text>
-          </View>
-          <View style={st.statCard}>
-            <Text style={st.statValor}>
-              {dadosObra?.prazo_execucao_dias != null ? `${dadosObra.prazo_execucao_dias} dias` : '—'}
-            </Text>
-            <Text style={st.statLabel}>Prazo execução</Text>
-          </View>
-          <View style={st.statCard}>
-            {dadosObra?.expira_em
-              ? <ContadorStat expiraEm={dadosObra.expira_em} />
-              : <Text style={st.statValor}>—</Text>
-            }
-            <Text style={st.statLabel}>Expira em</Text>
-          </View>
-        </View>
-
-        {dadosObra?.descricao ? (
-          <>
-            <Text style={st.secaoTitulo}>Descrição da obra</Text>
-            <Text style={st.descricaoTexto}>{dadosObra.descricao}</Text>
-          </>
-        ) : null}
-
-        {Array.isArray(dadosObra?.tags) && dadosObra.tags.length > 0 && (
-          <>
-            <Text style={st.secaoTitulo}>Serviços inclusos</Text>
-            <View style={st.tagsWrap}>
-              {dadosObra.tags.map((tag, i) => <Tag key={i} texto={String(tag)} />)}
-            </View>
-          </>
-        )}
-
-        {negociacoes.length > 0 && (
-          <>
-            <Separador estilo={{ marginVertical: 16 }} />
-            <Text style={st.secaoTitulo}>Histórico de negociação</Text>
-            {negociacoes.map((neg, i) => (
-              <View key={i} style={[st.negCard, neg.autor_role === 'assinante' && st.negCardPintor]}>
-                <Text style={st.negAutor}>{neg.autor_role === 'assinante' ? '👷 Você' : '🏠 Dono da obra'}</Text>
-                <Text style={st.negValor}>Proposta: {formatarValor(neg.valor)}</Text>
-                {neg.mensagem ? <Text style={st.negMensagem}>{neg.mensagem}</Text> : null}
-              </View>
-            ))}
-            <TouchableOpacity style={st.btnNegociar} onPress={() => setModalNegociar(true)}>
-              <Text style={st.btnNegociarTexto}>💰 Fazer nova contra-oferta</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        <Separador estilo={{ marginVertical: 20 }} />
-
-        <Text style={st.secaoTitulo}>Dúvidas sobre esta obra?</Text>
-        <View style={st.duvidaBox}>
-          <TextInput
-            style={st.duvidaInput}
-            placeholder="Digite sua pergunta aqui..."
-            placeholderTextColor={cores.textoMutado}
-            value={duvida}
-            onChangeText={setDuvida}
-            multiline
-          />
+      <Modal visible={!!fotoFullscreen} transparent animationType="fade" onRequestClose={() => setFotoFullscreen(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.97)', alignItems: 'center', justifyContent: 'center' }}>
           <TouchableOpacity
-            style={st.duvidaEnviarBtn}
-            onPress={handleEnviarDuvida}
-            disabled={enviandoDuvida || !duvida.trim()}
+            style={{ position: 'absolute', top: 52, right: 20, zIndex: 10, width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
+            onPress={() => setFotoFullscreen(null)}
           >
-            {enviandoDuvida
-              ? <ActivityIndicator color={cores.primaria} size="small" />
-              : <Text style={st.duvidaEnviarTexto}>→</Text>
-            }
+            <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>✕</Text>
           </TouchableOpacity>
-        </View>
-
-        <Separador estilo={{ marginVertical: 20 }} />
-
-        {minhaCandidatura ? (
-          <View style={st.candidaturaFeita}>
-            <Text style={{
-              color: minhaCandidatura.status === 'aprovada' ? cores.sucesso
-                : minhaCandidatura.status === 'recusada' ? '#f44336' : cores.primaria,
-              fontWeight: '600', marginBottom: 6
-            }}>
-              {minhaCandidatura.status === 'pendente' ? '⏳ Aguardando análise'
-                : minhaCandidatura.status === 'aprovada' ? '✅ Aprovado!'
-                : '❌ Não selecionado'}
-            </Text>
-            <Text style={st.candidaturaFeitaTexto}>
-              {minhaCandidatura.status === 'pendente'
-                ? 'Sua candidatura está sendo analisada.'
-                : minhaCandidatura.status === 'aprovada'
-                ? 'Parabéns! Você foi aprovado para esta obra.'
-                : 'Sua candidatura não foi selecionada desta vez.'}
-            </Text>
-
-            {minhaCandidatura.status === 'pendente' && ultimaOfertaDono && (
-              <View style={st.contraOfertaBox}>
-                <Text style={st.contraOfertaLabel}>💬 O dono fez uma proposta:</Text>
-                <Text style={st.contraOfertaValor}>{formatarValor(ultimaOfertaDono.valor)}</Text>
-                {ultimaOfertaDono.mensagem
-                  ? <Text style={st.contraOfertaMensagem}>"{ultimaOfertaDono.mensagem}"</Text>
-                  : null}
-                <View style={st.respostaRow}>
-                  <TouchableOpacity
-                    style={st.btnAceitar}
-                    onPress={() => handlePintorResponder('aceitar')}
-                    disabled={enviando}
-                  >
-                    <Text style={st.btnAceitarTexto}>✅ Aceitar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={st.btnRecusar}
-                    onPress={() => handlePintorResponder('recusar')}
-                    disabled={enviando}
-                  >
-                    <Text style={st.btnRecusarTexto}>❌ Recusar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {minhaCandidatura.status === 'pendente' && !ultimaOfertaDono && (
-              <TouchableOpacity style={[st.btnNegociar, { marginTop: 12 }]} onPress={() => setModalNegociar(true)}>
-                <Text style={st.btnNegociarTexto}>💰 Fazer contra-oferta</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ) : (
-          <>
-            <BotaoPrimario titulo="Tenho interesse nesta obra →" onPress={() => setModalAberto(true)} />
-            <Text style={st.aceiteAviso}>
-              Ao demonstrar interesse, sua solicitação será analisada pela equipe antes da confirmação.
-            </Text>
-          </>
-        )}
-
-      </ScrollView>
-
-      {/* Modal de candidatura */}
-      <Modal visible={modalAberto} animationType="slide" transparent onRequestClose={() => setModalAberto(false)}>
-        <View style={st.modalOverlay}>
-          <View style={st.modalSheet}>
-            <View style={st.modalHandle} />
-            <Text style={st.modalTitulo}>Solicitação de obra</Text>
-            <Text style={st.modalSub}>Preencha os dados abaixo para análise da equipe</Text>
-
-            <Text style={st.inputLabel}>REFERÊNCIAS E EXPERIÊNCIA</Text>
-            <TextInput
-              style={st.textarea}
-              placeholder="Descreva brevemente sua experiência e obras realizadas..."
-              placeholderTextColor={cores.textoMutado}
-              value={referencias}
-              onChangeText={setReferencias}
-              multiline
-              numberOfLines={4}
-            />
-
-            <TouchableOpacity
-              style={st.toggleOferta}
-              onPress={() => setUsarContraOferta(!usarContraOferta)}
-            >
-              <View style={[st.toggleBox, usarContraOferta && st.toggleBoxAtivo]}>
-                {usarContraOferta && <View style={st.toggleDot} />}
-              </View>
-              <Text style={st.toggleTexto}>Quero propor um valor diferente</Text>
-            </TouchableOpacity>
-
-            {usarContraOferta && (
-              <>
-                <Text style={st.valorAtualTexto}>
-                  Valor atual da obra: {formatarValor(dadosObra?.valor)}
-                </Text>
-                <Text style={st.inputLabel}>MINHA OFERTA (R$)</Text>
-                <TextInput
-                  style={st.inputSimples}
-                  placeholder="Ex: 3500"
-                  placeholderTextColor={cores.textoMutado}
-                  value={valorOferta}
-                  onChangeText={setValorOferta}
-                  keyboardType="numeric"
-                />
-                <Text style={st.inputLabel}>JUSTIFICATIVA (opcional)</Text>
-                <TextInput
-                  style={[st.textarea, { minHeight: 60 }]}
-                  placeholder="Explique o motivo da sua oferta..."
-                  placeholderTextColor={cores.textoMutado}
-                  value={mensagemOferta}
-                  onChangeText={setMensagemOferta}
-                  multiline
-                  numberOfLines={3}
-                />
-              </>
-            )}
-
-            <BotaoPrimario
-              titulo={usarContraOferta ? `Enviar oferta de R$ ${valorOferta || '...'}` : 'Enviar solicitação'}
-              onPress={handleCandidatar}
-              carregando={enviando}
-              estilo={{ marginTop: 16, marginBottom: 10 }}
-            />
-            <BotaoSecundario titulo="Cancelar" onPress={() => setModalAberto(false)} />
-          </View>
+          <Image source={{ uri: fotoFullscreen }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
         </View>
       </Modal>
 
-      {/* Modal de negociação */}
-      <Modal visible={modalNegociar} animationType="slide" transparent onRequestClose={() => setModalNegociar(false)}>
-        <View style={st.modalOverlay}>
-          <View style={st.modalSheet}>
-            <View style={st.modalHandle} />
-            <Text style={st.modalTitulo}>Contra-oferta</Text>
-            <Text style={st.modalSub}>Proponha um novo valor para negociação</Text>
-            <Text style={st.valorAtualTexto}>Valor da obra: {formatarValor(dadosObra?.valor)}</Text>
-            <Text style={st.inputLabel}>MEU VALOR (R$)</Text>
-            <TextInput
-              style={st.inputSimples}
-              placeholder="Ex: 3500"
-              placeholderTextColor={cores.textoMutado}
-              value={valorNegociacao}
-              onChangeText={setValorNegociacao}
-              keyboardType="numeric"
-            />
-            <Text style={st.inputLabel}>MENSAGEM (opcional)</Text>
-            <TextInput
-              style={[st.textarea, { minHeight: 80 }]}
-              placeholder="Explique sua proposta..."
-              placeholderTextColor={cores.textoMutado}
-              value={mensagemNegociacao}
-              onChangeText={setMensagemNegociacao}
-              multiline
-            />
-            <BotaoPrimario
-              titulo="Enviar contra-oferta →"
-              onPress={handleNegociar}
-              carregando={enviando}
-              estilo={{ marginTop: 16, marginBottom: 10 }}
-            />
-            <BotaoSecundario titulo="Cancelar" onPress={() => setModalNegociar(false)} />
-          </View>
-        </View>
-      </Modal>
-
-      {/* Fullscreen media modal */}
-      <Modal visible={!!midiaFullscreen} animationType="fade" transparent onRequestClose={() => setMidiaFullscreen(null)}>
-        <View style={st.fullscreenOverlay}>
-          <TouchableOpacity style={st.fullscreenFechar} onPress={() => setMidiaFullscreen(null)}>
-            <Text style={st.fullscreenFecharTexto}>✕</Text>
+      <Modal visible={!!videoFullscreen} transparent animationType="fade" onRequestClose={() => setVideoFullscreen(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+          <TouchableOpacity
+            style={{ position: 'absolute', top: 52, right: 20, zIndex: 10, width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 22, alignItems: 'center', justifyContent: 'center' }}
+            onPress={() => setVideoFullscreen(null)}
+          >
+            <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>✕</Text>
           </TouchableOpacity>
-          {midiaFullscreen?.tipo === 'foto' ? (
-            <Image
-              source={{ uri: midiaFullscreen.url }}
-              style={st.fullscreenMidia}
-              resizeMode="contain"
-            />
-          ) : (
+          {videoFullscreen && (
             <Video
-              source={{ uri: midiaFullscreen?.url }}
-              style={st.fullscreenMidia}
+              source={{ uri: videoFullscreen }}
+              style={{ width: '100%', height: '50%' }}
               useNativeControls
               resizeMode={ResizeMode.CONTAIN}
               shouldPlay
@@ -575,161 +434,447 @@ export default function DetalheObraScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={estilos.corpo}>
+
+          {obra.prazo_execucao_horas && (
+            <View style={estilos.urgenciaBanner}>
+              <Text style={estilos.urgenciaTexto}>
+                {obra.prazo_execucao_horas <= 24 ? '📅 Hoje'
+                  : obra.prazo_execucao_horas <= 168 ? '📆 Esta semana'
+                  : obra.prazo_execucao_horas <= 720 ? '🗓️ Este mês'
+                  : obra.prazo_execucao_horas <= 1440 ? '📋 Mês que vem'
+                  : '⏳ Mais de um mês'}
+              </Text>
+              {obra.expira_em
+                ? <ContadorExpiracaoObra expiraEm={obra.expira_em} />
+                : <Text style={estilos.urgenciaHoras}>Prazo de execução informado</Text>
+              }
+            </View>
+          )}
+
+          {obra.valor_estimado && (
+            <View style={estilos.valorDestaque}>
+              <View>
+                <Text style={estilos.valorDestaqueLabel}>💰 VALOR COMBINADO</Text>
+                <Text style={estilos.valorDestaqueValor}>
+                  R$ {Number(obra.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Text>
+              </View>
+              <View style={estilos.categoriaPill}>
+                <Text style={estilos.categoriaTexto}>{obra.categoria}</Text>
+              </View>
+            </View>
+          )}
+
+          <Text style={estilos.titulo}>{obra.titulo}</Text>
+          <Text style={estilos.local}>📍 {obra.cidade}{obra.bairro ? `, ${obra.bairro}` : ''}</Text>
+
+          {obra.descricao && (
+            <>
+              <Text style={estilos.secaoTitulo}>Descrição</Text>
+              <Text style={estilos.descricao}>{obra.descricao}</Text>
+            </>
+          )}
+
+          {midias.length > 0 && (
+            <>
+              <Text style={estilos.secaoTitulo}>Fotos e vídeos</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                {midias.map((midia, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={estilos.midiaItem}
+                    onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
+                    activeOpacity={0.7}
+                  >
+                    <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
+                    {midia.tipo === 'video' && (
+                      <View style={estilos.videoOverlay}>
+                        <Text style={{ fontSize: 32, color: 'white' }}>▶</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {temMatch && obra.prazo_execucao_horas && (
+            <RelogioRegressivo
+              matchFeitoEm={obra.match_feito_em}
+              prazoHoras={obra.prazo_execucao_horas}
+              onExpirar={handleExpirarMatch}
+            />
+          )}
+
+          {temMatch && (
+            <View style={estilos.contratoBanner}>
+              <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
+              <Text style={estilos.contratoBannerTexto}>
+                Um contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.{'\n\n'}Bom trabalho para vocês! 🤝
+              </Text>
+            </View>
+          )}
+
+          {isDono && (
+            <>
+              {temMatch && pintorMatch?.telefone && (
+                <TouchableOpacity
+                  style={estilos.btnWhatsApp}
+                  onPress={() => abrirWhatsApp(pintorMatch.telefone)}
+                >
+                  <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do pintor: {pintorMatch.telefone}</Text>
+                </TouchableOpacity>
+              )}
+              {temMatch && (
+                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
+                  <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar obra</Text>
+                </TouchableOpacity>
+              )}
+              {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && (
+                <View style={estilos.pedidoAlertaBox}>
+                  <Text style={estilos.pedidoAlertaTitulo}>⚠️ Pintor precisa de mais tempo</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
+                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleperguntarTempo}>
+                    <Text style={estilos.btnPerguntarTempoTexto}>⏱ Quanto tempo a mais você precisa?</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {temMatch && obra.pedido_tempo_status === 'aguardando_minutos' && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o pintor informar quantos minutos precisa...</Text>
+                </View>
+              )}
+              {temMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && (
+                <View style={estilos.pedidoAlertaBox}>
+                  <Text style={estilos.pedidoAlertaTitulo}>⏳ Pintor precisa de mais tempo</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
+                  <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {obra.pedido_tempo_minutos} minuto(s)</Text>
+                  <View style={estilos.pedidoBotoesRow}>
+                    <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
+                      <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderTempo(false)}>
+                      <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🎨 Pintores candidatos ({candidatos.length})</Text>
+              {candidatos.length === 0 ? (
+                <View style={estilos.vazioInteressados}>
+                  <Text style={estilos.vazioInteressadosTexto}>Nenhum pintor demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
+                </View>
+              ) : (
+                candidatos.map((item) => (
+                  <View key={item.id} style={estilos.interessadoCard}>
+                    <View style={estilos.interessadoHeader}>
+                      <Text style={estilos.interessadoNome}>{item.nome}</Text>
+                      {item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                    </View>
+                    {item.valor_proposto && (
+                      <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
+                        💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    )}
+                    {item.valor_contraproposta && (
+                      <Text style={{ fontSize: 13, color: '#E8833A', marginBottom: 4 }}>
+                        🤝 Minha contraproposta: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    )}
+                    {item.mensagem && (
+                      <View style={estilos.mensagemBox}>
+                        <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
+                      </View>
+                    )}
+                    {item.status === 'pendente' && !temMatch && (
+                      <View style={{ marginTop: 10 }}>
+                        {contrapropostaCandidaturaId === item.id ? (
+                          <View>
+                            <TextInput
+                              style={[estilos.input, { marginBottom: 8 }]}
+                              placeholder="Valor da contraproposta (ex: 350,00)"
+                              placeholderTextColor={cores.textoMutado}
+                              keyboardType="numeric"
+                              value={valorContraproposta}
+                              onChangeText={v => setValorContraproposta(mascararValor(v))}
+                            />
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              <TouchableOpacity
+                                style={[estilos.btnAceitar, { flex: 1 }]}
+                                onPress={() => handleResponderCandidatura(item.id, 'contraproposta')}
+                                disabled={enviandoResposta}
+                              >
+                                <Text style={estilos.btnAceitarTexto}>Enviar →</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[estilos.btnRecusar, { flex: 1 }]}
+                                onPress={() => { setContrapropostaCandidaturaId(null); setValorContraproposta('') }}
+                              >
+                                <Text style={estilos.btnRecusarTexto}>Cancelar</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                            <TouchableOpacity
+                              style={[estilos.btnAceitar, { flex: 1 }]}
+                              onPress={() => handleResponderCandidatura(item.id, 'aceitar')}
+                              disabled={enviandoResposta}
+                            >
+                              <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[estilos.btnRecusar, { flex: 1 }]}
+                              onPress={() => handleResponderCandidatura(item.id, 'recusar')}
+                              disabled={enviandoResposta}
+                            >
+                              <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={{ flex: 1, backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 10, alignItems: 'center' }}
+                              onPress={() => setContrapropostaCandidaturaId(item.id)}
+                            >
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contra</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    {item.status === 'contraproposta_dono' && (
+                      <View style={{ marginTop: 8, padding: 8, backgroundColor: '#2a1a00', borderRadius: raios.medio }}>
+                        <Text style={{ fontSize: 12, color: '#E8833A' }}>⏳ Aguardando resposta do pintor...</Text>
+                      </View>
+                    )}
+                    {item.status === 'aceito' && (
+                      <View style={{ marginTop: 8 }}>
+                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
+                        {item.telefone && (
+                          <TouchableOpacity style={estilos.btnWhatsApp} onPress={() => abrirWhatsApp(item.telefone)}>
+                            <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp: {item.telefone}</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    )}
+                    {item.status === 'recusado' && (
+                      <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1a0a0a', borderRadius: raios.medio }}>
+                        <Text style={{ fontSize: 12, color: '#f44336' }}>❌ Recusado</Text>
+                      </View>
+                    )}
+                  </View>
+                ))
+              )}
+            </>
+          )}
+
+          {isPrestador && !isDono && (
+            <>
+              {souPintorDoMatch && (
+                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
+                  <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
+                </TouchableOpacity>
+              )}
+              {souPintorDoMatch && !obra.pedido_tempo_status && (
+                <TouchableOpacity style={estilos.btnPedirTempo} onPress={handlePedirTempo}>
+                  <Text style={estilos.btnPedirTempoTexto}>⚠️ Preciso de mais tempo para chegar</Text>
+                </TouchableOpacity>
+              )}
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_tempo' && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
+                </View>
+              )}
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_minutos' && (
+                <TouchableOpacity style={estilos.btnInformarTempo} onPress={handleInformarTempo}>
+                  <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
+                </TouchableOpacity>
+              )}
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {obra.pedido_tempo_minutos} minuto(s) extra...</Text>
+                </View>
+              )}
+              {!temMatch && (
+                minhaCandidatura ? (
+                  <View style={estilos.interesseFeito}>
+                    {minhaCandidatura.status === 'pendente' && (
+                      <>
+                        <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>⏳ Aguardando resposta</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Suas informações foram enviadas. Aguarde a resposta do solicitante!</Text>
+                      </>
+                    )}
+                    {minhaCandidatura.status === 'contraproposta_dono' && (
+                      <>
+                        <Text style={{ color: '#E8833A', fontWeight: '600', marginBottom: 6 }}>💬 O solicitante fez uma contraproposta!</Text>
+                        {minhaCandidatura.valor_contraproposta && (
+                          <Text style={{ fontSize: 18, fontWeight: '700', color: cores.sucesso, marginBottom: 12 }}>
+                            R$ {Number(minhaCandidatura.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </Text>
+                        )}
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                          <TouchableOpacity style={[estilos.btnAceitar, { flex: 1 }]} onPress={() => handlePintorResponder('aceitar')} disabled={enviandoResposta}>
+                            <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={[estilos.btnRecusar, { flex: 1 }]} onPress={() => handlePintorResponder('recusar')} disabled={enviandoResposta}>
+                            <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </>
+                    )}
+                    {minhaCandidatura.status === 'aceito' && (
+                      <>
+                        <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>
+                        <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
+                          <Text style={estilos.btnMatchTexto}>🎨 Estou a caminho! Iniciar contagem →</Text>
+                        </TouchableOpacity>
+                        <Text style={estilos.avisoDeslocamento}>⚠️ Este cronômetro é apenas informativo para seu deslocamento. O prazo estabelecido pelo solicitante continua valendo independentemente.</Text>
+                      </>
+                    )}
+                    {minhaCandidatura.status === 'recusado' && (
+                      <>
+                        <Text style={{ color: '#f44336', fontWeight: '600', marginBottom: 6 }}>❌ Não selecionado</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta não foi aceita desta vez.</Text>
+                      </>
+                    )}
+                  </View>
+                ) : mostrarForm ? (
+                  <View style={estilos.formInteresse}>
+                    <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
+                    <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
+                    {obra.valor_estimado && (
+                      <TouchableOpacity
+                        style={estilos.btnAceitarValorProposto}
+                        onPress={handleAceitarValorProposto}
+                        disabled={enviando}
+                      >
+                        <Text style={estilos.btnAceitarValorPropostoTexto}>
+                          ✅ Aceitar o valor proposto (R$ {Number(obra.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    <PerguntaOpcoes label="⏱ Há quanto tempo realiza este tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
+                    <PerguntaOpcoes label="⚠️ Já enfrentou problemas com este tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
+                    <PerguntaOpcoes label="📋 Possui referências em obras de pintura?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
+                    <PerguntaOpcoes label="🎨 Possui todos os materiais e equipamentos necessários?" opcoes={['Sim, todos', 'A maioria', 'Preciso de alguns']} valor={possuiFerramentas} onChange={setPossuiFerramentas} />
+                    <View style={estilos.perguntaWrap}>
+                      <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar o acabamento (opcional)</Text>
+                      <TextInput style={estilos.textarea} placeholder="Ex: Recomendo usar tinta premium para maior durabilidade..." placeholderTextColor={cores.textoMutado} value={sugestaoDurabilidade} onChangeText={setSugestaoDurabilidade} multiline numberOfLines={3} />
+                    </View>
+                    <View style={estilos.perguntaWrap}>
+                      <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
+                      <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.textoMutado} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
+                    </View>
+                    <View style={estilos.perguntaWrap}>
+                      <Text style={estilos.perguntaLabel}>💰 Propor outro valor (opcional)</Text>
+                      <TextInput
+                        style={estilos.input}
+                        placeholder="Ex: 2.500,00"
+                        placeholderTextColor={cores.textoMutado}
+                        keyboardType="numeric"
+                        value={valorProposto}
+                        onChangeText={v => setValorProposto(mascararValor(v))}
+                      />
+                      <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+                        ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros pintores até que o solicitante aceite. Pense bem!
+                      </Text>
+                    </View>
+                    <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
+                    <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
+                      <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <BotaoPrimario titulo="Tenho interesse nesta obra →" onPress={() => setMostrarForm(true)} />
+                    <Text style={estilos.aviso}>Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.</Text>
+                  </>
+                )
+              )}
+            </>
+          )}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
-const st = StyleSheet.create({
+const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  topbar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: espacos.tela, paddingVertical: 12,
-  },
-  btnVoltar: {
-    width: 36, height: 36, backgroundColor: cores.fundoElevado,
-    borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  voltarIcone: { color: cores.textoForte, fontSize: 32, fontWeight: '900' },
+  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: espacos.tela, paddingVertical: 12 },
+  btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   topbarTitulo: { fontSize: 14, color: cores.textoMedio, fontWeight: '500' },
-
-  fotoSlide: { width, height: 220 },
-  fotoImagem: { width: '100%', height: '100%' },
-  indicadoresRow: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: 8 },
-  indicadorDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: cores.fundoElevado },
-  indicadorDotAtivo: { width: 16, borderRadius: 3, backgroundColor: cores.primaria },
-
-  galeriaVazia: {
-    height: 200, marginHorizontal: espacos.tela, marginBottom: 8,
-    backgroundColor: cores.fundoElevado, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  galeriaVaziaIcone: { fontSize: 60, opacity: 0.08 },
-
-  countdownPill: {
-    position: 'absolute', top: 12, right: 12,
-    backgroundColor: 'rgba(10,10,10,0.88)', borderWidth: 0.5, borderColor: cores.primaria,
-    borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4,
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-  },
-  countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: cores.primaria },
-  countdownTexto: { fontSize: 10, fontWeight: '500', color: cores.primaria },
-
-  corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 8 },
-  obraHeader: { marginBottom: 16 },
-  categoriaPill: {
-    backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 4,
-    alignSelf: 'flex-start', marginBottom: 10,
-  },
-  categoriaPillTexto: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize' },
-  obraTitulo: { fontSize: 18, fontWeight: '700', color: cores.textoForte, lineHeight: 26, marginBottom: 8 },
-  localTexto: { fontSize: 12, color: cores.textoFraco },
-
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  statCard: {
-    flex: 1, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.medio, padding: 12, alignItems: 'center',
-  },
-  statValor: { fontSize: 13, fontWeight: '700', color: cores.textoForte, marginBottom: 3 },
-  statLabel: { fontSize: 10, color: cores.textoFraco, textAlign: 'center' },
-
-  secaoTitulo: {
-    fontSize: 11, fontWeight: '600', color: cores.textoFraco,
-    letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10,
-  },
-  descricaoTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 20 },
-
-  negCard: {
-    backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.medio, padding: 12, marginBottom: 8,
-  },
-  negCardPintor: { borderColor: cores.primaria + '44', backgroundColor: cores.primariaSuave },
-  negAutor: { fontSize: 12, color: cores.textoFraco, marginBottom: 4 },
-  negValor: { fontSize: 15, fontWeight: '700', color: cores.sucesso, marginBottom: 4 },
-  negMensagem: { fontSize: 12, color: cores.textoMedio, fontStyle: 'italic' },
-  btnNegociar: {
-    backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.primaria,
-    borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 8,
-  },
-  btnNegociarTexto: { fontSize: 13, color: cores.primaria, fontWeight: '600' },
-
-  duvidaBox: {
-    backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande, padding: 14, flexDirection: 'row', alignItems: 'flex-end',
-    gap: 10, marginBottom: 4,
-  },
-  duvidaInput: { flex: 1, fontSize: 13, color: cores.textoForte, minHeight: 40, maxHeight: 100 },
-  duvidaEnviarBtn: {
-    width: 36, height: 36, backgroundColor: cores.fundoElevado,
-    borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  duvidaEnviarTexto: { color: cores.primaria, fontSize: 16 },
-
-  candidaturaFeita: {
-    backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.grande, padding: 16,
-  },
-  candidaturaFeitaTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 20 },
-  aceiteAviso: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 10, lineHeight: 18 },
-
-  contraOfertaBox: {
-    marginTop: 14, backgroundColor: cores.fundoElevado,
-    borderWidth: 0.5, borderColor: cores.primaria + '66',
-    borderRadius: raios.medio, padding: 14,
-  },
-  contraOfertaLabel: { fontSize: 11, color: cores.primaria, fontWeight: '600', marginBottom: 4 },
-  contraOfertaValor: { fontSize: 18, fontWeight: '700', color: cores.sucesso, marginBottom: 4 },
-  contraOfertaMensagem: { fontSize: 12, color: cores.textoMedio, fontStyle: 'italic', marginBottom: 10 },
-  respostaRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  btnAceitar: {
-    flex: 1, backgroundColor: '#1a3a1a', borderWidth: 0.5, borderColor: '#4caf50',
-    borderRadius: raios.medio, padding: 12, alignItems: 'center',
-  },
-  btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#4caf50' },
-  btnRecusar: {
-    flex: 1, backgroundColor: '#3a1a1a', borderWidth: 0.5, borderColor: '#f44336',
-    borderRadius: raios.medio, padding: 12, alignItems: 'center',
-  },
+  corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria + '44', borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
+  urgenciaTexto: { fontSize: 14, fontWeight: '700', color: cores.primaria },
+  urgenciaHoras: { fontSize: 12, color: cores.primaria },
+  valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
+  valorDestaqueValor: { fontSize: 24, fontWeight: '700', color: cores.sucesso },
+  categoriaPill: { backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 4 },
+  categoriaTexto: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize' },
+  titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 28, marginBottom: 6 },
+  local: { fontSize: 13, color: cores.textoFraco, marginBottom: 16 },
+  secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
+  descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
+  midiaItem: { width: 160, height: 120, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
+  midiaImagem: { width: '100%', height: '100%' },
+  videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
+  relogioExpirado: { backgroundColor: '#2a2a2a', borderColor: '#666' },
+  relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
+  relogioTempo: { fontSize: 52, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 2 },
+  relogioSub: { fontSize: 11, color: cores.textoFraco, marginTop: 6, textAlign: 'center' },
+  btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
+  btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  btnWhatsApp: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#25D366', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 8 },
+  btnWhatsAppTexto: { fontSize: 13, fontWeight: '600', color: '#25D366' },
+  btnEncerrar: { backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginTop: 12, marginBottom: 8 },
+  btnEncerrarTexto: { fontSize: 14, fontWeight: '700', color: '#0A0A0A' },
+  interesseFeito: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16 },
+  formInteresse: { marginTop: 8 },
+  formTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 6 },
+  formSubtitulo: { fontSize: 12, color: cores.textoFraco, lineHeight: 18, marginBottom: 20 },
+  perguntaWrap: { marginBottom: 16 },
+  perguntaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 10, lineHeight: 18 },
+  opcoesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  opcaoPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  opcaoPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
+  opcaoTexto: { fontSize: 12, color: cores.textoMedio },
+  opcaoTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  textarea: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 13, color: cores.textoForte, minHeight: 80, textAlignVertical: 'top' },
+  input: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 15, color: cores.textoForte },
+  aviso: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 10, lineHeight: 18 },
+  vazioInteressados: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 24, alignItems: 'center', marginBottom: 16 },
+  vazioInteressadosTexto: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
+  interessadoCard: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 14, marginBottom: 10 },
+  interessadoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  interessadoNome: { fontSize: 14, fontWeight: '600', color: cores.textoForte },
+  interessadoCidade: { fontSize: 11, color: cores.textoFraco },
+  mensagemBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6 },
+  mensagemTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
+  contratoBanner: { backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: '#4a4a8a', borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  contratoBannerTitulo: { fontSize: 13, fontWeight: '700', color: '#8888cc', marginBottom: 8 },
+  contratoBannerTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 19 },
+  btnPedirTempo: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
+  btnPedirTempoTexto: { fontSize: 13, fontWeight: '600', color: '#E8833A' },
+  btnInformarTempo: { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
+  btnInformarTempoTexto: { fontSize: 13, fontWeight: '600', color: cores.primaria },
+  btnPerguntarTempo: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
+  btnPerguntarTempoTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  pedidoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
+  pedidoTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
+  pedidoAlertaBox: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.grande, padding: 16, marginTop: 10 },
+  pedidoAlertaTitulo: { fontSize: 14, fontWeight: '700', color: '#E8833A', marginBottom: 4 },
+  pedidoAlertaMotivo: { fontSize: 12, color: cores.textoMedio, marginBottom: 4 },
+  pedidoAlertaMinutos: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 12 },
+  pedidoBotoesRow: { flexDirection: 'row', gap: 10 },
+  btnAceitar: { flex: 1, backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  btnRecusar: { flex: 1, backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f44336', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   btnRecusarTexto: { fontSize: 13, fontWeight: '700', color: '#f44336' },
-
-  inputLabel: { fontSize: 11, color: cores.textoFraco, letterSpacing: 0.5, marginBottom: 7, textTransform: 'uppercase' },
-  textarea: {
-    backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.medio, padding: 14, fontSize: 13, color: cores.textoForte,
-    minHeight: 100, textAlignVertical: 'top', marginBottom: 12,
-  },
-  inputSimples: {
-    backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: raios.medio, padding: 14, fontSize: 14, color: cores.textoForte, marginBottom: 12,
-  },
-  valorAtualTexto: { fontSize: 12, color: cores.textoFraco, marginBottom: 12 },
-  toggleOferta: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  toggleBox: {
-    width: 36, height: 20, borderRadius: 10, borderWidth: 0.5, borderColor: cores.borda,
-    backgroundColor: cores.fundoElevado, alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 2,
-  },
-  toggleBoxAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria, alignItems: 'flex-end' },
-  toggleDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#0A0A0A' },
-  toggleTexto: { fontSize: 13, color: cores.textoMedio },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 0.5, borderColor: cores.borda, padding: 24, paddingBottom: 40,
-  },
-  modalHandle: { width: 40, height: 4, backgroundColor: cores.borda, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalTitulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, marginBottom: 4 },
-  modalSub: { fontSize: 12, color: cores.textoFraco, marginBottom: 20 },
-
-  fullscreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.97)', justifyContent: 'center', alignItems: 'center' },
-  fullscreenMidia: { width: '100%', height: '80%' },
-  fullscreenFechar: {
-    position: 'absolute', top: 48, right: 20, zIndex: 10,
-    width: 44, height: 44, backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 22, alignItems: 'center', justifyContent: 'center',
-  },
-  fullscreenFecharTexto: { color: '#fff', fontSize: 22, fontWeight: '400' },
+  btnAceitarValorProposto: { backgroundColor: cores.sucessoSuave, borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
+  btnAceitarValorPropostoTexto: { fontSize: 14, fontWeight: '700', color: cores.sucesso },
+  avisoDeslocamento: { fontSize: 11, color: '#E8833A', textAlign: 'center', marginTop: 8, lineHeight: 16, paddingHorizontal: 8 },
 })

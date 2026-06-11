@@ -18,7 +18,7 @@ import TermosScreen        from '../screens/Auth/TermosScreen'
 import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 
 // App — Pintor
-import FeedScreen          from '../screens/Feed/FeedScreen'
+import FeedObrasScreen     from '../screens/Obra/FeedObrasScreen'
 import DetalheObraScreen   from '../screens/Obra/DetalheObraScreen'
 import ContratosScreen     from '../screens/Contratos/ContratosScreen'
 import MensagensScreen     from '../screens/Mensagens/MensagensScreen'
@@ -199,7 +199,7 @@ const PerfilStackNavigator = () => (
 // Stack do Feed de Pintores
 const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
-    <FeedStack.Screen name="FeedMain"    component={FeedScreen} />
+    <FeedStack.Screen name="FeedMain"    component={FeedObrasScreen} />
     <FeedStack.Screen name="DetalheObra" component={DetalheObraScreen} />
   </FeedStack.Navigator>
 )
@@ -300,9 +300,9 @@ const NovaObraTabStack = () => (
 // Tab: Minhas Obras (dono_obra)
 const MinhasObrasTabStack = () => (
   <MinhasObrasStack.Navigator screenOptions={{ headerShown: false }}>
-    <MinhasObrasStack.Screen name="ListaObras" component={MinhasObrasScreen} initialParams={{ soAba: 'obras' }} />
-    <MinhasObrasStack.Screen name="DetalheMinhaObra" component={DetalheMinhaObraScreen} />
-    <MinhasObrasStack.Screen name="DetalheReparo"    component={DetalheReparoScreen} />
+    <MinhasObrasStack.Screen name="ListaObras"   component={MinhasObrasScreen} initialParams={{ soAba: 'obras' }} />
+    <MinhasObrasStack.Screen name="DetalheObra"  component={DetalheObraScreen} />
+    <MinhasObrasStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
   </MinhasObrasStack.Navigator>
 )
 

@@ -29,7 +29,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const buscarDados = async () => {
     try {
       const [obrasResp, reparosResp] = await Promise.all([
-        api.get('/obras/minhas'),
+        api.get('/obras/dono'),
         api.get('/reparos/minhas'),
       ])
       setObras(obrasResp.obras || [])
@@ -81,7 +81,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
         style={estilos.card}
         onPress={() => {
           if (tipo === 'obra') {
-            navigation.navigate('DetalheMinhaObra', { obra: item })
+            navigation.navigate('DetalheObra', { obra: item })
           } else {
             navigation.navigate('DetalheReparo', { reparo: item })
           }

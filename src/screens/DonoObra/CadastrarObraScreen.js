@@ -1,20 +1,30 @@
 import React, { useState, useRef } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, Keyboard,
-  Image, Modal, ActivityIndicator
+  View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
+import { Image } from 'react-native'
 import { Audio } from 'expo-av'
-import { BotaoPrimario, Input } from '../../components'
+import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const CATEGORIAS = [
-  { id: 'residencial', label: '🏠 Residencial' },
-  { id: 'comercial', label: '🏢 Comercial' },
-  { id: 'galpoes', label: '🏭 Galpões' },
-  { id: 'outras', label: '🔧 Outras' },
+  { id: 'residencial',   label: '🏠 Residencial'   },
+  { id: 'comercial',     label: '🏢 Comercial'      },
+  { id: 'galpao',        label: '🏭 Galpão'         },
+  { id: 'rural',         label: '🌾 Rural'          },
+  { id: 'institucional', label: '🏛️ Institucional'  },
+  { id: 'outros',        label: '🔨 Outros'         },
+]
+
+const PRAZOS = [
+  { id: 24,   label: '📅 Hoje',           desc: 'Execução hoje'        },
+  { id: 168,  label: '📆 Esta semana',    desc: 'Execução esta semana' },
+  { id: 720,  label: '🗓️ Este mês',        desc: 'Execução este mês'    },
+  { id: 1440, label: '📋 Mês que vem',    desc: 'Execução mês que vem' },
+  { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
 ]
 
 export default function CadastrarObraScreen({ navigation }) {
@@ -22,29 +32,26 @@ export default function CadastrarObraScreen({ navigation }) {
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
   const [categoria, setCategoria] = useState('residencial')
-  const [valor, setValor] = useState('')
-  const [cidade, setCidade] = useState('')
-  const [bairro, setBairro] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [valorEstimado, setValorEstimado] = useState('')
+  const [prazo, setPrazo] = useState(null)
+  const [midias, setMidias] = useState([])
+  const [cep, setCep] = useState('')
   const [logradouro, setLogradouro] = useState('')
-  const [uf, setUf] = useState('')
   const [numero, setNumero] = useState('')
   const [complemento, setComplemento] = useState('')
-  const [buscandoCep, setBuscandoCep] = useState(false)
-  const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
+  const [bairro, setBairro] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [uf, setUf] = useState('')
   const [latitude, setLatitude] = useState(null)
   const [longitude, setLongitude] = useState(null)
-  const [metragem, setMetragem] = useState('')
-  const [prazo, setPrazo] = useState('')
-  const [descricao, setDescricao] = useState('')
-  const [tags, setTags] = useState('')
-  const [cep, setCep] = useState('')
-  const [midias, setMidias] = useState([])
-  const [enviandoMidias, setEnviandoMidias] = useState(false)
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const enviandoRef = useRef(false)
 
-  const mascararValor = (v) => {
-    const nums = v.replace(/\D/g, '')
+  const mascararValor = (valor) => {
+    const nums = valor.replace(/\D/g, '')
     if (!nums) return ''
     const centavos = Math.min(parseInt(nums, 10), 9999999999)
     const reais = Math.floor(centavos / 100)
@@ -88,13 +95,18 @@ export default function CadastrarObraScreen({ navigation }) {
   const validar = () => {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
-    if (!valor.trim()) novos.valor = 'Informe o valor oferecido'
-    if (!cep.trim()) novos.cep = 'Informe o CEP'
-    if (!prazo.trim()) novos.prazo = 'Informe o prazo'
-    if (!descricao.trim()) novos.descricao = 'Descreva a obra'
+    if (!descricao.trim()) novos.descricao = 'Descreva a obra necessária'
+    if (!prazo) novos.prazo = 'Selecione o prazo de execução'
+    if (!uf) novos.uf = 'Selecione o estado'
+    if (!cidade) novos.cidade = 'Selecione a cidade'
+    if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
+    if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
+    if (!valorEstimado.trim()) novos.valorEstimado = 'Informe o valor oferecido'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
+
+  const selecionarMidia = () => setShowMediaPicker(true)
 
   const usarCameraFoto = async () => {
     Keyboard.dismiss()
@@ -115,9 +127,8 @@ export default function CadastrarObraScreen({ navigation }) {
     await Audio.requestPermissionsAsync()
     const resultado = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      quality: 0.7,
-      allowsEditing: false,
       videoMaxDuration: 60,
+      allowsEditing: false,
     })
     if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
   }
@@ -135,90 +146,70 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
   }
 
-  const removerMidia = (index) => {
-    setMidias(prev => prev.filter((_, i) => i !== index))
-  }
+  const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
 
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
     if (!validar()) return
     enviandoRef.current = true
     setCarregando(true)
-    let obra = null
+    const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
+    let obra
     try {
-      const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
-      try {
-        obra = await api.post('/obras/dono', {
-          titulo: titulo.trim(),
-          categoria,
-          valor: parseFloat(valor.replace(/\./g, '').replace(',', '.')),
-          cidade: cidade,
-          bairro: bairro,
-          cep: cep || null,
-          uf: uf || null,
-          latitude: latitude || null,
-          longitude: longitude || null,
-          endereco_obra: enderecoCompleto || null,
-          metragem: parseFloat(metragem) || null,
-          prazo_execucao_dias: parseInt(prazo),
-          descricao: descricao.trim(),
-          tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-          horas_para_expirar: 720,
-        })
-      } catch (e) {
-        Alert.alert('Erro', 'Não foi possível cadastrar a obra. Tente novamente.')
-        enviandoRef.current = false
-        setCarregando(false)
-        return
-      }
+      obra = await api.post('/obras/dono', {
+        titulo: titulo.trim(),
+        categoria,
+        descricao: descricao.trim(),
+        valor_estimado: valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
+        pais: 'Brasil',
+        uf: uf.trim(),
+        cidade: cidade.trim(),
+        bairro: bairro.trim(),
+        prazo_execucao_horas: prazo,
+        endereco_obra: enderecoCompleto,
+        latitude,
+        longitude,
+      })
+    } catch (e) {
+      Alert.alert('Erro', 'Não foi possível cadastrar a obra. Tente novamente.')
+      enviandoRef.current = false
+      setCarregando(false)
+      return
+    }
+    try {
       if (midias.length > 0) {
-        setEnviandoMidias(true)
         for (let i = 0; i < midias.length; i++) {
           const midia = midias[i]
           const isVideo = midia.type === 'video'
+
           if (isVideo) {
-            let params
-            try {
-              params = await api.get('/upload/assinatura-cloudinary')
-            } catch (e) {
-              Alert.alert('Erro', 'Erro ao preparar upload. Tente novamente.')
-              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
-              throw e
-            }
+            const params = await api.get('/upload/assinatura-cloudinary')
             const cloudForm = new FormData()
             cloudForm.append('file', { uri: midia.uri, type: 'video/mp4', name: `video_${i}.mp4` })
             cloudForm.append('timestamp', String(params.timestamp))
             cloudForm.append('signature', params.signature)
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
-            let cloudData
-            try {
-              cloudData = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest()
-                xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
-                xhr.onload = () => {
-                  try { resolve(JSON.parse(xhr.responseText)) }
-                  catch(e) { reject(new Error('Invalid JSON response')) }
-                }
-                xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
-                xhr.send(cloudForm)
-              })
-            } catch (e) {
-              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
-              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
-              throw e
-            }
+            const cloudData = await new Promise((resolve, reject) => {
+              const xhr = new XMLHttpRequest()
+              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
+              xhr.onload = () => {
+                try { resolve(JSON.parse(xhr.responseText)) }
+                catch(e) { reject(new Error('Invalid JSON response')) }
+              }
+              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
+              xhr.send(cloudForm)
+            })
             if (cloudData.error) {
-              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
-              throw new Error(cloudData.error?.message || 'Erro ao fazer upload do vídeo')
+              throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
             }
-            try {
-              await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'video', ordem: i + 1 })
-            } catch (e) {
-              Alert.alert('Erro', 'Erro ao finalizar cadastro. Tente novamente.')
-              throw e
-            }
+            await api.post('/upload/obra-url', {
+              obra_id: obra.id,
+              url: cloudData.secure_url,
+              tipo: 'video',
+              ordem: i + 1,
+            })
           } else {
             let params
             try {
@@ -254,10 +245,15 @@ export default function CadastrarObraScreen({ navigation }) {
             if (cloudData.error) {
               Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
-              throw new Error(cloudData.error?.message || 'Erro ao fazer upload da foto')
+              throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }
             try {
-              await api.post('/upload/obra-url', { obra_id: obra.id, url: cloudData.secure_url, tipo: 'foto', ordem: i + 1 })
+              await api.post('/upload/obra-url', {
+                obra_id: obra.id,
+                url: cloudData.secure_url,
+                tipo: 'foto',
+                ordem: i + 1,
+              })
             } catch (e) {
               Alert.alert('Erro', 'Erro ao finalizar cadastro. Tente novamente.')
               throw e
@@ -265,13 +261,12 @@ export default function CadastrarObraScreen({ navigation }) {
           }
         }
       }
-      navigation.goBack()
+      enviandoRef.current = false
+      setCarregando(false)
+      Alert.alert('✅ Obra publicada!', 'Sua obra já está visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
-      const msg = err.status === 409
-        ? (err.mensagem || 'Dados já cadastrados.')
-        : (err.mensagem || err.message || 'Não foi possível cadastrar a obra.')
-      Alert.alert('Erro', msg, [
-        { text: 'OK', onPress: () => { enviandoRef.current = false; setCarregando(false); setEnviandoMidias(false) } }
+      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar a obra.', [
+        { text: 'OK', onPress: () => { enviandoRef.current = false; setCarregando(false) } }
       ])
     }
   }
@@ -283,30 +278,46 @@ export default function CadastrarObraScreen({ navigation }) {
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
           </TouchableOpacity>
-          <Text style={estilos.titulo}>Cadastrar{'\n'}nova obra</Text>
-          <Text style={estilos.subtitulo}>Preencha os dados da sua obra para encontrar pintores qualificados</Text>
-          <Input label="TÍTULO DA OBRA" placeholder="Ex: Pintura completa apartamento 3 quartos" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
+          <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
+          <Text style={estilos.subtitulo}>Descreva a obra e encontre um pintor qualificado</Text>
+          <View style={estilos.avisoBanner}>
+            <Text style={estilos.avisoIcone}>🎥</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE 30 SEGUNDOS!</Text>
+              <Text style={estilos.avisoTexto}>Mostre o local da obra e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
+            </View>
+          </View>
+          <Input label="TÍTULO DA OBRA" placeholder="Ex: Pintura interna residência 3 quartos" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
             {CATEGORIAS.map(c => (
-              <TouchableOpacity
-                key={c.id}
-                style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]}
-                onPress={() => setCategoria(c.id)}
-              >
-                <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>
-                  {c.label}
-                </Text>
+              <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => setCategoria(c.id)}>
+                <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <View style={estilos.duasColunas}>
-            <Input label="VALOR OFERECIDO (R$)" placeholder="5.000,00" value={valor} onChangeText={(t) => setValor(mascararValor(t))} keyboardType="numeric" erro={erros.valor} estilo={{ flex: 1 }} />
-            <Input label="PRAZO (dias)" placeholder="30" value={prazo} onChangeText={setPrazo} keyboardType="numeric" erro={erros.prazo} estilo={{ flex: 1 }} />
+          <Text style={estilos.labelCategoria}>⏰ PRAZO DE EXECUÇÃO</Text>
+          {erros.prazo && <Text style={estilos.erroTexto}>{erros.prazo}</Text>}
+          <View style={estilos.urgenciasGrid}>
+            {PRAZOS.map(p => (
+              <TouchableOpacity key={p.id} style={[estilos.urgenciaCard, prazo === p.id && estilos.urgenciaCardAtivo]} onPress={() => setPrazo(p.id)}>
+                <Text style={estilos.urgenciaLabel}>{p.label}</Text>
+                <Text style={estilos.urgenciaDesc}>{p.desc}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
-          <Text style={[estilos.labelCategoria, { marginTop: 16 }]}>📍 CEP DO LOCAL DO SERVIÇO</Text>
+          <Input label="DESCRIÇÃO DA OBRA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
+          <Input label="VALOR OFERECIDO PARA A OBRA (R$)" placeholder="Ex: 2.500,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
+          <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
+          <SeletorLocalidade
+            uf={uf}
+            cidade={cidade}
+            onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erroEstado={erros.uf}
+            erroCidade={erros.cidade}
+          />
           <View style={estilos.cepRow}>
-            <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
+            <Input label="CEP DO LOCAL DA OBRA" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
             {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
           </View>
@@ -325,12 +336,8 @@ export default function CadastrarObraScreen({ navigation }) {
               )}
             </>
           )}
-          <Input label="METRAGEM (m²)" placeholder="Ex: 150" value={metragem} onChangeText={setMetragem} keyboardType="numeric" />
-          <Input label="DESCRIÇÃO DETALHADA" placeholder="Descreva os serviços necessários, condições especiais, materiais..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
-          <Input label="TAGS (separadas por vírgula)" placeholder="tinta acrílica, massa corrida, selador" value={tags} onChangeText={setTags} />
-          <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS DA OBRA</Text>
-          <Text style={estilos.dicaMidia}>💡 Dica: grave um vídeo com o encarregado explicando os detalhes da obra</Text>
-          <TouchableOpacity style={estilos.uploadBtn} onPress={() => setShowMediaPicker(true)}>
+          <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
+          <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
             <Text style={estilos.uploadIcone}>📎</Text>
             <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
           </TouchableOpacity>
@@ -340,11 +347,7 @@ export default function CadastrarObraScreen({ navigation }) {
               {midias.map((item, index) => (
                 <View key={index} style={estilos.midiaItem}>
                   <Image source={{ uri: item.uri }} style={estilos.midiaImagem} />
-                  {item.type === 'video' && (
-                    <View style={estilos.videoOverlay}>
-                      <Text style={{ color: 'white', fontSize: 20 }}>▶</Text>
-                    </View>
-                  )}
+                  {item.type === 'video' && <View style={estilos.videoOverlay}><Text style={{ color: 'white', fontSize: 20 }}>▶</Text></View>}
                   <TouchableOpacity style={estilos.midiaRemover} onPress={() => removerMidia(index)}>
                     <Text style={{ color: 'white', fontSize: 12 }}>×</Text>
                   </TouchableOpacity>
@@ -352,18 +355,11 @@ export default function CadastrarObraScreen({ navigation }) {
               ))}
             </ScrollView>
           )}
-          <BotaoPrimario
-            titulo={enviandoMidias ? 'Enviando mídias...' : 'Enviar obra para aprovação →'}
-            onPress={handleCadastrar}
-            carregando={carregando}
-            desabilitado={carregando}
-            estilo={{ marginTop: 8 }}
-          />
-          <Text style={estilos.aviso}>
-            Após o envio, nossa equipe irá analisar sua obra e você receberá uma notificação com o resultado.
-          </Text>
+          <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
+          <Text style={estilos.aviso}>Sua obra será publicada imediatamente e pintores qualificados da sua região poderão demonstrar interesse.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
+
       <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
@@ -390,22 +386,32 @@ export default function CadastrarObraScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
-  btnVoltar: {
-    marginTop: 4, width: 36, height: 36,
-    backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-  },
+  btnVoltar: { marginTop: 40, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
-  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 24, lineHeight: 20 },
+  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
+  avisoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1a2a1a', borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
+  avisoIcone: { fontSize: 32 },
+  avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
+  avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
   labelCategoria: { fontSize: 11, color: cores.textoFraco, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  urgenciaCard: { width: '48%', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
+  urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  urgenciaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 2 },
+  urgenciaDesc: { fontSize: 11, color: cores.textoFraco },
+  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
   duasColunas: { flexDirection: 'row', gap: 12 },
+  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
+  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
   dicaMidia: { fontSize: 12, color: cores.textoFraco, marginBottom: 10, lineHeight: 18 },
-  uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 16, flexDirection: 'row', justifyContent: 'center', gap: 10 },
+  uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
   midiaItem: { width: 100, height: 100, marginRight: 8, borderRadius: 10, overflow: 'hidden', position: 'relative' },
@@ -413,13 +419,9 @@ const estilos = StyleSheet.create({
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: cores.fundoElevado, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
-  modalOpcao: { paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: cores.borda },
-  modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, textAlign: 'center' },
-  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
-  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
-  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
+  modalOpcao: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginBottom: 8 },
+  modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, fontWeight: '500' },
 })
