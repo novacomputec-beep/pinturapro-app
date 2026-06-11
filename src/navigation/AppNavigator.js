@@ -35,7 +35,6 @@ import MeusInteressesScreen   from '../screens/Reparos/MeusInteressesScreen'
 import MinhasObrasScreen      from '../screens/DonoObra/MinhasObrasScreen'
 import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
 import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
-import DetalheMinhaObraScreen from '../screens/DonoObra/DetalheMinhaObraScreen'
 
 const Stack                = createNativeStackNavigator()
 const Tab                  = createBottomTabNavigator()
@@ -322,7 +321,7 @@ const DonoObraNavigator = () => (
     <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
     <DonoStack.Screen name="CadastrarObra"    component={CadastrarObraScreen} />
     <DonoStack.Screen name="CadastrarReparo"  component={CadastrarReparoScreen} />
-    <DonoStack.Screen name="DetalheMinhaObra" component={DetalheMinhaObraScreen} />
+    <DonoStack.Screen name="DetalheMinhaObra" component={DetalheObraScreen} />
     <DonoStack.Screen name="DetalheReparo"    component={DetalheReparoScreen} />
     <DonoStack.Screen name="EditarPerfil"     component={EditarPerfilScreen} />
     <DonoStack.Screen name="AlterarSenha"     component={AlterarSenhaScreen} />

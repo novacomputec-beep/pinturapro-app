@@ -171,7 +171,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     try {
       await api.post(`/obras/${obra.id}/candidatura`, {
         mensagem: '✅ Aceito o valor proposto pelo solicitante.',
-        valor_proposto: obra.valor_estimado,
+        valor_proposto: (obra.valor || obra.valor_estimado),
       })
       setMinhaCandidatura({ status: 'pendente' })
       setMostrarForm(false)
@@ -437,13 +437,13 @@ export default function DetalheObraScreen({ route, navigation }) {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
-          {obra.prazo_execucao_horas && (
+          {(obra.horas_para_expirar || obra.prazo_execucao_horas) && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
-                {obra.prazo_execucao_horas <= 24 ? '📅 Hoje'
-                  : obra.prazo_execucao_horas <= 168 ? '📆 Esta semana'
-                  : obra.prazo_execucao_horas <= 720 ? '🗓️ Este mês'
-                  : obra.prazo_execucao_horas <= 1440 ? '📋 Mês que vem'
+                {(obra.horas_para_expirar || obra.prazo_execucao_horas) <= 24 ? '📅 Hoje'
+                  : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 168 ? '📆 Esta semana'
+                  : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 720 ? '🗓️ Este mês'
+                  : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 1440 ? '📋 Mês que vem'
                   : '⏳ Mais de um mês'}
               </Text>
               {obra.expira_em
@@ -453,12 +453,12 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {obra.valor_estimado && (
+          {(obra.valor || obra.valor_estimado) && (
             <View style={estilos.valorDestaque}>
               <View>
                 <Text style={estilos.valorDestaqueLabel}>💰 VALOR COMBINADO</Text>
                 <Text style={estilos.valorDestaqueValor}>
-                  R$ {Number(obra.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
               </View>
               <View style={estilos.categoriaPill}>
@@ -500,10 +500,10 @@ export default function DetalheObraScreen({ route, navigation }) {
             </>
           )}
 
-          {temMatch && obra.prazo_execucao_horas && (
+          {temMatch && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
             <RelogioRegressivo
               matchFeitoEm={obra.match_feito_em}
-              prazoHoras={obra.prazo_execucao_horas}
+              prazoHoras={(obra.horas_para_expirar || obra.prazo_execucao_horas)}
               onExpirar={handleExpirarMatch}
             />
           )}
@@ -743,14 +743,14 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
-                    {obra.valor_estimado && (
+                    {(obra.valor || obra.valor_estimado) && (
                       <TouchableOpacity
                         style={estilos.btnAceitarValorProposto}
                         onPress={handleAceitarValorProposto}
                         disabled={enviando}
                       >
                         <Text style={estilos.btnAceitarValorPropostoTexto}>
-                          ✅ Aceitar o valor proposto (R$ {Number(obra.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                          ✅ Aceitar o valor proposto (R$ {Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
                         </Text>
                       </TouchableOpacity>
                     )}

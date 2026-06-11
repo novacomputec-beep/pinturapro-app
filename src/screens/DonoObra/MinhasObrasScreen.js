@@ -29,7 +29,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const buscarDados = async () => {
     try {
       const [obrasResp, reparosResp] = await Promise.all([
-        api.get('/obras/dono'),
+        api.get('/obras/minhas'),
         api.get('/reparos/minhas'),
       ])
       setObras(obrasResp.obras || [])
