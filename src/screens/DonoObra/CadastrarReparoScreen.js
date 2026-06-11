@@ -51,7 +51,6 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
-  const [acaoPendente, setAcaoPendente] = useState(null)
   const enviandoRef = useRef(false)
 
   const mascararValor = (valor) => {
@@ -362,23 +361,17 @@ export default function CadastrarReparoScreen({ navigation }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal
-        visible={showMediaPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowMediaPicker(false)}
-        onDismiss={() => { if (acaoPendente) { acaoPendente(); setAcaoPendente(null) } }}
-      >
+      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
             <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarCameraFoto); setShowMediaPicker(false) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setShowMediaPicker(false); setTimeout(() => usarCameraFoto(), 500) }}>
               <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarCameraVideo); setShowMediaPicker(false) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setShowMediaPicker(false); setTimeout(() => usarCameraVideo(), 500) }}>
               <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setAcaoPendente(() => usarGaleria); setShowMediaPicker(false) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setShowMediaPicker(false); setTimeout(() => usarGaleria(), 500) }}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
