@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
@@ -112,6 +112,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   const selecionarMidia = () => setShowMediaPicker(true)
 
   const usarCameraFoto = async () => {
+    Keyboard.dismiss()
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     const resultado = await ImagePicker.launchCameraAsync({
@@ -123,6 +124,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   }
 
   const usarCameraVideo = async () => {
+    Keyboard.dismiss()
     const { status } = await ImagePicker.requestCameraPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     await Audio.requestPermissionsAsync()
@@ -135,6 +137,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   }
 
   const usarGaleria = async () => {
+    Keyboard.dismiss()
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
     const resultado = await ImagePicker.launchImageLibraryAsync({
@@ -365,13 +368,13 @@ export default function CadastrarReparoScreen({ navigation }) {
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
           <View style={estilos.modalSheet}>
             <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setShowMediaPicker(false); setTimeout(() => usarCameraFoto(), 500) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarCameraFoto(), 500) }}>
               <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setShowMediaPicker(false); setTimeout(() => usarCameraVideo(), 500) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarCameraVideo(), 500) }}>
               <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { setShowMediaPicker(false); setTimeout(() => usarGaleria(), 500) }}>
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarGaleria(), 500) }}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
