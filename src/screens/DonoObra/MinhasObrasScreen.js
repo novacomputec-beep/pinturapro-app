@@ -130,7 +130,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
       <View style={estilos.header}>
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
-          <Text style={estilos.titulo}>Meus <Text style={{ color: cores.primaria }}>Pedidos</Text></Text>
+          <Text style={estilos.titulo}>Minhas <Text style={{ color: cores.primaria }}>Obras</Text></Text>
         </View>
         <TouchableOpacity style={estilos.btnSair} onPress={() => Alert.alert('Sair', 'Deseja sair da conta?', [
           { text: 'Cancelar', style: 'cancel' },
