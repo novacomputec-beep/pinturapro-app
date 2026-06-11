@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert,
-  Image, FlatList, Modal, ActivityIndicator
+  Image, Modal, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Audio } from 'expo-av'
@@ -336,14 +336,9 @@ export default function CadastrarObraScreen({ navigation }) {
           </TouchableOpacity>
           <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
           {midias.length > 0 && (
-            <FlatList
-              data={midias}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(_, i) => i.toString()}
-              style={{ marginBottom: 16 }}
-              renderItem={({ item, index }) => (
-                <View style={estilos.midiaItem}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {midias.map((item, index) => (
+                <View key={index} style={estilos.midiaItem}>
                   <Image source={{ uri: item.uri }} style={estilos.midiaImagem} />
                   {item.type === 'video' && (
                     <View style={estilos.videoOverlay}>
@@ -354,8 +349,8 @@ export default function CadastrarObraScreen({ navigation }) {
                     <Text style={{ color: 'white', fontSize: 12 }}>×</Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            />
+              ))}
+            </ScrollView>
           )}
           <BotaoPrimario
             titulo={enviandoMidias ? 'Enviando mídias...' : 'Enviar obra para aprovação →'}

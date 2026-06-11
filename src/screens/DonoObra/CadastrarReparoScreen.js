@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, FlatList, ActivityIndicator,
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator,
   InteractionManager
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
@@ -358,22 +358,17 @@ export default function CadastrarReparoScreen({ navigation }) {
           </TouchableOpacity>
           <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
           {midias.length > 0 && (
-            <FlatList
-              data={midias}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyExtractor={(_, i) => i.toString()}
-              style={{ marginBottom: 16 }}
-              renderItem={({ item, index }) => (
-                <View style={estilos.midiaItem}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              {midias.map((item, index) => (
+                <View key={index} style={estilos.midiaItem}>
                   <Image source={{ uri: item.uri }} style={estilos.midiaImagem} />
                   {item.type === 'video' && <View style={estilos.videoOverlay}><Text style={{ color: 'white', fontSize: 20 }}>▶</Text></View>}
                   <TouchableOpacity style={estilos.midiaRemover} onPress={() => removerMidia(index)}>
                     <Text style={{ color: 'white', fontSize: 12 }}>×</Text>
                   </TouchableOpacity>
                 </View>
-              )}
-            />
+              ))}
+            </ScrollView>
           )}
           <BotaoPrimario titulo="Publicar reparo →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
           <Text style={estilos.aviso}>Seu reparo será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
