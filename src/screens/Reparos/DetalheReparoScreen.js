@@ -777,6 +777,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         value={valorProposto}
                         onChangeText={v => setValorProposto(mascararValor(v))}
                       />
+                      <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+                        ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros prestadores até que a requisitante aceite. Pense bem!
+                      </Text>
                     </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
