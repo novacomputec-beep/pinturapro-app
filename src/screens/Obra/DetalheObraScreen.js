@@ -125,6 +125,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [contrapropostaCandidaturaId, setContrapropostaCandidaturaId] = useState(null)
   const [valorContraproposta, setValorContraproposta] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
+  const [modalTempo, setModalTempo] = useState(false)
+  const [minutosTempo, setMinutosTempo] = useState('')
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -324,16 +326,18 @@ export default function DetalheObraScreen({ route, navigation }) {
     } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
   }
 
-  const handleInformarTempo = () => {
-    Alert.prompt('⏱ Quantos minutos você precisa?', 'Digite o tempo em minutos', async (minutos) => {
-      const min = parseInt(minutos)
-      if (!min || min <= 0) { Alert.alert('Atenção', 'Informe um número válido de minutos.'); return }
-      try {
-        await api.post(`/obras/${obra.id}/informar-tempo`, { minutos: min })
-        setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
-        Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
-      } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
-    }, 'plain-text', '', 'numeric')
+  const handleInformarTempo = () => setModalTempo(true)
+
+  const enviarTempo = async () => {
+    const min = parseInt(minutosTempo)
+    if (!min || min <= 0) { Alert.alert('Atenção', 'Informe um número válido de minutos.'); return }
+    setModalTempo(false)
+    setMinutosTempo('')
+    try {
+      await api.post(`/obras/${obra.id}/informar-tempo`, { minutos: min })
+      setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
+      Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
+    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
   }
 
   const handleResponderTempo = (aceito) => {
@@ -431,6 +435,38 @@ export default function DetalheObraScreen({ route, navigation }) {
               shouldPlay
             />
           )}
+        </View>
+      </Modal>
+
+      <Modal visible={modalTempo} transparent animationType="fade" onRequestClose={() => { setModalTempo(false); setMinutosTempo('') }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <View style={{ backgroundColor: cores.fundoCard, borderRadius: 16, padding: 24, width: '100%' }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>⏱ Quantos minutos você precisa?</Text>
+            <Text style={{ fontSize: 13, color: cores.textoFraco, marginBottom: 16 }}>Digite o tempo em minutos</Text>
+            <TextInput
+              style={{ backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, fontSize: 18, color: cores.textoForte, textAlign: 'center', marginBottom: 16 }}
+              keyboardType="numeric"
+              value={minutosTempo}
+              onChangeText={setMinutosTempo}
+              placeholder="Ex: 15"
+              placeholderTextColor={cores.textoMutado}
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, alignItems: 'center' }}
+                onPress={() => { setModalTempo(false); setMinutosTempo('') }}
+              >
+                <Text style={{ color: cores.textoFraco, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: cores.primaria, borderRadius: 10, padding: 14, alignItems: 'center' }}
+                onPress={enviarTempo}
+              >
+                <Text style={{ color: '#0A0A0A', fontWeight: '700' }}>Confirmar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 

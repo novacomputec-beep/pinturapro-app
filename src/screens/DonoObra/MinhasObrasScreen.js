@@ -94,7 +94,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
             R$ {Number(item.valor || item.valor_estimado || 0).toLocaleString('pt-BR')}
           </Text>
         </View>
-        <Text style={estilos.cardLocal}>📍 {item.cidade}, MG</Text>
+        <Text style={estilos.cardLocal}>📍 {item.cidade}{item.uf ? `, ${item.uf}` : ''}</Text>
         {temMatch && (
           <View style={estilos.matchBadge}>
             <Text style={estilos.matchBadgeTexto}>⏱ Prestador a caminho — toque para ver</Text>
