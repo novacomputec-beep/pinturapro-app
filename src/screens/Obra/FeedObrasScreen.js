@@ -1,12 +1,26 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image, TextInput
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import { obrasService } from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
+
+const DISTANCIAS = [
+  { id: 'estado',  label: 'Estado'  },
+  { id: '40',     label: '+40 km'  },
+  { id: '80',     label: '+80 km'  },
+  { id: '120',    label: '+120 km' },
+  { id: '300',    label: '+300 km' },
+  { id: '500',    label: '+500 km' },
+  { id: 'pais',   label: 'País'    },
+]
+
+const STORAGE_KEY_DIST_OBRAS = 'filtro_distancia_obras'
 
 const CATEGORIAS = [
   { id: 'todas',         label: 'Todas'           },
@@ -116,15 +130,38 @@ export default function FeedObrasScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
-  const [distancia, setDistancia] = useState('')
+  const [distancia, setDistancia] = useState('estado')
   const [erro, setErro] = useState(null)
 
-  const buscarObras = async (cat = categoria) => {
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_DIST_OBRAS).then(val => {
+      if (val) setDistancia(val)
+    })
+  }, [])
+
+  const mudarDistancia = async (val) => {
+    setDistancia(val)
+    await AsyncStorage.setItem(STORAGE_KEY_DIST_OBRAS, val)
+    setCarregando(true)
+    buscarObras(categoria, val)
+  }
+
+  const buscarObras = async (cat = categoria, dist = distancia) => {
     try {
       setErro(null)
       const params = {}
       if (cat !== 'todas') params.categoria = cat
-      if (distancia) params.raio_km = distancia
+      params.raio_km = dist
+      if (dist !== 'estado' && dist !== 'pais') {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync()
+          if (status === 'granted') {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+            params.lat = String(loc.coords.latitude)
+            params.lng = String(loc.coords.longitude)
+          }
+        } catch (_) {}
+      }
       const resposta = await obrasService.listar(params)
       setObras(resposta.obras || [])
     } catch (err) {
@@ -135,14 +172,14 @@ export default function FeedObrasScreen({ navigation }) {
     }
   }
 
-  useFocusEffect(useCallback(() => { buscarObras() }, [categoria]))
+  useFocusEffect(useCallback(() => { buscarObras() }, [categoria, distancia]))
 
   const onRefresh = () => { setAtualizando(true); buscarObras() }
 
   const mudarCategoria = (cat) => {
     setCategoria(cat)
     setCarregando(true)
-    buscarObras(cat)
+    buscarObras(cat, distancia)
   }
 
   return (
@@ -199,20 +236,23 @@ export default function FeedObrasScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             />
-            <View style={estilos.distanciaRow}>
-              <Text style={estilos.distanciaLabel}>📍 Distância máx.:</Text>
-              <TextInput
-                style={estilos.distanciaInput}
-                placeholder="Qualquer km"
-                placeholderTextColor={cores.textoMutado}
-                keyboardType="numeric"
-                value={distancia}
-                onChangeText={setDistancia}
-                onEndEditing={() => { setCarregando(true); buscarObras(categoria) }}
-                returnKeyType="search"
-              />
-              <Text style={estilos.distanciaUnidade}>km</Text>
-            </View>
+            <FlatList
+              data={DISTANCIAS}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              style={estilos.filtrosDistancia}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[estilos.filtroPill, distancia === item.id && estilos.filtroPillDistAtivo]}
+                  onPress={() => mudarDistancia(item.id)}
+                >
+                  <Text style={[estilos.filtroTexto, distancia === item.id && estilos.filtroTextoDistAtivo]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
           </>
         }
         ListEmptyComponent={
@@ -252,14 +292,13 @@ const estilos = StyleSheet.create({
   avatar: { width: 34, height: 34, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
   filtros: { paddingHorizontal: espacos.tela, paddingVertical: 12 },
+  filtrosDistancia: { paddingHorizontal: espacos.tela, paddingBottom: 10 },
   filtroPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
+  filtroPillDistAtivo: { backgroundColor: '#1a1a3a', borderColor: '#6060cc', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  distanciaRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espacos.tela, paddingBottom: 12, gap: 8 },
-  distanciaLabel: { fontSize: 12, color: cores.textoFraco, flexShrink: 0 },
-  distanciaInput: { flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 7, fontSize: 13, color: cores.textoForte },
-  distanciaUnidade: { fontSize: 12, color: cores.textoFraco },
+  filtroTextoDistAtivo: { color: '#8888dd', fontWeight: '600', fontSize: 12 },
   lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 16 },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },

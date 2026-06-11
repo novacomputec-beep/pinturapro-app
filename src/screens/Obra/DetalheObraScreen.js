@@ -120,6 +120,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [possuiFerramentas, setPossuiFerramentas] = useState('')
   const [mensagemAdicional, setMensagemAdicional] = useState('')
   const [valorProposto, setValorProposto] = useState('')
+  const [valorAceito, setValorAceito] = useState(false)
   const [fotoFullscreen, setFotoFullscreen] = useState(null)
   const [videoFullscreen, setVideoFullscreen] = useState(null)
   const [contrapropostaCandidaturaId, setContrapropostaCandidaturaId] = useState(null)
@@ -168,23 +169,6 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
-  const handleAceitarValorProposto = async () => {
-    setEnviando(true)
-    try {
-      await api.post(`/obras/${obra.id}/candidatura`, {
-        mensagem: '✅ Aceito o valor proposto pelo solicitante.',
-        valor_proposto: (obra.valor || obra.valor_estimado),
-      })
-      setMinhaCandidatura({ status: 'pendente' })
-      setMostrarForm(false)
-      Alert.alert('✅ Interesse registrado!', 'Você aceitou o valor proposto. O solicitante receberá suas informações.', [{ text: 'OK', onPress: () => navigation.goBack() }])
-    } catch (err) {
-      Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
-    } finally {
-      setEnviando(false)
-    }
-  }
-
   const handleInteresse = async () => {
     if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza este tipo de serviço.'); return }
     if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui os materiais e equipamentos necessários.'); return }
@@ -198,7 +182,9 @@ export default function DetalheObraScreen({ route, navigation }) {
         `🎨 Possui materiais e equipamentos: ${possuiFerramentas}`,
         mensagemAdicional ? `💬 Observação: ${mensagemAdicional}` : '',
       ].filter(Boolean).join('\n')
-      const valorNumerico = valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null
+      const valorNumerico = valorAceito
+        ? parseFloat(String(obra.valor || obra.valor_estimado))
+        : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
       await api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico })
       setMinhaCandidatura({ status: 'pendente' })
       setMostrarForm(false)
@@ -779,14 +765,17 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
-                    {(obra.valor || obra.valor_estimado) && (
+                    {(obra.valor || obra.valor_estimado) && !valorProposto && (
                       <TouchableOpacity
-                        style={estilos.btnAceitarValorProposto}
-                        onPress={handleAceitarValorProposto}
+                        style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
+                        onPress={() => setValorAceito(v => !v)}
                         disabled={enviando}
                       >
-                        <Text style={estilos.btnAceitarValorPropostoTexto}>
-                          ✅ Aceitar o valor proposto (R$ {Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+                        <Text style={valorAceito ? estilos.btnValorAceitoTexto : estilos.btnAceitarValorPropostoTexto}>
+                          {valorAceito
+                            ? `✅ Valor aceito (R$ ${Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+                            : `Aceitar o valor proposto (R$ ${Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+                          }
                         </Text>
                       </TouchableOpacity>
                     )}
@@ -802,20 +791,22 @@ export default function DetalheObraScreen({ route, navigation }) {
                       <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
                       <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.textoMutado} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
                     </View>
-                    <View style={estilos.perguntaWrap}>
-                      <Text style={estilos.perguntaLabel}>💰 Propor outro valor (opcional)</Text>
-                      <TextInput
-                        style={estilos.input}
-                        placeholder="Ex: 2.500,00"
-                        placeholderTextColor={cores.textoMutado}
-                        keyboardType="numeric"
-                        value={valorProposto}
-                        onChangeText={v => setValorProposto(mascararValor(v))}
-                      />
-                      <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-                        ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros pintores até que o solicitante aceite. Pense bem!
-                      </Text>
-                    </View>
+                    {!valorAceito && (
+                      <View style={estilos.perguntaWrap}>
+                        <Text style={estilos.perguntaLabel}>💰 Propor outro valor (opcional)</Text>
+                        <TextInput
+                          style={estilos.input}
+                          placeholder="Ex: 2.500,00"
+                          placeholderTextColor={cores.textoMutado}
+                          keyboardType="numeric"
+                          value={valorProposto}
+                          onChangeText={v => setValorProposto(mascararValor(v))}
+                        />
+                        <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
+                          ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros pintores até que o solicitante aceite. Pense bem!
+                        </Text>
+                      </View>
+                    )}
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
                       <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
@@ -910,7 +901,9 @@ const estilos = StyleSheet.create({
   btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   btnRecusar: { flex: 1, backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f44336', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   btnRecusarTexto: { fontSize: 13, fontWeight: '700', color: '#f44336' },
-  btnAceitarValorProposto: { backgroundColor: cores.sucessoSuave, borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
-  btnAceitarValorPropostoTexto: { fontSize: 14, fontWeight: '700', color: cores.sucesso },
+  btnAceitarValorProposto: { backgroundColor: '#3a2a00', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
+  btnAceitarValorPropostoTexto: { fontSize: 14, fontWeight: '700', color: cores.primaria },
+  btnValorAceito: { backgroundColor: '#1a3a1a', borderWidth: 1.5, borderColor: '#4caf50', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
+  btnValorAceitoTexto: { fontSize: 14, fontWeight: '700', color: '#4caf50' },
   avisoDeslocamento: { fontSize: 11, color: '#E8833A', textAlign: 'center', marginTop: 8, lineHeight: 16, paddingHorizontal: 8 },
 })

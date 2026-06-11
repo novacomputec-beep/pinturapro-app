@@ -4,9 +4,23 @@ import {
   TouchableOpacity, RefreshControl, ActivityIndicator, Image
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
+
+const DISTANCIAS = [
+  { id: 'estado',  label: 'Estado'  },
+  { id: '40',     label: '+40 km'  },
+  { id: '80',     label: '+80 km'  },
+  { id: '120',    label: '+120 km' },
+  { id: '300',    label: '+300 km' },
+  { id: '500',    label: '+500 km' },
+  { id: 'pais',   label: 'País'    },
+]
+
+const STORAGE_KEY_DIST_REPAROS = 'filtro_distancia_reparos'
 
 const CATEGORIAS = [
   { id: 'todas',        label: 'Todas'          },
@@ -152,13 +166,39 @@ export default function FeedReparosScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
+  const [distancia, setDistancia] = useState('estado')
   const [erro, setErro] = useState(null)
 
-  const buscarReparos = async (cat = categoria) => {
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_DIST_REPAROS).then(val => {
+      if (val) setDistancia(val)
+    })
+  }, [])
+
+  const mudarDistancia = async (val) => {
+    setDistancia(val)
+    await AsyncStorage.setItem(STORAGE_KEY_DIST_REPAROS, val)
+    setCarregando(true)
+    buscarReparos(categoria, val)
+  }
+
+  const buscarReparos = async (cat = categoria, dist = distancia) => {
     try {
       setErro(null)
-      const query = cat !== 'todas' ? `?categoria=${cat}` : ''
-      const resposta = await api.get(`/reparos${query}`)
+      const params = new URLSearchParams()
+      if (cat !== 'todas') params.set('categoria', cat)
+      params.set('raio_km', dist)
+      if (dist !== 'estado' && dist !== 'pais') {
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync()
+          if (status === 'granted') {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+            params.set('lat', String(loc.coords.latitude))
+            params.set('lng', String(loc.coords.longitude))
+          }
+        } catch (_) {}
+      }
+      const resposta = await api.get(`/reparos?${params.toString()}`)
       setReparos(resposta.reparos || [])
     } catch (err) {
       setErro(err.mensagem || 'Erro ao buscar reparos')
@@ -168,14 +208,14 @@ export default function FeedReparosScreen({ navigation }) {
     }
   }
 
-  useFocusEffect(useCallback(() => { buscarReparos() }, [categoria]))
+  useFocusEffect(useCallback(() => { buscarReparos() }, [categoria, distancia]))
 
   const onRefresh = () => { setAtualizando(true); buscarReparos() }
 
   const mudarCategoria = (cat) => {
     setCategoria(cat)
     setCarregando(true)
-    buscarReparos(cat)
+    buscarReparos(cat, distancia)
   }
 
   return (
@@ -232,6 +272,23 @@ export default function FeedReparosScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             />
+            <FlatList
+              data={DISTANCIAS}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id}
+              style={estilos.filtrosDistancia}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[estilos.filtroPill, distancia === item.id && estilos.filtroPillDistAtivo]}
+                  onPress={() => mudarDistancia(item.id)}
+                >
+                  <Text style={[estilos.filtroTexto, distancia === item.id && estilos.filtroTextoDistAtivo]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            />
           </>
         }
         ListEmptyComponent={
@@ -265,10 +322,13 @@ const estilos = StyleSheet.create({
   avatar: { width: 34, height: 34, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
   filtros: { paddingHorizontal: espacos.tela, paddingVertical: 12 },
+  filtrosDistancia: { paddingHorizontal: espacos.tela, paddingBottom: 10 },
   filtroPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
+  filtroPillDistAtivo: { backgroundColor: '#1a1a3a', borderColor: '#6060cc', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  filtroTextoDistAtivo: { color: '#8888dd', fontWeight: '600', fontSize: 12 },
   lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 16 },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },
