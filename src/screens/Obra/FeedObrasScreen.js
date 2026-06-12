@@ -11,12 +11,13 @@ import { obrasService } from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const DISTANCIAS = [
-  { id: 'estado',  label: 'Estado'  },
+  { id: 'cidade', label: 'Cidade'   },
   { id: '40',     label: '+40 km'  },
   { id: '80',     label: '+80 km'  },
   { id: '120',    label: '+120 km' },
   { id: '300',    label: '+300 km' },
   { id: '500',    label: '+500 km' },
+  { id: 'estado', label: 'Estado'  },
   { id: 'pais',   label: 'País'    },
 ]
 
@@ -27,8 +28,8 @@ const CATEGORIAS = [
   { id: 'residencial',   label: '🏠 Residencial'  },
   { id: 'comercial',     label: '🏢 Comercial'    },
   { id: 'galpao',        label: '🏭 Galpão'       },
-  { id: 'rural',         label: '🌾 Rural'        },
   { id: 'institucional', label: '🏛️ Institucional' },
+  { id: 'rural',         label: '🌾 Rural'        },
   { id: 'outros',        label: '🔨 Outros'       },
 ]
 
@@ -130,7 +131,7 @@ export default function FeedObrasScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
-  const [distancia, setDistancia] = useState('estado')
+  const [distancia, setDistancia] = useState('cidade')
   const [erro, setErro] = useState(null)
 
   useEffect(() => {
@@ -152,7 +153,7 @@ export default function FeedObrasScreen({ navigation }) {
       const params = {}
       if (cat !== 'todas') params.categoria = cat
       params.raio_km = dist
-      if (dist !== 'estado' && dist !== 'pais') {
+      if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade') {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
