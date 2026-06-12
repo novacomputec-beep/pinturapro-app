@@ -346,7 +346,8 @@ export default function CadastroScreen({ navigation }) {
       }
 
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
+      const titulo = err.status === 409 ? 'Cadastro não realizado' : 'Erro'
+      Alert.alert(titulo, err.mensagem || err.message || 'Não foi possível criar sua conta.')
     } finally {
       if (timeoutId) clearTimeout(timeoutId)
       setCarregando(false)

@@ -18,7 +18,7 @@ Notifications.setNotificationHandler({
 const configurarCanalAndroid = () => {
   if (Platform.OS !== 'android') return
   Notifications.setNotificationChannelAsync('default', {
-    name: 'PinturaPro',
+    name: 'ArrumaPro',
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: '#E8833A',

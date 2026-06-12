@@ -27,8 +27,8 @@ const CATEGORIAS = [
   { id: 'todas',         label: 'Todas'           },
   { id: 'residencial',   label: '🏠 Residencial'  },
   { id: 'comercial',     label: '🏢 Comercial'    },
-  { id: 'galpao',        label: '🏭 Galpão'       },
   { id: 'institucional', label: '🏛️ Institucional' },
+  { id: 'galpao',        label: '🏭 Galpão'       },
   { id: 'rural',         label: '🌾 Rural'        },
   { id: 'outros',        label: '🔨 Outros'       },
 ]
