@@ -117,7 +117,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
     const resultado = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+      quality: 0.6,
       allowsEditing: false,
     })
     if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
@@ -131,6 +131,8 @@ export default function CadastrarReparoScreen({ navigation }) {
     const resultado = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       videoMaxDuration: 60,
+      videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
+      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
       allowsEditing: false,
     })
     if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
@@ -143,7 +145,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     const resultado = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsMultipleSelection: true,
-      quality: 0.7,
+      quality: 0.6,
       videoMaxDuration: 60,
     })
     if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
@@ -194,6 +196,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             cloudForm.append('signature', params.signature)
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
+            cloudForm.append('transformation', 'q_auto:low,w_1280')
             const cloudData = await new Promise((resolve, reject) => {
               const xhr = new XMLHttpRequest()
               xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
@@ -231,6 +234,7 @@ export default function CadastrarReparoScreen({ navigation }) {
               cloudForm.append('signature', params.signature)
               cloudForm.append('api_key', params.api_key)
               cloudForm.append('folder', params.folder)
+              cloudForm.append('transformation', 'q_auto:good,w_1280')
               cloudData = await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest()
                 xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)
