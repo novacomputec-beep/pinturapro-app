@@ -94,7 +94,7 @@ const navegarParaNotificacao = (data) => {
 }
 
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '⬡', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️', 'Meus Serviços': '📋' }
+  const mapa = { Obras: '🏗️', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️', 'Meus Serviços': '📋' }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
@@ -270,7 +270,7 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Reparos"        component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
+    <Tab.Screen name="Obras"          component={FeedStackNavigator}      options={{ title: 'Obras' }} />
     <Tab.Screen name="Meus Serviços"  component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
     <Tab.Screen name="Mensagens"      component={MensagensScreen} />
     <Tab.Screen name="Perfil"         component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
