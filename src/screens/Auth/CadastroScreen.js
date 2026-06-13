@@ -346,8 +346,11 @@ export default function CadastroScreen({ navigation }) {
       }
 
     } catch (err) {
-      const titulo = err.status === 409 ? 'Cadastro não realizado' : 'Erro'
-      Alert.alert(titulo, err.mensagem || err.message || 'Não foi possível criar sua conta.')
+      if (err.status === 409) {
+        Alert.alert('Atenção', err.mensagem || 'Dados já cadastrados.')
+        return
+      }
+      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
     } finally {
       if (timeoutId) clearTimeout(timeoutId)
       setCarregando(false)

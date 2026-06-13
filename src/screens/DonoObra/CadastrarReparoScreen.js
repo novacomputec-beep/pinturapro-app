@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
@@ -52,6 +52,11 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const enviandoRef = useRef(false)
+  const montadoRef = useRef(true)
+
+  useEffect(() => {
+    return () => { montadoRef.current = false }
+  }, [])
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -243,10 +248,12 @@ export default function CadastrarReparoScreen({ navigation }) {
         }
       }
       setCarregando(false)
+      if (!montadoRef.current) return
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       // Reparo was created — navigate away with success regardless of media upload failure
       setCarregando(false)
+      if (!montadoRef.current) return
       Alert.alert('✅ Reparo publicado!', 'Seu reparo foi criado! Prestadores qualificados da sua região serão notificados.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     }
   }
