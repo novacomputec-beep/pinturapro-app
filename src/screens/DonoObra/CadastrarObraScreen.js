@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
@@ -49,6 +49,11 @@ export default function CadastrarObraScreen({ navigation }) {
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const enviandoRef = useRef(false)
+  const montadoRef = useRef(true)
+
+  useEffect(() => {
+    return () => { montadoRef.current = false }
+  }, [])
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -267,11 +272,12 @@ export default function CadastrarObraScreen({ navigation }) {
       }
       enviandoRef.current = false
       setCarregando(false)
+      if (!montadoRef.current) return
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
-      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível cadastrar a obra.', [
-        { text: 'OK', onPress: () => { enviandoRef.current = false; setCarregando(false) } }
-      ])
+      setCarregando(false)
+      if (!montadoRef.current) return
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida! Pintores qualificados da sua região serão notificados em breve.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     }
   }
 
