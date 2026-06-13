@@ -49,7 +49,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const deletarItem = async (item, tipo) => {
     const jaPublicado = item.status === 'aberta' || item.status_aprovacao === 'aprovada'
     const aviso = jaPublicado
-      ? `⚠️ ATENÇÃO: Este ${tipo === 'obra' ? 'obra' : 'reparo'} já foi publicado e prestadores podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
+      ? `⚠️ ATENÇÃO: ${tipo === 'obra' ? 'Esta obra' : 'Este reparo'} já foi publicado e prestadores podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
       : `Deseja excluir "${item.titulo}"?`
 
     Alert.alert('Excluir', aviso, [
@@ -130,7 +130,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
       <View style={estilos.header}>
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
-          <Text style={estilos.titulo}>Minhas <Text style={{ color: cores.primaria }}>Obras</Text></Text>
+          <Text style={estilos.titulo}>{soAba === 'reparos' ? 'Meus ' : 'Minhas '}<Text style={{ color: cores.primaria }}>{soAba === 'reparos' ? 'Reparos' : 'Obras'}</Text></Text>
         </View>
         <TouchableOpacity style={estilos.btnSair} onPress={() => Alert.alert('Sair', 'Deseja sair da conta?', [
           { text: 'Cancelar', style: 'cancel' },

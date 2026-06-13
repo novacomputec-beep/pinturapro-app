@@ -100,7 +100,7 @@ export default function ContratosScreen() {
           {item.obra_titulo || item.titulo || 'Obra'}
         </Text>
         <Text style={estilos.obraLocal}>
-          📍 {item.obra_cidade || item.cidade || '—'}, MG
+          📍 {item.obra_cidade || item.cidade || '—'}{item.obra_uf || item.uf ? `, ${item.obra_uf || item.uf}` : ''}
         </Text>
 
         <View style={estilos.infoRow}>

@@ -65,18 +65,20 @@ const navegarParaNotificacao = (data) => {
       // Mensagens
       case 'nova_mensagem':
         navigationRef.current.navigate('Mensagens'); break
-      // Dono de obra recebe — navegar para Obras ou Minhas Obras
+      // Dono de obra recebe candidatura/match — vai para Minhas Obras
       case 'nova_candidatura':
       case 'match_obra':
-        navigationRef.current.navigate('Obras'); break
-      // Reparos feed ou dono de reparo
+        navigationRef.current.navigate('Minhas Obras'); break
+      // Prestador recebe novo reparo no feed
       case 'novo_reparo':
+        navigationRef.current.navigate('Reparos'); break
+      // Dono de reparo recebe interesse/match/status
       case 'novo_interesse':
       case 'match_reparo':
       case 'pedido_tempo':
       case 'aprovar_tempo':
       case 'reparo_encerrado':
-        navigationRef.current.navigate('Reparos'); break
+        navigationRef.current.navigate('Meus Reparos'); break
       // Prestador — navegar para Meus Serviços
       case 'interesse_aceito':
       case 'interesse_recusado':
@@ -94,7 +96,7 @@ const navegarParaNotificacao = (data) => {
 }
 
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '🏗️', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️', 'Meus Serviços': '📋' }
+  const mapa = { Obras: '🏗️', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️', 'Meus Serviços': '🔧' }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
@@ -270,7 +272,7 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Obras"          component={FeedStackNavigator}      options={{ title: 'Obras' }} />
+    <Tab.Screen name="Reparos"        component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
     <Tab.Screen name="Meus Serviços"  component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
     <Tab.Screen name="Mensagens"      component={MensagensScreen} />
     <Tab.Screen name="Perfil"         component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />

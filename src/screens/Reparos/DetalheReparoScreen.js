@@ -138,7 +138,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const isDono = usuario?.id === reparo?.criado_por
-  const isPrestador = usuario?.role === 'prestador'
+  const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
   useEffect(() => { buscar() }, [reparoInicial.id])
 
