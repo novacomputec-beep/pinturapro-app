@@ -385,7 +385,7 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('prestador')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🔧</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Sou prestador de serviços</Text>
+              <Text style={estilos.tipoNome}>Sou prestador de serviços domésticos</Text>
               <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na região</Text>
               <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
             </View>
@@ -460,6 +460,11 @@ export default function CadastroScreen({ navigation }) {
           {/* PASSO 2 — Perfil profissional */}
           {passo === 2 && (
             <View>
+              {isDono && (
+                <Text style={{ fontSize: 12, color: cores.textoFraco, marginBottom: 16, lineHeight: 18 }}>
+                  ⚠️ Informe seus dados e endereço atual, não o endereço da obra (se forem diferentes)
+                </Text>
+              )}
               <SeletorLocalidade
                 uf={uf}
                 cidade={cidade}
@@ -637,7 +642,7 @@ export default function CadastroScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
-  btnVoltar: { marginTop: 40, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
+  btnVoltar: { marginTop: 60, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },
   indicador: { flexDirection: 'row', gap: 6, marginBottom: 28 },
