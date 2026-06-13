@@ -372,7 +372,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       <SafeAreaView style={estilos.container}>
         <View style={estilos.topbar}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -386,7 +386,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     <SafeAreaView style={estilos.container}>
       <View style={estilos.topbar}>
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
+          <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
         </TouchableOpacity>
         <Text style={estilos.topbarTitulo}>{isDono ? 'Minha obra' : 'Detalhe da obra'}</Text>
         <View style={{ width: 36 }} />

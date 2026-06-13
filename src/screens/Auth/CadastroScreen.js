@@ -370,7 +370,7 @@ export default function CadastroScreen({ navigation }) {
       <SafeAreaView style={estilos.container}>
         <ScrollView contentContainerStyle={estilos.scroll}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>Como você{'\n'}quer usar?</Text>
           <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve você</Text>
@@ -425,7 +425,7 @@ export default function CadastroScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
-            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'

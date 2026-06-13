@@ -280,7 +280,7 @@ export default function CadastrarObraScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 32, fontWeight: '900' }}>←</Text>
+            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
           <Text style={estilos.subtitulo}>Descreva a obra e encontre um pintor qualificado</Text>
