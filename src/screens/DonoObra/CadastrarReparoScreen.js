@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
@@ -8,7 +8,28 @@ import { Image } from 'react-native'
 import { Audio } from 'expo-av'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
+import { useFocusEffect } from '@react-navigation/native'
 import { cores, espacos, raios } from '../../utils/tema'
+
+const xhrUpload = (url, form) => new Promise((resolve, reject) => {
+  const attempt = (isRetry) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.onload = () => {
+      try { resolve(JSON.parse(xhr.responseText)) }
+      catch (e) {
+        if (!isRetry) setTimeout(() => attempt(true), 2000)
+        else reject(new Error('Resposta inválida do servidor de upload'))
+      }
+    }
+    xhr.onerror = () => {
+      if (!isRetry) setTimeout(() => attempt(true), 2000)
+      else reject(new Error('Falha na conexão com o servidor de upload'))
+    }
+    xhr.send(form)
+  }
+  attempt(false)
+})
 
 const CATEGORIAS = [
   { id: 'hidraulica',   label: '🚿 Hidráulica'   },
@@ -57,6 +78,28 @@ export default function CadastrarReparoScreen({ navigation }) {
   useEffect(() => {
     return () => { montadoRef.current = false }
   }, [])
+
+  useFocusEffect(useCallback(() => {
+    setTitulo('')
+    setCategoria('hidraulica')
+    setDescricao('')
+    setValorEstimado('')
+    setUrgencia(null)
+    setMidias([])
+    setCep('')
+    setLogradouro('')
+    setNumero('')
+    setComplemento('')
+    setBairro('')
+    setCidade('')
+    setUf('')
+    setLatitude(null)
+    setLongitude(null)
+    setErros({})
+    setEnderecoEncontrado(false)
+    setBuscandoCep(false)
+    enviandoRef.current = false
+  }, []))
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -201,17 +244,8 @@ export default function CadastrarReparoScreen({ navigation }) {
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
             cloudForm.append('transformation', 'q_auto:low,w_1280')
-            const cloudData = await new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest()
-              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
-              xhr.onload = () => {
-                try { resolve(JSON.parse(xhr.responseText)) }
-                catch(e) { reject(new Error('Invalid JSON response')) }
-              }
-              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
-              xhr.send(cloudForm)
-            })
-            if (cloudData.error) throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
+            const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`, cloudForm)
+            if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
             await api.post('/upload/reparo-url', {
               reparo_id: reparo.id,
               url: cloudData.secure_url,
@@ -227,17 +261,8 @@ export default function CadastrarReparoScreen({ navigation }) {
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
             cloudForm.append('transformation', 'q_auto:good,w_1280')
-            const cloudData = await new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest()
-              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)
-              xhr.onload = () => {
-                try { resolve(JSON.parse(xhr.responseText)) }
-                catch(e) { reject(new Error('Invalid JSON response')) }
-              }
-              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
-              xhr.send(cloudForm)
-            })
-            if (cloudData.error) throw new Error(cloudData.error?.message || 'Erro no upload da foto')
+            const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
+            if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             await api.post('/upload/reparo-url', {
               reparo_id: reparo.id,
               url: cloudData.secure_url,
