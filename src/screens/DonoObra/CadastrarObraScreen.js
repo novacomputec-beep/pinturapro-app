@@ -197,7 +197,6 @@ export default function CadastrarObraScreen({ navigation }) {
             cloudForm.append('signature', params.signature)
             cloudForm.append('api_key', params.api_key)
             cloudForm.append('folder', params.folder)
-            cloudForm.append('transformation', 'q_auto:low,w_1280')
             const cloudData = await new Promise((resolve, reject) => {
               const xhr = new XMLHttpRequest()
               xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
@@ -235,7 +234,6 @@ export default function CadastrarObraScreen({ navigation }) {
               cloudForm.append('signature', params.signature)
               cloudForm.append('api_key', params.api_key)
               cloudForm.append('folder', params.folder)
-              cloudForm.append('transformation', 'q_auto:good,w_1280')
               cloudData = await new Promise((resolve, reject) => {
                 const xhr = new XMLHttpRequest()
                 xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)

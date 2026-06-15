@@ -49,7 +49,6 @@ export default function EditarPerfilScreen({ navigation }) {
       cloudForm.append('signature', params.signature)
       cloudForm.append('api_key', params.api_key)
       cloudForm.append('folder', params.folder)
-      cloudForm.append('transformation', 'q_auto:good,w_400,h_400,c_fill')
       const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
       if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload da foto')
       await api.patch('/auth/foto-perfil', { foto_url: cloudData.secure_url })
