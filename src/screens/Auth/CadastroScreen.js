@@ -262,7 +262,7 @@ export default function CadastroScreen({ navigation }) {
   }
 
   const uploadFotoVerificacao = async (uri, tipo) => {
-    const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/verificacao' } })
+    const params = await api.get('/upload/assinatura-publica')
     const cloudForm = new FormData()
     cloudForm.append('file', { uri, type: 'image/jpeg', name: `${tipo}.jpg` })
     cloudForm.append('timestamp', String(params.timestamp))
