@@ -6,7 +6,7 @@ import {
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
-import { authService } from '../../services/api'
+import api, { authService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -105,6 +105,26 @@ const UploadFoto = ({ label, valor, onPress }) => (
     )}
   </TouchableOpacity>
 )
+
+const xhrUpload = (url, form) => new Promise((resolve, reject) => {
+  const attempt = (isRetry) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.onload = () => {
+      try { resolve(JSON.parse(xhr.responseText)) }
+      catch (e) {
+        if (!isRetry) setTimeout(() => attempt(true), 2000)
+        else reject(new Error('Resposta inválida do servidor de upload'))
+      }
+    }
+    xhr.onerror = () => {
+      if (!isRetry) setTimeout(() => attempt(true), 2000)
+      else reject(new Error('Falha na conexão com o servidor de upload'))
+    }
+    xhr.send(form)
+  }
+  attempt(false)
+})
 
 export default function CadastroScreen({ navigation }) {
   const { loginComToken } = useAuth()
@@ -242,29 +262,17 @@ export default function CadastroScreen({ navigation }) {
   }
 
   const uploadFotoVerificacao = async (uri, tipo) => {
-    const formData = new FormData()
-    formData.append('arquivo', {
-      uri,
-      type: 'image/jpeg',
-      name: `${tipo}.jpg`,
-    })
-    formData.append('tipo', tipo)
-
-    const resp = await fetch(
-      'https://pinturapro-api-production.up.railway.app/api/auth/upload-verificacao',
-      {
-        method: 'POST',
-        body: formData,
-      }
-    )
-
-    if (!resp.ok) {
-      const erro = await resp.json().catch(() => ({}))
-      throw new Error(erro.erro || `Erro ao enviar ${tipo}`)
-    }
-
-    const data = await resp.json()
-    return data.url
+    const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/verificacao' } })
+    const cloudForm = new FormData()
+    cloudForm.append('file', { uri, type: 'image/jpeg', name: `${tipo}.jpg` })
+    cloudForm.append('timestamp', String(params.timestamp))
+    cloudForm.append('signature', params.signature)
+    cloudForm.append('api_key', params.api_key)
+    cloudForm.append('folder', params.folder)
+    cloudForm.append('transformation', 'q_auto:good,w_1280')
+    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
+    if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
+    return cloudData.secure_url
   }
 
   const handleCadastrar = async () => {
@@ -286,7 +294,7 @@ export default function CadastroScreen({ navigation }) {
             'O envio demorou muito. Verifique sua conexão e tente novamente.',
             [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
           )
-        }, 10000)
+        }, 60000)
         docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
         docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
         selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
