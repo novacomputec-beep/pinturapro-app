@@ -379,7 +379,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={estilos.tipoIcone}>🖌️</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou construtor, pedreiro ou pintor</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar obras de pintura disponíveis na região</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar obras disponíveis na minha região</Text>
               <Text style={estilos.tipoPreco}>R$ 99,90/mês</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
@@ -389,7 +389,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={estilos.tipoIcone}>🔧</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou prestador de serviços domésticos</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na região</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na minha região</Text>
               <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
@@ -399,7 +399,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={estilos.tipoIcone}>🏠</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Tenho uma reforma, construção ou Pintura</Text>
-              <Text style={estilos.tipoDesc}>Quero publicar minha obra e encontrar profissionais qualificados</Text>
+              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra e encontrar profissionais qualificados na minha região</Text>
               <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
@@ -409,7 +409,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={estilos.tipoIcone}>🛠️</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Preciso de Reparos domésticos</Text>
-              <Text style={estilos.tipoDesc}>Torneira, elétrica, marcenaria e outros reparos do dia a dia</Text>
+              <Text style={estilos.tipoDesc}>Tenho um reparo doméstico a ser feito e gostaria de encontrar profissionais capacitados na minha região</Text>
               <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
