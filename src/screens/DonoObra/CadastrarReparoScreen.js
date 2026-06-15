@@ -295,7 +295,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           <View style={estilos.avisoBanner}>
             <Text style={estilos.avisoIcone}>🎥</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE 30 SEGUNDOS!</Text>
+              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE NO MÁXIMO 30 SEGUNDOS!</Text>
               <Text style={estilos.avisoTexto}>Mostre o problema e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
             </View>
           </View>

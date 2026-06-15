@@ -27,7 +27,11 @@ export default function MeusInteressesScreen({ navigation }) {
   const buscar = async () => {
     try {
       const data = await api.get('/reparos/meus-interesses')
-      setInteresses(data.interesses || [])
+      setInteresses((data.interesses || []).filter(item => {
+        if (item.status !== 'pendente') return true
+        if (!item.expira_em) return true
+        return new Date(item.expira_em) > new Date()
+      }))
     } catch (err) {
       console.log('Erro ao buscar interesses:', err)
     } finally {

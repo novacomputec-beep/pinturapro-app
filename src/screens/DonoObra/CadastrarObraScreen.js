@@ -289,11 +289,11 @@ export default function CadastrarObraScreen({ navigation }) {
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
-          <Text style={estilos.subtitulo}>Descreva a obra e encontre um pintor qualificado</Text>
+          <Text style={estilos.subtitulo}>Descreva a obra e encontre um profissional qualificado</Text>
           <View style={estilos.avisoBanner}>
             <Text style={estilos.avisoIcone}>🎥</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE 30 SEGUNDOS!</Text>
+              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE NO MÁXIMO 30 SEGUNDOS!</Text>
               <Text style={estilos.avisoTexto}>Mostre o local da obra e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
             </View>
           </View>

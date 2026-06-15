@@ -384,7 +384,11 @@ export default function AppNavigator() {
             )
           ) : usuario.role === 'prestador' ? (
             assinatura?.status === 'ativa' ? (
-              <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />
+              usuario.tipo_prestador === 'pintor' ? (
+                <Stack.Screen name="App" component={TabsPintorNavigator} />
+              ) : (
+                <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />
+              )
             ) : (
               <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
             )

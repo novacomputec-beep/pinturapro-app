@@ -13,7 +13,7 @@ const statusInfo = {
   aprovada:  { cor: '#4caf50', label: '✅ Aprovada' },
   recusada:  { cor: '#f44336', label: '❌ Recusada' },
   aberta:    { cor: '#4caf50', label: '✅ Publicada' },
-  encerrada: { cor: '#888',    label: '🔒 Encerrada' },
+  encerrada: { cor: '#4caf50', label: '✅ Obra concluída com sucesso' },
   cancelada: { cor: '#f44336', label: '❌ Cancelada' },
 }
 

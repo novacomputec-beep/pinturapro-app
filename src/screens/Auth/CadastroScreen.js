@@ -398,8 +398,8 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🏠</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Construção civil e pintura</Text>
-              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra e encontrar pintores qualificados</Text>
+              <Text style={estilos.tipoNome}>Tenho uma reforma, construção ou Pintura</Text>
+              <Text style={estilos.tipoDesc}>Quero publicar minha obra e encontrar profissionais qualificados</Text>
               <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
