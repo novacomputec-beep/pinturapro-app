@@ -10,6 +10,26 @@ import { authService } from '../../services/api'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
+const xhrUpload = (url, form) => new Promise((resolve, reject) => {
+  const attempt = (isRetry) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.onload = () => {
+      try { resolve(JSON.parse(xhr.responseText)) }
+      catch (e) {
+        if (!isRetry) setTimeout(() => attempt(true), 2000)
+        else reject(new Error('Resposta inválida do servidor de upload'))
+      }
+    }
+    xhr.onerror = () => {
+      if (!isRetry) setTimeout(() => attempt(true), 2000)
+      else reject(new Error('Falha na conexão com o servidor de upload'))
+    }
+    xhr.send(form)
+  }
+  attempt(false)
+})
+
 export default function EditarPerfilScreen({ navigation }) {
   const { usuario, setUsuario } = useAuth()
   const [nome, setNome] = useState(usuario?.nome || '')
@@ -22,11 +42,19 @@ export default function EditarPerfilScreen({ navigation }) {
   const processarFoto = async (uri) => {
     setUploadandoFoto(true)
     try {
-      const formData = new FormData()
-      formData.append('arquivo', { uri, type: 'image/jpeg', name: 'foto_perfil.jpg' })
-      const resposta = await api.uploadFotoPerfil(formData)
-      setFotoUrl(resposta.foto_url)
-      setUsuario(prev => ({ ...prev, foto_url: resposta.foto_url }))
+      const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/perfil' } })
+      const cloudForm = new FormData()
+      cloudForm.append('file', { uri, type: 'image/jpeg', name: 'foto_perfil.jpg' })
+      cloudForm.append('timestamp', String(params.timestamp))
+      cloudForm.append('signature', params.signature)
+      cloudForm.append('api_key', params.api_key)
+      cloudForm.append('folder', params.folder)
+      cloudForm.append('transformation', 'q_auto:good,w_400,h_400,c_fill')
+      const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
+      if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload da foto')
+      await api.patch('/auth/foto-perfil', { foto_url: cloudData.secure_url })
+      setFotoUrl(cloudData.secure_url)
+      setUsuario(prev => ({ ...prev, foto_url: cloudData.secure_url }))
       Alert.alert('Sucesso', 'Foto atualizada!')
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível enviar a foto.')
