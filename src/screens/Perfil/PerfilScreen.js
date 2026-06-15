@@ -63,6 +63,7 @@ export default function PerfilScreen({ navigation }) {
   const vencimento = assinatura?.proximo_vencimento
     ? new Date(assinatura.proximo_vencimento).toLocaleDateString('pt-BR')
     : null
+  const isDono = usuario?.role === 'dono_obra'
 
   return (
     <SafeAreaView style={estilos.container}>
@@ -98,33 +99,33 @@ export default function PerfilScreen({ navigation }) {
 
         <View style={estilos.assinaturaCard}>
           <View style={estilos.assinaturaHeader}>
-            <Text style={estilos.assinaturaTitulo}>Assinatura</Text>
-            <BadgeStatus status={assinatura?.status || 'encerrada'} />
+            <Text style={estilos.assinaturaTitulo}>{isDono ? 'Assinatura Gratuita' : 'Assinatura'}</Text>
+            <BadgeStatus status={isDono ? 'ativa' : (assinatura?.status || 'encerrada')} />
           </View>
           <Separador estilo={{ marginVertical: 12 }} />
           <View style={estilos.assinaturaInfo}>
             <View style={estilos.assinaturaItem}>
               <Text style={estilos.assinaturaLabel}>Plano</Text>
               <Text style={estilos.assinaturaValor}>
-                {assinatura?.plano === 'anual' ? 'Anual' : 'Mensal'}
+                {isDono ? 'Perene' : (assinatura?.plano === 'anual' ? 'Anual' : 'Mensal')}
               </Text>
             </View>
             <View style={estilos.assinaturaItem}>
               <Text style={estilos.assinaturaLabel}>Valor</Text>
               <Text style={[estilos.assinaturaValor, { color: cores.sucesso }]}>
-                {usuario?.role === 'prestador'
+                {isDono ? 'Gratuito' : (usuario?.role === 'prestador'
                   ? (assinatura?.plano === 'anual' ? 'R$ 41,58/mês' : 'R$ 49,90/mês')
-                  : (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês')}
+                  : (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês'))}
               </Text>
             </View>
-            {vencimento && (
+            {!isDono && vencimento && (
               <View style={estilos.assinaturaItem}>
                 <Text style={estilos.assinaturaLabel}>Próximo vencimento</Text>
                 <Text style={estilos.assinaturaValor}>{vencimento}</Text>
               </View>
             )}
           </View>
-          {(!assinatura || assinatura.status !== 'ativa') && (
+          {!isDono && (!assinatura || assinatura.status !== 'ativa') && (
             <TouchableOpacity style={estilos.btnRenovar}>
               <Text style={estilos.btnRenovarTexto}>Renovar assinatura →</Text>
             </TouchableOpacity>

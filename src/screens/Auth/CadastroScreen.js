@@ -279,6 +279,12 @@ export default function CadastroScreen({ navigation }) {
     setCarregando(true)
     let timeoutId = null
     try {
+      // Pre-check: verify CPF/email before uploading photos
+      await api.post('/auth/verificar-disponibilidade', {
+        email: email.trim().toLowerCase(),
+        cpf_cnpj: cpfCnpj.trim(),
+      })
+
       let docFrenteUrl = null
       let docVersoUrl = null
       let selfieUrl = null

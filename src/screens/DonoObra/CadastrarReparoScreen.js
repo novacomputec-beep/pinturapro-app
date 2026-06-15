@@ -274,12 +274,12 @@ export default function CadastrarReparoScreen({ navigation }) {
       }
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }])
     } catch (err) {
       // Reparo was created — navigate away with success regardless of media upload failure
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo foi criado! Prestadores qualificados da sua região serão notificados.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Reparo publicado!', 'Seu reparo foi criado! Prestadores qualificados da sua região serão notificados.', [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }])
     }
   }
 
@@ -367,6 +367,7 @@ export default function CadastrarReparoScreen({ navigation }) {
               ))}
             </ScrollView>
           )}
+          <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           <BotaoPrimario titulo="Publicar reparo →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
           <Text style={estilos.aviso}>Seu reparo será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
         </ScrollView>
@@ -431,6 +432,7 @@ const estilos = StyleSheet.create({
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
+  avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },

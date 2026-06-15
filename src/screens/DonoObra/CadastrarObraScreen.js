@@ -273,11 +273,11 @@ export default function CadastrarObraScreen({ navigation }) {
       enviandoRef.current = false
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }])
     } catch (err) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida! Pintores qualificados da sua região serão notificados em breve.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida! Pintores qualificados da sua região serão notificados em breve.', [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }])
     }
   }
 
@@ -365,6 +365,7 @@ export default function CadastrarObraScreen({ navigation }) {
               ))}
             </ScrollView>
           )}
+          <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
           <Text style={estilos.aviso}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, pintores qualificados da sua região serão notificados.</Text>
         </ScrollView>
@@ -429,6 +430,7 @@ const estilos = StyleSheet.create({
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
+  avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
