@@ -126,6 +126,14 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   attempt(false)
 })
 
+const classificarErro = (err) => {
+  if (err?.code === 'ECONNABORTED' || err?.message?.toLowerCase().includes('timeout')) return 'TIMEOUT'
+  if (err?.status >= 500) return `SERVER_ERROR(HTTP ${err?.status})`
+  if (err?.status >= 400) return `CLIENT_ERROR(HTTP ${err?.status})`
+  if (err?.code === 'ERR_NETWORK' || err?.message?.toLowerCase().includes('network')) return 'NETWORK_ERROR'
+  return `UNKNOWN(code=${err?.code ?? 'none'})`
+}
+
 export default function CadastroScreen({ navigation }) {
   const { loginComToken } = useAuth()
   const [tipoConta, setTipoConta] = useState(null)
@@ -262,15 +270,32 @@ export default function CadastroScreen({ navigation }) {
   }
 
   const uploadFotoVerificacao = async (uri, tipo) => {
-    const params = await api.get('/upload/assinatura-publica')
+    console.log(`[upload][${tipo}] ▶ step2 GET /upload/assinatura-publica`)
+    let params
+    try {
+      params = await api.get('/upload/assinatura-publica')
+      console.log(`[upload][${tipo}] ✓ step2 assinatura ok | timestamp=${params.timestamp} folder=${params.folder}`)
+    } catch (err) {
+      const kind = classificarErro(err)
+      console.log(`[upload][${tipo}] ✗ step2 assinatura FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
+      throw err
+    }
     const cloudForm = new FormData()
     cloudForm.append('file', { uri, type: 'image/jpeg', name: `${tipo}.jpg` })
     cloudForm.append('timestamp', String(params.timestamp))
     cloudForm.append('signature', params.signature)
     cloudForm.append('api_key', params.api_key)
     cloudForm.append('folder', params.folder)
-    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
-    if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
+    console.log(`[upload][${tipo}] ▶ step3 XHR Cloudinary | cloud=${params.cloud_name} folder=${params.folder}`)
+    let cloudData
+    try {
+      cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
+      if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
+      console.log(`[upload][${tipo}] ✓ step3 Cloudinary ok | url=${cloudData.secure_url}`)
+    } catch (err) {
+      console.log(`[upload][${tipo}] ✗ step3 Cloudinary FALHOU | msg="${err?.message}" | code=${err?.code} | cloudinary_error=${JSON.stringify(cloudData?.error ?? null)}`)
+      throw err
+    }
     return cloudData.secure_url
   }
 
@@ -278,11 +303,19 @@ export default function CadastroScreen({ navigation }) {
     setCarregando(true)
     let timeoutId = null
     try {
-      // Pre-check: verify CPF/email before uploading photos
-      await api.post('/auth/verificar-disponibilidade', {
-        email: email.trim().toLowerCase(),
-        cpf_cnpj: cpfCnpj.trim(),
-      })
+      // step1 — Pre-check: verify CPF/email before uploading photos
+      console.log('[cadastro] ▶ step1 POST /auth/verificar-disponibilidade', { email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() })
+      try {
+        await api.post('/auth/verificar-disponibilidade', {
+          email: email.trim().toLowerCase(),
+          cpf_cnpj: cpfCnpj.trim(),
+        })
+        console.log('[cadastro] ✓ step1 disponibilidade ok')
+      } catch (err) {
+        const kind = classificarErro(err)
+        console.log(`[cadastro] ✗ step1 verificar-disponibilidade FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
+        throw err
+      }
 
       let docFrenteUrl = null
       let docVersoUrl = null
@@ -300,9 +333,17 @@ export default function CadastroScreen({ navigation }) {
             [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
           )
         }, 60000)
-        docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
-        docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
-        selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
+        console.log('[cadastro] ▶ iniciando uploads de documentos (60s timeout ativo)')
+        try {
+          docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
+          docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
+          selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
+          console.log('[cadastro] ✓ todos os uploads concluídos', { docFrenteUrl, docVersoUrl, selfieUrl })
+        } catch (err) {
+          const kind = classificarErro(err)
+          console.log(`[cadastro] ✗ upload de documento FALHOU | kind=${kind} | msg="${err?.message}" | code=${err?.code}`)
+          throw err
+        }
         clearTimeout(timeoutId)
         timeoutId = null
         setEnviandoDocs(false)
@@ -337,7 +378,16 @@ export default function CadastroScreen({ navigation }) {
         rg_estado: isPrestador ? rgEstado || null : null,
       }
 
-      const resposta = await authService.cadastrar(dados)
+      console.log('[cadastro] ▶ step4 POST /auth/cadastro', { ...dados, senha: '[REDACTED]' })
+      let resposta
+      try {
+        resposta = await authService.cadastrar(dados)
+        console.log('[cadastro] ✓ step4 cadastro ok', { usuario_id: resposta?.usuario?.id, role: resposta?.usuario?.role, tipo_prestador: resposta?.usuario?.tipo_prestador, token: !!resposta?.token })
+      } catch (err) {
+        const kind = classificarErro(err)
+        console.log(`[cadastro] ✗ step4 /auth/cadastro FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
+        throw err
+      }
 
       if (resposta?.token) {
         await loginComToken(resposta.token, resposta.usuario, resposta.assinatura)
