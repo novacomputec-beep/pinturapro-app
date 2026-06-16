@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert
@@ -110,6 +110,7 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   const attempt = (isRetry) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
+    xhr.timeout = 45000
     xhr.onload = () => {
       try { resolve(JSON.parse(xhr.responseText)) }
       catch (e) {
@@ -120,6 +121,10 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
     xhr.onerror = () => {
       if (!isRetry) setTimeout(() => attempt(true), 2000)
       else reject(new Error('Falha na conexão com o servidor de upload'))
+    }
+    xhr.ontimeout = () => {
+      if (!isRetry) setTimeout(() => attempt(true), 2000)
+      else reject(new Error('timeout no upload da foto'))
     }
     xhr.send(form)
   }
@@ -136,6 +141,9 @@ const classificarErro = (err) => {
 
 export default function CadastroScreen({ navigation }) {
   const { loginComToken } = useAuth()
+
+  useEffect(() => { api.get('/health').catch(() => {}) }, [])
+
   const [tipoConta, setTipoConta] = useState(null)
   const [passo, setPasso] = useState(0)
   const [carregando, setCarregando] = useState(false)
@@ -193,6 +201,8 @@ export default function CadastroScreen({ navigation }) {
             const resultado = await ImagePicker.launchCameraAsync({
               allowsEditing: true,
               quality: 0.6,
+              maxWidth: 1200,
+              maxHeight: 1200,
             })
             if (!resultado.canceled) setter(resultado.assets[0].uri)
           }
@@ -209,6 +219,8 @@ export default function CadastroScreen({ navigation }) {
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               quality: 0.6,
+              maxWidth: 1200,
+              maxHeight: 1200,
             })
             if (!resultado.canceled) setter(resultado.assets[0].uri)
           }
@@ -332,8 +344,8 @@ export default function CadastroScreen({ navigation }) {
             'O envio demorou muito. Verifique sua conexão e tente novamente.',
             [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
           )
-        }, 60000)
-        console.log('[cadastro] ▶ iniciando uploads de documentos (60s timeout ativo)')
+        }, 120000)
+        console.log('[cadastro] ▶ iniciando uploads de documentos (120s timeout ativo)')
         try {
           docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
           docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
@@ -413,7 +425,12 @@ export default function CadastroScreen({ navigation }) {
         Alert.alert('Atenção', err.mensagem || 'Dados já cadastrados.')
         return
       }
-      Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
+      const kind = classificarErro(err)
+      if (kind === 'TIMEOUT' || kind === 'NETWORK_ERROR') {
+        Alert.alert('Conexão lenta', 'Conexão lenta detectada. Verifique sua internet e tente novamente.')
+      } else {
+        Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
+      }
     } finally {
       if (timeoutId) clearTimeout(timeoutId)
       setCarregando(false)
