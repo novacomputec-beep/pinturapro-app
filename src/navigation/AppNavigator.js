@@ -208,6 +208,48 @@ function PagamentoPendenteScreen() {
   )
 }
 
+function VerificacaoPendenteScreen() {
+  const { logout, setUsuario, setAssinatura } = useAuth()
+  const [verificando, setVerificando] = React.useState(false)
+
+  const verificarPagamento = async () => {
+    setVerificando(true)
+    try {
+      const dados = await api.get('/auth/perfil')
+      setUsuario(dados.usuario)
+      setAssinatura(dados.assinatura)
+    } catch {}
+    finally { setVerificando(false) }
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
+        <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
+          Pagamento efetuado com sucesso
+        </Text>
+        <Text style={{ fontSize: 15, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
+          Em instantes aprovaremos seu cadastro — isto pode levar até uma hora
+        </Text>
+
+        <TouchableOpacity
+          style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 0.5, borderColor: cores.borda }}
+          onPress={verificarPagamento}
+          disabled={verificando}
+        >
+          <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
+            {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
+          <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  )
+}
+
 // Stack do Perfil (compartilhado entre pintor e prestador)
 const PerfilStackNavigator = () => (
   <PerfilStack.Navigator screenOptions={{ headerShown: false }}>
@@ -389,12 +431,16 @@ export default function AppNavigator() {
               ) : (
                 <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />
               )
+            ) : assinatura?.status === 'pendente_verificacao' ? (
+              <Stack.Screen name="Verificacao" component={VerificacaoPendenteScreen} />
             ) : (
               <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
             )
           ) : (
             assinatura?.status === 'ativa' ? (
               <Stack.Screen name="App" component={TabsPintorNavigator} />
+            ) : assinatura?.status === 'pendente_verificacao' ? (
+              <Stack.Screen name="Verificacao" component={VerificacaoPendenteScreen} />
             ) : (
               <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
             )
