@@ -128,6 +128,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
+  const mountedRef = useRef(true)
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -140,19 +141,25 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const isDono = usuario?.id === reparo?.criado_por
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
-  useEffect(() => { buscar() }, [reparoInicial.id])
+  useEffect(() => {
+    mountedRef.current = true
+    buscar()
+    return () => { mountedRef.current = false }
+  }, [reparoInicial.id])
 
   const buscar = async () => {
     try {
       const resposta = await api.get(`/reparos/${reparoInicial.id}`)
-      setReparo(resposta.reparo)
-      setMidias(resposta.midias || [])
-      setMeuInteresse(resposta.meu_interesse)
-      setInteressados(resposta.interessados || [])
+      if (mountedRef.current) {
+        setReparo(resposta.reparo)
+        setMidias(resposta.midias || [])
+        setMeuInteresse(resposta.meu_interesse)
+        setInteressados(resposta.interessados || [])
+      }
     } catch (err) {
       console.log('Erro ao buscar reparo:', err)
     } finally {
-      setCarregando(false)
+      if (mountedRef.current) setCarregando(false)
     }
   }
 

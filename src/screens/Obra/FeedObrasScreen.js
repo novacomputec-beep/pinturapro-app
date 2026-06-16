@@ -133,6 +133,8 @@ export default function FeedObrasScreen({ navigation }) {
   const [categoria, setCategoria] = useState('todas')
   const [distancia, setDistancia] = useState('cidade')
   const [erro, setErro] = useState(null)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY_DIST_OBRAS).then(val => {
@@ -164,12 +166,14 @@ export default function FeedObrasScreen({ navigation }) {
         } catch (_) {}
       }
       const resposta = await obrasService.listar(params)
-      setObras(resposta.obras || [])
+      if (mountedRef.current) setObras(resposta.obras || [])
     } catch (err) {
-      setErro(err.mensagem || 'Erro ao buscar obras')
+      if (mountedRef.current) setErro(err.mensagem || 'Erro ao buscar obras')
     } finally {
-      setCarregando(false)
-      setAtualizando(false)
+      if (mountedRef.current) {
+        setCarregando(false)
+        setAtualizando(false)
+      }
     }
   }
 

@@ -128,6 +128,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
+  const mountedRef = useRef(true)
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -140,19 +141,25 @@ export default function DetalheObraScreen({ route, navigation }) {
   const isDono = usuario?.id === obra?.criado_por
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
-  useEffect(() => { buscar() }, [obraInicial.id])
+  useEffect(() => {
+    mountedRef.current = true
+    buscar()
+    return () => { mountedRef.current = false }
+  }, [obraInicial.id])
 
   const buscar = async () => {
     try {
       const resposta = await obrasService.detalhe(obraInicial.id)
-      setObra(resposta.obra || resposta)
-      setMidias(resposta.midias || [])
-      setMinhaCandidatura(resposta.minha_candidatura)
-      setCandidatos(resposta.candidatos || [])
+      if (mountedRef.current) {
+        setObra(resposta.obra || resposta)
+        setMidias(resposta.midias || [])
+        setMinhaCandidatura(resposta.minha_candidatura)
+        setCandidatos(resposta.candidatos || [])
+      }
     } catch (err) {
       console.log('Erro ao buscar obra:', err)
     } finally {
-      setCarregando(false)
+      if (mountedRef.current) setCarregando(false)
     }
   }
 

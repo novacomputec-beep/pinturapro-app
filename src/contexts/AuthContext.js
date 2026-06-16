@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import * as SecureStore from 'expo-secure-store'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 import { authService } from '../services/api'
 import api from '../services/api'
 
@@ -77,7 +78,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const { status } = await Notifications.requestPermissionsAsync()
       if (status !== 'granted') return
-      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: 'bf289259-dbe3-429f-9032-dcaca21f0a8a' })
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: Constants.expoConfig?.extra?.projectId || 'bf289259-dbe3-429f-9032-dcaca21f0a8a' })
       const pushToken = tokenData.data
       await api.post('/auth/push-token', { token: pushToken })
       console.log('Push token registrado:', pushToken)

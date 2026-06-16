@@ -169,6 +169,8 @@ export default function FeedReparosScreen({ navigation }) {
   const [categoria, setCategoria] = useState('todas')
   const [distancia, setDistancia] = useState('cidade')
   const [erro, setErro] = useState(null)
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY_DIST_REPAROS).then(val => {
@@ -200,12 +202,14 @@ export default function FeedReparosScreen({ navigation }) {
         } catch (_) {}
       }
       const resposta = await api.get(`/reparos?${params.toString()}`)
-      setReparos(resposta.reparos || [])
+      if (mountedRef.current) setReparos(resposta.reparos || [])
     } catch (err) {
-      setErro(err.mensagem || 'Erro ao buscar reparos')
+      if (mountedRef.current) setErro(err.mensagem || 'Erro ao buscar reparos')
     } finally {
-      setCarregando(false)
-      setAtualizando(false)
+      if (mountedRef.current) {
+        setCarregando(false)
+        setAtualizando(false)
+      }
     }
   }
 

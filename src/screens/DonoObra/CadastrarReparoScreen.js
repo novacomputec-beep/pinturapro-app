@@ -121,25 +121,27 @@ export default function CadastrarReparoScreen({ navigation }) {
       const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
       const dados = await resp.json()
       if (dados.erro) { Alert.alert('CEP não encontrado', 'Verifique o CEP informado.'); return }
-      setLogradouro(dados.logradouro || '')
-      setBairro(dados.bairro || '')
-      setCidade(dados.localidade || '')
-      setUf(dados.uf || '')
-      setEnderecoEncontrado(true)
+      if (montadoRef.current) {
+        setLogradouro(dados.logradouro || '')
+        setBairro(dados.bairro || '')
+        setCidade(dados.localidade || '')
+        setUf(dados.uf || '')
+        setEnderecoEncontrado(true)
+      }
       const endereco = `${dados.logradouro}, ${dados.localidade}, ${dados.uf}, Brasil`
       const geoResp = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
         { headers: { 'User-Agent': 'PinturaPro/1.0' } }
       )
       const geoData = await geoResp.json()
-      if (geoData.length > 0) {
+      if (geoData.length > 0 && montadoRef.current) {
         setLatitude(parseFloat(geoData[0].lat))
         setLongitude(parseFloat(geoData[0].lon))
       }
     } catch (err) {
       Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
     } finally {
-      setBuscandoCep(false)
+      if (montadoRef.current) setBuscandoCep(false)
     }
   }
 

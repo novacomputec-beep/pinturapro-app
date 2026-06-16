@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator
+  TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
@@ -33,6 +33,7 @@ export default function MeusInteressesScreen({ navigation }) {
       setHistorico(data.historico || [])
     } catch (err) {
       console.log('Erro ao buscar interesses:', err)
+      Alert.alert('Erro', 'Não foi possível carregar seus serviços.')
     } finally {
       setCarregando(false)
       setAtualizando(false)

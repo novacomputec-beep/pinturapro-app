@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity } from 'react-native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos } from '../../utils/tema'
+import api from '../../services/api'
 
 export default function SplashScreen({ navigation }) {
   const [stats, setStats] = useState({ total_valor_obras: null, total_obras_ativas: null })
 
   useEffect(() => {
-    fetch('https://pinturapro-api-production.up.railway.app/api/stats/publico')
-      .then(r => r.json())
+    api.get('/stats/publico')
       .then(data => setStats({ total_valor_obras: data.total_valor_obras, total_obras_ativas: data.total_obras_ativas }))
       .catch(() => {})
   }, [])

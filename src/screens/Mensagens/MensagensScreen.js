@@ -62,6 +62,7 @@ export default function MensagensScreen() {
         buscarMensagens(obraId)
       }
     } catch {
+      Alert.alert('Erro', 'Não foi possível carregar suas conversas.')
     } finally {
       setCarregando(false)
     }
