@@ -138,7 +138,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {item.total_interessados > 0 && (
+        {Number(item.total_interessados) > 0 && (
           <Text style={estilos.interessados}>
             {tipo === 'obra' ? '👷' : '🔧'} {item.total_interessados} profissional(is) interessado(s)
           </Text>

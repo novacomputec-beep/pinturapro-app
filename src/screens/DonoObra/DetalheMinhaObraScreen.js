@@ -255,7 +255,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
                       <Text style={[estilos.statusPillTexto, { color: sc.cor }]}>{sc.label}</Text>
                     </View>
                   </View>
-                  {c.valor_oferta && (
+                  {c.valor_oferta != null && (
                     <View style={estilos.ofertaBox}>
                       <Text style={estilos.ofertaLabel}>💰 Oferta do profissional</Text>
                       <Text style={estilos.ofertaValor}>{formatarValor(c.valor_oferta)}</Text>

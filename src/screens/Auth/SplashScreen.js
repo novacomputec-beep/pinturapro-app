@@ -47,7 +47,7 @@ export default function SplashScreen({ navigation }) {
           <View style={estilos.artValor}>
             <Text style={estilos.artValorTexto}>
               {stats.total_valor_obras != null
-                ? `R$ ${stats.total_valor_obras.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+                ? `R$ ${Number(stats.total_valor_obras).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
                 : '—'}
             </Text>
             <Text style={estilos.artValorLabel}>

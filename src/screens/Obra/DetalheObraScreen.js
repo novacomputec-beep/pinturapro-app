@@ -602,12 +602,12 @@ export default function DetalheObraScreen({ route, navigation }) {
                       <Text style={estilos.interessadoNome}>{item.nome}</Text>
                       {item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
                     </View>
-                    {item.valor_proposto && (
+                    {item.valor_proposto != null && (
                       <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
                         💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
-                    {item.valor_contraproposta && (
+                    {item.valor_contraproposta != null && (
                       <Text style={{ fontSize: 13, color: '#E8833A', marginBottom: 4 }}>
                         🤝 Minha contraproposta: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
@@ -736,7 +736,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                     {minhaCandidatura.status === 'contraproposta_dono' && (
                       <>
                         <Text style={{ color: '#E8833A', fontWeight: '600', marginBottom: 6 }}>💬 O solicitante fez uma contraproposta!</Text>
-                        {minhaCandidatura.valor_contraproposta && (
+                        {minhaCandidatura.valor_contraproposta != null && (
                           <Text style={{ fontSize: 18, fontWeight: '700', color: cores.sucesso, marginBottom: 12 }}>
                             R$ {Number(minhaCandidatura.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </Text>
@@ -772,7 +772,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
-                    {(obra.valor || obra.valor_estimado) && !valorProposto && (
+                    {Number(obra.valor || obra.valor_estimado || 0) > 0 && !valorProposto && (
                       <TouchableOpacity
                         style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
                         onPress={() => setValorAceito(v => !v)}
