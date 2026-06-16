@@ -13,18 +13,22 @@ const statusInfo = {
   aprovada:  { cor: '#4caf50', label: '✅ Aprovada' },
   recusada:  { cor: '#f44336', label: '❌ Recusada' },
   aberta:    { cor: '#4caf50', label: '✅ Publicada' },
-  encerrada: { cor: '#4caf50', label: '✅ Obra concluída com sucesso' },
+  encerrada: { cor: '#4caf50', label: '✅ Concluído com sucesso' },
   cancelada: { cor: '#f44336', label: '❌ Cancelada' },
 }
 
 export default function MinhasObrasScreen({ navigation, route }) {
   const { usuario, logout } = useAuth()
   const soAba = route?.params?.soAba || null
-  const [obras, setObras] = useState([])
-  const [reparos, setReparos] = useState([])
-  const [carregando, setCarregando] = useState(true)
+
+  const [obras,           setObras]           = useState([])
+  const [reparos,         setReparos]         = useState([])
+  const [obrasHistorico,  setObrasHistorico]  = useState([])
+  const [reparosHistorico,setReparosHistorico]= useState([])
+  const [carregando,  setCarregando]  = useState(true)
   const [atualizando, setAtualizando] = useState(false)
-  const [aba, setAba] = useState(soAba || 'obras')
+  const [aba,   setAba]   = useState(soAba || 'obras')
+  const [secao, setSecao] = useState('ativos')
 
   const buscarDados = async () => {
     try {
@@ -33,7 +37,9 @@ export default function MinhasObrasScreen({ navigation, route }) {
         api.get('/reparos/minhas'),
       ])
       setObras(obrasResp.obras || [])
+      setObrasHistorico(obrasResp.historico || [])
       setReparos(reparosResp.reparos || [])
+      setReparosHistorico(reparosResp.historico || [])
     } catch (err) {
       console.log('Erro ao buscar dados:', err)
     } finally {
@@ -60,9 +66,11 @@ export default function MinhasObrasScreen({ navigation, route }) {
             if (tipo === 'obra') {
               await api.delete(`/obras/dono/${item.id}`)
               setObras(prev => prev.filter(o => o.id !== item.id))
+              setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
             } else {
               await api.delete(`/reparos/dono/${item.id}`)
               setReparos(prev => prev.filter(r => r.id !== item.id))
+              setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
             }
           } catch (err) {
             Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
@@ -73,18 +81,19 @@ export default function MinhasObrasScreen({ navigation, route }) {
   }
 
   const renderItem = ({ item, tipo }) => {
-    const info = statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente
-    const temMatch = tipo === 'reparo' && item.match_feito_em && item.match_usuario_id
+    const eEncerrado = item.status === 'encerrada'
+    const eExpirado  = !eEncerrado && item.status === 'aberta' && item.expira_em && new Date(item.expira_em) < new Date()
+    const info       = eEncerrado || eExpirado
+      ? null
+      : (statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente)
+    const temMatch   = tipo === 'reparo' && item.match_feito_em && item.match_usuario_id
 
     return (
       <TouchableOpacity
         style={estilos.card}
         onPress={() => {
-          if (tipo === 'obra') {
-            navigation.navigate('DetalheObra', { obra: item })
-          } else {
-            navigation.navigate('DetalheReparo', { reparo: item })
-          }
+          if (tipo === 'obra') navigation.navigate('DetalheObra',  { obra: item })
+          else                 navigation.navigate('DetalheReparo', { reparo: item })
         }}
         activeOpacity={0.85}
       >
@@ -95,15 +104,31 @@ export default function MinhasObrasScreen({ navigation, route }) {
           </Text>
         </View>
         <Text style={estilos.cardLocal}>📍 {item.cidade}{item.uf ? `, ${item.uf}` : ''}</Text>
+
+        {(eEncerrado || eExpirado) && (
+          <View style={[estilos.tagHistorico, eEncerrado ? estilos.tagEncerrado : estilos.tagExpirado]}>
+            <Text style={[estilos.tagHistoricoTexto, { color: eEncerrado ? '#4caf50' : '#888' }]}>
+              {eEncerrado
+                ? (tipo === 'obra' ? '🔒 Obra encerrada' : '🔒 Reparo encerrado')
+                : '⏰ Expirado sem match'}
+            </Text>
+          </View>
+        )}
+
         {temMatch && (
           <View style={estilos.matchBadge}>
             <Text style={estilos.matchBadgeTexto}>⏱ Prestador a caminho — toque para ver</Text>
           </View>
         )}
+
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={[estilos.statusPill, { borderColor: info.cor }]}>
-            <Text style={[estilos.statusTexto, { color: info.cor }]}>{info.label}</Text>
-          </View>
+          {info ? (
+            <View style={[estilos.statusPill, { borderColor: info.cor }]}>
+              <Text style={[estilos.statusTexto, { color: info.cor }]}>{info.label}</Text>
+            </View>
+          ) : (
+            <View />
+          )}
           <TouchableOpacity
             onPress={() => deletarItem(item, tipo)}
             style={estilos.btnLixeira}
@@ -112,6 +137,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
             <Text style={{ fontSize: 16 }}>🗑️</Text>
           </TouchableOpacity>
         </View>
+
         {item.total_interessados > 0 && (
           <Text style={estilos.interessados}>
             {tipo === 'obra' ? '👷' : '🔧'} {item.total_interessados} profissional(is) interessado(s)
@@ -121,16 +147,19 @@ export default function MinhasObrasScreen({ navigation, route }) {
     )
   }
 
-  const dados = aba === 'obras'
-    ? obras.filter(o => o.status !== 'cancelada')
-    : reparos.filter(r => r.status !== 'cancelada')
+  const aAtivos   = aba === 'obras' ? obras           : reparos
+  const aHistorico= aba === 'obras' ? obrasHistorico  : reparosHistorico
+  const dados     = secao === 'ativos' ? aAtivos : aHistorico
 
   return (
     <SafeAreaView style={estilos.container}>
       <View style={estilos.header}>
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
-          <Text style={estilos.titulo}>{soAba === 'reparos' ? 'Meus ' : 'Minhas '}<Text style={{ color: cores.primaria }}>{soAba === 'reparos' ? 'Reparos' : 'Obras'}</Text></Text>
+          <Text style={estilos.titulo}>
+            {soAba === 'reparos' ? 'Meus ' : 'Minhas '}
+            <Text style={{ color: cores.primaria }}>{soAba === 'reparos' ? 'Reparos' : 'Obras'}</Text>
+          </Text>
         </View>
         <TouchableOpacity style={estilos.btnSair} onPress={() => Alert.alert('Sair', 'Deseja sair da conta?', [
           { text: 'Cancelar', style: 'cancel' },
@@ -180,18 +209,39 @@ export default function MinhasObrasScreen({ navigation, route }) {
         </View>
       )}
 
+      <View style={estilos.abasSecao}>
+        <TouchableOpacity
+          style={[estilos.abaSecaoBtn, secao === 'ativos' && estilos.abaSecaoBtnAtivo]}
+          onPress={() => setSecao('ativos')}
+        >
+          <Text style={[estilos.abaSecaoTexto, secao === 'ativos' && estilos.abaSecaoTextoAtivo]}>
+            Ativos ({aAtivos.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[estilos.abaSecaoBtn, secao === 'historico' && estilos.abaSecaoBtnAtivo]}
+          onPress={() => setSecao('historico')}
+        >
+          <Text style={[estilos.abaSecaoTexto, secao === 'historico' && estilos.abaSecaoTextoAtivo]}>
+            Histórico ({aHistorico.length})
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {carregando ? (
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
       ) : dados.length === 0 ? (
         <View style={estilos.vazio}>
           <Text style={estilos.vazioIcone}>{aba === 'obras' ? '🏗️' : '🔧'}</Text>
           <Text style={estilos.vazioTitulo}>
-            {aba === 'obras' ? 'Nenhuma obra cadastrada' : 'Nenhum reparo cadastrado'}
+            {secao === 'ativos'
+              ? (aba === 'obras' ? 'Nenhuma obra ativa' : 'Nenhum reparo ativo')
+              : 'Nenhum histórico ainda'}
           </Text>
           <Text style={estilos.vazioSub}>
-            {aba === 'obras'
-              ? 'Cadastre sua primeira obra de pintura!'
-              : 'Cadastre seu primeiro reparo!'}
+            {secao === 'ativos'
+              ? (aba === 'obras' ? 'Cadastre sua primeira obra de pintura!' : 'Cadastre seu primeiro reparo!')
+              : (aba === 'obras' ? 'Obras encerradas e expiradas aparecerão aqui.' : 'Reparos encerrados e expirados aparecerão aqui.')}
           </Text>
         </View>
       ) : (
@@ -209,33 +259,43 @@ export default function MinhasObrasScreen({ navigation, route }) {
 }
 
 const estilos = StyleSheet.create({
-  container: { flex: 1, backgroundColor: cores.fundo },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
-  saudacao: { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
-  titulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
-  btnSair: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
-  btnSairTexto: { fontSize: 12, color: cores.textoMedio },
-  botoesRow: { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 10, marginBottom: 12 },
-  btnNovo: { flex: 1, backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center' },
-  btnNovoTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
-  abas: { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 12 },
-  abaBtn: { flex: 1, padding: 10, borderRadius: raios.medio, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center' },
-  abaBtnAtivo: { backgroundColor: cores.primariaSuave, borderColor: cores.primaria },
-  abaTexto: { fontSize: 13, color: cores.textoMedio },
-  abaTextoAtivo: { color: cores.primaria, fontWeight: '600' },
-  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 12 },
-  vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  vazioIcone: { fontSize: 48, marginBottom: 16 },
-  vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
-  vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
-  card: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
-  cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 },
-  cardTitulo: { flex: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
-  cardValor: { fontSize: 14, fontWeight: '700', color: cores.sucesso },
-  cardLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 10 },
-  matchBadge: { backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
-  matchBadgeTexto: { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
-  statusPill: { alignSelf: 'flex-start', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
-  statusTexto: { fontSize: 11, fontWeight: '500' },
-  btnLixeira: { padding: 6, borderRadius: 8, backgroundColor: '#3a1a1a' },
+  container:            { flex: 1, backgroundColor: cores.fundo },
+  header:               { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
+  saudacao:             { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
+  titulo:               { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
+  btnSair:              { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
+  btnSairTexto:         { fontSize: 12, color: cores.textoMedio },
+  botoesRow:            { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 10, marginBottom: 12 },
+  btnNovo:              { flex: 1, backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center' },
+  btnNovoTexto:         { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  abas:                 { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 8 },
+  abaBtn:               { flex: 1, padding: 10, borderRadius: raios.medio, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center' },
+  abaBtnAtivo:          { backgroundColor: cores.primariaSuave, borderColor: cores.primaria },
+  abaTexto:             { fontSize: 13, color: cores.textoMedio },
+  abaTextoAtivo:        { color: cores.primaria, fontWeight: '600' },
+  abasSecao:            { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 12 },
+  abaSecaoBtn:          { flex: 1, paddingVertical: 7, borderRadius: raios.medio, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center' },
+  abaSecaoBtnAtivo:     { backgroundColor: '#1a1a2a', borderColor: '#444' },
+  abaSecaoTexto:        { fontSize: 12, color: cores.textoMutado },
+  abaSecaoTextoAtivo:   { color: cores.textoMedio, fontWeight: '600' },
+  lista:                { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 12 },
+  vazio:                { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
+  vazioIcone:           { fontSize: 48, marginBottom: 16 },
+  vazioTitulo:          { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
+  vazioSub:             { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
+  card:                 { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
+  cardTopo:             { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6, gap: 8 },
+  cardTitulo:           { flex: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
+  cardValor:            { fontSize: 14, fontWeight: '700', color: cores.sucesso },
+  cardLocal:            { fontSize: 12, color: cores.textoFraco, marginBottom: 10 },
+  tagHistorico:         { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 8, borderWidth: 0.5 },
+  tagEncerrado:         { backgroundColor: '#0a1a0a', borderColor: '#2a4a2a' },
+  tagExpirado:          { backgroundColor: '#1a1a1a', borderColor: '#333' },
+  tagHistoricoTexto:    { fontSize: 10, fontWeight: '600' },
+  matchBadge:           { backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
+  matchBadgeTexto:      { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
+  statusPill:           { alignSelf: 'flex-start', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
+  statusTexto:          { fontSize: 11, fontWeight: '500' },
+  btnLixeira:           { padding: 6, borderRadius: 8, backgroundColor: '#3a1a1a' },
+  interessados:         { fontSize: 11, color: cores.textoMutado, marginTop: 6 },
 })
