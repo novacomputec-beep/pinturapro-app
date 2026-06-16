@@ -118,7 +118,7 @@ const estilos = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 11,
-    color: cores.textoFraco,
+    color: cores.textoForte,
     letterSpacing: 0.5,
     marginBottom: 7,
     textTransform: 'uppercase',
