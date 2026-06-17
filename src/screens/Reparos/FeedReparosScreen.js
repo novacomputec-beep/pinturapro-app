@@ -199,7 +199,9 @@ export default function FeedReparosScreen({ navigation }) {
             params.set('lat', String(loc.coords.latitude))
             params.set('lng', String(loc.coords.longitude))
           }
-        } catch (_) {}
+        } catch (err) {
+          console.log('[FeedReparos] falha ao obter localização | code:', err.code, '| msg:', err.message)
+        }
       }
       const resposta = await api.get(`/reparos?${params.toString()}`)
       if (mountedRef.current) setReparos(resposta.reparos || [])

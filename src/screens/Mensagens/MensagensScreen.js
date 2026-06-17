@@ -61,8 +61,9 @@ export default function MensagensScreen() {
         setObraSelecionada({ id: obraId, titulo: obraTitulo })
         buscarMensagens(obraId)
       }
-    } catch {
-      Alert.alert('Erro', 'Não foi possível carregar suas conversas.')
+    } catch (err) {
+      console.log('[Mensagens] falha ao carregar conversas | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível carregar suas conversas.')
     } finally {
       setCarregando(false)
     }
@@ -74,7 +75,8 @@ export default function MensagensScreen() {
     try {
       const dados = await mensagensService.porObra(obraId)
       setMensagens(dados || [])
-    } catch {
+    } catch (err) {
+      console.log('[Mensagens] falha ao carregar mensagens da obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       setMensagens([])
     } finally {
       setCarregandoMsgs(false)

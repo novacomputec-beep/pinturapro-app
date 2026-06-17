@@ -43,7 +43,8 @@ export default function ContratosScreen() {
     try {
       const resp = await api.get(`/candidaturas/${item.id}/negociacoes`)
       setNegociacoes(resp.negociacoes || [])
-    } catch {
+    } catch (err) {
+      console.log('[Contratos] falha ao carregar negociações | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       setNegociacoes([])
     }
     setModalNegociar(true)

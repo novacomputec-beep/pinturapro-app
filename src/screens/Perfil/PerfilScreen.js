@@ -32,7 +32,8 @@ export default function PerfilScreen({ navigation }) {
       try {
         const resposta = await authService.perfil()
         setDadosCompletos(resposta.usuario)
-      } catch {
+      } catch (err) {
+        console.log('[Perfil] falha ao buscar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
         setDadosCompletos(usuario)
       } finally {
         setCarregando(false)

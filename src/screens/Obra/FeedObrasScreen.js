@@ -163,7 +163,9 @@ export default function FeedObrasScreen({ navigation }) {
             params.lat = String(loc.coords.latitude)
             params.lng = String(loc.coords.longitude)
           }
-        } catch (_) {}
+        } catch (err) {
+          console.log('[FeedObras] falha ao obter localização | code:', err.code, '| msg:', err.message)
+        }
       }
       const resposta = await obrasService.listar(params)
       if (mountedRef.current) setObras(resposta.obras || [])
