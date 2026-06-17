@@ -213,7 +213,7 @@ export default function CadastrarObraScreen({ navigation }) {
               xhr.send(cloudForm)
             })
             if (cloudData.error) {
-              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
               throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
             }
             await api.post('/upload/obra-url', {
@@ -230,7 +230,7 @@ export default function CadastrarObraScreen({ navigation }) {
               console.log('[CadastrarObra] falha ao obter assinatura Cloudinary | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
               const msg = e.mensagem || 'Erro ao preparar upload. Tente novamente.'
               Alert.alert('Erro', msg)
-              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
               throw e
             }
             let cloudData
@@ -254,12 +254,12 @@ export default function CadastrarObraScreen({ navigation }) {
             } catch (e) {
               console.log('[CadastrarObra] falha no XHR upload da foto | msg:', e.message)
               Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
-              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
               throw e
             }
             if (cloudData.error) {
               Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
-              await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
+              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
               throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }
             try {
