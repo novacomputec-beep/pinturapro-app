@@ -20,7 +20,8 @@ export default function EsqueciSenhaScreen({ navigation }) {
     try {
       await api.post('/auth/esqueci-senha', { email: email.trim().toLowerCase() })
       setEnviado(true)
-    } catch {
+    } catch (err) {
+      console.log('[EsqueciSenha] falha ao enviar e-mail | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // Sempre mostra sucesso para não revelar se e-mail existe
       setEnviado(true)
     } finally {
