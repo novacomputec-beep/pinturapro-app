@@ -81,9 +81,11 @@ export default function ContratosScreen() {
     { id: 'recusada', label: 'Recusados' },
   ]
 
+  // Obras encerradas aparecem em "Contratos Finalizados"; aqui só negociações em andamento
+  const emAndamento = candidaturas.filter(c => c.obra_status !== 'encerrada')
   const dadosFiltrados = filtro === 'todos'
-    ? candidaturas
-    : candidaturas.filter(c => c.status === filtro)
+    ? emAndamento
+    : emAndamento.filter(c => c.status === filtro)
 
   const renderItem = ({ item }) => {
     const temContrato = item.status === 'aprovada'

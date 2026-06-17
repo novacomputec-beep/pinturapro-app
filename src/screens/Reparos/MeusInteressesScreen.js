@@ -30,7 +30,8 @@ export default function MeusInteressesScreen({ navigation }) {
     try {
       const data = await api.get('/reparos/meus-interesses')
       setAtivos(data.ativos || [])
-      setHistorico(data.historico || [])
+      // Reparos encerrados aparecem em "Contratos Finalizados"; aqui só o histórico restante (ex: expirados)
+      setHistorico((data.historico || []).filter(item => item.reparo_status !== 'encerrada'))
     } catch (err) {
       console.log('Erro ao buscar interesses:', err)
       Alert.alert('Erro', 'Não foi possível carregar seus serviços.')
@@ -111,7 +112,7 @@ export default function MeusInteressesScreen({ navigation }) {
   return (
     <SafeAreaView style={estilos.container}>
       <View style={estilos.header}>
-        <Text style={estilos.titulo}>Meus Serviços</Text>
+        <Text style={estilos.titulo}>Meus Reparos</Text>
         <Text style={estilos.subtitulo}>{dados.length} registro{dados.length !== 1 ? 's' : ''}</Text>
       </View>
 

@@ -21,6 +21,7 @@ import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 import FeedObrasScreen     from '../screens/Obra/FeedObrasScreen'
 import DetalheObraScreen   from '../screens/Obra/DetalheObraScreen'
 import ContratosScreen     from '../screens/Contratos/ContratosScreen'
+import ContratosFinalizadosScreen from '../screens/Contratos/ContratosFinalizadosScreen'
 import MensagensScreen     from '../screens/Mensagens/MensagensScreen'
 import PerfilScreen        from '../screens/Perfil/PerfilScreen'
 import EditarPerfilScreen  from '../screens/Perfil/EditarPerfilScreen'
@@ -47,48 +48,69 @@ const MeusReparosStack     = createNativeStackNavigator()
 const NovaObraStack        = createNativeStackNavigator()
 const MinhasObrasStack     = createNativeStackNavigator()
 const MeusInteressesStack  = createNativeStackNavigator()
+const MinhasObrasInteresseStack = createNativeStackNavigator()
+const ContratosFinObraStack     = createNativeStackNavigator()
+const ContratosFinReparoStack   = createNativeStackNavigator()
 const DonoReparoTab        = createBottomTabNavigator()
 const DonoObraTab          = createBottomTabNavigator()
 
 export const navigationRef = React.createRef()
 
+// Contexto do usuário atual para roteamento de notificações ciente do papel/subtipo.
+// Os nomes de aba variam por navegador montado (pintor vs reparador vs dono), então
+// resolvemos o destino com base neste contexto antes de navegar.
+let usuarioContexto = null
+export const setUsuarioContexto = (u) => { usuarioContexto = u }
+
 const navegarParaNotificacao = (data) => {
   if (!navigationRef.current || !data?.tipo) return
+  const u = usuarioContexto || {}
+  const usaTabsPintor    = u.role === 'assinante' || (u.role === 'prestador' && u.tipo_prestador === 'pintor')
+  const usaTabsReparador = u.role === 'prestador' && u.tipo_prestador !== 'pintor'
+  const ehPrestador      = usaTabsPintor || usaTabsReparador
+  const ehDonoReparo     = u.role === 'dono_obra' && u.tipo_dono === 'reparo'
+
+  // Aba de itens em andamento conforme o navegador montado para este usuário
+  const tabEmAndamento =
+    usaTabsPintor    ? 'Minhas Obras' :
+    usaTabsReparador ? 'Meus Reparos' :
+    ehDonoReparo     ? 'Meus Reparos' :
+                       'Minhas Obras'   // dono de obra (pintura/fallback)
+
+  const navegar = (nome) => navigationRef.current.navigate(nome)
   try {
     switch (data.tipo) {
-      // Obras feed (pintor)
+      // Feed
       case 'nova_obra':
-        navigationRef.current.navigate('Obras'); break
-      // Contratos / candidaturas antigas (pintor)
-      case 'candidatura_aprovada':
-        navigationRef.current.navigate('Contratos'); break
+        navegar('Obras'); break
+      case 'novo_reparo':
+        navegar('Reparos'); break
       // Mensagens
       case 'nova_mensagem':
-        navigationRef.current.navigate('Mensagens'); break
-      // Dono de obra recebe candidatura/match — vai para Minhas Obras
+        navegar('Mensagens'); break
+      // Itens finalizados (encerrados): prestador vê em Contratos Finalizados; dono na sua lista
+      case 'obra_encerrada':
+      case 'reparo_encerrado':
+        navegar(ehPrestador ? 'Contratos Finalizados' : tabEmAndamento); break
+      // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
+      // negociações em andamento — vão para a lista correspondente do usuário
       case 'nova_candidatura':
       case 'match_obra':
-        navigationRef.current.navigate('Minhas Obras'); break
-      // Prestador recebe novo reparo no feed
-      case 'novo_reparo':
-        navigationRef.current.navigate('Reparos'); break
-      // Dono de reparo recebe interesse/match/status
       case 'novo_interesse':
       case 'match_reparo':
       case 'pedido_tempo':
       case 'aprovar_tempo':
-      case 'reparo_encerrado':
-        navigationRef.current.navigate('Meus Reparos'); break
-      // Prestador — navegar para Meus Serviços
       case 'interesse_aceito':
       case 'interesse_recusado':
       case 'contraproposta_dono':
+      case 'contra_oferta':
       case 'perguntar_tempo':
       case 'tempo_aceito':
       case 'tempo_recusado':
       case 'candidatura_aceita':
+      case 'candidatura_aprovada':
       case 'candidatura_recusada':
-        navigationRef.current.navigate('Meus Serviços'); break
+        navegar(tabEmAndamento); break
     }
   } catch (err) {
     console.log('Erro ao navegar para notificação:', err)
@@ -96,7 +118,7 @@ const navegarParaNotificacao = (data) => {
 }
 
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '🏗️', Contratos: '📄', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '🏗️', 'Meus Serviços': '🔧' }
+  const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '📋' }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
@@ -286,6 +308,30 @@ const MeusInteressesNavigator = () => (
   </MeusInteressesStack.Navigator>
 )
 
+// Stack: Minhas Obras (pintor — candidaturas/negociações em andamento)
+const MinhasObrasInteresseNavigator = () => (
+  <MinhasObrasInteresseStack.Navigator screenOptions={{ headerShown: false }}>
+    <MinhasObrasInteresseStack.Screen name="MinhasObrasMain" component={ContratosScreen} />
+    <MinhasObrasInteresseStack.Screen name="DetalheObra"     component={DetalheObraScreen} />
+  </MinhasObrasInteresseStack.Navigator>
+)
+
+// Stack: Contratos Finalizados (pintor — obras concluídas)
+const ContratosFinObraNavigator = () => (
+  <ContratosFinObraStack.Navigator screenOptions={{ headerShown: false }}>
+    <ContratosFinObraStack.Screen name="ContratosFinObraMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'obra' }} />
+    <ContratosFinObraStack.Screen name="DetalheObra"          component={DetalheObraScreen} />
+  </ContratosFinObraStack.Navigator>
+)
+
+// Stack: Contratos Finalizados (reparador — reparos concluídos)
+const ContratosFinReparoNavigator = () => (
+  <ContratosFinReparoStack.Navigator screenOptions={{ headerShown: false }}>
+    <ContratosFinReparoStack.Screen name="ContratosFinReparoMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'reparo' }} />
+    <ContratosFinReparoStack.Screen name="DetalheReparo"          component={DetalheReparoScreen} />
+  </ContratosFinReparoStack.Navigator>
+)
+
 // Tabs do Pintor
 const TabsPintorNavigator = () => (
   <Tab.Navigator
@@ -298,14 +344,15 @@ const TabsPintorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Obras"     component={FeedStackNavigator} options={{ title: 'Obras' }} />
-    <Tab.Screen name="Contratos" component={ContratosScreen} />
-    <Tab.Screen name="Mensagens" component={MensagensScreen} />
-    <Tab.Screen name="Perfil"    component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
+    <Tab.Screen name="Obras"                 component={FeedStackNavigator} options={{ title: 'Obras' }} />
+    <Tab.Screen name="Minhas Obras"          component={MinhasObrasInteresseNavigator} />
+    <Tab.Screen name="Contratos Finalizados" component={ContratosFinObraNavigator} />
+    <Tab.Screen name="Mensagens"             component={MensagensScreen} />
+    <Tab.Screen name="Perfil"                component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </Tab.Navigator>
 )
 
-// Tabs do Prestador (Reparos, Meus Serviços, Mensagens, Perfil)
+// Tabs do Prestador (Reparos, Meus Reparos, Contratos Finalizados, Mensagens, Perfil)
 const TabsPrestadorNavigator = () => (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -317,10 +364,11 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Reparos"        component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
-    <Tab.Screen name="Meus Serviços"  component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
-    <Tab.Screen name="Mensagens"      component={MensagensScreen} />
-    <Tab.Screen name="Perfil"         component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
+    <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
+    <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Reparos' }} />
+    <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} />
+    <Tab.Screen name="Mensagens"             component={MensagensScreen} />
+    <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
 )
 
@@ -398,6 +446,9 @@ const DonoObraNavigator = () => (
 export default function AppNavigator() {
   const { usuario, assinatura, carregando } = useAuth()
   const respostaNotificacaoRef = useRef(null)
+
+  // Mantém o contexto do usuário disponível para o roteador de notificações (deep-links)
+  useEffect(() => { setUsuarioContexto(usuario) }, [usuario])
 
   useEffect(() => {
     Notifications.getLastNotificationResponseAsync().then(resposta => {
