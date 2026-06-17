@@ -259,7 +259,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       console.log('[DetalheObra] falha ao responder candidatura | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
           { text: 'Tentar novamente', onPress: () => handleResponderCandidatura(candidaturaId, action) },
           { text: 'Cancelar', style: 'cancel' },
         ])
@@ -292,7 +292,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       console.log('[DetalheObra] falha ao pintor responder contraproposta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
           { text: 'Tentar novamente', onPress: () => handlePintorResponder(action, valor) },
           { text: 'Cancelar', style: 'cancel' },
         ])

@@ -102,7 +102,7 @@ export default function CadastrarObraScreen({ navigation }) {
       }
     } catch (err) {
       console.log('[CadastrarObra] falha ao buscar CEP | msg:', err.message)
-      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
     } finally {
       if (montadoRef.current) setBuscandoCep(false)
     }
@@ -264,12 +264,12 @@ export default function CadastrarObraScreen({ navigation }) {
               })
             } catch (e) {
               console.log('[CadastrarObra] falha no XHR upload da foto | msg:', e.message)
-              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
               await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
               throw e
             }
             if (cloudData.error) {
-              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
+              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
               await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
               throw new Error(cloudData.error?.message || 'Erro no upload da foto')
             }

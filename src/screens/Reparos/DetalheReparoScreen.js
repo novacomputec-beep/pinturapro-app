@@ -259,7 +259,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       console.log('[DetalheReparo] falha ao responder interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
           { text: 'Tentar novamente', onPress: () => handleResponderInteresse(interesseId, action) },
           { text: 'Cancelar', style: 'cancel' },
         ])
@@ -292,7 +292,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       console.log('[DetalheReparo] falha ao prestador responder contraproposta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
+        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
           { text: 'Tentar novamente', onPress: () => handlePrestadorResponder(action, valor) },
           { text: 'Cancelar', style: 'cancel' },
         ])

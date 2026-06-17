@@ -149,7 +149,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       }
     } catch (err) {
       console.log('[CadastrarReparo] falha ao buscar CEP | msg:', err.message)
-      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
     } finally {
       if (montadoRef.current) setBuscandoCep(false)
     }

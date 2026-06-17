@@ -25,7 +25,7 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     console.log('Erro API:', error.response?.status, error.response?.data, '| network:', error.message, '| code:', error.code)
-    const msg = error.response?.data?.erro || `Erro de conexão (${error.code || error.message})`
+    const msg = error.response?.data?.erro || `Erro de conexão (${error.code || error.message})\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.`
     return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code })
   }
 )

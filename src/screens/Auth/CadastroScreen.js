@@ -342,7 +342,7 @@ export default function CadastroScreen({ navigation }) {
           setEnviandoDocs(false)
           Alert.alert(
             'Tempo esgotado',
-            'O envio demorou muito. Verifique sua conexão e tente novamente.',
+            'O envio demorou muito. Verifique sua conexão e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.',
             [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
           )
         }, 120000)
@@ -429,7 +429,7 @@ export default function CadastroScreen({ navigation }) {
         return
       }
       if (kind === 'TIMEOUT' || kind === 'NETWORK_ERROR') {
-        Alert.alert('Conexão lenta', 'Conexão lenta detectada. Verifique sua internet e tente novamente.')
+        Alert.alert('Conexão lenta', 'Conexão lenta detectada. Verifique sua internet e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
       } else {
         Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
       }
