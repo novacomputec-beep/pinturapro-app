@@ -226,7 +226,9 @@ export default function CadastrarReparoScreen({ navigation }) {
         longitude,
       })
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível cadastrar o reparo. Tente novamente.')
+      console.log('[CadastrarReparo] falha ao criar reparo | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
+      const msg = e.mensagem || 'Não foi possível cadastrar o reparo. Tente novamente.'
+      Alert.alert('Erro', msg)
       enviandoRef.current = false
       setCarregando(false)
       return

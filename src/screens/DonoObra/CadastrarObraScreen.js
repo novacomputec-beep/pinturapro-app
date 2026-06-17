@@ -180,7 +180,9 @@ export default function CadastrarObraScreen({ navigation }) {
         longitude,
       })
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível cadastrar a obra. Tente novamente.')
+      console.log('[CadastrarObra] falha ao criar obra | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
+      const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
+      Alert.alert('Erro', msg)
       enviandoRef.current = false
       setCarregando(false)
       return
@@ -224,7 +226,9 @@ export default function CadastrarObraScreen({ navigation }) {
             try {
               params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
             } catch (e) {
-              Alert.alert('Erro', 'Erro ao preparar upload. Tente novamente.')
+              console.log('[CadastrarObra] falha ao obter assinatura Cloudinary | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
+              const msg = e.mensagem || 'Erro ao preparar upload. Tente novamente.'
+              Alert.alert('Erro', msg)
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e
             }
@@ -264,7 +268,9 @@ export default function CadastrarObraScreen({ navigation }) {
                 ordem: i + 1,
               })
             } catch (e) {
-              Alert.alert('Erro', 'Erro ao finalizar cadastro. Tente novamente.')
+              console.log('[CadastrarObra] falha ao salvar URL da mídia | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
+              const msg = e.mensagem || 'Erro ao finalizar cadastro. Tente novamente.'
+              Alert.alert('Erro', msg)
               throw e
             }
           }
