@@ -207,7 +207,7 @@ export default function CadastrarObraScreen({ navigation }) {
               xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
               xhr.onload = () => {
                 try { resolve(JSON.parse(xhr.responseText)) }
-                catch(e) { reject(new Error('Invalid JSON response')) }
+                catch(e) { console.log('[CadastrarObra] falha ao parsear resposta do Cloudinary (vídeo) | status:', xhr.status); reject(new Error('Invalid JSON response')) }
               }
               xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
               xhr.send(cloudForm)
@@ -246,7 +246,7 @@ export default function CadastrarObraScreen({ navigation }) {
                 xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)
                 xhr.onload = () => {
                   try { resolve(JSON.parse(xhr.responseText)) }
-                  catch(e) { reject(new Error('Invalid JSON response')) }
+                  catch(e) { console.log('[CadastrarObra] falha ao parsear resposta do Cloudinary (foto) | status:', xhr.status); reject(new Error('Invalid JSON response')) }
                 }
                 xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
                 xhr.send(cloudForm)

@@ -18,6 +18,7 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
     xhr.onload = () => {
       try { resolve(JSON.parse(xhr.responseText)) }
       catch (e) {
+        console.log('[xhrUpload] falha ao parsear resposta JSON | isRetry:', isRetry, '| status:', xhr.status)
         if (!isRetry) setTimeout(() => attempt(true), 2000)
         else reject(new Error('Resposta inválida do servidor de upload'))
       }
