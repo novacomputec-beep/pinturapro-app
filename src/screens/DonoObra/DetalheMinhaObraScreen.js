@@ -83,7 +83,8 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
     try {
       const resp = await api.get(`/candidaturas/${candidatura.id}/negociacoes`)
       setHistNegociacoes(resp.negociacoes || [])
-    } catch {
+    } catch (err) {
+      console.log('[DetalheMinhaObra] falha ao carregar negociações | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       setHistNegociacoes([])
     }
     setModalNegociar(true)

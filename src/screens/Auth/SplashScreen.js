@@ -10,7 +10,7 @@ export default function SplashScreen({ navigation }) {
   useEffect(() => {
     api.get('/stats/publico')
       .then(data => setStats({ total_valor_obras: data.total_valor_obras, total_obras_ativas: data.total_obras_ativas }))
-      .catch(() => {})
+      .catch(err => console.log('[SplashScreen] falha ao buscar stats públicos | code:', err.code, '| msg:', err.message))
   }, [])
 
   return (

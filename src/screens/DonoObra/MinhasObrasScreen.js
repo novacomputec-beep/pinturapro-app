@@ -73,6 +73,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
               setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
             }
           } catch (err) {
+            console.log('[MinhasObras] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
           }
         }

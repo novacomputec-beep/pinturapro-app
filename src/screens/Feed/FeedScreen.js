@@ -178,6 +178,7 @@ export default function FeedScreen({ navigation }) {
       const resposta = await obrasService.listar(params)
       setObras(resposta.obras || [])
     } catch (err) {
+      console.log('[FeedScreen] falha ao buscar obras | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       setErro(err.mensagem || 'Erro ao buscar obras')
     } finally {
       setCarregando(false)

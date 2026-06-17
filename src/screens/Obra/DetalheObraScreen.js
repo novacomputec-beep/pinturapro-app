@@ -197,6 +197,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       setMostrarForm(false)
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
+      console.log('[DetalheObra] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
@@ -211,7 +212,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           const resposta = await api.post(`/obras/${obra.id}/match`, {})
           setObra(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
           Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
-        } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.') }
+        } catch (err) { console.log('[DetalheObra] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.') }
       }}
     ])
   }
@@ -223,7 +224,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         try {
           await api.post(`/obras/${obra.id}/encerrar`, {})
           Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
-        } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
+        } catch (err) { console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
     ])
   }
@@ -253,6 +254,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!' }
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
+      console.log('[DetalheObra] falha ao responder candidatura | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
@@ -279,6 +281,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           : 'O solicitante foi notificado.'
       )
     } catch (err) {
+      console.log('[DetalheObra] falha ao pintor responder contraproposta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
@@ -308,7 +311,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       await api.post(`/obras/${obra.id}/pedir-tempo`, { motivo })
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
       Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
-    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
+    } catch (err) { console.log('[DetalheObra] falha ao pedir tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
   }
 
   const handleperguntarTempo = async () => {
@@ -316,7 +319,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       await api.post(`/obras/${obra.id}/perguntar-tempo`, {})
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
       Alert.alert('✅ Pintor notificado!', 'Ele vai informar quantos minutos precisa.')
-    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+    } catch (err) { console.log('[DetalheObra] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
   }
 
   const handleInformarTempo = () => setModalTempo(true)
@@ -330,7 +333,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       await api.post(`/obras/${obra.id}/informar-tempo`, { minutos: min })
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
       Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
-    } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+    } catch (err) { console.log('[DetalheObra] falha ao informar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
   }
 
   const handleResponderTempo = (aceito) => {
@@ -350,7 +353,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               Alert.alert('❌ Recusado', 'A obra voltou para disponível.')
               navigation.goBack()
             }
-          } catch (err) { Alert.alert('Erro', err.mensagem || 'Não foi possível responder.') }
+          } catch (err) { console.log('[DetalheObra] falha ao responder tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível responder.') }
         }}
       ]
     )

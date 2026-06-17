@@ -56,7 +56,8 @@ export default function EditarPerfilScreen({ navigation }) {
       setUsuario(prev => ({ ...prev, foto_url: cloudData.secure_url }))
       Alert.alert('Sucesso', 'Foto atualizada!')
     } catch (err) {
-      Alert.alert('Erro', 'Não foi possível enviar a foto.')
+      console.log('[EditarPerfil] falha ao enviar foto | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a foto.')
     } finally {
       setUploadandoFoto(false)
     }
@@ -72,7 +73,7 @@ export default function EditarPerfilScreen({ navigation }) {
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
             const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 })
             if (!result.canceled) processarFoto(result.assets[0].uri)
-          } catch { Alert.alert('Erro', 'Não foi possível abrir a câmera.') }
+          } catch (err) { console.log('[EditarPerfil] falha ao abrir câmera | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a câmera.') }
         }
       },
       {
@@ -83,7 +84,7 @@ export default function EditarPerfilScreen({ navigation }) {
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria.'); return }
             const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 })
             if (!result.canceled) processarFoto(result.assets[0].uri)
-          } catch { Alert.alert('Erro', 'Não foi possível abrir a galeria.') }
+          } catch (err) { console.log('[EditarPerfil] falha ao abrir galeria | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a galeria.') }
         }
       },
       { text: 'Cancelar', style: 'cancel' }
@@ -107,6 +108,7 @@ export default function EditarPerfilScreen({ navigation }) {
         { text: 'OK', onPress: () => navigation.goBack() }
       ])
     } catch (err) {
+      console.log('[EditarPerfil] falha ao salvar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || 'Não foi possível atualizar o perfil.')
     } finally {
       setCarregando(false)

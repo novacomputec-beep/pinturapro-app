@@ -37,6 +37,7 @@ export default function AlterarSenhaScreen({ navigation }) {
         { text: 'OK', onPress: () => navigation.goBack() }
       ])
     } catch (err) {
+      console.log('[AlterarSenha] falha ao alterar senha | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || err?.response?.data?.erro || 'Não foi possível alterar a senha.')
     } finally {
       setCarregando(false)
