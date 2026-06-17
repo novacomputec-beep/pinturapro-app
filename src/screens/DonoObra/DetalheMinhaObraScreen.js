@@ -160,6 +160,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
             Alert.alert('Excluído!', `${tipo === 'reparo' ? 'Reparo' : 'Obra'} removido com sucesso.`,
               [{ text: 'OK', onPress: () => navigation.goBack() }])
           } catch (err) {
+            console.log('[DetalheMinhaObra] falha ao excluir | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
           }
         }
