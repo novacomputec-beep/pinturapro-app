@@ -143,7 +143,7 @@ const classificarErro = (err) => {
 export default function CadastroScreen({ navigation }) {
   const { loginComToken } = useAuth()
 
-  useEffect(() => { api.get('/health').catch(() => {}) }, [])
+  useEffect(() => { api.get('/health').catch(err => console.log('[CadastroScreen] falha no warmup /health | code:', err.code, '| msg:', err.mensagem)) }, [])
 
   const [tipoConta, setTipoConta] = useState(null)
   const [passo, setPasso] = useState(0)
