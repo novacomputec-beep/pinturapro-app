@@ -27,6 +27,13 @@ const PRAZOS = [
   { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
 ]
 
+// Gera uma chave de idempotência por sessão de composição (formato UUID v4)
+const gerarRequestId = () =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+  })
+
 export default function CadastrarObraScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -49,6 +56,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const enviandoRef = useRef(false)
+  const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
 
   useEffect(() => {
@@ -179,7 +187,10 @@ export default function CadastrarObraScreen({ navigation }) {
         endereco_obra: enderecoCompleto,
         latitude,
         longitude,
+        client_request_id: clientRequestIdRef.current,
       })
+      // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
+      clientRequestIdRef.current = gerarRequestId()
     } catch (e) {
       console.log('[CadastrarObra] falha ao criar obra | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
       const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
@@ -328,13 +339,7 @@ export default function CadastrarObraScreen({ navigation }) {
           <Input label="DESCRIÇÃO DA OBRA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
           <Input label="VALOR OFERECIDO PARA A OBRA (R$)" placeholder="Ex: 2.500,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
           <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
-          <SeletorLocalidade
-            uf={uf}
-            cidade={cidade}
-            onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
-            erroEstado={erros.uf}
-            erroCidade={erros.cidade}
-          />
+          <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
           <View style={estilos.cepRow}>
             <Input label="CEP DO LOCAL DA OBRA" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
@@ -355,6 +360,13 @@ export default function CadastrarObraScreen({ navigation }) {
               )}
             </>
           )}
+          <SeletorLocalidade
+            uf={uf}
+            cidade={cidade}
+            onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erroEstado={erros.uf}
+            erroCidade={erros.cidade}
+          />
           <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
           <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
             <Text style={estilos.uploadIcone}>📎</Text>
@@ -413,7 +425,7 @@ const estilos = StyleSheet.create({
   avisoIcone: { fontSize: 32 },
   avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
   avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
-  labelCategoria: { fontSize: 11, color: cores.textoFraco, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
@@ -427,6 +439,7 @@ const estilos = StyleSheet.create({
   urgenciaDesc: { fontSize: 11, color: cores.textoFraco },
   cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
+  dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: -2 },
   duasColunas: { flexDirection: 'row', gap: 12 },
   geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
   geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },

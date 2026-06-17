@@ -159,7 +159,7 @@ export default function SeletorLocalidade({
 const estilos = StyleSheet.create({
   label: {
     fontSize: 11,
-    color: cores.textoFraco,
+    color: cores.textoForte,
     letterSpacing: 0.5,
     marginBottom: 7,
     marginTop: 12,
