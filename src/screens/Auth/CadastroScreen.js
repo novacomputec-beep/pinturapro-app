@@ -466,7 +466,7 @@ export default function CadastroScreen({ navigation }) {
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
           </View>
-          <Text style={estilos.titulo}>Como você{'\n'}quer usar?</Text>
+          <Text style={estilos.titulo} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
           <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve você</Text>
 
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
