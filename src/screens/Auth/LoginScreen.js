@@ -38,12 +38,13 @@ export default function LoginScreen({ navigation }) {
               setLinkPagamento(pagamento.init_point)
               return
             }
-          } catch {
-            // continua normalmente
+          } catch (err) {
+            console.log('[Login] falha ao criar assinatura pós-login | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
           }
         }
       }
     } catch (err) {
+      console.log('[Login] falha ao fazer login | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || 'Erro ao fazer login')
     } finally {
       setCarregando(false)
