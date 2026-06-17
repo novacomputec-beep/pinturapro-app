@@ -104,6 +104,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
       setHistNegociacoes(resp.negociacoes || [])
       Alert.alert('Contra-oferta enviada!', 'O profissional será notificado.')
     } catch (err) {
+      console.log('[DetalheMinhaObra] falha ao enviar contra-oferta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a contra-oferta.')
     } finally {
       setEnviando(false)
