@@ -139,8 +139,9 @@ function PagamentoPendenteScreen() {
       const dados = await api.get('/auth/perfil')
       setUsuario(dados.usuario)
       setAssinatura(dados.assinatura)
-    } catch {}
-    finally { setVerificando(false) }
+    } catch (err) {
+      console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+    } finally { setVerificando(false) }
   }
 
   const valorMensal = assinatura?.valor_mensal
@@ -218,8 +219,9 @@ function VerificacaoPendenteScreen() {
       const dados = await api.get('/auth/perfil')
       setUsuario(dados.usuario)
       setAssinatura(dados.assinatura)
-    } catch {}
-    finally { setVerificando(false) }
+    } catch (err) {
+      console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+    } finally { setVerificando(false) }
   }
 
   return (
