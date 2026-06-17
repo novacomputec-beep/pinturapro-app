@@ -106,30 +106,25 @@ const UploadFoto = ({ label, valor, onPress }) => (
   </TouchableOpacity>
 )
 
+const MAX_UPLOAD_RETRIES = 2
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
-  const attempt = (isRetry) => {
+  const attempt = (n) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
     xhr.timeout = 45000
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000); else rejeitar() }
     xhr.onload = () => {
       try { resolve(JSON.parse(xhr.responseText)) }
       catch (e) {
-        console.log('[xhrUpload] falha ao parsear resposta JSON | isRetry:', isRetry, '| status:', xhr.status)
-        if (!isRetry) setTimeout(() => attempt(true), 2000)
-        else reject(new Error('Resposta inválida do servidor de upload'))
+        console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
+        retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
       }
     }
-    xhr.onerror = () => {
-      if (!isRetry) setTimeout(() => attempt(true), 2000)
-      else reject(new Error('Falha na conexão com o servidor de upload'))
-    }
-    xhr.ontimeout = () => {
-      if (!isRetry) setTimeout(() => attempt(true), 2000)
-      else reject(new Error('timeout no upload da foto'))
-    }
+    xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
+    xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da mídia')))
     xhr.send(form)
   }
-  attempt(false)
+  attempt(0)
 })
 
 const classificarErro = (err) => {

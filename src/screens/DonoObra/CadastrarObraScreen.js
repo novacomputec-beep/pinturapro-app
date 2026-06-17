@@ -27,6 +27,41 @@ const PRAZOS = [
   { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
 ]
 
+const MAX_UPLOAD_RETRIES = 2
+const xhrUpload = (url, form) => new Promise((resolve, reject) => {
+  const attempt = (n) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.timeout = 45000
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000); else rejeitar() }
+    xhr.onload = () => {
+      try { resolve(JSON.parse(xhr.responseText)) }
+      catch (e) {
+        console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
+        retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
+      }
+    }
+    xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
+    xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da mídia')))
+    xhr.send(form)
+  }
+  attempt(0)
+})
+
+// Reexecuta uma chamada de rede uma vez em caso de erro de rede transitório (cold start)
+const comRetry = async (fn) => {
+  try {
+    return await fn()
+  } catch (err) {
+    const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+    if (isNetwork) {
+      await new Promise(r => setTimeout(r, 2000))
+      return await fn()
+    }
+    throw err
+  }
+}
+
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
 const gerarRequestId = () =>
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -166,6 +201,61 @@ export default function CadastrarObraScreen({ navigation }) {
 
   const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
 
+  // Upload de uma mídia (vídeo ou foto) para o Cloudinary + registro no backend
+  const uploadUmaMidia = async ({ midia, ordem }, obraId) => {
+    const isVideo = midia.type === 'video'
+    const tipo = isVideo ? 'video' : 'foto'
+    const params = isVideo
+      ? await api.get('/upload/assinatura-cloudinary')
+      : await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+    const cloudForm = new FormData()
+    cloudForm.append('file', isVideo
+      ? { uri: midia.uri, type: 'video/mp4', name: `video_${ordem}.mp4` }
+      : { uri: midia.uri, type: 'image/jpeg', name: `foto_${ordem}.jpg` })
+    cloudForm.append('timestamp', String(params.timestamp))
+    cloudForm.append('signature', params.signature)
+    cloudForm.append('api_key', params.api_key)
+    cloudForm.append('folder', params.folder)
+    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/${isVideo ? 'video' : 'image'}/upload`, cloudForm)
+    if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
+    await api.post('/upload/obra-url', { obra_id: obraId, url: cloudData.secure_url, tipo, ordem })
+  }
+
+  // Envia a lista de mídias isolando cada item; retorna apenas as que falharam
+  const enviarMidias = async (lista, obraId) => {
+    const falhas = []
+    for (const item of lista) {
+      try {
+        await uploadUmaMidia(item, obraId)
+      } catch (err) {
+        console.log('[CadastrarObra] falha no upload de mídia | ordem:', item.ordem, '| code:', err.code, '| msg:', err.message)
+        falhas.push(item)
+      }
+    }
+    return falhas
+  }
+
+  // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes)
+  const finalizarPublicacao = async (lista, obraId) => {
+    const falhas = await enviarMidias(lista, obraId)
+    if (!montadoRef.current) return
+    setCarregando(false)
+    if (falhas.length === 0) {
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
+        [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }], { cancelable: false })
+    } else {
+      Alert.alert(
+        '⚠️ Obra criada',
+        `Sua obra foi criada, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?`,
+        [
+          { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(falhas, obraId) } },
+          { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Minhas Obras') },
+        ],
+        { cancelable: false }
+      )
+    }
+  }
+
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
     if (!validar()) return
@@ -174,7 +264,7 @@ export default function CadastrarObraScreen({ navigation }) {
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
     let obra
     try {
-      obra = await api.post('/obras/dono', {
+      obra = await comRetry(() => api.post('/obras/dono', {
         titulo: titulo.trim(),
         categoria,
         descricao: descricao.trim(),
@@ -188,7 +278,7 @@ export default function CadastrarObraScreen({ navigation }) {
         latitude,
         longitude,
         client_request_id: clientRequestIdRef.current,
-      })
+      }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
     } catch (e) {
@@ -199,106 +289,16 @@ export default function CadastrarObraScreen({ navigation }) {
       setCarregando(false)
       return
     }
-    try {
-      if (midias.length > 0) {
-        for (let i = 0; i < midias.length; i++) {
-          const midia = midias[i]
-          const isVideo = midia.type === 'video'
-
-          if (isVideo) {
-            const params = await api.get('/upload/assinatura-cloudinary')
-            const cloudForm = new FormData()
-            cloudForm.append('file', { uri: midia.uri, type: 'video/mp4', name: `video_${i}.mp4` })
-            cloudForm.append('timestamp', String(params.timestamp))
-            cloudForm.append('signature', params.signature)
-            cloudForm.append('api_key', params.api_key)
-            cloudForm.append('folder', params.folder)
-            const cloudData = await new Promise((resolve, reject) => {
-              const xhr = new XMLHttpRequest()
-              xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`)
-              xhr.onload = () => {
-                try { resolve(JSON.parse(xhr.responseText)) }
-                catch(e) { console.log('[CadastrarObra] falha ao parsear resposta do Cloudinary (vídeo) | status:', xhr.status); reject(new Error('Invalid JSON response')) }
-              }
-              xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
-              xhr.send(cloudForm)
-            })
-            if (cloudData.error) {
-              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
-              throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
-            }
-            await api.post('/upload/obra-url', {
-              obra_id: obra.id,
-              url: cloudData.secure_url,
-              tipo: 'video',
-              ordem: i + 1,
-            })
-          } else {
-            let params
-            try {
-              params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
-            } catch (e) {
-              console.log('[CadastrarObra] falha ao obter assinatura Cloudinary | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
-              const msg = e.mensagem || 'Erro ao preparar upload. Tente novamente.'
-              Alert.alert('Erro', msg)
-              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
-              throw e
-            }
-            let cloudData
-            try {
-              const cloudForm = new FormData()
-              cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
-              cloudForm.append('timestamp', String(params.timestamp))
-              cloudForm.append('signature', params.signature)
-              cloudForm.append('api_key', params.api_key)
-              cloudForm.append('folder', params.folder)
-              cloudData = await new Promise((resolve, reject) => {
-                const xhr = new XMLHttpRequest()
-                xhr.open('POST', `https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`)
-                xhr.onload = () => {
-                  try { resolve(JSON.parse(xhr.responseText)) }
-                  catch(e) { console.log('[CadastrarObra] falha ao parsear resposta do Cloudinary (foto) | status:', xhr.status); reject(new Error('Invalid JSON response')) }
-                }
-                xhr.onerror = () => reject(new Error('XHR network error: ' + xhr.status))
-                xhr.send(cloudForm)
-              })
-            } catch (e) {
-              console.log('[CadastrarObra] falha no XHR upload da foto | msg:', e.message)
-              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
-              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
-              throw e
-            }
-            if (cloudData.error) {
-              Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
-              await api.delete(`/obras/dono/${obra.id}`).catch(err => console.log('[CadastrarObra] falha ao deletar obra no rollback | status:', err.status, '| msg:', err.mensagem))
-              throw new Error(cloudData.error?.message || 'Erro no upload da foto')
-            }
-            try {
-              await api.post('/upload/obra-url', {
-                obra_id: obra.id,
-                url: cloudData.secure_url,
-                tipo: 'foto',
-                ordem: i + 1,
-              })
-            } catch (e) {
-              console.log('[CadastrarObra] falha ao salvar URL da mídia | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
-              const msg = e.mensagem || 'Erro ao finalizar cadastro. Tente novamente.'
-              Alert.alert('Erro', msg)
-              throw e
-            }
-          }
-        }
-      }
-      enviandoRef.current = false
+    // Fase de mídia: cada item é isolado; falhas não cancelam as demais e podem ser reenviadas
+    const itens = midias.map((midia, idx) => ({ midia, ordem: idx + 1 }))
+    if (itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }])
-    } catch (err) {
-      console.log('[CadastrarObra] falha no upload de mídia (obra já criada) | code:', err.code, '| msg:', err.message)
-      setCarregando(false)
-      if (!montadoRef.current) return
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida! Pintores qualificados da sua região serão notificados em breve.', [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }])
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
+        [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }], { cancelable: false })
+      return
     }
+    await finalizarPublicacao(itens, obra.id)
   }
 
   return (

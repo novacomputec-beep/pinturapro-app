@@ -11,26 +11,40 @@ import api from '../../services/api'
 import { useFocusEffect } from '@react-navigation/native'
 import { cores, espacos, raios } from '../../utils/tema'
 
+const MAX_UPLOAD_RETRIES = 2
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
-  const attempt = (isRetry) => {
+  const attempt = (n) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
+    xhr.timeout = 45000
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000); else rejeitar() }
     xhr.onload = () => {
       try { resolve(JSON.parse(xhr.responseText)) }
       catch (e) {
-        console.log('[xhrUpload] falha ao parsear resposta JSON | isRetry:', isRetry, '| status:', xhr.status)
-        if (!isRetry) setTimeout(() => attempt(true), 2000)
-        else reject(new Error('Resposta inválida do servidor de upload'))
+        console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
+        retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
       }
     }
-    xhr.onerror = () => {
-      if (!isRetry) setTimeout(() => attempt(true), 2000)
-      else reject(new Error('Falha na conexão com o servidor de upload'))
-    }
+    xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
+    xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da mídia')))
     xhr.send(form)
   }
-  attempt(false)
+  attempt(0)
 })
+
+// Reexecuta uma chamada de rede uma vez em caso de erro de rede transitório (cold start)
+const comRetry = async (fn) => {
+  try {
+    return await fn()
+  } catch (err) {
+    const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+    if (isNetwork) {
+      await new Promise(r => setTimeout(r, 2000))
+      return await fn()
+    }
+    throw err
+  }
+}
 
 const CATEGORIAS = [
   { id: 'hidraulica',   label: '🚿 Hidráulica'   },
@@ -213,6 +227,61 @@ export default function CadastrarReparoScreen({ navigation }) {
 
   const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
 
+  // Upload de uma mídia (vídeo ou foto) para o Cloudinary + registro no backend
+  const uploadUmaMidia = async ({ midia, ordem }, reparoId) => {
+    const isVideo = midia.type === 'video'
+    const tipo = isVideo ? 'video' : 'foto'
+    const params = isVideo
+      ? await api.get('/upload/assinatura-cloudinary')
+      : await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+    const cloudForm = new FormData()
+    cloudForm.append('file', isVideo
+      ? { uri: midia.uri, type: 'video/mp4', name: `video_${ordem}.mp4` }
+      : { uri: midia.uri, type: 'image/jpeg', name: `foto_${ordem}.jpg` })
+    cloudForm.append('timestamp', String(params.timestamp))
+    cloudForm.append('signature', params.signature)
+    cloudForm.append('api_key', params.api_key)
+    cloudForm.append('folder', params.folder)
+    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/${isVideo ? 'video' : 'image'}/upload`, cloudForm)
+    if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
+    await api.post('/upload/reparo-url', { reparo_id: reparoId, url: cloudData.secure_url, tipo, ordem })
+  }
+
+  // Envia a lista de mídias isolando cada item; retorna apenas as que falharam
+  const enviarMidias = async (lista, reparoId) => {
+    const falhas = []
+    for (const item of lista) {
+      try {
+        await uploadUmaMidia(item, reparoId)
+      } catch (err) {
+        console.log('[CadastrarReparo] falha no upload de mídia | ordem:', item.ordem, '| code:', err.code, '| msg:', err.message)
+        falhas.push(item)
+      }
+    }
+    return falhas
+  }
+
+  // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes)
+  const finalizarPublicacao = async (lista, reparoId) => {
+    const falhas = await enviarMidias(lista, reparoId)
+    if (!montadoRef.current) return
+    setCarregando(false)
+    if (falhas.length === 0) {
+      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
+        [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }], { cancelable: false })
+    } else {
+      Alert.alert(
+        '⚠️ Reparo criado',
+        `Seu reparo foi criado, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?`,
+        [
+          { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(falhas, reparoId) } },
+          { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Meus Reparos') },
+        ],
+        { cancelable: false }
+      )
+    }
+  }
+
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
     if (!validar()) return
@@ -221,7 +290,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
     let reparo
     try {
-      reparo = await api.post('/reparos/dono', {
+      reparo = await comRetry(() => api.post('/reparos/dono', {
         titulo: titulo.trim(),
         categoria,
         descricao: descricao.trim(),
@@ -235,7 +304,7 @@ export default function CadastrarReparoScreen({ navigation }) {
         latitude,
         longitude,
         client_request_id: clientRequestIdRef.current,
-      })
+      }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
     } catch (e) {
@@ -246,57 +315,16 @@ export default function CadastrarReparoScreen({ navigation }) {
       setCarregando(false)
       return
     }
-    try {
-      if (midias.length > 0) {
-        for (let i = 0; i < midias.length; i++) {
-          const midia = midias[i]
-          const isVideo = midia.type === 'video'
-
-          if (isVideo) {
-            const params = await api.get('/upload/assinatura-cloudinary')
-            const cloudForm = new FormData()
-            cloudForm.append('file', { uri: midia.uri, type: 'video/mp4', name: `video_${i}.mp4` })
-            cloudForm.append('timestamp', String(params.timestamp))
-            cloudForm.append('signature', params.signature)
-            cloudForm.append('api_key', params.api_key)
-            cloudForm.append('folder', params.folder)
-            const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/video/upload`, cloudForm)
-            if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload do vídeo')
-            await api.post('/upload/reparo-url', {
-              reparo_id: reparo.id,
-              url: cloudData.secure_url,
-              tipo: 'video',
-              ordem: i + 1,
-            })
-          } else {
-            const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
-            const cloudForm = new FormData()
-            cloudForm.append('file', { uri: midia.uri, type: 'image/jpeg', name: `foto_${i}.jpg` })
-            cloudForm.append('timestamp', String(params.timestamp))
-            cloudForm.append('signature', params.signature)
-            cloudForm.append('api_key', params.api_key)
-            cloudForm.append('folder', params.folder)
-            const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
-            if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload da foto')
-            await api.post('/upload/reparo-url', {
-              reparo_id: reparo.id,
-              url: cloudData.secure_url,
-              tipo: 'foto',
-              ordem: i + 1,
-            })
-          }
-        }
-      }
+    // Fase de mídia: cada item é isolado; falhas não cancelam as demais e podem ser reenviadas
+    const itens = midias.map((midia, idx) => ({ midia, ordem: idx + 1 }))
+    if (itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }])
-    } catch (err) {
-      console.log('[CadastrarReparo] falha no upload de mídia (reparo já criado) | code:', err.code, '| msg:', err.message)
-      // Reparo was created — navigate away with success regardless of media upload failure
-      setCarregando(false)
-      if (!montadoRef.current) return
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo foi criado! Prestadores qualificados da sua região serão notificados.', [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }])
+      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
+        [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }], { cancelable: false })
+      return
     }
+    await finalizarPublicacao(itens, reparo.id)
   }
 
   return (
