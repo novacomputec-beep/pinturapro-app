@@ -281,6 +281,7 @@ export default function CadastrarObraScreen({ navigation }) {
       if (!montadoRef.current) return
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }])
     } catch (err) {
+      console.log('[CadastrarObra] falha no upload de mídia (obra já criada) | code:', err.code, '| msg:', err.message)
       setCarregando(false)
       if (!montadoRef.current) return
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida! Pintores qualificados da sua região serão notificados em breve.', [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }])
