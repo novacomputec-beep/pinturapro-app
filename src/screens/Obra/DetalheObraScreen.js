@@ -209,7 +209,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Confirmar', onPress: async () => {
         try {
-          const resposta = await api.post(`/obras/${obra.id}/match`, {})
+          const resposta = await comRetry(() => api.post(`/obras/${obra.id}/match`, {}))
           setObra(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
           Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
         } catch (err) { console.log('[DetalheObra] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.') }
@@ -754,7 +754,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                         </View>
                       </>
                     )}
-                    {minhaCandidatura.status === 'aceito' && (
+                    {(minhaCandidatura.status === 'aceito' || minhaCandidatura.status === 'aprovada') && (
                       <>
                         <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>
