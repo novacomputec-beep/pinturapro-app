@@ -122,6 +122,14 @@ export default function MinhasObrasScreen({ navigation, route }) {
           </View>
         )}
 
+        {item.valor_acordado != null && (
+          <View style={estilos.acordadoBadge}>
+            <Text style={estilos.acordadoTexto}>
+              🤝 Valor acordado: R$ {Number(item.valor_acordado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </Text>
+          </View>
+        )}
+
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           {info ? (
             <View style={[estilos.statusPill, { borderColor: info.cor }]}>
@@ -295,6 +303,8 @@ const estilos = StyleSheet.create({
   tagHistoricoTexto:    { fontSize: 10, fontWeight: '600' },
   matchBadge:           { backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
   matchBadgeTexto:      { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
+  acordadoBadge:        { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
+  acordadoTexto:        { fontSize: 12, color: '#4caf50', fontWeight: '700', textAlign: 'center' },
   statusPill:           { alignSelf: 'flex-start', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 6 },
   statusTexto:          { fontSize: 11, fontWeight: '500' },
   btnLixeira:           { padding: 6, borderRadius: 8, backgroundColor: '#3a1a1a' },

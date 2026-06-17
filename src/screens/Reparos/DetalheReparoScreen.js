@@ -125,6 +125,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [videoFullscreen, setVideoFullscreen] = useState(null)
   const [contrapropostaInteresseId, setContrapropostaInteresseId] = useState(null)
   const [valorContraproposta, setValorContraproposta] = useState('')
+  const [mostrarContraPrestador, setMostrarContraPrestador] = useState(false)
+  const [valorContraPrestador, setValorContraPrestador] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
@@ -269,15 +271,21 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
-  const handlePrestadorResponder = async (action) => {
+  const handlePrestadorResponder = async (action, valor) => {
+    const valorNum = valor ? parseFloat(String(valor).replace(/\./g, '').replace(',', '.')) : null
+    if (action === 'contraproposta' && !valorNum) { Alert.alert('Atenção', 'Informe o valor da contraproposta.'); return }
     setEnviandoResposta(true)
     try {
-      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse/${meuInteresse.id}/prestador-responder`, { action }))
+      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse/${meuInteresse.id}/prestador-responder`, { action, valor: valorNum }))
+      setMostrarContraPrestador(false)
+      setValorContraPrestador('')
       await buscar()
       Alert.alert(
-        action === 'aceitar' ? '✅ Contraproposta aceita!' : 'Proposta recusada.',
+        action === 'aceitar' ? '✅ Contraproposta aceita!' : action === 'contraproposta' ? '💬 Contraproposta enviada!' : 'Proposta recusada.',
         action === 'aceitar'
           ? 'Ótimo! O solicitante foi notificado. Confirme sua ida ao local quando estiver pronto.'
+          : action === 'contraproposta'
+          ? 'O solicitante foi notificado da sua contraproposta.'
           : 'O solicitante foi notificado.'
       )
     } catch (err) {
@@ -285,7 +293,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.', [
-          { text: 'Tentar novamente', onPress: () => handlePrestadorResponder(action) },
+          { text: 'Tentar novamente', onPress: () => handlePrestadorResponder(action, valor) },
           { text: 'Cancelar', style: 'cancel' },
         ])
       } else {
@@ -745,14 +753,40 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             R$ {Number(meuInteresse.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </Text>
                         )}
-                        <View style={{ flexDirection: 'row', gap: 10 }}>
-                          <TouchableOpacity style={[estilos.btnAceitar, { flex: 1 }]} onPress={() => handlePrestadorResponder('aceitar')} disabled={enviandoResposta}>
-                            <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity style={[estilos.btnRecusar, { flex: 1 }]} onPress={() => handlePrestadorResponder('recusar')} disabled={enviandoResposta}>
-                            <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
-                          </TouchableOpacity>
-                        </View>
+                        {mostrarContraPrestador ? (
+                          <View>
+                            <TextInput
+                              style={[estilos.input, { marginBottom: 8 }]}
+                              placeholder="Sua contraproposta (ex: 350,00)"
+                              placeholderTextColor={cores.textoMutado}
+                              keyboardType="numeric"
+                              value={valorContraPrestador}
+                              onChangeText={v => setValorContraPrestador(mascararValor(v))}
+                            />
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              <TouchableOpacity style={[estilos.btnAceitar, { flex: 1 }]} onPress={() => handlePrestadorResponder('contraproposta', valorContraPrestador)} disabled={enviandoResposta}>
+                                <Text style={estilos.btnAceitarTexto}>Enviar →</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity style={[estilos.btnRecusar, { flex: 1 }]} onPress={() => { setMostrarContraPrestador(false); setValorContraPrestador('') }}>
+                                <Text style={estilos.btnRecusarTexto}>Cancelar</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        ) : (
+                          <>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                              <TouchableOpacity style={[estilos.btnAceitar, { flex: 1 }]} onPress={() => handlePrestadorResponder('aceitar')} disabled={enviandoResposta}>
+                                <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity style={[estilos.btnRecusar, { flex: 1 }]} onPress={() => handlePrestadorResponder('recusar')} disabled={enviandoResposta}>
+                                <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
+                              </TouchableOpacity>
+                            </View>
+                            <TouchableOpacity style={estilos.btnContraPrestador} onPress={() => setMostrarContraPrestador(true)} disabled={enviandoResposta}>
+                              <Text style={estilos.btnContraPrestadorTexto}>💬 Fazer contraproposta</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
                       </>
                     )}
                     {(meuInteresse.status === 'aceito' || meuInteresse.status === 'aprovada') && (
@@ -911,6 +945,8 @@ const estilos = StyleSheet.create({
   pedidoBotoesRow: { flexDirection: 'row', gap: 10 },
   btnAceitar: { flex: 1, backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   btnAceitarTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  btnContraPrestador: { marginTop: 8, borderRadius: raios.medio, padding: 11, alignItems: 'center', borderWidth: 1, borderColor: '#E8833A', backgroundColor: '#2a1f12' },
+  btnContraPrestadorTexto: { fontSize: 13, fontWeight: '700', color: '#E8833A' },
   btnRecusar: { flex: 1, backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f44336', borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   btnRecusarTexto: { fontSize: 13, fontWeight: '700', color: '#f44336' },
   btnAceitarValorProposto: { backgroundColor: '#3a2a00', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
