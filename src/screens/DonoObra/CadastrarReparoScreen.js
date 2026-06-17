@@ -278,6 +278,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       if (!montadoRef.current) return
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!', [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }])
     } catch (err) {
+      console.log('[CadastrarReparo] falha no upload de mídia (reparo já criado) | code:', err.code, '| msg:', err.message)
       // Reparo was created — navigate away with success regardless of media upload failure
       setCarregando(false)
       if (!montadoRef.current) return
