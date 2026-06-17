@@ -421,11 +421,12 @@ export default function CadastroScreen({ navigation }) {
       }
 
     } catch (err) {
+      const kind = classificarErro(err)
+      console.log(`[cadastro] ✗ handleCadastrar FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
       if (err.status === 409) {
         Alert.alert('Atenção', err.mensagem || 'Dados já cadastrados.')
         return
       }
-      const kind = classificarErro(err)
       if (kind === 'TIMEOUT' || kind === 'NETWORK_ERROR') {
         Alert.alert('Conexão lenta', 'Conexão lenta detectada. Verifique sua internet e tente novamente.')
       } else {

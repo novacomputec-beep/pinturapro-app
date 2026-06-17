@@ -93,6 +93,7 @@ export default function CadastrarObraScreen({ navigation }) {
         setLongitude(parseFloat(geoData[0].lon))
       }
     } catch (err) {
+      console.log('[CadastrarObra] falha ao buscar CEP | msg:', err.message)
       Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
     } finally {
       if (montadoRef.current) setBuscandoCep(false)
@@ -251,6 +252,7 @@ export default function CadastrarObraScreen({ navigation }) {
                 xhr.send(cloudForm)
               })
             } catch (e) {
+              console.log('[CadastrarObra] falha no XHR upload da foto | msg:', e.message)
               Alert.alert('Erro', 'Erro ao enviar arquivo. Verifique sua conexão.')
               await api.delete(`/obras/dono/${obra.id}`).catch(() => {})
               throw e

@@ -139,6 +139,7 @@ export default function CadastrarReparoScreen({ navigation }) {
         setLongitude(parseFloat(geoData[0].lon))
       }
     } catch (err) {
+      console.log('[CadastrarReparo] falha ao buscar CEP | msg:', err.message)
       Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.')
     } finally {
       if (montadoRef.current) setBuscandoCep(false)

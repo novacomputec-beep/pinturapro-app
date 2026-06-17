@@ -206,6 +206,7 @@ export default function FeedReparosScreen({ navigation }) {
       const resposta = await api.get(`/reparos?${params.toString()}`)
       if (mountedRef.current) setReparos(resposta.reparos || [])
     } catch (err) {
+      console.log('[FeedReparos] falha ao buscar reparos | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (mountedRef.current) setErro(err.mensagem || 'Erro ao buscar reparos')
     } finally {
       if (mountedRef.current) {

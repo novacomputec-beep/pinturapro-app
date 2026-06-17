@@ -170,6 +170,7 @@ export default function FeedObrasScreen({ navigation }) {
       const resposta = await obrasService.listar(params)
       if (mountedRef.current) setObras(resposta.obras || [])
     } catch (err) {
+      console.log('[FeedObras] falha ao buscar obras | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (mountedRef.current) setErro(err.mensagem || 'Erro ao buscar obras')
     } finally {
       if (mountedRef.current) {

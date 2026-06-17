@@ -100,6 +100,7 @@ export default function MensagensScreen() {
       setMensagens(prev => [...prev, nova])
       setNovaDuvida('')
     } catch (err) {
+      console.log('[Mensagens] falha ao enviar dúvida | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a dúvida.')
     } finally {
       setEnviando(false)

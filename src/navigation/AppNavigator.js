@@ -119,12 +119,13 @@ function PagamentoPendenteScreen() {
       const pagamento = await api.post('/pagamentos/criar-assinatura', { plano })
       if (pagamento.init_point) {
         setLink(pagamento.init_point)
-        Linking.openURL(pagamento.init_point).catch(() => {})
+        Linking.openURL(pagamento.init_point).catch(err => console.log('[AppNavigator] falha ao abrir URL de pagamento | msg:', err.message))
       } else {
         setErro('Link de pagamento não retornado. Toque em "Tentar novamente".')
       }
     } catch (err) {
-      const msg = err?.erro || err?.message || 'Não foi possível gerar o link de pagamento.'
+      console.log('[AppNavigator] falha ao buscar link de pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem || err.message)
+      const msg = err?.mensagem || err?.erro || err?.message || 'Não foi possível gerar o link de pagamento.'
       setErro(msg)
     } finally {
       setCarregando(false)
@@ -178,7 +179,7 @@ function PagamentoPendenteScreen() {
             </Text>
             <TouchableOpacity
               style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
-              onPress={() => Linking.openURL(link).catch(() => {})}
+              onPress={() => Linking.openURL(link).catch(err => console.log('[AppNavigator] falha ao abrir link de pagamento | msg:', err.message))}
             >
               <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Abrir página de pagamento →</Text>
             </TouchableOpacity>
