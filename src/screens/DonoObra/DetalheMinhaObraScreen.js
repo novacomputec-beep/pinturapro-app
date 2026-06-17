@@ -128,6 +128,7 @@ export default function DetalheMinhaObraScreen({ route, navigation }) {
               await api.post(`/candidaturas/${candidaturaId}/dono-responder`, { action })
               await buscar()
             } catch (err) {
+              console.log('[DetalheMinhaObra] falha ao responder candidatura | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
               Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
             } finally {
               setRespondendo(null)
