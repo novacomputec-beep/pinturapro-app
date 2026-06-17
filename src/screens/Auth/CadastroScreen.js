@@ -127,6 +127,20 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   attempt(0)
 })
 
+// Reexecuta uma chamada de rede uma vez em caso de erro transitório (cold start)
+const comRetry = async (fn) => {
+  try {
+    return await fn()
+  } catch (err) {
+    const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+    if (isNetwork) {
+      await new Promise(r => setTimeout(r, 2000))
+      return await fn()
+    }
+    throw err
+  }
+}
+
 const classificarErro = (err) => {
   if (err?.code === 'ECONNABORTED' || err?.message?.toLowerCase().includes('timeout')) return 'TIMEOUT'
   if (err?.status >= 500) return `SERVER_ERROR(HTTP ${err?.status})`
@@ -281,7 +295,7 @@ export default function CadastroScreen({ navigation }) {
     console.log(`[upload][${tipo}] ▶ step2 GET /upload/assinatura-publica`)
     let params
     try {
-      params = await api.get('/upload/assinatura-publica')
+      params = await comRetry(() => api.get('/upload/assinatura-publica'))
       console.log(`[upload][${tipo}] ✓ step2 assinatura ok | timestamp=${params.timestamp} folder=${params.folder}`)
     } catch (err) {
       const kind = classificarErro(err)
@@ -314,10 +328,10 @@ export default function CadastroScreen({ navigation }) {
       // step1 — Pre-check: verify CPF/email before uploading photos
       console.log('[cadastro] ▶ step1 POST /auth/verificar-disponibilidade', { email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() })
       try {
-        await api.post('/auth/verificar-disponibilidade', {
+        await comRetry(() => api.post('/auth/verificar-disponibilidade', {
           email: email.trim().toLowerCase(),
           cpf_cnpj: cpfCnpj.trim(),
-        })
+        }))
         console.log('[cadastro] ✓ step1 disponibilidade ok')
       } catch (err) {
         const kind = classificarErro(err)
