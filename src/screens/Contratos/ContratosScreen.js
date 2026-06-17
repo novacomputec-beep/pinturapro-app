@@ -67,6 +67,7 @@ export default function ContratosScreen() {
       setNegociacoes(resp.negociacoes || [])
       Alert.alert('Contra-oferta enviada!', 'O dono da obra será notificado.')
     } catch (err) {
+      console.log('[Contratos] falha ao enviar contra-oferta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a contra-oferta.')
     } finally {
       setEnviando(false)
