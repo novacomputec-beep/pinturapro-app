@@ -28,7 +28,8 @@ export default function ContratosScreen() {
   const buscar = async () => {
     try {
       const dados = await candidaturasService.minhas()
-      setCandidaturas(dados || [])
+      // O endpoint retorna { candidaturas, page, limit } — extrai o array
+      setCandidaturas(Array.isArray(dados?.candidaturas) ? dados.candidaturas : [])
     } catch (err) {
       console.log('Erro ao buscar candidaturas:', err)
     } finally {
@@ -81,8 +82,10 @@ export default function ContratosScreen() {
     { id: 'recusada', label: 'Recusados' },
   ]
 
+  // Guarda defensiva contra shape inesperado (evita crash de render)
+  const lista = Array.isArray(candidaturas) ? candidaturas : []
   // Obras encerradas aparecem em "Contratos Finalizados"; aqui só negociações em andamento
-  const emAndamento = candidaturas.filter(c => c.obra_status !== 'encerrada')
+  const emAndamento = lista.filter(c => c.obra_status !== 'encerrada')
   const dadosFiltrados = filtro === 'todos'
     ? emAndamento
     : emAndamento.filter(c => c.status === filtro)
@@ -157,7 +160,7 @@ export default function ContratosScreen() {
     <SafeAreaView style={estilos.container}>
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Contratos</Text>
-        <Text style={estilos.subtitulo}>{candidaturas.length} candidatura(s)</Text>
+        <Text style={estilos.subtitulo}>{lista.length} candidatura(s)</Text>
       </View>
 
       <View style={estilos.filtrosRow}>
