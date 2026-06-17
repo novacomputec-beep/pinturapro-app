@@ -31,7 +31,7 @@ export default function SeletorLocalidade({
     fetch(IBGE_ESTADOS)
       .then(r => r.json())
       .then(data => setEstados(data.map(e => ({ sigla: e.sigla, nome: e.nome }))))
-      .catch(() => {})
+      .catch(err => console.log('[SeletorLocalidade] falha ao buscar estados IBGE | msg:', err.message))
       .finally(() => setCarregandoEstados(false))
   }, [])
 
@@ -41,7 +41,7 @@ export default function SeletorLocalidade({
     fetch(IBGE_MUNICIPIOS(uf))
       .then(r => r.json())
       .then(data => setCidades(data.map(m => ({ id: m.id, nome: m.nome }))))
-      .catch(() => {})
+      .catch(err => console.log('[SeletorLocalidade] falha ao buscar cidades IBGE | uf:', uf, '| msg:', err.message))
       .finally(() => setCarregandoCidades(false))
   }, [uf])
 

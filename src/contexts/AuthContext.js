@@ -46,12 +46,14 @@ export const AuthProvider = ({ children }) => {
             setAssinatura(assinatura)
             registrarPushToken()
           } catch (err) {
+            console.log('[AuthContext] falha ao restaurar sessão (perfil) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             await SecureStore.deleteItemAsync('token')
             setUsuario(null)
             setAssinatura(null)
           }
         }
       } catch (err) {
+        console.log('[AuthContext] falha ao ler token do SecureStore | msg:', err.message)
         await SecureStore.deleteItemAsync('token')
       } finally {
         setCarregando(false)
