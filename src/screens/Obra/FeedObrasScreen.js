@@ -36,6 +36,18 @@ const CATEGORIAS = [
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
 
+// Distância haversine (km) entre dois pontos
+const distanciaKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = x => x * Math.PI / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const formatarDistancia = (km) =>
+  km < 1 ? 'menos de 1 km' : `${Math.round(km)} km de você`
+
 const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   const [restante, setRestante] = useState(null)
   const expiradoRef = useRef(false)
@@ -87,7 +99,11 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   )
 }
 
-const CardObra = ({ item, onPress, onExpirar }) => (
+const CardObra = ({ item, onPress, onExpirar, coords }) => {
+  const dist = coords && item.latitude != null && item.longitude != null
+    ? distanciaKm(coords.lat, coords.lng, parseFloat(item.latitude), parseFloat(item.longitude))
+    : null
+  return (
   <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
     <View style={estilos.acentoEsq} />
 
@@ -111,7 +127,10 @@ const CardObra = ({ item, onPress, onExpirar }) => (
 
     <View style={estilos.cardCorpo}>
       <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-      <Text style={estilos.cardLocal}>📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}</Text>
+      <Text style={estilos.cardLocal}>
+        📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
+        {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
+      </Text>
       {item.descricao && (
         <Text style={estilos.cardDesc} numberOfLines={2}>{item.descricao}</Text>
       )}
@@ -123,7 +142,8 @@ const CardObra = ({ item, onPress, onExpirar }) => (
       </View>
     </View>
   </TouchableOpacity>
-)
+  )
+}
 
 export default function FeedObrasScreen({ navigation }) {
   const { usuario } = useAuth()
@@ -133,6 +153,7 @@ export default function FeedObrasScreen({ navigation }) {
   const [categoria, setCategoria] = useState('todas')
   const [distancia, setDistancia] = useState('cidade')
   const [erro, setErro] = useState(null)
+  const [coords, setCoords] = useState(null)
   const mountedRef = useRef(true)
   useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -140,6 +161,22 @@ export default function FeedObrasScreen({ navigation }) {
     AsyncStorage.getItem(STORAGE_KEY_DIST_OBRAS).then(val => {
       if (val) setDistancia(val)
     })
+  }, [])
+
+  // Carrega a localização para exibir a distância nos cards — sem solicitar nova
+  // permissão: só usa se o usuário já concedeu (ex.: ao usar o filtro por raio).
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync()
+        if (status !== 'granted') return
+        const loc = await Location.getLastKnownPositionAsync() ||
+          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        if (loc && mountedRef.current) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+      } catch (err) {
+        console.log('[FeedObras] localização indisponível para distância | msg:', err.message)
+      }
+    })()
   }, [])
 
   const mudarDistancia = async (val) => {
@@ -162,6 +199,7 @@ export default function FeedObrasScreen({ navigation }) {
             const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
             params.lat = String(loc.coords.latitude)
             params.lng = String(loc.coords.longitude)
+            if (mountedRef.current) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
           }
         } catch (err) {
           console.log('[FeedObras] falha ao obter localização | code:', err.code, '| msg:', err.message)
@@ -277,6 +315,7 @@ export default function FeedObrasScreen({ navigation }) {
         renderItem={({ item }) => (
           <CardObra
             item={item}
+            coords={coords}
             onPress={() => navigation.navigate('DetalheObra', {
               obra: {
                 ...item,
@@ -330,6 +369,7 @@ const estilos = StyleSheet.create({
   cardCorpo: { padding: 16 },
   cardTitulo: { fontSize: 15, fontWeight: '600', color: cores.textoForte, lineHeight: 22, marginBottom: 6 },
   cardLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 6 },
+  cardDistancia: { color: cores.primaria, fontWeight: '600' },
   cardDesc: { fontSize: 12, color: cores.textoMedio, lineHeight: 18, marginBottom: 10 },
   cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   interessados: { fontSize: 11, color: cores.textoMutado },
