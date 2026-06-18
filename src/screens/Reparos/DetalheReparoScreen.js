@@ -5,23 +5,11 @@ import {
 } from 'react-native'
 import { Image } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
-import * as Location from 'expo-location'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
-
-// Distância haversine (km) entre dois pontos
-const distanciaKm = (lat1, lon1, lat2, lon2) => {
-  const toRad = x => x * Math.PI / 180
-  const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-const formatarDistancia = (km) =>
-  km < 1 ? 'menos de 1 km' : `${Math.round(km)} km de você`
+import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
 const ContadorExpiracaoReparo = ({ expiraEm }) => {
   const [restante, setRestante] = useState(null)
@@ -143,7 +131,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
-  const [coords, setCoords] = useState(null)
+  const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
 
   const mascararValor = (v) => {
@@ -162,21 +150,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
     buscar()
     return () => { mountedRef.current = false }
   }, [reparoInicial.id])
-
-  // Localização para exibir a distância — sem solicitar nova permissão (só usa se já concedida)
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync()
-        if (status !== 'granted') return
-        const loc = await Location.getLastKnownPositionAsync() ||
-          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-        if (loc && mountedRef.current) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
-      } catch (err) {
-        console.log('[DetalheReparo] localização indisponível para distância | msg:', err.message)
-      }
-    })()
-  }, [])
 
   const buscar = async () => {
     try {
@@ -399,9 +372,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const temMatch = reparo?.match_feito_em && reparo?.match_usuario_id
   const souPrestadorDoMatch = temMatch && reparo?.match_usuario_id === usuario?.id
   const prestadorMatch = temMatch ? interessados.find(i => i.usuario_id === reparo.match_usuario_id) : null
-  const distancia = coords && reparo?.latitude != null && reparo?.longitude != null
-    ? distanciaKm(coords.lat, coords.lng, parseFloat(reparo.latitude), parseFloat(reparo.longitude))
-    : null
+  const distancia = distanciaItemKm(coords, reparo)
 
   const abrirWhatsApp = (telefone) => {
     const digitos = telefone.replace(/\D/g, '')

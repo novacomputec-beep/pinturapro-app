@@ -1,25 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
-import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
-
-// Distância haversine (km) entre dois pontos
-const distanciaKm = (lat1, lon1, lat2, lon2) => {
-  const toRad = x => x * Math.PI / 180
-  const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-const formatarDistancia = (km) =>
-  km < 1 ? 'menos de 1 km' : `${Math.round(km)} km de você`
+import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -42,24 +30,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [atualizando, setAtualizando] = useState(false)
   const [aba,   setAba]   = useState(soAba || 'obras')
   const [secao, setSecao] = useState('ativos')
-  const [coords, setCoords] = useState(null)
-
-  // Localização para exibir a distância — sem solicitar nova permissão (só usa se já concedida)
-  useEffect(() => {
-    let ativo = true
-    ;(async () => {
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync()
-        if (status !== 'granted') return
-        const loc = await Location.getLastKnownPositionAsync() ||
-          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-        if (loc && ativo) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
-      } catch (err) {
-        console.log('[MinhasObras] localização indisponível para distância | msg:', err.message)
-      }
-    })()
-    return () => { ativo = false }
-  }, [])
+  const [coords] = useCoordsUsuario()
 
   const buscarDados = async () => {
     try {
@@ -119,9 +90,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
       ? null
       : (statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente)
     const temMatch   = tipo === 'reparo' && item.match_feito_em && item.match_usuario_id
-    const dist       = coords && item.latitude != null && item.longitude != null
-      ? distanciaKm(coords.lat, coords.lng, parseFloat(item.latitude), parseFloat(item.longitude))
-      : null
+    const dist       = distanciaItemKm(coords, item)
 
     return (
       <TouchableOpacity

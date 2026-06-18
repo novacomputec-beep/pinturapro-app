@@ -1,24 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
-import * as Location from 'expo-location'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
-
-// Distância haversine (km) entre dois pontos
-const distanciaKm = (lat1, lon1, lat2, lon2) => {
-  const toRad = x => x * Math.PI / 180
-  const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
-const formatarDistancia = (km) =>
-  km < 1 ? 'menos de 1 km' : `${Math.round(km)} km de você`
+import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
 const STATUS_INFO = {
   pendente:            { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
@@ -38,24 +26,7 @@ export default function MeusInteressesScreen({ navigation }) {
   const [secao, setSecao]         = useState('ativos')
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
-  const [coords, setCoords]       = useState(null)
-
-  // Localização para exibir a distância — sem solicitar nova permissão (só usa se já concedida)
-  useEffect(() => {
-    let ativo = true
-    ;(async () => {
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync()
-        if (status !== 'granted') return
-        const loc = await Location.getLastKnownPositionAsync() ||
-          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-        if (loc && ativo) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
-      } catch (err) {
-        console.log('[MeusInteresses] localização indisponível para distância | msg:', err.message)
-      }
-    })()
-    return () => { ativo = false }
-  }, [])
+  const [coords]                  = useCoordsUsuario()
 
   const buscar = async () => {
     try {
@@ -90,9 +61,7 @@ export default function MeusInteressesScreen({ navigation }) {
     const s = STATUS_INFO[item.status] || STATUS_INFO.pendente
     const eEncerrado = item.reparo_status === 'encerrada'
     const eExpirado  = !eEncerrado && item.reparo_status === 'aberta' && item.expira_em && new Date(item.expira_em) < new Date()
-    const dist       = coords && item.latitude != null && item.longitude != null
-      ? distanciaKm(coords.lat, coords.lng, parseFloat(item.latitude), parseFloat(item.longitude))
-      : null
+    const dist       = distanciaItemKm(coords, item)
 
     return (
       <View style={estilos.card}>
