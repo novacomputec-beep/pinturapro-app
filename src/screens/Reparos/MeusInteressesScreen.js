@@ -1,11 +1,24 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
+import * as Location from 'expo-location'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
+
+// Distância haversine (km) entre dois pontos
+const distanciaKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = x => x * Math.PI / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const formatarDistancia = (km) =>
+  km < 1 ? 'menos de 1 km' : `${Math.round(km)} km de você`
 
 const STATUS_INFO = {
   pendente:            { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
@@ -25,6 +38,24 @@ export default function MeusInteressesScreen({ navigation }) {
   const [secao, setSecao]         = useState('ativos')
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
+  const [coords, setCoords]       = useState(null)
+
+  // Localização para exibir a distância — sem solicitar nova permissão (só usa se já concedida)
+  useEffect(() => {
+    let ativo = true
+    ;(async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync()
+        if (status !== 'granted') return
+        const loc = await Location.getLastKnownPositionAsync() ||
+          await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
+        if (loc && ativo) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+      } catch (err) {
+        console.log('[MeusInteresses] localização indisponível para distância | msg:', err.message)
+      }
+    })()
+    return () => { ativo = false }
+  }, [])
 
   const buscar = async () => {
     try {
@@ -59,6 +90,9 @@ export default function MeusInteressesScreen({ navigation }) {
     const s = STATUS_INFO[item.status] || STATUS_INFO.pendente
     const eEncerrado = item.reparo_status === 'encerrada'
     const eExpirado  = !eEncerrado && item.reparo_status === 'aberta' && item.expira_em && new Date(item.expira_em) < new Date()
+    const dist       = coords && item.latitude != null && item.longitude != null
+      ? distanciaKm(coords.lat, coords.lng, parseFloat(item.latitude), parseFloat(item.longitude))
+      : null
 
     return (
       <View style={estilos.card}>
@@ -75,7 +109,10 @@ export default function MeusInteressesScreen({ navigation }) {
             </Text>
           </View>
         )}
-        <Text style={estilos.cardMeta}>{item.categoria} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}</Text>
+        <Text style={estilos.cardMeta}>
+          {item.categoria} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
+          {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
+        </Text>
         <View style={estilos.valoresRow}>
           <View>
             <Text style={estilos.valorLabel}>Valor do reparo</Text>
@@ -101,7 +138,7 @@ export default function MeusInteressesScreen({ navigation }) {
         )}
         <TouchableOpacity
           style={estilos.btnVer}
-          onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, cidade: item.cidade } })}
+          onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, cidade: item.cidade, latitude: item.latitude, longitude: item.longitude } })}
         >
           <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
         </TouchableOpacity>
@@ -181,6 +218,7 @@ const estilos = StyleSheet.create({
   tagReparo:        { backgroundColor: '#1e1e1e', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 6, borderWidth: 0.5, borderColor: '#333' },
   tagReparoTexto:   { fontSize: 10, color: cores.textoFraco, fontWeight: '500' },
   cardMeta:         { fontSize: 12, color: cores.textoFraco, marginBottom: 12, textTransform: 'capitalize' },
+  cardDistancia:    { color: cores.primaria, fontWeight: '600', textTransform: 'none' },
   valoresRow:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 },
   valorLabel:       { fontSize: 10, color: cores.textoMutado, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   valorTexto:       { fontSize: 15, fontWeight: '700', color: cores.textoForte },
