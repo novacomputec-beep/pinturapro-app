@@ -252,8 +252,12 @@ export default function DetalheObraScreen({ route, navigation }) {
       await comRetry(() => api.post(`/obras/${obra.id}/candidatura/${candidaturaId}/responder`, { action, valor: valorNumerico }))
       setContrapropostaCandidaturaId(null)
       setValorContraproposta('')
+      if (action === 'recusar') {
+        Alert.alert('Sucesso', 'Proposta recusada.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+        return
+      }
       await buscar()
-      const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!' }
+      const msgs = { aceitar: '✅ Proposta aceita!', contraproposta: '💬 Contraproposta enviada!' }
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
       console.log('[DetalheObra] falha ao responder candidatura | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
