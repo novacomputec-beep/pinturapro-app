@@ -67,14 +67,14 @@ export default function MeusInteressesScreen({ navigation }) {
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
           <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-          <View style={[estilos.statusBadge, { backgroundColor: s.bg }]}>
+          <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || eExpirado) && estilos.statusBadgeInativo]}>
             <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
           </View>
         </View>
         {(eEncerrado || eExpirado) && (
-          <View style={estilos.tagReparo}>
-            <Text style={estilos.tagReparoTexto}>
-              {eEncerrado ? '🔒 Reparo encerrado' : '⏰ Expirado sem match'}
+          <View style={[estilos.tagReparo, eExpirado && estilos.tagExpirado]}>
+            <Text style={[estilos.tagReparoTexto, eExpirado && estilos.tagExpiradoTexto]}>
+              {eEncerrado ? '🔒 Reparo encerrado' : '⏰ Prazo expirado'}
             </Text>
           </View>
         )}
@@ -186,6 +186,9 @@ const estilos = StyleSheet.create({
   statusTexto:      { fontSize: 11, fontWeight: '700' },
   tagReparo:        { backgroundColor: '#1e1e1e', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 6, borderWidth: 0.5, borderColor: '#333' },
   tagReparoTexto:   { fontSize: 10, color: cores.textoFraco, fontWeight: '500' },
+  tagExpirado:      { backgroundColor: '#3a1a1a', borderColor: '#f4433655' },
+  tagExpiradoTexto: { fontSize: 11, color: '#f44336', fontWeight: '700' },
+  statusBadgeInativo: { opacity: 0.5 },
   cardMeta:         { fontSize: 12, color: cores.textoFraco, marginBottom: 12, textTransform: 'capitalize' },
   cardDistancia:    { color: cores.primaria, fontWeight: '600', textTransform: 'none' },
   valoresRow:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 },
