@@ -118,64 +118,64 @@ export default function ContratosScreen({ navigation }) {
 
     return (
       <TouchableOpacity activeOpacity={0.85} onPress={abrirDetalhe}>
-      <Card estilo={estilos.card}>
-        <View style={estilos.cardTopo}>
-          <BadgeStatus status={item.status} />
-          <Text style={estilos.dataTexto}>{formatarData(item.criado_em)}</Text>
-        </View>
-
-        <Separador estilo={{ marginVertical: 12 }} />
-
-        <Text style={estilos.obraTitulo} numberOfLines={2}>
-          {item.obra_titulo || item.titulo || 'Obra'}
-        </Text>
-        <Text style={estilos.obraLocal}>
-          📍 {item.obra_cidade || item.cidade || '—'}{item.obra_uf || item.uf ? `, ${item.obra_uf || item.uf}` : ''}
-        </Text>
-
-        <View style={estilos.infoRow}>
-          <View style={estilos.infoItem}>
-            <Text style={estilos.infoLabel}>Valor obra</Text>
-            <Text style={[estilos.infoValor, { color: cores.sucesso }]}>
-              {formatarValor(item.obra_valor || item.valor)}
-            </Text>
+        <Card estilo={estilos.card}>
+          <View style={estilos.cardTopo}>
+            <BadgeStatus status={item.status} />
+            <Text style={estilos.dataTexto}>{formatarData(item.criado_em)}</Text>
           </View>
-          <View style={estilos.infoItem}>
-            <Text style={estilos.infoLabel}>Categoria</Text>
-            <Text style={estilos.infoValor}>{item.obra_categoria || item.categoria || '—'}</Text>
-          </View>
-          <View style={estilos.infoItem}>
-            <Text style={estilos.infoLabel}>Situação</Text>
-            <Text style={estilos.infoValor}>{item.status}</Text>
-          </View>
-        </View>
 
-        {temContrato && (
-          <>
-            <Separador estilo={{ marginTop: 12, marginBottom: 12 }} />
-            <View style={estilos.contratoBox}>
-              <Text style={estilos.contratoTexto}>✅ Contrato enviado por e-mail</Text>
-              <Text style={estilos.contratoSub}>Verifique sua caixa de entrada</Text>
+          <Separador estilo={{ marginVertical: 12 }} />
+
+          <Text style={estilos.obraTitulo} numberOfLines={2}>
+            {item.obra_titulo || item.titulo || 'Obra'}
+          </Text>
+          <Text style={estilos.obraLocal}>
+            📍 {item.obra_cidade || item.cidade || '—'}{item.obra_uf || item.uf ? `, ${item.obra_uf || item.uf}` : ''}
+          </Text>
+
+          <View style={estilos.infoRow}>
+            <View style={estilos.infoItem}>
+              <Text style={estilos.infoLabel}>Valor obra</Text>
+              <Text style={[estilos.infoValor, { color: cores.sucesso }]}>
+                {formatarValor(item.obra_valor || item.valor)}
+              </Text>
             </View>
-          </>
-        )}
-
-        {STATUS_GRUPO.pendente.includes(item.status) && (
-          <>
-            <Separador estilo={{ marginTop: 12, marginBottom: 12 }} />
-            <TouchableOpacity style={estilos.btnNegociar} onPress={() => abrirNegociacao(item)}>
-              <Text style={estilos.btnNegociarTexto}>💰 Ver / Fazer contra-oferta</Text>
-              <Text style={{ color: cores.primaria }}>→</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {STATUS_GRUPO.recusada.includes(item.status) && (
-          <View style={estilos.recusadoAviso}>
-            <Text style={estilos.recusadoAvisoTexto}>Candidatura não selecionada.</Text>
+            <View style={estilos.infoItem}>
+              <Text style={estilos.infoLabel}>Categoria</Text>
+              <Text style={estilos.infoValor}>{item.obra_categoria || item.categoria || '—'}</Text>
+            </View>
+            <View style={estilos.infoItem}>
+              <Text style={estilos.infoLabel}>Situação</Text>
+              <Text style={estilos.infoValor}>{item.status}</Text>
+            </View>
           </View>
-        )}
-      </Card>
+
+          {temContrato && (
+            <>
+              <Separador estilo={{ marginTop: 12, marginBottom: 12 }} />
+              <View style={estilos.contratoBox}>
+                <Text style={estilos.contratoTexto}>✅ Contrato enviado por e-mail</Text>
+                <Text style={estilos.contratoSub}>Verifique sua caixa de entrada</Text>
+              </View>
+            </>
+          )}
+
+          {STATUS_GRUPO.pendente.includes(item.status) && (
+            <>
+              <Separador estilo={{ marginTop: 12, marginBottom: 12 }} />
+              <TouchableOpacity style={estilos.btnNegociar} onPress={() => abrirNegociacao(item)}>
+                <Text style={estilos.btnNegociarTexto}>💰 Ver / Fazer contra-oferta</Text>
+                <Text style={{ color: cores.primaria }}>→</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {STATUS_GRUPO.recusada.includes(item.status) && (
+            <View style={estilos.recusadoAviso}>
+              <Text style={estilos.recusadoAvisoTexto}>Candidatura não selecionada.</Text>
+            </View>
+          )}
+        </Card>
       </TouchableOpacity>
     )
   }
