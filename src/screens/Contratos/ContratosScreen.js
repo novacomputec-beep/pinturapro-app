@@ -14,7 +14,7 @@ const formatarData = (data) =>
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'
 
-export default function ContratosScreen() {
+export default function ContratosScreen({ navigation }) {
   const [candidaturas, setCandidaturas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [filtro, setFiltro] = useState('todos')
@@ -94,7 +94,19 @@ export default function ContratosScreen() {
     const temContrato = item.status === 'aprovada'
     const obra = item.obras || item
 
+    const abrirDetalhe = () => navigation?.navigate('DetalheObra', {
+      obra: {
+        id: item.obra_id,
+        titulo: item.obra_titulo || item.titulo,
+        categoria: item.obra_categoria || item.categoria,
+        cidade: item.obra_cidade || item.cidade,
+        uf: item.obra_uf || item.uf,
+        valor: item.obra_valor || item.valor,
+      },
+    })
+
     return (
+      <TouchableOpacity activeOpacity={0.85} onPress={abrirDetalhe}>
       <Card estilo={estilos.card}>
         <View style={estilos.cardTopo}>
           <BadgeStatus status={item.status} />
@@ -153,6 +165,7 @@ export default function ContratosScreen() {
           </View>
         )}
       </Card>
+      </TouchableOpacity>
     )
   }
 

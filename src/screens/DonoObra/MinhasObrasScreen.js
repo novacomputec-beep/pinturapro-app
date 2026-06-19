@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -30,6 +31,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [atualizando, setAtualizando] = useState(false)
   const [aba,   setAba]   = useState(soAba || 'obras')
   const [secao, setSecao] = useState('ativos')
+  const [mostrarBanner, setMostrarBanner] = useState(false)
   const [coords] = useCoordsUsuario()
 
   const buscarDados = async () => {
@@ -42,6 +44,16 @@ export default function MinhasObrasScreen({ navigation, route }) {
       setObrasHistorico(obrasResp.historico || [])
       setReparos(reparosResp.reparos || [])
       setReparosHistorico(reparosResp.historico || [])
+
+      // Banner verde "Parabéns" — exibido uma única vez por sessão de login quando
+      // há ao menos uma obra/reparo com candidatura/interesse ainda sem resposta.
+      const temPendentes =
+        (obrasResp.obras   || []).some(o => Number(o.candidaturas_pendentes) > 0) ||
+        (reparosResp.reparos || []).some(r => Number(r.interesses_pendentes) > 0)
+      if (temPendentes && !bannerInteressadosJaExibido()) {
+        marcarBannerInteressadosExibido()
+        setMostrarBanner(true)
+      }
     } catch (err) {
       console.log('Erro ao buscar dados:', err)
     } finally {
@@ -168,6 +180,17 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={estilos.container}>
+      {mostrarBanner && (
+        <View style={estilos.bannerParabens}>
+          <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s)</Text>
+          <TouchableOpacity
+            onPress={() => setMostrarBanner(false)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={estilos.bannerParabensFechar}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={estilos.header}>
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
@@ -275,6 +298,9 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
 const estilos = StyleSheet.create({
   container:            { flex: 1, backgroundColor: cores.fundo },
+  bannerParabens:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.medio, marginHorizontal: espacos.tela, marginTop: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  bannerParabensTexto:  { flex: 1, color: '#4caf50', fontWeight: '700', fontSize: 13 },
+  bannerParabensFechar: { color: '#4caf50', fontSize: 15, fontWeight: '700', paddingLeft: 12 },
   header:               { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
   saudacao:             { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
   titulo:               { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },

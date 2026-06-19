@@ -832,7 +832,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     )}
                     {!valorAceito && (
                       <View style={estilos.perguntaWrap}>
-                        <Text style={estilos.perguntaLabel}>💰 Propor outro valor (opcional)</Text>
+                        <Text style={estilos.perguntaLabel}>FAZER UMA CONTRAPROPOSTA (opcional) – R$</Text>
                         <TextInput
                           style={estilos.input}
                           placeholder="Ex: 350,00"

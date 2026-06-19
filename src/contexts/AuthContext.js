@@ -5,6 +5,7 @@ import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 import { authService } from '../services/api'
 import api from '../services/api'
+import { resetarFlagsSessao } from '../utils/sessao'
 
 const AuthContext = createContext({})
 
@@ -91,6 +92,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, senha) => {
     const resposta = await authService.login(email, senha)
+    resetarFlagsSessao()
     await SecureStore.setItemAsync('token', resposta.token)
     setUsuario(resposta.usuario)
     setAssinatura(resposta.assinatura)
@@ -100,6 +102,7 @@ export const AuthProvider = ({ children }) => {
 
   // Função usada após cadastro — recebe token e dados diretamente
   const loginComToken = async (token, usuarioDados, assinaturaDados) => {
+    resetarFlagsSessao()
     await SecureStore.setItemAsync('token', token)
     setUsuario(usuarioDados)
     setAssinatura(assinaturaDados || null)
@@ -107,6 +110,7 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
+    resetarFlagsSessao()
     await SecureStore.deleteItemAsync('token')
     setUsuario(null)
     setAssinatura(null)
