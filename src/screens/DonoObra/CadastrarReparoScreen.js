@@ -12,12 +12,15 @@ import { useFocusEffect } from '@react-navigation/native'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const MAX_UPLOAD_RETRIES = 2
-const xhrUpload = (url, form) => new Promise((resolve, reject) => {
+const TIMEOUT_FOTO  = 45000    // 45s — fotos são pequenas (quality 0.6)
+const TIMEOUT_VIDEO = 180000   // 180s — vídeos são muito maiores; 45s estourava em conexões móveis
+// isVideo ajusta o timeout; backoff exponencial (2s, 6s, 18s) entre tentativas
+const xhrUpload = (url, form, { isVideo = false } = {}) => new Promise((resolve, reject) => {
   const attempt = (n) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
-    xhr.timeout = 45000
-    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000); else rejeitar() }
+    xhr.timeout = isVideo ? TIMEOUT_VIDEO : TIMEOUT_FOTO
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000 * Math.pow(3, n)); else rejeitar() }
     xhr.onload = () => {
       try { resolve(JSON.parse(xhr.responseText)) }
       catch (e) {
@@ -26,7 +29,7 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
       }
     }
     xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
-    xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da mídia')))
+    xhr.ontimeout = () => retryOu(() => { const e = new Error('Tempo esgotado no upload da mídia'); e.code = 'UPLOAD_TIMEOUT'; reject(e) })
     xhr.send(form)
   }
   attempt(0)
@@ -204,7 +207,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     await Audio.requestPermissionsAsync()
     const resultado = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      videoMaxDuration: 60,
+      videoMaxDuration: 30,
       videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
       videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
       allowsEditing: false,
@@ -220,7 +223,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsMultipleSelection: true,
       quality: 0.6,
-      videoMaxDuration: 60,
+      videoMaxDuration: 30,
     })
     if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
   }
@@ -242,7 +245,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     cloudForm.append('signature', params.signature)
     cloudForm.append('api_key', params.api_key)
     cloudForm.append('folder', params.folder)
-    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/${isVideo ? 'video' : 'image'}/upload`, cloudForm)
+    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/${isVideo ? 'video' : 'image'}/upload`, cloudForm, { isVideo })
     if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
     await api.post('/upload/reparo-url', { reparo_id: reparoId, url: cloudData.secure_url, tipo, ordem })
   }
@@ -270,9 +273,13 @@ export default function CadastrarReparoScreen({ navigation }) {
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
         [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }], { cancelable: false })
     } else {
+      const temVideoFalho = falhas.some(f => f.midia?.type === 'video')
+      const dicaVideo = temVideoFalho
+        ? '\n\n📹 Vídeos grandes podem falhar em conexões lentas — tente novamente em Wi-Fi ou grave um vídeo mais curto.'
+        : ''
       Alert.alert(
         '⚠️ Reparo criado',
-        `Seu reparo foi criado, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?`,
+        `Seu reparo foi criado, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
           { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(falhas, reparoId) } },
           { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Meus Reparos') },
