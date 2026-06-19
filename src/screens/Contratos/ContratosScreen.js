@@ -14,6 +14,17 @@ const formatarData = (data) =>
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'
 
+// O backend grava candidaturas com dois vocabulários, conforme o fluxo usado:
+//   • aceitar/recusar via DetalheObra (/obras/:id/candidatura/:id/responder) → 'aceito'/'recusado'
+//   • aprovar/recusar legado (/candidaturas/:id/aprovar|recusar)            → 'aprovada'/'recusada'
+// Os grupos abaixo normalizam ambos para filtros e renderização. 'contraproposta_dono'
+// (negociação em aberto) entra em Pendentes.
+const STATUS_GRUPO = {
+  pendente: ['pendente', 'contraproposta_dono'],
+  aprovada: ['aceito', 'aprovada'],
+  recusada: ['recusado', 'recusada'],
+}
+
 export default function ContratosScreen({ navigation }) {
   const [candidaturas, setCandidaturas] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -88,10 +99,10 @@ export default function ContratosScreen({ navigation }) {
   const emAndamento = lista.filter(c => c.obra_status !== 'encerrada')
   const dadosFiltrados = filtro === 'todos'
     ? emAndamento
-    : emAndamento.filter(c => c.status === filtro)
+    : emAndamento.filter(c => (STATUS_GRUPO[filtro] || [filtro]).includes(c.status))
 
   const renderItem = ({ item }) => {
-    const temContrato = item.status === 'aprovada'
+    const temContrato = STATUS_GRUPO.aprovada.includes(item.status)
     const obra = item.obras || item
 
     const abrirDetalhe = () => navigation?.navigate('DetalheObra', {
@@ -149,7 +160,7 @@ export default function ContratosScreen({ navigation }) {
           </>
         )}
 
-        {item.status === 'pendente' && (
+        {STATUS_GRUPO.pendente.includes(item.status) && (
           <>
             <Separador estilo={{ marginTop: 12, marginBottom: 12 }} />
             <TouchableOpacity style={estilos.btnNegociar} onPress={() => abrirNegociacao(item)}>
@@ -159,7 +170,7 @@ export default function ContratosScreen({ navigation }) {
           </>
         )}
 
-        {item.status === 'recusada' && (
+        {STATUS_GRUPO.recusada.includes(item.status) && (
           <View style={estilos.recusadoAviso}>
             <Text style={estilos.recusadoAvisoTexto}>Candidatura não selecionada.</Text>
           </View>

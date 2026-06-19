@@ -53,6 +53,10 @@ export const BadgeStatus = ({ status }) => {
     pendente:   { cor: cores.primaria,  fundo: cores.primariaSuave, texto: 'Pendente'    },
     aprovada:   { cor: cores.sucesso,   fundo: cores.sucessoSuave,  texto: 'Aprovada'    },
     recusada:   { cor: cores.perigo,    fundo: cores.perigoSuave,   texto: 'Recusada'    },
+    // Vocabulário do fluxo aceitar/recusar via DetalheObra (espelha aprovada/recusada)
+    aceito:              { cor: cores.sucesso,  fundo: cores.sucessoSuave,  texto: 'Aceita'         },
+    recusado:            { cor: cores.perigo,   fundo: cores.perigoSuave,   texto: 'Recusada'       },
+    contraproposta_dono: { cor: cores.primaria, fundo: cores.primariaSuave, texto: 'Contraproposta' },
   }
   const cfg = configs[status] || configs.encerrada
   return (
