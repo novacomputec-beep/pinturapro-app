@@ -6,3 +6,6 @@ build/
 .env
 .env.local
 ios/
+
+# Credenciais FCM (fornecidas via EAS file secret, nao versionadas)
+google-services.json
