@@ -80,13 +80,16 @@ export const AuthProvider = ({ children }) => {
   const registrarPushToken = async () => {
     try {
       const { status } = await Notifications.requestPermissionsAsync()
-      if (status !== 'granted') return
+      if (status !== 'granted') {
+        console.warn('[Push] permissão de notificação negada | status:', status)
+        return
+      }
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: Constants.expoConfig?.extra?.projectId || 'bf289259-dbe3-429f-9032-dcaca21f0a8a' })
       const pushToken = tokenData.data
       await api.post('/auth/push-token', { token: pushToken })
-      console.log('Push token registrado:', pushToken)
+      console.log('[Push] token registrado:', pushToken)
     } catch (err) {
-      console.log('Erro ao registrar push token:', err)
+      console.warn('[Push] falha ao registrar push token | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message)
     }
   }
 
