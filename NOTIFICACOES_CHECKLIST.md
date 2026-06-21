@@ -34,3 +34,23 @@ executados pelo Luiz; os de código/config já estão commitados.
 - [ ] Build Android conclui sem erro de `googleServicesFile` ausente
 - [ ] App registra o push token após login (log `[Push] token registrado:`)
 - [ ] Envio de teste chega ao dispositivo; recibos não retornam `DeviceNotRegistered`
+
+---
+
+# Pagamentos — Webhook PagBank (cutover monitor → enforce)
+
+A verificação de assinatura `x-authenticity-token` (SHA-256 `{token}-{payload}`)
+já está no código, rodando em **modo monitor** (padrão). Ainda NÃO rejeita nada —
+só loga `match=true/false` e processa o evento mesmo assim.
+
+- [ ] Deploy do `pinturapro-api` com a verificação (commit `91699ec`, bump `ee2402b2`)
+- [ ] **Fase monitor:** acompanhar os logs do Railway em pagamentos reais e confirmar
+      que o webhook JSON autenticado loga
+      `[webhook-pagbank] assinatura match=true | modo=monitor`
+      (a 2ª notificação legada — urlencoded, sem header — loga `match=false`, esperado)
+- [ ] **Cutover p/ enforce:** depois de ver `match=true` em alguns webhooks reais,
+      definir `WEBHOOK_ENFORCE_SIGNATURE=true` no Railway (`pinturapro-api` → Variables)
+      e redeploy. A partir daí, eventos sem assinatura válida são ignorados (ainda
+      respondendo 2xx p/ a PagBank não reenviar).
+- [ ] Reverter, se preciso: remover a env var ou defini-la com valor diferente de
+      `true` e redeploy (volta ao modo monitor).
