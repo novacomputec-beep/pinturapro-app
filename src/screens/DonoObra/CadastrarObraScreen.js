@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
@@ -9,6 +9,8 @@ import { Audio } from 'expo-av'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
+import { useFocusEffect } from '@react-navigation/native'
+import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const CATEGORIAS = [
@@ -80,6 +82,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
+  const [mostrarBanner, setMostrarBanner] = useState(false)
   const enviandoRef = useRef(false)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
@@ -87,6 +90,26 @@ export default function CadastrarObraScreen({ navigation }) {
   useEffect(() => {
     return () => { montadoRef.current = false }
   }, [])
+
+  // Banner "Parabéns" também na aba inicial (Nova Obra) — uma vez por sessão,
+  // com flag própria (independente da aba Minhas Obras).
+  useFocusEffect(useCallback(() => {
+    let ativo = true
+    ;(async () => {
+      if (bannerInteressadosHomeJaExibido()) return
+      try {
+        const resp = await api.get('/obras/minhas')
+        const temPendentes = (resp.obras || []).some(o => Number(o.candidaturas_pendentes) > 0)
+        if (temPendentes && ativo && !bannerInteressadosHomeJaExibido()) {
+          marcarBannerInteressadosHomeExibido()
+          setMostrarBanner(true)
+        }
+      } catch (err) {
+        console.log('[CadastrarObra] falha ao checar pendentes p/ banner | code:', err.code)
+      }
+    })()
+    return () => { ativo = false }
+  }, []))
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -297,6 +320,17 @@ export default function CadastrarObraScreen({ navigation }) {
 
   return (
     <SafeAreaView style={estilos.container}>
+      {mostrarBanner && (
+        <View style={estilos.bannerParabens}>
+          <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s)</Text>
+          <TouchableOpacity
+            onPress={() => setMostrarBanner(false)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={estilos.bannerParabensFechar}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
@@ -412,6 +446,9 @@ export default function CadastrarObraScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
+  bannerParabens:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.medio, marginHorizontal: espacos.tela, marginTop: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  bannerParabensTexto:  { flex: 1, color: '#4caf50', fontWeight: '700', fontSize: 13 },
+  bannerParabensFechar: { color: '#4caf50', fontSize: 15, fontWeight: '700', paddingLeft: 12 },
   btnVoltar: { marginTop: 60, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
