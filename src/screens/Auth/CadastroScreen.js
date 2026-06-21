@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -126,26 +127,6 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   }
   attempt(0)
 })
-
-// Reexecuta uma chamada de rede uma vez em caso de erro transitório (cold start /
-// handover de rede). Cobre erro de rede "duro" (ERR_NETWORK), timeout (ECONNABORTED)
-// e 5xx — todos típicos de cold start e com a mesma causa raiz transitória.
-// NÃO usar em chamadas não-idempotentes (ex.: POST /auth/cadastro) — só envolver
-// pré-checagens e GETs seguros de repetir.
-const comRetry = async (fn) => {
-  try {
-    return await fn()
-  } catch (err) {
-    const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
-    const isTimeout = err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')
-    const isServidor = err.status >= 500
-    if (isNetwork || isTimeout || isServidor) {
-      await new Promise(r => setTimeout(r, 2000))
-      return await fn()
-    }
-    throw err
-  }
-}
 
 const classificarErro = (err) => {
   if (err?.code === 'ECONNABORTED' || err?.message?.toLowerCase().includes('timeout')) return 'TIMEOUT'
@@ -301,7 +282,7 @@ export default function CadastroScreen({ navigation }) {
     console.log(`[upload][${tipo}] ▶ step2 GET /upload/assinatura-publica`)
     let params
     try {
-      params = await comRetry(() => api.get('/upload/assinatura-publica'))
+      params = await comRetry(() => api.get('/upload/assinatura-publica'), { timeout: true, servidor: true })
       console.log(`[upload][${tipo}] ✓ step2 assinatura ok | timestamp=${params.timestamp} folder=${params.folder}`)
     } catch (err) {
       const kind = classificarErro(err)
@@ -337,7 +318,7 @@ export default function CadastroScreen({ navigation }) {
         await comRetry(() => api.post('/auth/verificar-disponibilidade', {
           email: email.trim().toLowerCase(),
           cpf_cnpj: cpfCnpj.trim(),
-        }))
+        }), { timeout: true, servidor: true })
         console.log('[cadastro] ✓ step1 disponibilidade ok')
       } catch (err) {
         const kind = classificarErro(err)

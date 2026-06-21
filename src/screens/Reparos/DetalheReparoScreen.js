@@ -8,6 +8,7 @@ import { Video, ResizeMode } from 'expo-av'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
+import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
@@ -175,19 +176,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
       console.log('Erro ao buscar reparo:', err)
     } finally {
       if (mountedRef.current) setCarregando(false)
-    }
-  }
-
-  const comRetry = async (fn) => {
-    try {
-      return await fn()
-    } catch (err) {
-      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
-      if (isNetwork) {
-        await new Promise(r => setTimeout(r, 2000))
-        return await fn()
-      }
-      throw err
     }
   }
 

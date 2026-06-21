@@ -8,6 +8,7 @@ import { Image } from 'react-native'
 import { Audio } from 'expo-av'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const CATEGORIAS = [
@@ -50,20 +51,6 @@ const xhrUpload = (url, form, { isVideo = false } = {}) => new Promise((resolve,
   }
   attempt(0)
 })
-
-// Reexecuta uma chamada de rede uma vez em caso de erro de rede transitório (cold start)
-const comRetry = async (fn) => {
-  try {
-    return await fn()
-  } catch (err) {
-    const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
-    if (isNetwork) {
-      await new Promise(r => setTimeout(r, 2000))
-      return await fn()
-    }
-    throw err
-  }
-}
 
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
 const gerarRequestId = () =>
