@@ -92,6 +92,15 @@ const navegarParaNotificacao = (data) => {
       case 'obra_encerrada':
       case 'reparo_encerrado':
         navegar(ehPrestador ? 'Contratos Finalizados' : tabEmAndamento); break
+      // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe
+      case 'candidatura_aceita':
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        else navegar(tabEmAndamento)
+        break
+      case 'interesse_aceito':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        else navegar(tabEmAndamento)
+        break
       // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
       // negociações em andamento — vão para a lista correspondente do usuário
       case 'nova_candidatura':
@@ -100,14 +109,12 @@ const navegarParaNotificacao = (data) => {
       case 'match_reparo':
       case 'pedido_tempo':
       case 'aprovar_tempo':
-      case 'interesse_aceito':
       case 'interesse_recusado':
       case 'contraproposta_dono':
       case 'contra_oferta':
       case 'perguntar_tempo':
       case 'tempo_aceito':
       case 'tempo_recusado':
-      case 'candidatura_aceita':
       case 'candidatura_aprovada':
       case 'candidatura_recusada':
         navegar(tabEmAndamento); break
