@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
 } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
@@ -138,8 +138,12 @@ const classificarErro = (err) => {
 
 export default function CadastroScreen({ navigation }) {
   const { loginComToken } = useAuth()
+  const montadoRef = useRef(true)
 
-  useEffect(() => { api.get('/health').catch(err => console.log('[CadastroScreen] falha no warmup /health | code:', err.code, '| msg:', err.mensagem)) }, [])
+  useEffect(() => {
+    api.get('/health').catch(err => console.log('[CadastroScreen] falha no warmup /health | code:', err.code, '| msg:', err.mensagem))
+    return () => { montadoRef.current = false }
+  }, [])
 
   const [tipoConta, setTipoConta] = useState(null)
   const [passo, setPasso] = useState(0)
@@ -154,6 +158,11 @@ export default function CadastroScreen({ navigation }) {
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [cidade, setCidade] = useState('')
   const [uf, setUf] = useState('')
+  const [cep, setCep] = useState('')
+  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
+  const [latitude, setLatitude] = useState(null)
+  const [longitude, setLongitude] = useState(null)
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
@@ -237,8 +246,47 @@ export default function CadastroScreen({ navigation }) {
     return Object.keys(novos).length === 0
   }
 
+  // Mesmo padrão do fluxo do dono: ViaCEP preenche estado/cidade e o Nominatim
+  // geocodifica para latitude/longitude (best-effort — não bloqueia o cadastro).
+  // Sem logradouro, o geocode resolve no centro da cidade, suficiente como base.
+  const buscarCep = async (cepDigitado) => {
+    const cepLimpo = cepDigitado.replace(/\D/g, '')
+    setCep(cepLimpo)
+    setLatitude(null)
+    setLongitude(null)
+    setEnderecoEncontrado(false)
+    if (cepLimpo.length !== 8) return
+    setBuscandoCep(true)
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+      const dados = await resp.json()
+      if (dados.erro) { Alert.alert('CEP não encontrado', 'Verifique o CEP informado.'); return }
+      if (montadoRef.current) {
+        setCidade(dados.localidade || '')
+        setUf(dados.uf || '')
+        setEnderecoEncontrado(true)
+      }
+      const endereco = `${dados.localidade}, ${dados.uf}, Brasil`
+      const geoResp = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'PinturaPro/1.0' } }
+      )
+      const geoData = await geoResp.json()
+      if (geoData.length > 0 && montadoRef.current) {
+        setLatitude(parseFloat(geoData[0].lat))
+        setLongitude(parseFloat(geoData[0].lon))
+      }
+    } catch (err) {
+      console.log('[Cadastro] falha ao buscar CEP | msg:', err.message)
+      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
+    } finally {
+      if (montadoRef.current) setBuscandoCep(false)
+    }
+  }
+
   const validarPasso2 = () => {
     const novos = {}
+    if (isPrestador && (!cep || cep.length !== 8)) novos.cep = 'Informe um CEP válido'
     if (!uf.trim()) novos.uf = 'Selecione o estado'
     if (!cidade.trim()) novos.cidade = 'Selecione a cidade'
     if (!cpfCnpj.trim()) {
@@ -373,6 +421,9 @@ export default function CadastroScreen({ navigation }) {
         plano: isPrestador ? planoSelecionado : null,
         pais: 'Brasil',
         uf: uf.trim(),
+        cep: isPrestador ? (cep || null) : null,
+        latitude: isPrestador ? latitude : null,
+        longitude: isPrestador ? longitude : null,
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
         especialidades: isPrestador
@@ -551,6 +602,16 @@ export default function CadastroScreen({ navigation }) {
                 <Text style={{ fontSize: 12, color: cores.textoFraco, marginBottom: 16, lineHeight: 18 }}>
                   ⚠️ Informe seus dados e endereço atual, não o endereço da obra (se forem diferentes)
                 </Text>
+              )}
+              {isPrestador && (
+                <>
+                  <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
+                  <View style={estilos.cepRow}>
+                    <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
+                    {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
+                    {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
+                  </View>
+                </>
               )}
               <SeletorLocalidade
                 uf={uf}
@@ -785,4 +846,7 @@ const estilos = StyleSheet.create({
   enviandoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
   enviandoTexto: { fontSize: 13, color: cores.textoMedio },
   erroTexto: { fontSize: 11, color: cores.perigo, marginTop: 4 },
+  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
+  dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: 12 },
 })
