@@ -208,14 +208,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const handleMatch = async () => {
+    const MSG_SUCESSO = 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝'
+    const aplicarSucesso = (matchFeitoEm) => {
+      setReparo(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id }))
+      Alert.alert('✅ Confirmado!', MSG_SUCESSO)
+    }
     Alert.alert('🔧 Confirmar ida ao local?', 'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Confirmar', onPress: async () => {
         try {
           const resposta = await comRetry(() => api.post(`/reparos/${reparo.id}/match`, {}))
-          setReparo(prev => ({ ...prev, match_feito_em: resposta.match_feito_em, match_usuario_id: usuario.id }))
-          Alert.alert('✅ Confirmado!', 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝')
-        } catch (err) { console.log('[DetalheReparo] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.') }
+          aplicarSucesso(resposta.match_feito_em)
+        } catch (err) {
+          console.log('[DetalheReparo] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+          // A 1ª tentativa pode ter dado certo no servidor mas a resposta se perdeu
+          // (troca de rede), ou o retry recebeu 409 "já tem prestador". Reconsulta:
+          // se o match já for deste prestador, trata como sucesso em vez de erro confuso.
+          try {
+            const atual = await api.get(`/reparos/${reparo.id}`)
+            if (atual?.reparo?.match_usuario_id === usuario.id) { aplicarSucesso(atual.reparo.match_feito_em); return }
+          } catch (e2) { console.log('[DetalheReparo] reconsulta pós-match falhou | code:', e2.code) }
+          Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
+        }
       }}
     ])
   }
