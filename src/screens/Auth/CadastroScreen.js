@@ -127,13 +127,19 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   attempt(0)
 })
 
-// Reexecuta uma chamada de rede uma vez em caso de erro transitório (cold start)
+// Reexecuta uma chamada de rede uma vez em caso de erro transitório (cold start /
+// handover de rede). Cobre erro de rede "duro" (ERR_NETWORK), timeout (ECONNABORTED)
+// e 5xx — todos típicos de cold start e com a mesma causa raiz transitória.
+// NÃO usar em chamadas não-idempotentes (ex.: POST /auth/cadastro) — só envolver
+// pré-checagens e GETs seguros de repetir.
 const comRetry = async (fn) => {
   try {
     return await fn()
   } catch (err) {
     const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
-    if (isNetwork) {
+    const isTimeout = err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout')
+    const isServidor = err.status >= 500
+    if (isNetwork || isTimeout || isServidor) {
       await new Promise(r => setTimeout(r, 2000))
       return await fn()
     }
