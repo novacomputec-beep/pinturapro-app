@@ -32,6 +32,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [aba,   setAba]   = useState(soAba || 'obras')
   const [secao, setSecao] = useState('ativos')
   const [mostrarBanner, setMostrarBanner] = useState(false)
+  const [itemPendente, setItemPendente] = useState(null)
   const [coords] = useCoordsUsuario()
 
   const buscarDados = async () => {
@@ -47,11 +48,12 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
       // Banner verde "Parabéns" — exibido uma única vez por sessão de login quando
       // há ao menos uma obra/reparo com candidatura/interesse ainda sem resposta.
-      const temPendentes =
-        (obrasResp.obras   || []).some(o => Number(o.candidaturas_pendentes) > 0) ||
-        (reparosResp.reparos || []).some(r => Number(r.interesses_pendentes) > 0)
-      if (temPendentes && !bannerInteressadosJaExibido()) {
+      const obraPend   = (obrasResp.obras     || []).find(o => Number(o.candidaturas_pendentes) > 0)
+      const reparoPend = (reparosResp.reparos || []).find(r => Number(r.interesses_pendentes) > 0)
+      const pend = obraPend ? { tipo: 'obra', item: obraPend } : reparoPend ? { tipo: 'reparo', item: reparoPend } : null
+      if (pend && !bannerInteressadosJaExibido()) {
         marcarBannerInteressadosExibido()
+        setItemPendente(pend)
         setMostrarBanner(true)
       }
     } catch (err) {
@@ -182,7 +184,16 @@ export default function MinhasObrasScreen({ navigation, route }) {
     <SafeAreaView style={estilos.container}>
       {mostrarBanner && (
         <View style={estilos.bannerParabens}>
-          <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s)</Text>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => {
+              setMostrarBanner(false)
+              if (itemPendente?.tipo === 'obra')   navigation.navigate('DetalheObra',   { obra: itemPendente.item })
+              if (itemPendente?.tipo === 'reparo') navigation.navigate('DetalheReparo', { reparo: itemPendente.item })
+            }}
+          >
+            <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – você recebeu interessado(s) · toque para ver</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setMostrarBanner(false)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

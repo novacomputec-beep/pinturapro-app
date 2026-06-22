@@ -163,6 +163,10 @@ export default function CadastroScreen({ navigation }) {
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [latitude, setLatitude] = useState(null)
   const [longitude, setLongitude] = useState(null)
+  const [logradouro, setLogradouro] = useState('')
+  const [numero, setNumero] = useState('')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState('')
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
@@ -264,9 +268,11 @@ export default function CadastroScreen({ navigation }) {
       if (montadoRef.current) {
         setCidade(dados.localidade || '')
         setUf(dados.uf || '')
+        setLogradouro(dados.logradouro || '')
+        setBairro(dados.bairro || '')
         setEnderecoEncontrado(true)
       }
-      const endereco = `${dados.localidade}, ${dados.uf}, Brasil`
+      const endereco = [dados.logradouro, dados.bairro, dados.localidade, dados.uf, 'Brasil'].filter(Boolean).join(', ')
       const geoResp = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
         { headers: { 'User-Agent': 'PinturaPro/1.0' } }
@@ -424,6 +430,10 @@ export default function CadastroScreen({ navigation }) {
         cep: isPrestador ? (cep || null) : null,
         latitude: isPrestador ? latitude : null,
         longitude: isPrestador ? longitude : null,
+        logradouro: isPrestador ? (logradouro.trim() || null) : null,
+        numero: isPrestador ? (numero.trim() || null) : null,
+        complemento: isPrestador ? (complemento.trim() || null) : null,
+        bairro: isPrestador ? (bairro.trim() || null) : null,
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
         especialidades: isPrestador
@@ -605,12 +615,18 @@ export default function CadastroScreen({ navigation }) {
               )}
               {isPrestador && (
                 <>
-                  <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
+                  <Text style={estilos.dicaCep}>Comece pelo CEP — endereço, estado e cidade são preenchidos automaticamente</Text>
                   <View style={estilos.cepRow}>
                     <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
                     {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
                     {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
                   </View>
+                  <Input label="LOGRADOURO (rua/avenida)" placeholder="Preenchido pelo CEP" value={logradouro} onChangeText={setLogradouro} />
+                  <View style={estilos.duasColunas}>
+                    <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" estilo={{ flex: 1 }} />
+                    <Input label="COMPLEMENTO" placeholder="Apto/bloco (opcional)" value={complemento} onChangeText={setComplemento} estilo={{ flex: 2 }} />
+                  </View>
+                  <Input label="BAIRRO" placeholder="Preenchido pelo CEP" value={bairro} onChangeText={setBairro} />
                 </>
               )}
               <SeletorLocalidade

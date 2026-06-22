@@ -8,6 +8,8 @@ import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios } from '../utils/tema'
 import api from '../services/api'
+import { navigationRef } from './navigationRef'
+import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 
 // Auth
 import SplashScreen        from '../screens/Auth/SplashScreen'
@@ -54,7 +56,7 @@ const ContratosFinReparoStack   = createNativeStackNavigator()
 const DonoReparoTab        = createBottomTabNavigator()
 const DonoObraTab          = createBottomTabNavigator()
 
-export const navigationRef = React.createRef()
+export { navigationRef }
 
 // Contexto do usuário atual para roteamento de notificações ciente do papel/subtipo.
 // Os nomes de aba variam por navegador montado (pintor vs reparador vs dono), então
@@ -517,6 +519,7 @@ export default function AppNavigator() {
           </>
         )}
       </Stack.Navigator>
+      {usuario && <CelebracaoMatchHost />}
     </NavigationContainer>
   )
 }

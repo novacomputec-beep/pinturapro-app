@@ -83,6 +83,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
   const [mostrarBanner, setMostrarBanner] = useState(false)
+  const [obraPendente, setObraPendente] = useState(null)
   const enviandoRef = useRef(false)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
@@ -99,9 +100,10 @@ export default function CadastrarObraScreen({ navigation }) {
       if (bannerInteressadosHomeJaExibido()) return
       try {
         const resp = await api.get('/obras/minhas')
-        const temPendentes = (resp.obras || []).some(o => Number(o.candidaturas_pendentes) > 0)
-        if (temPendentes && ativo && !bannerInteressadosHomeJaExibido()) {
+        const pendente = (resp.obras || []).find(o => Number(o.candidaturas_pendentes) > 0)
+        if (pendente && ativo && !bannerInteressadosHomeJaExibido()) {
           marcarBannerInteressadosHomeExibido()
+          setObraPendente(pendente)
           setMostrarBanner(true)
         }
       } catch (err) {
@@ -218,9 +220,11 @@ export default function CadastrarObraScreen({ navigation }) {
   const uploadUmaMidia = async ({ midia, ordem }, obraId) => {
     const isVideo = midia.type === 'video'
     const tipo = isVideo ? 'video' : 'foto'
-    const params = isVideo
-      ? await api.get('/upload/assinatura-cloudinary')
-      : await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } })
+    // GET idempotente; comRetry cobre timeout/5xx de cold start do Railway
+    const params = await comRetry(() => isVideo
+      ? api.get('/upload/assinatura-cloudinary')
+      : api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } }),
+      { timeout: true, servidor: true })
     const cloudForm = new FormData()
     cloudForm.append('file', isVideo
       ? { uri: midia.uri, type: 'video/mp4', name: `video_${ordem}.mp4` }
@@ -231,7 +235,8 @@ export default function CadastrarObraScreen({ navigation }) {
     cloudForm.append('folder', params.folder)
     const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/${isVideo ? 'video' : 'image'}/upload`, cloudForm, { isVideo })
     if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
-    await api.post('/upload/obra-url', { obra_id: obraId, url: cloudData.secure_url, tipo, ordem })
+    // Idempotente por slot (obra_id, ordem) no backend; seguro repetir em cold start
+    await comRetry(() => api.post('/upload/obra-url', { obra_id: obraId, url: cloudData.secure_url, tipo, ordem }), { timeout: true, servidor: true })
   }
 
   // Envia a lista de mídias isolando cada item; retorna apenas as que falharam
@@ -322,7 +327,15 @@ export default function CadastrarObraScreen({ navigation }) {
     <SafeAreaView style={estilos.container}>
       {mostrarBanner && (
         <View style={estilos.bannerParabens}>
-          <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s)</Text>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={() => {
+              setMostrarBanner(false)
+              if (obraPendente) navigation.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: obraPendente } })
+            }}
+          >
+            <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s) · toque para ver</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setMostrarBanner(false)}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

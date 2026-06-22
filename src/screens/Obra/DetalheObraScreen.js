@@ -190,6 +190,18 @@ export default function DetalheObraScreen({ route, navigation }) {
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       console.log('[DetalheObra] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // A 1ª tentativa pode ter sido aceita no servidor mas a resposta se perdeu (troca
+      // de rede), ou o retry recebeu 409 "já se candidatou". Reconsulta: se a candidatura
+      // já existir para este usuário, trata como sucesso em vez de erro confuso.
+      try {
+        const atual = await obrasService.detalhe(obra.id)
+        if (atual?.minha_candidatura) {
+          setMinhaCandidatura(atual.minha_candidatura)
+          setMostrarForm(false)
+          Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+          return
+        }
+      } catch (e2) { console.log('[DetalheObra] reconsulta pós-interesse falhou | code:', e2.code) }
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
@@ -506,7 +518,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           {(obra.valor || obra.valor_estimado) && (
             <View style={estilos.valorDestaque}>
               <View>
-                <Text style={estilos.valorDestaqueLabel}>💰 VALOR COMBINADO</Text>
+                <Text style={estilos.valorDestaqueLabel}>💰 {temMatch ? 'VALOR COMBINADO' : 'VALOR PROPOSTO'}</Text>
                 <Text style={estilos.valorDestaqueValor}>
                   R$ {Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
@@ -689,7 +701,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                               style={{ flex: 1, backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 10, alignItems: 'center' }}
                               onPress={() => setContrapropostaCandidaturaId(item.id)}
                             >
-                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contra</Text>
+                              <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contraproposta</Text>
                             </TouchableOpacity>
                           </View>
                         )}
