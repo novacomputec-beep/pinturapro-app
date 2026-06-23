@@ -57,6 +57,20 @@ const URGENCIAS = [
   { id: 72,  label: '📆 Esta semana', desc: 'Flexível'        },
 ]
 
+// Campos obrigatórios em ordem visual (de cima p/ baixo). Usado para, quando o usuário
+// tenta publicar incompleto, rolar até o 1º campo com erro e exibir um alerta claro —
+// antes a única sinalização era o erro inline (fora da tela, junto ao botão de baixo).
+const CAMPOS_OBRIGATORIOS = [
+  { chave: 'titulo',        msg: 'Por favor, informe o título do reparo antes de continuar.' },
+  { chave: 'urgencia',      msg: 'Selecione o prazo de atendimento antes de continuar.' },
+  { chave: 'descricao',     msg: 'Descreva o reparo necessário antes de continuar.' },
+  { chave: 'valorEstimado', msg: 'Informe quanto você quer pagar antes de continuar.' },
+  { chave: 'cep',           msg: 'Informe um CEP válido antes de continuar.' },
+  { chave: 'numero',        msg: 'Informe o número do endereço antes de continuar.' },
+  { chave: 'uf',            msg: 'Selecione o estado antes de continuar.' },
+  { chave: 'cidade',        msg: 'Selecione a cidade antes de continuar.' },
+]
+
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
 const gerarRequestId = () =>
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -90,6 +104,13 @@ export default function CadastrarReparoScreen({ navigation }) {
   const enviandoRef = useRef(false)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
+  const scrollRef = useRef(null)
+  // Posição vertical (offset no ScrollView) de cada campo obrigatório, para rolar até ele.
+  const camposYRef = useRef({})
+  const registrarY = (...chaves) => (e) => {
+    const y = e.nativeEvent.layout.y
+    chaves.forEach(c => { camposYRef.current[c] = y })
+  }
 
   useEffect(() => {
     return () => { montadoRef.current = false }
@@ -194,7 +215,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
     if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
     setErros(novos)
-    return Object.keys(novos).length === 0
+    return novos
   }
 
   const selecionarMidia = () => setShowMediaPicker(true)
@@ -305,7 +326,20 @@ export default function CadastrarReparoScreen({ navigation }) {
 
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
-    if (!validar()) return
+    // Validação roda ANTES de qualquer chamada de API ou navegação.
+    const novosErros = validar()
+    if (Object.keys(novosErros).length > 0) {
+      Keyboard.dismiss()
+      const primeiro = CAMPOS_OBRIGATORIOS.find(c => novosErros[c.chave])
+      if (primeiro) {
+        const y = camposYRef.current[primeiro.chave]
+        if (scrollRef.current && y != null) {
+          scrollRef.current.scrollTo({ y: Math.max(y - 24, 0), animated: true })
+        }
+        Alert.alert('Campo obrigatório', primeiro.msg)
+      }
+      return
+    }
     enviandoRef.current = true
     setCarregando(true)
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -370,7 +404,7 @@ export default function CadastrarReparoScreen({ navigation }) {
         </View>
       )}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
@@ -383,7 +417,9 @@ export default function CadastrarReparoScreen({ navigation }) {
               <Text style={estilos.avisoTexto}>Mostre o problema e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
             </View>
           </View>
-          <Input label="TÍTULO DO REPARO" placeholder="Ex: Torneira da pia da cozinha vazando" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
+          <View onLayout={registrarY('titulo')}>
+            <Input label="TÍTULO DO REPARO" placeholder="Ex: Torneira da pia da cozinha vazando" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
+          </View>
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
             {CATEGORIAS.map(c => (
@@ -392,21 +428,27 @@ export default function CadastrarReparoScreen({ navigation }) {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={estilos.labelCategoria}>⏰ PRAZO DE ATENDIMENTO</Text>
-          {erros.urgencia && <Text style={estilos.erroTexto}>{erros.urgencia}</Text>}
-          <View style={estilos.urgenciasGrid}>
-            {URGENCIAS.map(u => (
-              <TouchableOpacity key={u.id} style={[estilos.urgenciaCard, urgencia === u.id && estilos.urgenciaCardAtivo]} onPress={() => setUrgencia(u.id)}>
-                <Text style={estilos.urgenciaLabel}>{u.label}</Text>
-                <Text style={estilos.urgenciaDesc}>{u.desc}</Text>
-              </TouchableOpacity>
-            ))}
+          <View onLayout={registrarY('urgencia')}>
+            <Text style={estilos.labelCategoria}>⏰ PRAZO DE ATENDIMENTO</Text>
+            {erros.urgencia && <Text style={estilos.erroTexto}>{erros.urgencia}</Text>}
+            <View style={estilos.urgenciasGrid}>
+              {URGENCIAS.map(u => (
+                <TouchableOpacity key={u.id} style={[estilos.urgenciaCard, urgencia === u.id && estilos.urgenciaCardAtivo]} onPress={() => setUrgencia(u.id)}>
+                  <Text style={estilos.urgenciaLabel}>{u.label}</Text>
+                  <Text style={estilos.urgenciaDesc}>{u.desc}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          <Input label="DESCRIÇÃO DO PROBLEMA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
-          <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
+          <View onLayout={registrarY('descricao')}>
+            <Input label="DESCRIÇÃO DO PROBLEMA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
+          </View>
+          <View onLayout={registrarY('valorEstimado')}>
+            <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
+          </View>
           <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
           <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
-          <View style={estilos.cepRow}>
+          <View style={estilos.cepRow} onLayout={registrarY('cep')}>
             <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
             {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
@@ -414,7 +456,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           {enderecoEncontrado && (
             <>
               <Input label="LOGRADOURO" value={logradouro} onChangeText={setLogradouro} editable={false} estilo={{ backgroundColor: cores.fundoElevado }} />
-              <View style={estilos.duasColunas}>
+              <View style={estilos.duasColunas} onLayout={registrarY('numero')}>
                 <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" erro={erros.numero} estilo={{ flex: 1 }} />
                 <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={setComplemento} estilo={{ flex: 1 }} />
               </View>
@@ -426,13 +468,15 @@ export default function CadastrarReparoScreen({ navigation }) {
               )}
             </>
           )}
-          <SeletorLocalidade
-            uf={uf}
-            cidade={cidade}
-            onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
-            erroEstado={erros.uf}
-            erroCidade={erros.cidade}
-          />
+          <View onLayout={registrarY('uf', 'cidade')}>
+            <SeletorLocalidade
+              uf={uf}
+              cidade={cidade}
+              onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+              erroEstado={erros.uf}
+              erroCidade={erros.cidade}
+            />
+          </View>
           <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
           <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
             <Text style={estilos.uploadIcone}>📎</Text>

@@ -176,7 +176,17 @@ export default function FeedReparosScreen({ navigation }) {
   const [erro, setErro] = useState(null)
   const [coords, setCoords] = useCoordsUsuario()
   const mountedRef = useRef(true)
-  useEffect(() => () => { mountedRef.current = false }, [])
+  // Aborta a requisição em voo quando uma nova seleção de filtro chega (evita corrida
+  // onde uma resposta antiga/lenta sobrescreve a lista de uma seleção mais recente).
+  const abortRef = useRef(null)
+  useEffect(() => () => {
+    mountedRef.current = false
+    abortRef.current?.abort()
+  }, [])
+
+  // Refs com os filtros atuais para o refetch ao reganhar foco, sem recriar o callback.
+  const categoriaRef = useRef(categoria); categoriaRef.current = categoria
+  const distanciaRef = useRef(distancia); distanciaRef.current = distancia
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY_DIST_REPAROS).then(val => {
@@ -184,14 +194,37 @@ export default function FeedReparosScreen({ navigation }) {
     })
   }, [])
 
-  const mudarDistancia = async (val) => {
+  // Atualização otimista: a seleção (highlight) muda na hora; a busca é disparada pelo
+  // useEffect abaixo, independente da chamada de API.
+  const mudarDistancia = (val) => {
     setDistancia(val)
-    await AsyncStorage.setItem(STORAGE_KEY_DIST_REPAROS, val)
-    setCarregando(true)
-    buscarReparos(categoria, val)
+    AsyncStorage.setItem(STORAGE_KEY_DIST_REPAROS, val).catch(() => {})
   }
 
-  const buscarReparos = async (cat = categoria, dist = distancia) => {
+  const mudarCategoria = (cat) => {
+    setCategoria(cat)
+  }
+
+  const buscarReparos = async (cat = categoria, dist = distancia, { refresh = false } = {}) => {
+    // Cancela qualquer requisição anterior ainda em voo.
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    // Spinner com timeout máximo de 10s: se estourar, aborta e mostra erro.
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+      if (mountedRef.current && abortRef.current === controller) {
+        setErro('Tempo limite excedido. Verifique sua conexão e tente novamente.')
+        setCarregando(false)
+        setAtualizando(false)
+      }
+    }, 10000)
+
+    if (!refresh && mountedRef.current) setCarregando(true)
+
     try {
       setErro(null)
       const params = new URLSearchParams()
@@ -204,34 +237,46 @@ export default function FeedReparosScreen({ navigation }) {
             const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
             params.set('lat', String(loc.coords.latitude))
             params.set('lng', String(loc.coords.longitude))
-            if (mountedRef.current) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+            if (mountedRef.current && abortRef.current === controller) {
+              setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+            }
           }
         } catch (err) {
           console.log('[FeedReparos] falha ao obter localização | code:', err.code, '| msg:', err.message)
         }
       }
-      const resposta = await api.get(`/reparos?${params.toString()}`)
-      if (mountedRef.current) setReparos(resposta.reparos || [])
+      const resposta = await api.get(`/reparos?${params.toString()}`, { signal: controller.signal })
+      // Só aplica se ainda for a requisição atual (descarta respostas obsoletas).
+      if (!timedOut && mountedRef.current && abortRef.current === controller) {
+        setReparos(resposta.reparos || [])
+      }
     } catch (err) {
+      // Cancelada (substituída por nova seleção ou pelo timeout): ignora silenciosamente.
+      if (err.code === 'ERR_CANCELED') return
       console.log('[FeedReparos] falha ao buscar reparos | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      if (mountedRef.current) setErro(err.mensagem || 'Erro ao buscar reparos')
+      if (!timedOut && mountedRef.current && abortRef.current === controller) {
+        setErro(err.mensagem || 'Erro ao buscar reparos')
+      }
     } finally {
-      if (mountedRef.current) {
+      clearTimeout(timer)
+      if (!timedOut && mountedRef.current && abortRef.current === controller) {
         setCarregando(false)
         setAtualizando(false)
       }
     }
   }
 
-  useFocusEffect(useCallback(() => { buscarReparos() }, [categoria, distancia]))
+  // Fonte única de busca: dispara na montagem e a cada troca de filtro (uma requisição por troca).
+  useEffect(() => { buscarReparos(categoria, distancia) }, [categoria, distancia])
 
-  const onRefresh = () => { setAtualizando(true); buscarReparos() }
+  // Refetch ao reganhar foco — pula o primeiro foco, já coberto pelo useEffect acima.
+  const primeiroFocoRef = useRef(true)
+  useFocusEffect(useCallback(() => {
+    if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
+    buscarReparos(categoriaRef.current, distanciaRef.current)
+  }, []))
 
-  const mudarCategoria = (cat) => {
-    setCategoria(cat)
-    setCarregando(true)
-    buscarReparos(cat, distancia)
-  }
+  const onRefresh = () => { setAtualizando(true); buscarReparos(categoria, distancia, { refresh: true }) }
 
   return (
     <SafeAreaView style={estilos.container}>
@@ -256,7 +301,7 @@ export default function FeedReparosScreen({ navigation }) {
       {erro && (
         <View style={estilos.erroBox}>
           <Text style={estilos.erroTexto}>{erro}</Text>
-          <TouchableOpacity onPress={buscarReparos} style={{ marginTop: 8 }}>
+          <TouchableOpacity onPress={() => buscarReparos(categoria, distancia)} style={{ marginTop: 8 }}>
             <Text style={{ color: cores.primaria, fontSize: 13 }}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>
