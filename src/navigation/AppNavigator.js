@@ -103,6 +103,11 @@ const navegarParaNotificacao = (data) => {
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
         else navegar(tabEmAndamento)
         break
+      // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
+      case 'reparo_5min_restantes':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        else navegar(tabEmAndamento)
+        break
       // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
       // negociações em andamento — vão para a lista correspondente do usuário
       case 'nova_candidatura':
