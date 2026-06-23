@@ -17,15 +17,19 @@ Notifications.setNotificationHandler({
   }),
 })
 
-const configurarCanalAndroid = () => {
+const configurarCanalAndroid = async () => {
   if (Platform.OS !== 'android') return
-  Notifications.setNotificationChannelAsync('default', {
-    name: 'ArrumaPro',
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#E8833A',
-    sound: true,
-  })
+  try {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'ArrumaPro',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#E8833A',
+      sound: true,
+    })
+  } catch (err) {
+    console.error('[Push] falha ao configurar canal Android | msg:', err?.message, err)
+  }
 }
 
 export const AuthProvider = ({ children }) => {
@@ -78,18 +82,45 @@ export const AuthProvider = ({ children }) => {
   }, [])
 
   const registrarPushToken = async () => {
+    // O canal precisa existir ANTES de pedir o token no Android 8+.
+    await configurarCanalAndroid()
+
+    // Permissão: consulta o estado atual e só dispara o prompt se ainda não concedida.
+    let status
     try {
-      const { status } = await Notifications.requestPermissionsAsync()
-      if (status !== 'granted') {
-        console.warn('[Push] permissão de notificação negada | status:', status)
-        return
+      const atual = await Notifications.getPermissionsAsync()
+      status = atual.status
+      if (status !== 'granted' && atual.canAskAgain !== false) {
+        status = (await Notifications.requestPermissionsAsync()).status
       }
-      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId: Constants.expoConfig?.extra?.projectId || 'bf289259-dbe3-429f-9032-dcaca21f0a8a' })
-      const pushToken = tokenData.data
-      await api.post('/auth/push-token', { token: pushToken })
-      console.log('[Push] token registrado:', pushToken)
     } catch (err) {
-      console.warn('[Push] falha ao registrar push token | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message)
+      console.error('[Push] falha ao obter/solicitar permissão de notificação | msg:', err?.message, err)
+      return
+    }
+    if (status !== 'granted') {
+      console.error('[Push] permissão de notificação NÃO concedida | status:', status, '— token não será gerado')
+      return
+    }
+
+    // projectId: caminho correto é extra.eas.projectId (não extra.projectId).
+    const projectId = Constants.expoConfig?.extra?.eas?.projectId
+      || Constants.easConfig?.projectId
+      || 'bf289259-dbe3-429f-9032-dcaca21f0a8a'
+
+    let pushToken
+    try {
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+      pushToken = tokenData.data
+    } catch (err) {
+      console.error('[Push] getExpoPushTokenAsync FALHOU | projectId:', projectId, '| msg:', err?.message, err)
+      return
+    }
+
+    try {
+      await api.post('/auth/push-token', { token: pushToken })
+      console.log('[Push] token registrado com sucesso | projectId:', projectId, '| token:', pushToken)
+    } catch (err) {
+      console.error('[Push] POST /auth/push-token FALHOU | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message, err)
     }
   }
 
