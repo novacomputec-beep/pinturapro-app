@@ -141,10 +141,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [mostrarContraPrestador, setMostrarContraPrestador] = useState(false)
   const [valorContraPrestador, setValorContraPrestador] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
+  const [encerrando, setEncerrando] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
+  // Após o match, mantém a contagem na tela por ~2 min e então devolve a aba "Meus Reparos"
+  // (ou o feed) à lista, liberando o reparador para navegar/aceitar outros serviços.
+  const autoRetornoRef = useRef(null)
+  useEffect(() => () => { if (autoRetornoRef.current) clearTimeout(autoRetornoRef.current) }, [])
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -224,6 +229,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
     const aplicarSucesso = (matchFeitoEm) => {
       setReparo(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id }))
       Alert.alert('✅ Confirmado!', MSG_SUCESSO)
+      // Auto-retorno à lista após ~2 min. A contagem (RelogioRegressivo) deriva de
+      // match_feito_em — segue valendo e reaparece se o reparo for reaberto; nada é parado.
+      if (autoRetornoRef.current) clearTimeout(autoRetornoRef.current)
+      autoRetornoRef.current = setTimeout(() => {
+        if (mountedRef.current && navigation.canGoBack()) navigation.popToTop()
+      }, 120000)
     }
     Alert.alert('🔧 Confirmar ida ao local?', 'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.', [
       { text: 'Cancelar', style: 'cancel' },
@@ -251,10 +262,58 @@ export default function DetalheReparoScreen({ route, navigation }) {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Encerrar', onPress: async () => {
         try {
-          await api.post(`/reparos/${reparo.id}/encerrar`, {})
+          await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
           Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
         } catch (err) { console.log('[DetalheReparo] falha ao encerrar reparo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
+    ])
+  }
+
+  // Encerramento pelo PRESTADOR (reparador). Separado do handleEncerrar do dono para não
+  // alterar o fluxo do dono_reparo. Usa comRetry (build 70) porque o ERR_NETWORK repetido
+  // forçava o prestador a tocar várias vezes; o endpoint /encerrar é idempotente no servidor
+  // (apenas seta status='encerrada'), então é seguro reexecutar.
+  const handleEncerrarPrestador = () => {
+    // Pós-sucesso: atualiza o estado local (o reparo sai imediatamente de "ativos" — o feed
+    // e Meus Reparos refazem a busca ao focar) e leva o prestador aos Contratos Finalizados,
+    // onde o reparo encerrado passa a aparecer — sem precisar reiniciar o app.
+    const concluirComSucesso = () => {
+      if (mountedRef.current) setReparo(prev => ({ ...prev, status: 'encerrada', status_aprovacao: 'encerrada' }))
+      Alert.alert('✅ Serviço encerrado!', 'O reparo foi concluído com sucesso e movido para Contratos Finalizados.', [
+        { text: 'OK', onPress: () => navigation.navigate('Contratos Finalizados') },
+      ])
+    }
+    const executar = async () => {
+      if (encerrando) return
+      setEncerrando(true)
+      try {
+        await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
+        concluirComSucesso()
+      } catch (err) {
+        console.log('[DetalheReparo] falha ao encerrar (prestador) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        // A 1ª tentativa pode ter sido aceita no servidor mas a resposta se perdeu (troca de
+        // rede). Reconsulta: se o reparo já estiver encerrado, trata como sucesso — mesmo
+        // padrão de handleMatch/handleInteresse.
+        try {
+          const atual = await api.get(`/reparos/${reparo.id}`)
+          if (atual?.reparo?.status === 'encerrada') { concluirComSucesso(); return }
+        } catch (e2) { console.log('[DetalheReparo] reconsulta pós-encerrar falhou | code:', e2.code) }
+        const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+        if (isNetwork) {
+          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+            { text: 'Tentar novamente', onPress: executar },
+            { text: 'Cancelar', style: 'cancel' },
+          ])
+        } else {
+          Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.')
+        }
+      } finally {
+        if (mountedRef.current) setEncerrando(false)
+      }
+    }
+    Alert.alert('✅ Encerrar serviço?', 'Confirme que o serviço foi concluído. O solicitante será notificado.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Encerrar', onPress: executar },
     ])
   }
 
@@ -343,7 +402,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const enviarPedidoTempo = async (motivo) => {
     try {
-      await api.post(`/reparos/${reparo.id}/pedir-tempo`, { motivo })
+      await comRetry(() => api.post(`/reparos/${reparo.id}/pedir-tempo`, { motivo }))
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
       Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
     } catch (err) { console.log('[DetalheReparo] falha ao pedir tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
@@ -351,7 +410,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const handleperguntarTempo = async () => {
     try {
-      await api.post(`/reparos/${reparo.id}/perguntar-tempo`, {})
+      await comRetry(() => api.post(`/reparos/${reparo.id}/perguntar-tempo`, {}))
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
       Alert.alert('✅ Prestador notificado!', 'Ele vai informar quantos minutos precisa.')
     } catch (err) { console.log('[DetalheReparo] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
@@ -365,7 +424,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     setModalTempo(false)
     setMinutosTempo('')
     try {
-      await api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min })
+      await comRetry(() => api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min }))
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
       Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
     } catch (err) { console.log('[DetalheReparo] falha ao informar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
@@ -379,7 +438,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
           try {
-            const resp = await api.post(`/reparos/${reparo.id}/responder-tempo`, { aceito })
+            const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/responder-tempo`, { aceito }))
             if (aceito) {
               setReparo(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
               Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
@@ -398,6 +457,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const souPrestadorDoMatch = temMatch && reparo?.match_usuario_id === usuario?.id
   const prestadorMatch = temMatch ? interessados.find(i => i.usuario_id === reparo.match_usuario_id) : null
   const distancia = distanciaItemKm(coords, reparo)
+
+  // Valor exibido para o dono_reparo: enquanto não há proposta aceita, mostra o valor
+  // originalmente proposto (reparo.valor_estimado). Após aceitar uma proposta/contraproposta,
+  // o valor combinado vem do interesse aceito — COALESCE(valor_contraproposta, valor_proposto),
+  // mesma regra de "Contratos Finalizados". (Só afeta a visão do dono; o prestador segue igual.)
+  const interesseAceitoDono = isDono ? interessados.find(i => i.status === 'aceito') : null
+  const valorAcordadoDono = interesseAceitoDono
+    ? (interesseAceitoDono.valor_contraproposta != null ? interesseAceitoDono.valor_contraproposta : interesseAceitoDono.valor_proposto)
+    : null
+  const valorPrincipal = valorAcordadoDono != null ? valorAcordadoDono : reparo?.valor_estimado
+  const valorEstaCombinado = valorAcordadoDono != null || temMatch
 
   const abrirWhatsApp = (telefone) => {
     const digitos = telefone.replace(/\D/g, '')
@@ -522,12 +592,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {reparo.valor_estimado && (
+          {valorPrincipal != null && Number(valorPrincipal) > 0 && (
             <View style={estilos.valorDestaque}>
               <View>
-                <Text style={estilos.valorDestaqueLabel}>💰 {temMatch ? 'VALOR COMBINADO' : 'VALOR PROPOSTO'}</Text>
+                <Text style={estilos.valorDestaqueLabel}>💰 {valorEstaCombinado ? 'VALOR COMBINADO' : 'VALOR PROPOSTO'}</Text>
                 <Text style={estilos.valorDestaqueValor}>
-                  R$ {Number(reparo.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {Number(valorPrincipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </Text>
               </View>
               <View style={estilos.categoriaPill}>
@@ -743,8 +813,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
           {isPrestador && !isDono && (
             <>
               {souPrestadorDoMatch && (
-                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, encerrando && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando}>
+                  <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : '✅ Serviço concluído — Encerrar'}</Text>
                 </TouchableOpacity>
               )}
               {souPrestadorDoMatch && !reparo.pedido_tempo_status && (

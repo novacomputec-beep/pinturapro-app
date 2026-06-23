@@ -1,5 +1,6 @@
 import axios from 'axios'
 import * as SecureStore from 'expo-secure-store'
+import { comRetry } from '../utils/rede'
 
 const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 
@@ -46,9 +47,9 @@ api.uploadFotoPerfil = async (formData) => {
 // ─── AUTH ────────────────────────────────────────────────────
 export const authService = {
   login: (email, senha) =>
-    api.post('/auth/login', { email, senha }),
+    comRetry(() => api.post('/auth/login', { email, senha })),
   cadastrar: (dados) =>
-    api.post('/auth/cadastro', dados),
+    comRetry(() => api.post('/auth/cadastro', dados)),
   perfil: () =>
     api.get('/auth/perfil'),
   atualizarPerfil: (dados) =>

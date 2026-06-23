@@ -241,7 +241,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Encerrar', onPress: async () => {
         try {
-          await api.post(`/obras/${obra.id}/encerrar`, {})
+          await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
           Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
         } catch (err) { console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
@@ -337,7 +337,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   const enviarPedidoTempo = async (motivo) => {
     try {
-      await api.post(`/obras/${obra.id}/pedir-tempo`, { motivo })
+      await comRetry(() => api.post(`/obras/${obra.id}/pedir-tempo`, { motivo }))
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
       Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
     } catch (err) { console.log('[DetalheObra] falha ao pedir tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
@@ -345,7 +345,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   const handleperguntarTempo = async () => {
     try {
-      await api.post(`/obras/${obra.id}/perguntar-tempo`, {})
+      await comRetry(() => api.post(`/obras/${obra.id}/perguntar-tempo`, {}))
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
       Alert.alert('✅ Pintor notificado!', 'Ele vai informar quantos minutos precisa.')
     } catch (err) { console.log('[DetalheObra] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
@@ -359,7 +359,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     setModalTempo(false)
     setMinutosTempo('')
     try {
-      await api.post(`/obras/${obra.id}/informar-tempo`, { minutos: min })
+      await comRetry(() => api.post(`/obras/${obra.id}/informar-tempo`, { minutos: min }))
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
       Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
     } catch (err) { console.log('[DetalheObra] falha ao informar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
@@ -373,7 +373,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
           try {
-            const resp = await api.post(`/obras/${obra.id}/responder-tempo`, { aceito })
+            const resp = await comRetry(() => api.post(`/obras/${obra.id}/responder-tempo`, { aceito }))
             if (aceito) {
               setObra(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
               Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
