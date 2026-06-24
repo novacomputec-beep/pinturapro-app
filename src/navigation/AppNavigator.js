@@ -10,6 +10,7 @@ import { cores, raios } from '../utils/tema'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
+import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
 
 // Auth
 import SplashScreen        from '../screens/Auth/SplashScreen'
@@ -458,7 +459,7 @@ const DonoObraNavigator = () => (
 )
 
 export default function AppNavigator() {
-  const { usuario, assinatura, carregando } = useAuth()
+  const { usuario, assinatura, carregando, mostrarBoasVindas } = useAuth()
   const respostaNotificacaoRef = useRef(null)
 
   // Mantém o contexto do usuário disponível para o roteador de notificações (deep-links)
@@ -494,7 +495,11 @@ export default function AppNavigator() {
             )
           ) : usuario.role === 'prestador' ? (
             assinatura?.status === 'ativa' ? (
-              usuario.tipo_prestador === 'pintor' ? (
+              // Prestador recém-aprovado vê a tela de boas-vindas única antes das
+              // abas. Ao confirmar, o flag limpa e cai direto no feed (aba inicial).
+              mostrarBoasVindas ? (
+                <Stack.Screen name="BoasVindasPrestador" component={BoasVindasPrestadorScreen} options={{ gestureEnabled: false }} />
+              ) : usuario.tipo_prestador === 'pintor' ? (
                 <Stack.Screen name="App" component={TabsPintorNavigator} />
               ) : (
                 <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />

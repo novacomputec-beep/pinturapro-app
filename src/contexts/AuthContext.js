@@ -6,8 +6,17 @@ import Constants from 'expo-constants'
 import { authService } from '../services/api'
 import api from '../services/api'
 import { resetarFlagsSessao } from '../utils/sessao'
+import { comRetry } from '../utils/rede'
 
 const AuthContext = createContext({})
+
+// Boas-vindas únicas para prestadores recém-aprovados: o backend devolve
+// boas_vindas_exibida no usuario (login e perfil). Mostra só uma vez, para
+// prestador com assinatura ativa que ainda não viu a tela. Nunca para donos.
+const deveExibirBoasVindas = (usuario, assinatura) =>
+  usuario?.role === 'prestador' &&
+  assinatura?.status === 'ativa' &&
+  usuario?.boas_vindas_exibida === false
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -36,6 +45,7 @@ export const AuthProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null)
   const [assinatura, setAssinatura] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const [mostrarBoasVindas, setMostrarBoasVindas] = useState(false)
   const notificacaoRecebidaRef = useRef(null)
   const notificacaoRespostaRef = useRef(null)
 
@@ -49,6 +59,7 @@ export const AuthProvider = ({ children }) => {
             const { usuario, assinatura } = await authService.perfil()
             setUsuario(usuario)
             setAssinatura(assinatura)
+            setMostrarBoasVindas(deveExibirBoasVindas(usuario, assinatura))
             registrarPushToken()
           } catch (err) {
             console.log('[AuthContext] falha ao restaurar sessão (perfil) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -130,6 +141,7 @@ export const AuthProvider = ({ children }) => {
     await SecureStore.setItemAsync('token', resposta.token)
     setUsuario(resposta.usuario)
     setAssinatura(resposta.assinatura)
+    setMostrarBoasVindas(deveExibirBoasVindas(resposta.usuario, resposta.assinatura))
     setTimeout(() => registrarPushToken(), 1000)
     return resposta
   }
@@ -140,6 +152,7 @@ export const AuthProvider = ({ children }) => {
     await SecureStore.setItemAsync('token', token)
     setUsuario(usuarioDados)
     setAssinatura(assinaturaDados || null)
+    setMostrarBoasVindas(deveExibirBoasVindas(usuarioDados, assinaturaDados || null))
     setTimeout(() => registrarPushToken(), 1000)
   }
 
@@ -148,6 +161,22 @@ export const AuthProvider = ({ children }) => {
     await SecureStore.deleteItemAsync('token')
     setUsuario(null)
     setAssinatura(null)
+    setMostrarBoasVindas(false)
+  }
+
+  // Confirma as boas-vindas no backend (uma vez) e limpa o flag local. O flag é
+  // limpo mesmo se o POST falhar para o usuário não ficar preso na tela — se
+  // falhar, o backend ainda terá boas_vindas_exibida=false e mostrará na próxima
+  // sessão. comRetry cobre falha transitória de rede (request não chegou).
+  const confirmarBoasVindas = async () => {
+    try {
+      await comRetry(() => api.post('/auth/boas-vindas-confirmada'))
+    } catch (err) {
+      console.log('[AuthContext] falha ao confirmar boas-vindas | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+    } finally {
+      setUsuario(prev => (prev ? { ...prev, boas_vindas_exibida: true } : prev))
+      setMostrarBoasVindas(false)
+    }
   }
 
   const assinaturaAtiva = assinatura?.status === 'ativa'
@@ -158,6 +187,8 @@ export const AuthProvider = ({ children }) => {
       assinatura,
       assinaturaAtiva,
       carregando,
+      mostrarBoasVindas,
+      confirmarBoasVindas,
       login,
       loginComToken,
       logout,
