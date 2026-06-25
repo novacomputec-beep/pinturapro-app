@@ -52,7 +52,7 @@ export default function MensagensScreen() {
   const buscar = async () => {
     try {
       const dados = await candidaturasService.minhas()
-      const lista = dados || []
+      const lista = dados.candidaturas || []
       setCandidaturas(lista)
       if (lista.length > 0 && !obraSelecionada) {
         const primeira = lista[0]
@@ -74,7 +74,7 @@ export default function MensagensScreen() {
     setCarregandoMsgs(true)
     try {
       const dados = await mensagensService.porObra(obraId)
-      setMensagens(dados || [])
+      setMensagens(dados.mensagens || [])
     } catch (err) {
       console.log('[Mensagens] falha ao carregar mensagens da obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       setMensagens([])

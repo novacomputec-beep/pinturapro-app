@@ -382,7 +382,6 @@ const TabsPrestadorNavigator = () => (
     <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
     <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Reparos' }} />
     <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} />
-    <Tab.Screen name="Mensagens"             component={MensagensScreen} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
 )
@@ -414,7 +413,6 @@ const DonoReparoTabNavigator = () => (
   <DonoReparoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
     <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} />
     <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} />
-    <DonoReparoTab.Screen name="Mensagens"     component={MensagensScreen} />
     <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoReparoTab.Navigator>
 )
