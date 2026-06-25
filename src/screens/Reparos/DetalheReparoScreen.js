@@ -469,6 +469,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const valorPrincipal = valorAcordadoDono != null ? valorAcordadoDono : reparo?.valor_estimado
   const valorEstaCombinado = valorAcordadoDono != null || temMatch
 
+  // B72-04: depois que o dono aceita um interesse, o prestador ainda precisa tocar
+  // "Estou a caminho" para iniciar a contagem. O backend só grava match_usuario_id e
+  // match_feito_em juntos nesse momento (/reparos/:id/match); ao aceitar, apenas o
+  // interesse vira 'aceito'. Logo, "aceito mas ainda não partiu" = existe interesse
+  // aceito, ainda sem match_feito_em e com o reparo não encerrado. (Só lado dono_reparo.)
+  const aguardandoPrestadorPartir = isDono && reparo?.status !== 'encerrada' && !temMatch && !!interesseAceitoDono
+
   const abrirWhatsApp = (telefone) => {
     const digitos = telefone.replace(/\D/g, '')
     const numero = digitos.length <= 11 ? `55${digitos}` : digitos
@@ -642,12 +649,30 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </>
           )}
 
-          {temMatch && reparo.prazo_atendimento_horas && (
+          {/* B72-06: reparo encerrado → banner verde de conclusão no lugar da contagem */}
+          {reparo.status === 'encerrada' && (
+            <View style={estilos.finalizadoBanner}>
+              <Text style={estilos.finalizadoBannerTexto}>✅ SERVIÇO FINALIZADO COM SUCESSO!</Text>
+            </View>
+          )}
+
+          {/* B72-06: a contagem (RelogioRegressivo) NÃO deve renderizar quando encerrada */}
+          {temMatch && reparo.prazo_atendimento_horas && reparo.status !== 'encerrada' && (
             <RelogioRegressivo
               matchFeitoEm={reparo.match_feito_em}
               prazoHoras={reparo.prazo_atendimento_horas}
               onExpirar={handleExpirarMatch}
             />
+          )}
+
+          {/* B72-04: dono aceitou, aguardando o prestador confirmar a ida (antes da contagem) */}
+          {aguardandoPrestadorPartir && (
+            <View style={estilos.aguardandoBanner}>
+              <Text style={estilos.aguardandoBannerTitulo}>⏳ Aguardando o prestador</Text>
+              <Text style={estilos.aguardandoBannerTexto}>
+                Aguarde enquanto o prestador se organiza e parte para o local. Assim que ele confirmar, um cronômetro regressivo aparecerá aqui.
+              </Text>
+            </View>
           )}
 
           {temMatch && (
@@ -1000,6 +1025,11 @@ const estilos = StyleSheet.create({
   relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
   relogioTempo: { fontSize: 52, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 2 },
   relogioSub: { fontSize: 11, color: cores.textoFraco, marginTop: 6, textAlign: 'center' },
+  finalizadoBanner: { backgroundColor: '#1a3a1a', borderWidth: 1.5, borderColor: '#4caf50', borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
+  finalizadoBannerTexto: { fontSize: 16, fontWeight: '700', color: '#4caf50', textAlign: 'center', letterSpacing: 0.5 },
+  aguardandoBanner: { backgroundColor: '#1a2a3a', borderWidth: 1, borderColor: '#4a90d9', borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  aguardandoBannerTitulo: { fontSize: 14, fontWeight: '700', color: '#6ab0f3', marginBottom: 6 },
+  aguardandoBannerTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 20 },
   btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
   btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   btnWhatsApp: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#25D366', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 8 },

@@ -31,7 +31,9 @@ export default function MeusInteressesScreen({ navigation }) {
   const buscar = async () => {
     try {
       const data = await api.get('/reparos/meus-interesses')
-      setAtivos(data.ativos || [])
+      // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; reparos encerrados pelo
+      // dono saem de "Ativos" na hora (vão para "Contratos Finalizados") sem precisar relogar.
+      setAtivos((data.ativos || []).filter(item => item.reparo_status !== 'encerrada'))
       // Reparos encerrados aparecem em "Contratos Finalizados"; aqui só o histórico restante (ex: expirados)
       setHistorico((data.historico || []).filter(item => item.reparo_status !== 'encerrada'))
     } catch (err) {
