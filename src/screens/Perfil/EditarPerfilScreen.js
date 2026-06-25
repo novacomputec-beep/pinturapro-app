@@ -8,6 +8,7 @@ import { BotaoPrimario, Input } from '../../components'
 import { useAuth } from '../../contexts/AuthContext'
 import { authService } from '../../services/api'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
@@ -51,7 +52,8 @@ export default function EditarPerfilScreen({ navigation }) {
       cloudForm.append('folder', params.folder)
       const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
       if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || 'Erro no upload da foto')
-      await api.patch('/auth/foto-perfil', { foto_url: cloudData.secure_url })
+      // POST de metadados é idempotente (grava a mesma foto_url) → seguro reexecutar em cold start
+      await comRetry(() => api.patch('/auth/foto-perfil', { foto_url: cloudData.secure_url }), { timeout: true, servidor: true })
       setFotoUrl(cloudData.secure_url)
       setUsuario(prev => ({ ...prev, foto_url: cloudData.secure_url }))
       Alert.alert('Sucesso', 'Foto atualizada!')
@@ -98,11 +100,12 @@ export default function EditarPerfilScreen({ navigation }) {
     }
     setCarregando(true)
     try {
-      const atualizado = await authService.atualizarPerfil({
+      // Atualização de perfil é idempotente (PUT grava os mesmos campos) → seguro reexecutar em cold start
+      const atualizado = await comRetry(() => authService.atualizarPerfil({
         nome: nome.trim(),
         telefone: telefone.trim(),
         cidade: cidade.trim()
-      })
+      }), { timeout: true, servidor: true })
       setUsuario(prev => ({ ...prev, nome: atualizado.nome, cidade: atualizado.cidade }))
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() }

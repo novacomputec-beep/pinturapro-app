@@ -451,7 +451,9 @@ export default function CadastroScreen({ navigation }) {
       console.log('[cadastro] ▶ step4 POST /auth/cadastro', { ...dados, senha: '[REDACTED]' })
       let resposta
       try {
-        resposta = await authService.cadastrar(dados)
+        // POST cria recurso (não-idempotente) → comRetry padrão: só reexecuta em ERR_NETWORK
+        // (requisição não chegou ao servidor). NÃO habilitar timeout/servidor para não duplicar cadastro.
+        resposta = await comRetry(() => authService.cadastrar(dados))
         console.log('[cadastro] ✓ step4 cadastro ok', { usuario_id: resposta?.usuario?.id, role: resposta?.usuario?.role, tipo_prestador: resposta?.usuario?.tipo_prestador, token: !!resposta?.token })
       } catch (err) {
         const kind = classificarErro(err)
