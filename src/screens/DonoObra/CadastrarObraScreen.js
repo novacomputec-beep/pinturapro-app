@@ -425,6 +425,7 @@ export default function CadastrarObraScreen({ navigation }) {
             <Text style={estilos.uploadIcone}>📎</Text>
             <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
           </TouchableOpacity>
+          <Text style={estilos.avisoUpload}>📸 Opcional: filme e/ou tire foto(s) se realmente fizer diferença para informar o problema relatado.</Text>
           <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
           {midias.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
