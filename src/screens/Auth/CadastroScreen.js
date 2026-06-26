@@ -107,19 +107,33 @@ const UploadFoto = ({ label, valor, onPress }) => (
   </TouchableOpacity>
 )
 
-const MAX_UPLOAD_RETRIES = 2
+// Sobe a mídia direto ao Cloudinary com retry resiliente e SILENCIOSO.
+// Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
+// cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
+// Cloudinary (4xx/5xx com corpo { error }) — que antes furavam o retry. Nenhum
+// alerta aparece enquanto restam tentativas; só rejeita após esgotar todas.
+const MAX_UPLOAD_RETRIES = 8
+const UPLOAD_TIMEOUT = 45000
+const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   const attempt = (n) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
-    xhr.timeout = 45000
-    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000); else rejeitar() }
+    xhr.timeout = UPLOAD_TIMEOUT
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), backoffUpload(n)); else rejeitar() }
     xhr.onload = () => {
-      try { resolve(JSON.parse(xhr.responseText)) }
+      let parsed = null
+      try { parsed = JSON.parse(xhr.responseText) }
       catch (e) {
         console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
-        retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
+        return retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
       }
+      // Cloudinary devolve 4xx/5xx com corpo { error: {...} }; trata como falha retentável
+      if (xhr.status >= 400 || parsed?.error) {
+        console.log('[xhrUpload] erro HTTP do Cloudinary | tentativa:', n, '| status:', xhr.status, '| msg:', parsed?.error?.message)
+        return retryOu(() => reject(new Error(parsed?.error?.message || `Erro ${xhr.status} no upload da mídia`)))
+      }
+      resolve(parsed)
     }
     xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
     xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da mídia')))
@@ -395,8 +409,10 @@ export default function CadastroScreen({ navigation }) {
             'O envio demorou muito. Verifique sua conexão e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.',
             [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
           )
-        }, 120000)
-        console.log('[cadastro] ▶ iniciando uploads de documentos (120s timeout ativo)')
+        }, 300000)
+        // Rede de segurança final (5 min) — não deve disparar no caso comum: o
+        // retry silencioso do xhrUpload (até 9 tentativas/foto) cobre quedas transitórias.
+        console.log('[cadastro] ▶ iniciando uploads de documentos (300s timeout de segurança ativo)')
         try {
           docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
           docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')

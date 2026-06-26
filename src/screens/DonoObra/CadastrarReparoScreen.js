@@ -13,22 +13,34 @@ import { useFocusEffect } from '@react-navigation/native'
 import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios } from '../../utils/tema'
 
-const MAX_UPLOAD_RETRIES = 2
+// Sobe a mídia direto ao Cloudinary com retry resiliente e SILENCIOSO.
+// Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
+// cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
+// Cloudinary (4xx/5xx com corpo { error }) — que antes furavam o retry. Nenhum
+// alerta aparece enquanto restam tentativas; só rejeita após esgotar todas.
+const MAX_UPLOAD_RETRIES = 8
 const TIMEOUT_FOTO  = 45000    // 45s — fotos são pequenas (quality 0.6)
 const TIMEOUT_VIDEO = 180000   // 180s — vídeos são muito maiores; 45s estourava em conexões móveis
-// isVideo ajusta o timeout; backoff exponencial (2s, 6s, 18s) entre tentativas
+const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
 const xhrUpload = (url, form, { isVideo = false } = {}) => new Promise((resolve, reject) => {
   const attempt = (n) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
     xhr.timeout = isVideo ? TIMEOUT_VIDEO : TIMEOUT_FOTO
-    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), 2000 * Math.pow(3, n)); else rejeitar() }
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), backoffUpload(n)); else rejeitar() }
     xhr.onload = () => {
-      try { resolve(JSON.parse(xhr.responseText)) }
+      let parsed = null
+      try { parsed = JSON.parse(xhr.responseText) }
       catch (e) {
         console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
-        retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
+        return retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
       }
+      // Cloudinary devolve 4xx/5xx com corpo { error: {...} }; trata como falha retentável
+      if (xhr.status >= 400 || parsed?.error) {
+        console.log('[xhrUpload] erro HTTP do Cloudinary | tentativa:', n, '| status:', xhr.status, '| msg:', parsed?.error?.message)
+        return retryOu(() => reject(new Error(parsed?.error?.message || `Erro ${xhr.status} no upload da mídia`)))
+      }
+      resolve(parsed)
     }
     xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
     xhr.ontimeout = () => retryOu(() => { const e = new Error('Tempo esgotado no upload da mídia'); e.code = 'UPLOAD_TIMEOUT'; reject(e) })
@@ -498,6 +510,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           )}
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           <BotaoPrimario titulo="Publicar reparo →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
+          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando fotos, aguarde...</Text>}
           <Text style={estilos.aviso}>Seu reparo será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
         </ScrollView>
       </KeyboardAvoidingView>

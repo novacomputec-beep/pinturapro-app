@@ -11,24 +11,39 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 
+// Sobe a foto direto ao Cloudinary com retry resiliente e SILENCIOSO.
+// Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
+// cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
+// Cloudinary (4xx/5xx com corpo { error }). Antes não havia timeout (travava
+// indefinidamente) nem retry suficiente; só rejeita após esgotar todas as tentativas.
+const MAX_UPLOAD_RETRIES = 8
+const UPLOAD_TIMEOUT = 45000
+const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
-  const attempt = (isRetry) => {
+  const attempt = (n) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', url)
+    xhr.timeout = UPLOAD_TIMEOUT
+    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), backoffUpload(n)); else rejeitar() }
     xhr.onload = () => {
-      try { resolve(JSON.parse(xhr.responseText)) }
+      let parsed = null
+      try { parsed = JSON.parse(xhr.responseText) }
       catch (e) {
-        if (!isRetry) setTimeout(() => attempt(true), 2000)
-        else reject(new Error('Resposta inválida do servidor de upload'))
+        console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
+        return retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
       }
+      // Cloudinary devolve 4xx/5xx com corpo { error: {...} }; trata como falha retentável
+      if (xhr.status >= 400 || parsed?.error) {
+        console.log('[xhrUpload] erro HTTP do Cloudinary | tentativa:', n, '| status:', xhr.status, '| msg:', parsed?.error?.message)
+        return retryOu(() => reject(new Error(parsed?.error?.message || `Erro ${xhr.status} no upload da foto`)))
+      }
+      resolve(parsed)
     }
-    xhr.onerror = () => {
-      if (!isRetry) setTimeout(() => attempt(true), 2000)
-      else reject(new Error('Falha na conexão com o servidor de upload'))
-    }
+    xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
+    xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da foto')))
     xhr.send(form)
   }
-  attempt(false)
+  attempt(0)
 })
 
 export default function EditarPerfilScreen({ navigation }) {
@@ -148,7 +163,7 @@ export default function EditarPerfilScreen({ navigation }) {
               <Text style={estilos.avatarCameraIcone}>📷</Text>
             </View>
           </TouchableOpacity>
-          <Text style={estilos.avatarDica}>Toque para alterar a foto</Text>
+          <Text style={estilos.avatarDica}>{uploadandoFoto ? '📤 Enviando foto, aguarde...' : 'Toque para alterar a foto'}</Text>
 
           <Input label="NOME COMPLETO" placeholder="Seu nome" value={nome} onChangeText={setNome} />
           <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
