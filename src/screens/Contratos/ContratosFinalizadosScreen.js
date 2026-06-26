@@ -17,8 +17,14 @@ const formatarData = (d) =>
 
 export default function ContratosFinalizadosScreen({ navigation, route }) {
   const tipo = route?.params?.tipo === 'obra' ? 'obra' : 'reparo'
+  // perfil='dono' usa os endpoints do solicitante (mostra o prestador contratado);
+  // padrão 'prestador' mantém o comportamento legado (mostra o dono/solicitante).
+  const perfil = route?.params?.perfil === 'dono' ? 'dono' : 'prestador'
   const ehObra = tipo === 'obra'
-  const endpoint = ehObra ? '/obras/meus-contratos' : '/reparos/meus-contratos'
+  const ehDono = perfil === 'dono'
+  const endpoint = ehDono
+    ? (ehObra ? '/obras/meus-contratos-dono' : '/reparos/meus-contratos-dono')
+    : (ehObra ? '/obras/meus-contratos'      : '/reparos/meus-contratos')
   const telaDetalhe = ehObra ? 'DetalheObra' : 'DetalheReparo'
 
   const [contratos, setContratos] = useState([])
@@ -83,16 +89,18 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           </View>
         </View>
 
-        {item.dono_nome && (
-          <Text style={estilos.dono}>👤 {item.dono_nome}</Text>
+        {(ehDono ? item.prestador_nome : item.dono_nome) && (
+          <Text style={estilos.dono}>
+            👤 {ehDono ? `Prestador: ${item.prestador_nome}` : item.dono_nome}
+          </Text>
         )}
 
         <View style={estilos.acoes}>
           <TouchableOpacity style={estilos.btnVer} onPress={() => abrirDetalhe(item)}>
             <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
           </TouchableOpacity>
-          {item.dono_telefone && (
-            <TouchableOpacity style={estilos.btnLigar} onPress={() => ligarDono(item.dono_telefone)}>
+          {(ehDono ? item.prestador_telefone : item.dono_telefone) && (
+            <TouchableOpacity style={estilos.btnLigar} onPress={() => ligarDono(ehDono ? item.prestador_telefone : item.dono_telefone)}>
               <Text style={estilos.btnLigarTexto}>📞 Contato</Text>
             </TouchableOpacity>
           )}
@@ -115,9 +123,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           <Text style={estilos.vazioIcone}>✅</Text>
           <Text style={estilos.vazioTitulo}>Nenhum contrato finalizado</Text>
           <Text style={estilos.vazioSub}>
-            {ehObra
-              ? 'Obras concluídas em que você foi o profissional contratado aparecerão aqui.'
-              : 'Reparos concluídos em que você foi o profissional contratado aparecerão aqui.'}
+            {ehDono
+              ? (ehObra
+                  ? 'Obras concluídas em que você contratou um profissional aparecerão aqui.'
+                  : 'Reparos concluídos em que você contratou um profissional aparecerão aqui.')
+              : (ehObra
+                  ? 'Obras concluídas em que você foi o profissional contratado aparecerão aqui.'
+                  : 'Reparos concluídos em que você foi o profissional contratado aparecerão aqui.')}
           </Text>
         </View>
       ) : (

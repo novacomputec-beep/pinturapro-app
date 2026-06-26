@@ -42,9 +42,11 @@ export default function MinhasObrasScreen({ navigation, route }) {
         api.get('/reparos/minhas'),
       ])
       setObras(obrasResp.obras || [])
-      setObrasHistorico(obrasResp.historico || [])
+      // Itens encerrados saem do Histórico e passam a viver na aba "Contratos Finalizados";
+      // o Histórico fica apenas com expirados/cancelados/não concluídos.
+      setObrasHistorico((obrasResp.historico || []).filter(o => o.status !== 'encerrada'))
       setReparos(reparosResp.reparos || [])
-      setReparosHistorico(reparosResp.historico || [])
+      setReparosHistorico((reparosResp.historico || []).filter(r => r.status !== 'encerrada'))
 
       // Banner verde "Parabéns" — exibido uma única vez por sessão de login quando
       // há ao menos uma obra/reparo com candidatura/interesse ainda sem resposta.

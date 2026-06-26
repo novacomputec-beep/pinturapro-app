@@ -54,6 +54,8 @@ const MeusInteressesStack  = createNativeStackNavigator()
 const MinhasObrasInteresseStack = createNativeStackNavigator()
 const ContratosFinObraStack     = createNativeStackNavigator()
 const ContratosFinReparoStack   = createNativeStackNavigator()
+const ContratosFinDonoReparoStack = createNativeStackNavigator()
+const ContratosFinDonoObraStack   = createNativeStackNavigator()
 const DonoReparoTab        = createBottomTabNavigator()
 const DonoObraTab          = createBottomTabNavigator()
 
@@ -347,6 +349,22 @@ const ContratosFinReparoNavigator = () => (
   </ContratosFinReparoStack.Navigator>
 )
 
+// Stack: Contratos Finalizados (dono_reparo — reparos concluídos onde contratou um prestador)
+const ContratosFinDonoReparoNavigator = () => (
+  <ContratosFinDonoReparoStack.Navigator screenOptions={{ headerShown: false }}>
+    <ContratosFinDonoReparoStack.Screen name="ContratosFinDonoReparoMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'reparo', perfil: 'dono' }} />
+    <ContratosFinDonoReparoStack.Screen name="DetalheReparo"              component={DetalheReparoScreen} />
+  </ContratosFinDonoReparoStack.Navigator>
+)
+
+// Stack: Contratos Finalizados (dono_obra — obras concluídas onde contratou um prestador)
+const ContratosFinDonoObraNavigator = () => (
+  <ContratosFinDonoObraStack.Navigator screenOptions={{ headerShown: false }}>
+    <ContratosFinDonoObraStack.Screen name="ContratosFinDonoObraMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'obra', perfil: 'dono' }} />
+    <ContratosFinDonoObraStack.Screen name="DetalheObra"              component={DetalheObraScreen} />
+  </ContratosFinDonoObraStack.Navigator>
+)
+
 // Tabs do Pintor
 const TabsPintorNavigator = () => (
   <Tab.Navigator
@@ -413,6 +431,7 @@ const DonoReparoTabNavigator = () => (
   <DonoReparoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
     <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} />
     <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} />
+    <DonoReparoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoReparoNavigator} />
     <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoReparoTab.Navigator>
 )
@@ -438,6 +457,7 @@ const DonoObraTabNavigator = () => (
   <DonoObraTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
     <DonoObraTab.Screen name="Nova Obra"      component={NovaObraTabStack} />
     <DonoObraTab.Screen name="Minhas Obras"   component={MinhasObrasTabStack} />
+    <DonoObraTab.Screen name="Contratos Finalizados" component={ContratosFinDonoObraNavigator} />
     <DonoObraTab.Screen name="Mensagens"      component={MensagensScreen} />
     <DonoObraTab.Screen name="Perfil"         component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoObraTab.Navigator>
