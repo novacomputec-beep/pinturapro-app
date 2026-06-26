@@ -148,7 +148,7 @@ const TabIcone = ({ nome, focado }) => {
 }
 
 function PagamentoPendenteScreen() {
-  const { logout, usuario, assinatura, setUsuario, setAssinatura } = useAuth()
+  const { logout, usuario, assinatura, revalidarSessao } = useAuth()
   const [link, setLink] = React.useState(null)
   const [carregando, setCarregando] = React.useState(true)
   const [verificando, setVerificando] = React.useState(false)
@@ -180,9 +180,8 @@ function PagamentoPendenteScreen() {
   const verificarPagamento = async () => {
     setVerificando(true)
     try {
-      const dados = await api.get('/auth/perfil')
-      setUsuario(dados.usuario)
-      setAssinatura(dados.assinatura)
+      // Refresh COMPLETO da sessão (boas-vindas + flags + push), não só usuario/assinatura.
+      await revalidarSessao()
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
     } finally { setVerificando(false) }
@@ -254,15 +253,14 @@ function PagamentoPendenteScreen() {
 }
 
 function VerificacaoPendenteScreen() {
-  const { logout, setUsuario, setAssinatura } = useAuth()
+  const { logout, revalidarSessao } = useAuth()
   const [verificando, setVerificando] = React.useState(false)
 
   const verificarPagamento = async () => {
     setVerificando(true)
     try {
-      const dados = await api.get('/auth/perfil')
-      setUsuario(dados.usuario)
-      setAssinatura(dados.assinatura)
+      // Refresh COMPLETO da sessão (boas-vindas + flags + push), não só usuario/assinatura.
+      await revalidarSessao()
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
     } finally { setVerificando(false) }

@@ -179,6 +179,21 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Revalida a sessão sem precisar de logout/login: refaz GET /auth/perfil e
+  // reaplica TODO o estado de sessão (usuario, assinatura, boas-vindas, flags e
+  // push), exatamente como o login. Usada pela tela "Já paguei" para que o
+  // prestador recém-aprovado entre no app já com boas-vindas e feed corretos,
+  // em vez do refresh parcial antigo que exigia relogar (B72).
+  const revalidarSessao = async () => {
+    const { usuario, assinatura } = await authService.perfil()
+    resetarFlagsSessao()
+    setUsuario(usuario)
+    setAssinatura(assinatura)
+    setMostrarBoasVindas(deveExibirBoasVindas(usuario, assinatura))
+    setTimeout(() => registrarPushToken(), 1000)
+    return { usuario, assinatura }
+  }
+
   const assinaturaAtiva = assinatura?.status === 'ativa'
 
   return (
@@ -189,6 +204,7 @@ export const AuthProvider = ({ children }) => {
       carregando,
       mostrarBoasVindas,
       confirmarBoasVindas,
+      revalidarSessao,
       login,
       loginComToken,
       logout,
