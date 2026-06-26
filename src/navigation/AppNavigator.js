@@ -74,6 +74,9 @@ const navegarParaNotificacao = (data) => {
   const usaTabsReparador = u.role === 'prestador' && u.tipo_prestador !== 'pintor'
   const ehPrestador      = usaTabsPintor || usaTabsReparador
   const ehDonoReparo     = u.role === 'dono_obra' && u.tipo_dono === 'reparo'
+  // Donos com navegador de abas (reparo/pintura) possuem a aba "Contratos Finalizados".
+  // O fallback (tipo_dono indefinido) usa um stack sem essa aba.
+  const ehDonoComAba     = u.role === 'dono_obra' && (u.tipo_dono === 'reparo' || u.tipo_dono === 'pintura')
 
   // Aba de itens em andamento conforme o navegador montado para este usuário
   const tabEmAndamento =
@@ -93,10 +96,11 @@ const navegarParaNotificacao = (data) => {
       // Mensagens
       case 'nova_mensagem':
         navegar('Mensagens'); break
-      // Itens finalizados (encerrados): prestador vê em Contratos Finalizados; dono na sua lista
+      // Itens finalizados (encerrados): prestador e dono (com aba) veem em "Contratos Finalizados";
+      // o dono fallback (sem a aba) cai na lista em andamento.
       case 'obra_encerrada':
       case 'reparo_encerrado':
-        navegar(ehPrestador ? 'Contratos Finalizados' : tabEmAndamento); break
+        navegar((ehPrestador || ehDonoComAba) ? 'Contratos Finalizados' : tabEmAndamento); break
       // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe
       case 'candidatura_aceita':
         if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
