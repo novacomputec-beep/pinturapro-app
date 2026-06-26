@@ -201,6 +201,9 @@ export default function CadastroScreen({ navigation }) {
   const [docVerso, setDocVerso] = useState(null)
   const [selfie, setSelfie] = useState(null)
   const [enviandoDocs, setEnviandoDocs] = useState(false)
+  const [progresso, setProgresso] = useState('')          // texto de fase exibido durante o cadastro
+  const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
+  const disponibilidadeOkRef = useRef(false)              // verificar-disponibilidade roda só 1x por sessão
 
   const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
   const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'
@@ -377,21 +380,31 @@ export default function CadastroScreen({ navigation }) {
   }
 
   const handleCadastrar = async () => {
+    if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
+    emAndamentoRef.current = true
     setCarregando(true)
     let timeoutId = null
     try {
-      // step1 — Pre-check: verify CPF/email before uploading photos
-      console.log('[cadastro] ▶ step1 POST /auth/verificar-disponibilidade', { email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() })
-      try {
-        await comRetry(() => api.post('/auth/verificar-disponibilidade', {
-          email: email.trim().toLowerCase(),
-          cpf_cnpj: cpfCnpj.trim(),
-        }), { timeout: true, servidor: true })
-        console.log('[cadastro] ✓ step1 disponibilidade ok')
-      } catch (err) {
-        const kind = classificarErro(err)
-        console.log(`[cadastro] ✗ step1 verificar-disponibilidade FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
-        throw err
+      // step1 — Pré-checagem de CPF/e-mail. Roda UMA ÚNICA VEZ por sessão: se já passou,
+      // re-tentativas (após falha de upload) pulam direto para os uploads. Isso evita a
+      // cascata de chamadas que estourava o rate limit (429 "Muitas tentativas").
+      if (!disponibilidadeOkRef.current) {
+        setProgresso('Verificando dados...')
+        console.log('[cadastro] ▶ step1 POST /auth/verificar-disponibilidade', { email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() })
+        try {
+          await comRetry(() => api.post('/auth/verificar-disponibilidade', {
+            email: email.trim().toLowerCase(),
+            cpf_cnpj: cpfCnpj.trim(),
+          }), { timeout: true, servidor: true })
+          disponibilidadeOkRef.current = true
+          console.log('[cadastro] ✓ step1 disponibilidade ok')
+        } catch (err) {
+          const kind = classificarErro(err)
+          console.log(`[cadastro] ✗ step1 verificar-disponibilidade FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
+          throw err
+        }
+      } else {
+        console.log('[cadastro] ↻ step1 verificar-disponibilidade já validado nesta sessão — pulando')
       }
 
       let docFrenteUrl = null
@@ -402,8 +415,10 @@ export default function CadastroScreen({ navigation }) {
       if (isPrestador && docFrente) {
         setEnviandoDocs(true)
         timeoutId = setTimeout(() => {
+          emAndamentoRef.current = false
           setCarregando(false)
           setEnviandoDocs(false)
+          setProgresso('')
           Alert.alert(
             'Tempo esgotado',
             'O envio demorou muito. Verifique sua conexão e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.',
@@ -414,8 +429,11 @@ export default function CadastroScreen({ navigation }) {
         // retry silencioso do xhrUpload (até 9 tentativas/foto) cobre quedas transitórias.
         console.log('[cadastro] ▶ iniciando uploads de documentos (300s timeout de segurança ativo)')
         try {
+          setProgresso('Enviando documentos (1/3)...')
           docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
+          setProgresso('Enviando documentos (2/3)...')
           docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
+          setProgresso('Enviando documentos (3/3)...')
           selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
           console.log('[cadastro] ✓ todos os uploads concluídos', { docFrenteUrl, docVersoUrl, selfieUrl })
         } catch (err) {
@@ -464,6 +482,7 @@ export default function CadastroScreen({ navigation }) {
         rg_estado: isPrestador ? rgEstado || null : null,
       }
 
+      setProgresso('Finalizando cadastro...')
       console.log('[cadastro] ▶ step4 POST /auth/cadastro', { ...dados, senha: '[REDACTED]' })
       let resposta
       try {
@@ -510,8 +529,10 @@ export default function CadastroScreen({ navigation }) {
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId)
+      emAndamentoRef.current = false
       setCarregando(false)
       setEnviandoDocs(false)
+      setProgresso('')
     }
   }
 
@@ -798,20 +819,20 @@ export default function CadastroScreen({ navigation }) {
                 onPress={() => selecionarFoto(setSelfie)}
               />
               {erros.selfie && <Text style={estilos.erroTexto}>{erros.selfie}</Text>}
-
-              {enviandoDocs && (
-                <View style={estilos.enviandoBox}>
-                  <Text style={estilos.enviandoTexto}>📤 Enviando documentos... aguarde</Text>
-                </View>
-              )}
             </View>
           )}
 
+          {!!progresso && (
+            <View style={estilos.enviandoBox}>
+              <Text style={estilos.enviandoTexto}>📤 {progresso}</Text>
+            </View>
+          )}
           <View style={estilos.acoesRow}>
             <BotaoPrimario
-              titulo={passo === totalPassos ? (enviandoDocs ? 'Enviando...' : 'Finalizar cadastro →') : 'Continuar →'}
+              titulo={passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →'}
               onPress={avancar}
               carregando={carregando}
+              desabilitado={carregando}
             />
           </View>
 
