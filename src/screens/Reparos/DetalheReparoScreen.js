@@ -618,6 +618,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
             📍 {reparo.cidade}{reparo.bairro ? `, ${reparo.bairro}` : ''}
             {distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
           </Text>
+          {reparo.endereco_reparo ? (
+            <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
+          ) : null}
 
           {reparo.descricao && (
             <>
@@ -664,6 +667,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onExpirar={handleExpirarMatch}
             />
           )}
+
+          {/* Pós-match: endereço em destaque — o prestador precisa saber para onde ir */}
+          {temMatch && reparo.endereco_reparo ? (
+            <View style={estilos.enderecoMatchBox}>
+              <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
+              <Text style={estilos.enderecoMatchTexto}>{reparo.endereco_reparo}</Text>
+            </View>
+          ) : null}
 
           {/* B72-04: dono aceitou, aguardando o prestador confirmar a ida (antes da contagem) */}
           {aguardandoPrestadorPartir && (
@@ -1014,6 +1025,10 @@ const estilos = StyleSheet.create({
   categoriaTexto: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize' },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 28, marginBottom: 6 },
   local: { fontSize: 13, color: cores.textoFraco, marginBottom: 16 },
+  enderecoLinha: { fontSize: 12, color: cores.textoFraco, marginTop: -10, marginBottom: 16, lineHeight: 17 },
+  enderecoMatchBox: { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 12, marginBottom: 12 },
+  enderecoMatchLabel: { fontSize: 12, fontWeight: '700', color: cores.primaria, marginBottom: 4 },
+  enderecoMatchTexto: { fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
   localDistancia: { color: cores.primaria, fontWeight: '600' },
   secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
   descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
