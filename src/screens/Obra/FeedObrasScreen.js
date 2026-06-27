@@ -7,7 +7,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
-import { obrasService } from '../../services/api'
+import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
@@ -132,6 +132,11 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
   )
 }
 
+// Cache de GPS em nível de módulo: evita chamar o GPS a cada toque no filtro de
+// distância (a leitura pode travar o spinner por segundos em aparelhos lentos).
+let gpsCache = { coords: null, timestamp: 0 }
+const GPS_CACHE_TTL = 30000 // 30 seconds
+
 export default function FeedObrasScreen({ navigation }) {
   const { usuario } = useAuth()
   const [obras, setObras] = useState([])
@@ -142,7 +147,13 @@ export default function FeedObrasScreen({ navigation }) {
   const [erro, setErro] = useState(null)
   const [coords, setCoords] = useCoordsUsuario()
   const mountedRef = useRef(true)
-  useEffect(() => () => { mountedRef.current = false }, [])
+  // Aborta a requisição em voo quando uma nova seleção de filtro chega (evita corrida
+  // onde uma resposta antiga/lenta sobrescreve a lista de uma seleção mais recente).
+  const abortRef = useRef(null)
+  useEffect(() => () => {
+    mountedRef.current = false
+    abortRef.current?.abort()
+  }, [])
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY_DIST_OBRAS).then(val => {
@@ -158,6 +169,24 @@ export default function FeedObrasScreen({ navigation }) {
   }
 
   const buscarObras = async (cat = categoria, dist = distancia) => {
+    // Cancela qualquer requisição anterior ainda em voo.
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
+    // Spinner com timeout máximo de 20s: se estourar, aborta e mostra erro.
+    // (20s acomoda GPS + cold start + a própria requisição.)
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+      if (mountedRef.current && abortRef.current === controller) {
+        setErro('Tempo limite excedido. Verifique sua conexão e tente novamente.')
+        setCarregando(false)
+        setAtualizando(false)
+      }
+    }, 20000)
+
     try {
       setErro(null)
       const params = {}
@@ -167,22 +196,52 @@ export default function FeedObrasScreen({ navigation }) {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-            params.lat = String(loc.coords.latitude)
-            params.lng = String(loc.coords.longitude)
-            if (mountedRef.current) setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+            const agora = Date.now()
+            let coordsUsar = null
+            if (gpsCache.coords && (agora - gpsCache.timestamp) < GPS_CACHE_TTL) {
+              // Cache de GPS ainda válido (< 30s): usa direto, sem chamar o GPS.
+              coordsUsar = gpsCache.coords
+            } else {
+              try {
+                // GPS com timeout próprio de 5s (separado do timeout total da requisição).
+                const loc = await Promise.race([
+                  Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('gps_timeout')), 5000))
+                ])
+                gpsCache = { coords: loc.coords, timestamp: Date.now() }
+                coordsUsar = loc.coords
+              } catch (errGps) {
+                // Timeout/permissão de GPS: se houver coords em cache (mesmo expiradas),
+                // usa silenciosamente; senão segue sem lat/lng (API cai p/ filtro por cidade).
+                console.log('[FeedObras] GPS indisponível, usando cache se houver | msg:', errGps.message)
+                if (gpsCache.coords) coordsUsar = gpsCache.coords
+              }
+            }
+            if (coordsUsar) {
+              params.lat = String(coordsUsar.latitude)
+              params.lng = String(coordsUsar.longitude)
+              if (mountedRef.current && abortRef.current === controller) setCoords({ lat: coordsUsar.latitude, lng: coordsUsar.longitude })
+            }
           }
         } catch (err) {
           console.log('[FeedObras] falha ao obter localização | code:', err.code, '| msg:', err.message)
         }
       }
-      const resposta = await obrasService.listar(params)
-      if (mountedRef.current) setObras(resposta.obras || [])
+      const resposta = await api.get('/obras', { params, signal: controller.signal })
+      // Só aplica se ainda for a requisição atual (descarta respostas obsoletas).
+      if (!timedOut && mountedRef.current && abortRef.current === controller) {
+        setObras(resposta.obras || [])
+      }
     } catch (err) {
+      // Cancelada (substituída por nova seleção ou pelo timeout): ignora silenciosamente.
+      if (err.code === 'ERR_CANCELED') return
       console.log('[FeedObras] falha ao buscar obras | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      if (mountedRef.current) setErro(err.mensagem || 'Erro ao buscar obras')
+      if (!timedOut && mountedRef.current && abortRef.current === controller) {
+        setErro(err.mensagem || 'Erro ao buscar obras')
+      }
     } finally {
-      if (mountedRef.current) {
+      clearTimeout(timer)
+      if (!timedOut && mountedRef.current && abortRef.current === controller) {
         setCarregando(false)
         setAtualizando(false)
       }
