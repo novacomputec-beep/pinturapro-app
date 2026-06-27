@@ -647,7 +647,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.interessadoHeader}>
                       <Text style={estilos.interessadoNome}>{item.nome}</Text>
-                      {item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                      {item.status !== 'aceito' && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                      {item.status === 'aceito' && item.logradouro && (
+                        <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
+                      )}
                     </View>
                     {item.valor_proposto != null && (
                       <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
