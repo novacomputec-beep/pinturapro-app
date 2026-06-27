@@ -200,7 +200,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       const valorNumerico = valorAceito
         ? parseFloat(String(reparo.valor_estimado))
         : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
-      await api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico })
+      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico }))
       setMeuInteresse({ status: 'pendente' })
       setMostrarForm(false)
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
@@ -319,7 +319,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const handleExpirarMatch = async () => {
     try {
-      await api.post(`/reparos/${reparo.id}/expirar-match`, {})
+      await comRetry(() => api.post(`/reparos/${reparo.id}/expirar-match`, {}))
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O prestador não chegou a tempo. O reparo está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }

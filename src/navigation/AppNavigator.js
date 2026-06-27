@@ -159,7 +159,7 @@ function PagamentoPendenteScreen() {
     setErro(null)
     try {
       const plano = assinatura?.plano || 'mensal'
-      const pagamento = await api.post('/pagamentos/criar-assinatura', { plano })
+      const pagamento = await comRetry(() => api.post('/pagamentos/criar-assinatura', { plano }))
       if (pagamento.init_point) {
         setLink(pagamento.init_point)
         Linking.openURL(pagamento.init_point).catch(err => console.log('[AppNavigator] falha ao abrir URL de pagamento | msg:', err.message))

@@ -58,7 +58,7 @@ export default function EditarPerfilScreen({ navigation }) {
   const processarFoto = async (uri) => {
     setUploadandoFoto(true)
     try {
-      const params = await api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/perfil' } })
+      const params = await comRetry(() => api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/perfil' } }))
       const cloudForm = new FormData()
       cloudForm.append('file', { uri, type: 'image/jpeg', name: 'foto_perfil.jpg' })
       cloudForm.append('timestamp', String(params.timestamp))

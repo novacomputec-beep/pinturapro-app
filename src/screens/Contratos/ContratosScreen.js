@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import api, { candidaturasService } from '../../services/api'
 import { BadgeStatus, Card, Separador, BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
+import { comRetry } from '../../utils/rede'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleDateString('pt-BR') : '—'

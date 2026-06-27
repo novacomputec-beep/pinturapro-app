@@ -6,6 +6,7 @@ import {
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
+import { comRetry } from '../../utils/rede'
 
 export default function AlterarSenhaScreen({ navigation }) {
   const [senhaAtual, setSenhaAtual] = useState('')
@@ -29,10 +30,10 @@ export default function AlterarSenhaScreen({ navigation }) {
     if (!validar()) return
     setCarregando(true)
     try {
-      await api.post('/auth/alterar-senha', {
+      await comRetry(() => api.post('/auth/alterar-senha', {
         senha_atual: senhaAtual,
         nova_senha: novaSenha
-      })
+      }))
       Alert.alert('Sucesso! 🎉', 'Sua senha foi alterada com sucesso.', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ])

@@ -184,7 +184,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       const valorNumerico = valorAceito
         ? parseFloat(String(obra.valor || obra.valor_estimado))
         : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
-      await api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico })
+      await comRetry(() => api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico }))
       setMinhaCandidatura({ status: 'pendente' })
       setMostrarForm(false)
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
@@ -250,7 +250,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   const handleExpirarMatch = async () => {
     try {
-      await api.post(`/obras/${obra.id}/expirar-match`, {})
+      await comRetry(() => api.post(`/obras/${obra.id}/expirar-match`, {}))
       setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O pintor não chegou a tempo. A obra está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
