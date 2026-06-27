@@ -500,6 +500,7 @@ export default function AppNavigator() {
   }, [])
 
   if (carregando) return null
+  if (usuario && assinatura === null) return null
 
   return (
     <NavigationContainer ref={navigationRef}>

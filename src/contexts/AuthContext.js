@@ -52,26 +52,27 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     configurarCanalAndroid()
     const restaurarSessao = async () => {
+      let u = null, a = null
       try {
         const token = await SecureStore.getItemAsync('token')
         if (token) {
           try {
-            const { usuario, assinatura } = await authService.perfil()
-            setUsuario(usuario)
-            setAssinatura(assinatura)
-            setMostrarBoasVindas(deveExibirBoasVindas(usuario, assinatura))
+            const perfil = await authService.perfil()
+            u = perfil.usuario
+            a = perfil.assinatura
             registrarPushToken()
           } catch (err) {
             console.log('[AuthContext] falha ao restaurar sessão (perfil) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             await SecureStore.deleteItemAsync('token')
-            setUsuario(null)
-            setAssinatura(null)
           }
         }
       } catch (err) {
         console.log('[AuthContext] falha ao ler token do SecureStore | msg:', err.message)
         await SecureStore.deleteItemAsync('token')
       } finally {
+        setUsuario(u)
+        setAssinatura(a)
+        setMostrarBoasVindas(deveExibirBoasVindas(u, a))
         setCarregando(false)
       }
     }
