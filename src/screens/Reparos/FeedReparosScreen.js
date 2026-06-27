@@ -166,6 +166,11 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
   )
 }
 
+// Cache de GPS em nível de módulo: evita chamar o GPS a cada toque no filtro de
+// distância (a leitura pode travar o spinner por segundos em aparelhos lentos).
+let gpsCache = { coords: null, timestamp: 0 }
+const GPS_CACHE_TTL = 30000 // 30 seconds
+
 export default function FeedReparosScreen({ navigation }) {
   const { usuario } = useAuth()
   const [reparos, setReparos] = useState([])
@@ -211,7 +216,8 @@ export default function FeedReparosScreen({ navigation }) {
     const controller = new AbortController()
     abortRef.current = controller
 
-    // Spinner com timeout máximo de 10s: se estourar, aborta e mostra erro.
+    // Spinner com timeout máximo de 20s: se estourar, aborta e mostra erro.
+    // (20s acomoda GPS + cold start + a própria requisição.)
     let timedOut = false
     const timer = setTimeout(() => {
       timedOut = true
@@ -221,7 +227,7 @@ export default function FeedReparosScreen({ navigation }) {
         setCarregando(false)
         setAtualizando(false)
       }
-    }, 10000)
+    }, 20000)
 
     if (!refresh && mountedRef.current) setCarregando(true)
 
@@ -234,11 +240,33 @@ export default function FeedReparosScreen({ navigation }) {
         try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced })
-            params.set('lat', String(loc.coords.latitude))
-            params.set('lng', String(loc.coords.longitude))
-            if (mountedRef.current && abortRef.current === controller) {
-              setCoords({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+            const agora = Date.now()
+            let coordsUsar = null
+            if (gpsCache.coords && (agora - gpsCache.timestamp) < GPS_CACHE_TTL) {
+              // Cache de GPS ainda válido (< 30s): usa direto, sem chamar o GPS.
+              coordsUsar = gpsCache.coords
+            } else {
+              try {
+                // GPS com timeout próprio de 5s (separado do timeout total da requisição).
+                const loc = await Promise.race([
+                  Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('gps_timeout')), 5000))
+                ])
+                gpsCache = { coords: loc.coords, timestamp: Date.now() }
+                coordsUsar = loc.coords
+              } catch (errGps) {
+                // Timeout/permissão de GPS: se houver coords em cache (mesmo expiradas),
+                // usa silenciosamente; senão segue sem lat/lng (API cai p/ filtro por cidade).
+                console.log('[FeedReparos] GPS indisponível, usando cache se houver | msg:', errGps.message)
+                if (gpsCache.coords) coordsUsar = gpsCache.coords
+              }
+            }
+            if (coordsUsar) {
+              params.set('lat', String(coordsUsar.latitude))
+              params.set('lng', String(coordsUsar.longitude))
+              if (mountedRef.current && abortRef.current === controller) {
+                setCoords({ lat: coordsUsar.latitude, lng: coordsUsar.longitude })
+              }
             }
           }
         } catch (err) {
