@@ -7,6 +7,7 @@ import { Image } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -167,6 +168,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
     buscar()
     return () => { mountedRef.current = false }
   }, [reparoInicial.id])
+
+  // Refetch silencioso ao reganhar foco: garante que uma contraproposta do dono
+  // (ou mudança de status) apareça mesmo se o prestador já estava nesta tela.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (reparoInicial?.id) buscar()
+    }, [reparoInicial?.id])
+  )
 
   const buscar = async () => {
     try {
@@ -922,9 +931,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
                                 <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
                               </TouchableOpacity>
                             </View>
-                            <TouchableOpacity style={estilos.btnContraPrestador} onPress={() => setMostrarContraPrestador(true)} disabled={enviandoResposta}>
-                              <Text style={estilos.btnContraPrestadorTexto}>💬 Fazer contraproposta</Text>
-                            </TouchableOpacity>
                           </>
                         )}
                       </>
