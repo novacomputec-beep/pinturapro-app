@@ -30,6 +30,16 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver proposta',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: r } }),
     }
+    const matched = (resp.reparos || []).find(x =>
+      x.match_feito_em && x.match_usuario_id && naoVisto(`reparo_match:${x.id}`)
+    )
+    if (matched) return {
+      chave: `reparo_match:${matched.id}`, emoji: '🎉',
+      titulo: 'Seu reparo vai ser realizado!',
+      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
+      ctaTexto: 'Ver detalhes',
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched } }),
+    }
   }
   // dono_obra — um pintor/construtor se candidatou
   if (ehDonoObra) {
@@ -41,6 +51,16 @@ const detectar = async (usuario) => {
       subtitulo: `"${o.titulo}" tem profissional(is) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: o } }),
+    }
+    const matched = (resp.obras || []).find(x =>
+      x.match_feito_em && x.match_usuario_id && naoVisto(`obra_match:${x.id}`)
+    )
+    if (matched) return {
+      chave: `obra_match:${matched.id}`, emoji: '🎉',
+      titulo: 'Sua obra vai ser realizada!',
+      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
+      ctaTexto: 'Ver detalhes',
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched } }),
     }
   }
   // reparador — o dono aceitou sua proposta
