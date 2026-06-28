@@ -543,6 +543,11 @@ export default function CadastroScreen({ navigation }) {
 
   const valores = getValorPlano()
 
+  // Prestador e dono de reparo usam o ícone; demais tipos seguem com o logo completo.
+  const logoSource = (tipoConta === 'prestador' || tipoConta === 'dono_reparo')
+    ? require('../../../assets/icone.png')
+    : require('../../../assets/logo.png')
+
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -609,7 +614,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <View style={estilos.logoWrap}>
-            <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
+            <Image source={logoSource} style={estilos.logo} resizeMode="contain" />
           </View>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
