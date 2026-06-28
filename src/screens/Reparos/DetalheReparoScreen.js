@@ -669,7 +669,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
 
           {/* Pós-match: endereço em destaque — o prestador precisa saber para onde ir */}
-          {temMatch && reparo.endereco_reparo ? (
+          {temMatch && reparo.endereco_reparo && !isDono ? (
             <View style={estilos.enderecoMatchBox}>
               <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
               <Text style={estilos.enderecoMatchTexto}>{reparo.endereco_reparo}</Text>
