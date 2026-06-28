@@ -9,6 +9,7 @@ import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
+import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -375,6 +376,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setMostrarContraPrestador(false)
       setValorContraPrestador('')
       await buscar()
+      // Aceite confirmado: dispara a verificação de celebração já, sem esperar troca de foco/aba.
+      if (action === 'aceitar') celebracaoRef.verificar?.(true)
       Alert.alert(
         action === 'aceitar' ? '✅ Contraproposta aceita!' : action === 'contraproposta' ? '💬 Contraproposta enviada!' : 'Proposta recusada.',
         action === 'aceitar'

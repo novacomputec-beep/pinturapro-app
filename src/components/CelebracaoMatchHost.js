@@ -70,6 +70,10 @@ const detectar = async (usuario) => {
   return null
 }
 
+// Ref de módulo para acionar a verificação de celebração a partir de outras telas
+// (ex.: logo após o prestador/pintor aceitar, sem depender de troca de foco/aba).
+export const celebracaoRef = { verificar: null }
+
 // Overlay de celebração de match. Montado uma vez no NavigationContainer; aparece
 // automaticamente ao abrir o app, voltar ao foreground ou navegar entre abas.
 export default function CelebracaoMatchHost() {
@@ -96,6 +100,9 @@ export default function CelebracaoMatchHost() {
       checandoRef.current = false
     }
   }, [usuario])
+
+  // Expõe verificar via ref de módulo para acionamento externo (outras telas).
+  useEffect(() => { celebracaoRef.verificar = verificar }, [verificar])
 
   // Ao logar / abrir o app
   useEffect(() => { if (usuario) verificar(true) }, [usuario, verificar])
