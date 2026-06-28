@@ -7,6 +7,7 @@ import { Image } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 import api, { obrasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -151,6 +152,14 @@ export default function DetalheObraScreen({ route, navigation }) {
     buscar()
     return () => { mountedRef.current = false }
   }, [obraInicial.id])
+
+  // Refetch silencioso ao reganhar foco: garante que uma contraproposta do dono
+  // (ou mudança de status) apareça mesmo se o pintor já estava nesta tela.
+  useFocusEffect(
+    React.useCallback(() => {
+      if (obraInicial?.id) buscar()
+    }, [obraInicial?.id])
+  )
 
   const buscar = async () => {
     try {
@@ -820,9 +829,6 @@ export default function DetalheObraScreen({ route, navigation }) {
                                 <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
                               </TouchableOpacity>
                             </View>
-                            <TouchableOpacity style={estilos.btnContraPintor} onPress={() => setMostrarContraPintor(true)} disabled={enviandoResposta}>
-                              <Text style={estilos.btnContraPintorTexto}>💬 Fazer contraproposta</Text>
-                            </TouchableOpacity>
                           </>
                         )}
                       </>
