@@ -577,7 +577,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           )}
 
           {/* Pós-match: endereço em destaque — o pintor precisa saber para onde ir */}
-          {temMatch && obra.endereco_obra ? (
+          {temMatch && obra.endereco_obra && !isDono ? (
             <View style={estilos.enderecoMatchBox}>
               <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
               <Text style={estilos.enderecoMatchTexto}>{obra.endereco_obra}</Text>
