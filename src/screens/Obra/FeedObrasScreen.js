@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -154,6 +154,7 @@ export default function FeedObrasScreen({ navigation }) {
   const [cidadeSelecionada, setCidadeSelecionada] = useState('')
   const [estados, setEstados] = useState([])
   const [cidades, setCidades] = useState([])
+  const [buscaCidade, setBuscaCidade] = useState('')
   const mountedRef = useRef(true)
   // Aborta a requisição em voo quando uma nova seleção de filtro chega (evita corrida
   // onde uma resposta antiga/lenta sobrescreve a lista de uma seleção mais recente).
@@ -323,11 +324,13 @@ export default function FeedObrasScreen({ navigation }) {
     const nova = { cidade: cidadeSelecionada, uf: ufSelecionada, lat, lng }
     setCidadeBusca(nova)
     await AsyncStorage.setItem(STORAGE_KEY_CIDADE_BUSCA, JSON.stringify(nova))
+    setBuscaCidade('')
     setModalCidadeVisivel(false)
   }
 
   const limparCidadeBusca = async () => {
     setCidadeBusca(null)
+    setBuscaCidade('')
     await AsyncStorage.removeItem(STORAGE_KEY_CIDADE_BUSCA)
   }
 
@@ -387,7 +390,7 @@ export default function FeedObrasScreen({ navigation }) {
             />
             <TouchableOpacity
               style={estilos.btnCidadeBusca}
-              onPress={() => { setUfSelecionada(''); setCidadeSelecionada(''); setModalCidadeVisivel(true); buscarEstados() }}
+              onPress={() => { setUfSelecionada(''); setCidadeSelecionada(''); setBuscaCidade(''); setModalCidadeVisivel(true); buscarEstados() }}
             >
               <Text style={estilos.txtCidadeBusca}>
                 📍 {cidadeBusca ? `${cidadeBusca.cidade} - ${cidadeBusca.uf}` : (usuario?.cidade || 'Minha cidade')}
@@ -415,14 +418,24 @@ export default function FeedObrasScreen({ navigation }) {
                   {ufSelecionada ? (
                     <>
                       <Text style={estilos.modalLabel}>Cidade</Text>
+                      <TextInput
+                        style={estilos.inputBuscaCidade}
+                        placeholder="Buscar cidade..."
+                        placeholderTextColor={cores.textoMutado}
+                        value={buscaCidade}
+                        onChangeText={setBuscaCidade}
+                        autoCapitalize="words"
+                      />
                       <ScrollView style={estilos.listaScroll} nestedScrollEnabled>
                         {cidades.length === 0
                           ? <Text style={estilos.txtCarregando}>Carregando cidades...</Text>
-                          : cidades.map(c => (
-                            <TouchableOpacity key={c.id} style={[estilos.itemLista, cidadeSelecionada === c.nome && estilos.itemListaAtivo]} onPress={() => setCidadeSelecionada(c.nome)}>
-                              <Text style={[estilos.itemListaTxt, cidadeSelecionada === c.nome && estilos.itemListaTxtAtivo]}>{c.nome}</Text>
-                            </TouchableOpacity>
-                          ))
+                          : cidades.filter(c => c.nome.toLowerCase().includes(buscaCidade.toLowerCase())).length === 0
+                            ? <Text style={estilos.txtCarregando}>Nenhuma cidade encontrada</Text>
+                            : cidades.filter(c => c.nome.toLowerCase().includes(buscaCidade.toLowerCase())).map(c => (
+                              <TouchableOpacity key={c.id} style={[estilos.itemLista, cidadeSelecionada === c.nome && estilos.itemListaAtivo]} onPress={() => setCidadeSelecionada(c.nome)}>
+                                <Text style={[estilos.itemListaTxt, cidadeSelecionada === c.nome && estilos.itemListaTxtAtivo]}>{c.nome}</Text>
+                              </TouchableOpacity>
+                            ))
                         }
                       </ScrollView>
                     </>
@@ -550,6 +563,7 @@ const estilos = StyleSheet.create({
   itemListaTxt: { fontSize: 14, color: cores.textoMedio },
   itemListaTxtAtivo: { color: cores.primaria, fontWeight: '700' },
   txtCarregando: { fontSize: 13, color: cores.textoFraco, padding: 14, textAlign: 'center' },
+  inputBuscaCidade: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: cores.textoForte, marginBottom: 8 },
   btnConfirmar: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginTop: 20 },
   btnConfirmarTxt: { fontSize: 15, fontWeight: '700', color: '#0A0A0A' },
   btnCancelarModal: { padding: 14, alignItems: 'center', marginTop: 8 },
