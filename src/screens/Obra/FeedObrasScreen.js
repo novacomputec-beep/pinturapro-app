@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -23,6 +23,7 @@ const DISTANCIAS = [
 ]
 
 const STORAGE_KEY_DIST_OBRAS = 'filtro_distancia_obras'
+const STORAGE_KEY_CIDADE_BUSCA = 'filtro_cidade_busca_obras'
 
 const CATEGORIAS = [
   { id: 'todas',         label: 'Todas'           },
@@ -146,6 +147,13 @@ export default function FeedObrasScreen({ navigation }) {
   const [distancia, setDistancia] = useState('cidade')
   const [erro, setErro] = useState(null)
   const [coords, setCoords] = useCoordsUsuario()
+  // "Buscar em outra cidade": null = usa a cidade do perfil; objeto = { cidade, uf, lat, lng }
+  const [cidadeBusca, setCidadeBusca] = useState(null)
+  const [modalCidadeVisivel, setModalCidadeVisivel] = useState(false)
+  const [ufSelecionada, setUfSelecionada] = useState('')
+  const [cidadeSelecionada, setCidadeSelecionada] = useState('')
+  const [estados, setEstados] = useState([])
+  const [cidades, setCidades] = useState([])
   const mountedRef = useRef(true)
   // Aborta a requisição em voo quando uma nova seleção de filtro chega (evita corrida
   // onde uma resposta antiga/lenta sobrescreve a lista de uma seleção mais recente).
@@ -192,8 +200,18 @@ export default function FeedObrasScreen({ navigation }) {
       const params = {}
       if (cat !== 'todas') params.categoria = cat
       params.raio_km = dist
+      if (cidadeBusca) {
+        params.cidade_busca = cidadeBusca.cidade
+        params.uf_busca = cidadeBusca.uf
+      }
       if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade') {
-        try {
+        if (cidadeBusca && cidadeBusca.lat != null) {
+          // Busca em outra cidade: usa as coords geocodificadas da cidade escolhida,
+          // sem acionar o GPS do aparelho.
+          params.lat = String(cidadeBusca.lat)
+          params.lng = String(cidadeBusca.lng)
+          if (mountedRef.current && abortRef.current === controller) setCoords({ lat: cidadeBusca.lat, lng: cidadeBusca.lng })
+        } else try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
             const agora = Date.now()
@@ -248,7 +266,7 @@ export default function FeedObrasScreen({ navigation }) {
     }
   }
 
-  useFocusEffect(useCallback(() => { buscarObras() }, [categoria, distancia]))
+  useFocusEffect(useCallback(() => { buscarObras() }, [categoria, distancia, cidadeBusca]))
 
   const onRefresh = () => { setAtualizando(true); buscarObras() }
 
@@ -256,6 +274,61 @@ export default function FeedObrasScreen({ navigation }) {
     setCategoria(cat)
     setCarregando(true)
     buscarObras(cat, distancia)
+  }
+
+  // ─── "Buscar em outra cidade" ─────────────────────────────────────────
+  // Carrega a cidade de busca salva na montagem (mesmo padrão da persistência de distância).
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_CIDADE_BUSCA).then(val => {
+      if (val) { try { setCidadeBusca(JSON.parse(val)) } catch (e) {} }
+    })
+  }, [])
+
+  const buscarEstados = async () => {
+    try {
+      const r = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
+      const data = await r.json()
+      setEstados(data.map(e => ({ sigla: e.sigla, nome: e.nome })))
+    } catch (err) { console.log('[FeedObras] falha ao buscar estados IBGE | msg:', err.message) }
+  }
+
+  const buscarCidades = async (uf) => {
+    setCidades([])
+    setCidadeSelecionada('')
+    try {
+      const r = await fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
+      const data = await r.json()
+      setCidades(data.map(m => ({ id: m.id, nome: m.nome })))
+    } catch (err) { console.log('[FeedObras] falha ao buscar cidades IBGE | msg:', err.message) }
+  }
+
+  // Recarrega as cidades sempre que o estado selecionado muda.
+  useEffect(() => {
+    if (ufSelecionada) buscarCidades(ufSelecionada)
+  }, [ufSelecionada])
+
+  const geocodarCidade = async (cidade, uf) => {
+    try {
+      const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`)
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, { headers: { 'User-Agent': 'ArrumaPro/1.0' } })
+      const data = await r.json()
+      if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+    } catch (err) { console.log('[FeedObras] falha ao geocodar cidade | msg:', err.message) }
+    return { lat: null, lng: null }
+  }
+
+  const confirmarCidadeBusca = async () => {
+    if (!ufSelecionada || !cidadeSelecionada) return
+    const { lat, lng } = await geocodarCidade(cidadeSelecionada, ufSelecionada)
+    const nova = { cidade: cidadeSelecionada, uf: ufSelecionada, lat, lng }
+    setCidadeBusca(nova)
+    await AsyncStorage.setItem(STORAGE_KEY_CIDADE_BUSCA, JSON.stringify(nova))
+    setModalCidadeVisivel(false)
+  }
+
+  const limparCidadeBusca = async () => {
+    setCidadeBusca(null)
+    await AsyncStorage.removeItem(STORAGE_KEY_CIDADE_BUSCA)
   }
 
   return (
@@ -312,6 +385,62 @@ export default function FeedObrasScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             />
+            <TouchableOpacity
+              style={estilos.btnCidadeBusca}
+              onPress={() => { setUfSelecionada(''); setCidadeSelecionada(''); setModalCidadeVisivel(true); buscarEstados() }}
+            >
+              <Text style={estilos.txtCidadeBusca}>
+                📍 {cidadeBusca ? `${cidadeBusca.cidade} - ${cidadeBusca.uf}` : (usuario?.cidade || 'Minha cidade')}
+              </Text>
+              {cidadeBusca && (
+                <TouchableOpacity onPress={limparCidadeBusca} style={estilos.btnLimparCidade}>
+                  <Text style={estilos.txtLimparCidade}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </TouchableOpacity>
+            <Modal visible={modalCidadeVisivel} animationType="slide" transparent onRequestClose={() => setModalCidadeVisivel(false)}>
+              <View style={estilos.modalOverlay}>
+                <View style={estilos.modalContainer}>
+                  <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
+
+                  <Text style={estilos.modalLabel}>Estado</Text>
+                  <ScrollView style={estilos.listaScroll} nestedScrollEnabled>
+                    {estados.map(e => (
+                      <TouchableOpacity key={e.sigla} style={[estilos.itemLista, ufSelecionada === e.sigla && estilos.itemListaAtivo]} onPress={() => { setUfSelecionada(e.sigla) }}>
+                        <Text style={[estilos.itemListaTxt, ufSelecionada === e.sigla && estilos.itemListaTxtAtivo]}>{e.nome} ({e.sigla})</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+
+                  {ufSelecionada ? (
+                    <>
+                      <Text style={estilos.modalLabel}>Cidade</Text>
+                      <ScrollView style={estilos.listaScroll} nestedScrollEnabled>
+                        {cidades.length === 0
+                          ? <Text style={estilos.txtCarregando}>Carregando cidades...</Text>
+                          : cidades.map(c => (
+                            <TouchableOpacity key={c.id} style={[estilos.itemLista, cidadeSelecionada === c.nome && estilos.itemListaAtivo]} onPress={() => setCidadeSelecionada(c.nome)}>
+                              <Text style={[estilos.itemListaTxt, cidadeSelecionada === c.nome && estilos.itemListaTxtAtivo]}>{c.nome}</Text>
+                            </TouchableOpacity>
+                          ))
+                        }
+                      </ScrollView>
+                    </>
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={[estilos.btnConfirmar, (!ufSelecionada || !cidadeSelecionada) && { opacity: 0.4 }]}
+                    onPress={confirmarCidadeBusca}
+                    disabled={!ufSelecionada || !cidadeSelecionada}
+                  >
+                    <Text style={estilos.btnConfirmarTxt}>Buscar aqui</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={estilos.btnCancelarModal} onPress={() => setModalCidadeVisivel(false)}>
+                    <Text style={estilos.btnCancelarModalTxt}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
             <FlatList
               data={DISTANCIAS}
               horizontal
@@ -405,4 +534,24 @@ const estilos = StyleSheet.create({
   interessados: { fontSize: 11, color: cores.textoMutado },
   btnVer: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 7 },
   btnVerTexto: { fontSize: 11, fontWeight: '600', color: '#0A0A0A' },
+
+  // "Buscar em outra cidade"
+  btnCidadeBusca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoCard, borderRadius: raios.medio, paddingHorizontal: 14, paddingVertical: 10, marginHorizontal: 16, marginBottom: 8, borderWidth: 0.5, borderColor: cores.borda },
+  txtCidadeBusca: { fontSize: 13, color: cores.textoForte, fontWeight: '600', flex: 1 },
+  btnLimparCidade: { paddingLeft: 10, paddingVertical: 4 },
+  txtLimparCidade: { fontSize: 16, color: cores.textoFraco },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalContainer: { backgroundColor: cores.fundo, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, maxHeight: '85%' },
+  modalTitulo: { fontSize: 18, fontWeight: '700', color: cores.textoForte, marginBottom: 20, textAlign: 'center' },
+  modalLabel: { fontSize: 13, color: cores.textoFraco, fontWeight: '600', marginBottom: 8, marginTop: 12 },
+  listaScroll: { maxHeight: 180, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio },
+  itemLista: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca },
+  itemListaAtivo: { backgroundColor: cores.primaria + '22' },
+  itemListaTxt: { fontSize: 14, color: cores.textoMedio },
+  itemListaTxtAtivo: { color: cores.primaria, fontWeight: '700' },
+  txtCarregando: { fontSize: 13, color: cores.textoFraco, padding: 14, textAlign: 'center' },
+  btnConfirmar: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginTop: 20 },
+  btnConfirmarTxt: { fontSize: 15, fontWeight: '700', color: '#0A0A0A' },
+  btnCancelarModal: { padding: 14, alignItems: 'center', marginTop: 8 },
+  btnCancelarModalTxt: { fontSize: 14, color: cores.textoFraco },
 })
