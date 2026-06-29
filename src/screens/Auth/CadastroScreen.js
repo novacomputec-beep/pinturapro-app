@@ -558,8 +558,8 @@ export default function CadastroScreen({ navigation }) {
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
           </View>
-          <Text style={estilos.titulo} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
-          <Text style={estilos.subtitulo}>Escolha o perfil que melhor descreve você</Text>
+          <Text style={[estilos.titulo, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
+          <Text style={[estilos.subtitulo, { textAlign: 'center' }]}>Escolha o perfil que melhor descreve você</Text>
 
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🖌️</Text>
@@ -614,7 +614,11 @@ export default function CadastroScreen({ navigation }) {
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <View style={estilos.logoWrap}>
-            <Image source={logoSource} style={estilos.logo} resizeMode="contain" />
+            <Image
+              source={logoSource}
+              style={logoSource === require('../../../assets/icone.png') ? estilos.logoIcone : estilos.logo}
+              resizeMode="contain"
+            />
           </View>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
@@ -852,6 +856,7 @@ const estilos = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 16 },
   logoWrap: { alignItems: 'center', marginBottom: 10 },
   logo: { width: 170, height: 80 },
+  logoIcone: { width: 170, height: 170, marginBottom: 4 },
   btnVoltar: { marginTop: 16, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },

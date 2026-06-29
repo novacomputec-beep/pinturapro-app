@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput
+  TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput,
+  KeyboardAvoidingView, Platform
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -456,8 +457,9 @@ export default function FeedReparosScreen({ navigation }) {
               )}
             </TouchableOpacity>
             <Modal visible={modalCidadeVisivel} animationType="slide" transparent onRequestClose={() => setModalCidadeVisivel(false)}>
-              <View style={estilos.modalOverlay}>
-                <View style={estilos.modalContainer}>
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+                <View style={estilos.modalOverlay}>
+                  <View style={estilos.modalContainer}>
                   <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
 
                   <Text style={estilos.modalLabel}>Estado</Text>
@@ -507,6 +509,7 @@ export default function FeedReparosScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               </View>
+              </KeyboardAvoidingView>
             </Modal>
             <FlatList
               data={DISTANCIAS}
