@@ -200,6 +200,14 @@ export default function CadastroScreen({ navigation }) {
   const [docFrente, setDocFrente] = useState(null)
   const [docVerso, setDocVerso] = useState(null)
   const [selfie, setSelfie] = useState(null)
+  // Pré-upload em background: assim que o usuário seleciona cada foto, ela já começa
+  // a subir; ao tocar "Finalizar" as URLs costumam já estar prontas.
+  const [docFrenteUrl, setDocFrenteUrl] = useState(null)
+  const [docVersoUrl, setDocVersoUrl] = useState(null)
+  const [selfieUrl, setSelfieUrl] = useState(null)
+  const [uploadandoDocFrente, setUploadandoDocFrente] = useState(false)
+  const [uploadandoDocVerso, setUploadandoDocVerso] = useState(false)
+  const [uploadandoSelfie, setUploadandoSelfie] = useState(false)
   const [enviandoDocs, setEnviandoDocs] = useState(false)
   const [progresso, setProgresso] = useState('')          // texto de fase exibido durante o cadastro
   const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
@@ -212,7 +220,7 @@ export default function CadastroScreen({ navigation }) {
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
-  const selecionarFoto = async (setter) => {
+  const selecionarFoto = async (setter, tipo, setUrl, setUploadando) => {
     Alert.alert(
       'Adicionar foto',
       'Como deseja adicionar a foto?',
@@ -231,7 +239,10 @@ export default function CadastroScreen({ navigation }) {
               maxWidth: 1200,
               maxHeight: 1200,
             })
-            if (!resultado.canceled) setter(resultado.assets[0].uri)
+            if (!resultado.canceled) {
+              setter(resultado.assets[0].uri)
+              if (tipo && setUrl) preUploadFoto(resultado.assets[0].uri, tipo, setUrl, setUploadando)
+            }
           }
         },
         {
@@ -249,7 +260,10 @@ export default function CadastroScreen({ navigation }) {
               maxWidth: 1200,
               maxHeight: 1200,
             })
-            if (!resultado.canceled) setter(resultado.assets[0].uri)
+            if (!resultado.canceled) {
+              setter(resultado.assets[0].uri)
+              if (tipo && setUrl) preUploadFoto(resultado.assets[0].uri, tipo, setUrl, setUploadando)
+            }
           }
         },
         { text: 'Cancelar', style: 'cancel' }
@@ -379,6 +393,22 @@ export default function CadastroScreen({ navigation }) {
     return cloudData.secure_url
   }
 
+  // Sobe uma foto e guarda a URL (fire-and-start: não bloqueia a UI). Em caso de
+  // falha, deixa a URL nula e o handleCadastrar refaz o upload no envio (fallback).
+  const preUploadFoto = async (uri, tipo, setUrl, setUploadando) => {
+    setUploadando(true)
+    try {
+      const url = await uploadFotoVerificacao(uri, tipo)
+      if (montadoRef.current) setUrl(url)
+    } catch (err) {
+      console.log(`[CadastroScreen] pre-upload falhou para ${tipo} | msg:`, err.message)
+      // Silent fail — will retry during handleCadastrar if URL is still null
+      if (montadoRef.current) setUrl(null)
+    } finally {
+      if (montadoRef.current) setUploadando(false)
+    }
+  }
+
   const handleCadastrar = async () => {
     if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
     emAndamentoRef.current = true
@@ -407,43 +437,56 @@ export default function CadastroScreen({ navigation }) {
         console.log('[cadastro] ↻ step1 verificar-disponibilidade já validado nesta sessão — pulando')
       }
 
-      let docFrenteUrl = null
-      let docVersoUrl = null
-      let selfieUrl = null
+      // Usa as URLs pré-enviadas (background) quando disponíveis; só sobe no envio
+      // as fotos cujo pré-upload ainda não concluiu (fallback / degradação graciosa).
+      let uploadedDocFrenteUrl = docFrenteUrl
+      let uploadedDocVersoUrl = docVersoUrl
+      let uploadedSelfieUrl = selfieUrl
 
       // Se for prestador, faz upload dos documentos primeiro
       if (isPrestador && docFrente) {
-        setEnviandoDocs(true)
-        timeoutId = setTimeout(() => {
-          emAndamentoRef.current = false
-          setCarregando(false)
+        const precisaUpload = !uploadedDocFrenteUrl || !uploadedDocVersoUrl || !uploadedSelfieUrl
+        if (precisaUpload) {
+          setEnviandoDocs(true)
+          timeoutId = setTimeout(() => {
+            emAndamentoRef.current = false
+            setCarregando(false)
+            setEnviandoDocs(false)
+            setProgresso('')
+            Alert.alert(
+              'Tempo esgotado',
+              'O envio demorou muito. Verifique sua conexão e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.',
+              [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+            )
+          }, 300000)
+          // Rede de segurança final (5 min) — não deve disparar no caso comum: o
+          // retry silencioso do xhrUpload (até 9 tentativas/foto) cobre quedas transitórias.
+          console.log('[cadastro] ▶ iniciando uploads de documentos (300s timeout de segurança ativo)')
+          try {
+            if (!uploadedDocFrenteUrl) {
+              setProgresso('Enviando documentos (1/3)...')
+              uploadedDocFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
+            }
+            if (!uploadedDocVersoUrl) {
+              setProgresso('Enviando documentos (2/3)...')
+              uploadedDocVersoUrl = await uploadFotoVerificacao(docVerso, 'doc_verso')
+            }
+            if (!uploadedSelfieUrl) {
+              setProgresso('Enviando documentos (3/3)...')
+              uploadedSelfieUrl = await uploadFotoVerificacao(selfie, 'selfie')
+            }
+            console.log('[cadastro] ✓ todos os uploads concluídos', { docFrenteUrl: uploadedDocFrenteUrl, docVersoUrl: uploadedDocVersoUrl, selfieUrl: uploadedSelfieUrl })
+          } catch (err) {
+            const kind = classificarErro(err)
+            console.log(`[cadastro] ✗ upload de documento FALHOU | kind=${kind} | msg="${err?.message}" | code=${err?.code}`)
+            throw err
+          }
+          clearTimeout(timeoutId)
+          timeoutId = null
           setEnviandoDocs(false)
-          setProgresso('')
-          Alert.alert(
-            'Tempo esgotado',
-            'O envio demorou muito. Verifique sua conexão e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.',
-            [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-          )
-        }, 300000)
-        // Rede de segurança final (5 min) — não deve disparar no caso comum: o
-        // retry silencioso do xhrUpload (até 9 tentativas/foto) cobre quedas transitórias.
-        console.log('[cadastro] ▶ iniciando uploads de documentos (300s timeout de segurança ativo)')
-        try {
-          setProgresso('Enviando documentos (1/3)...')
-          docFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
-          setProgresso('Enviando documentos (2/3)...')
-          docVersoUrl  = await uploadFotoVerificacao(docVerso, 'doc_verso')
-          setProgresso('Enviando documentos (3/3)...')
-          selfieUrl    = await uploadFotoVerificacao(selfie, 'selfie')
-          console.log('[cadastro] ✓ todos os uploads concluídos', { docFrenteUrl, docVersoUrl, selfieUrl })
-        } catch (err) {
-          const kind = classificarErro(err)
-          console.log(`[cadastro] ✗ upload de documento FALHOU | kind=${kind} | msg="${err?.message}" | code=${err?.code}`)
-          throw err
+        } else {
+          setProgresso('Fotos já enviadas ✅')
         }
-        clearTimeout(timeoutId)
-        timeoutId = null
-        setEnviandoDocs(false)
       }
 
       const referencias = []
@@ -474,9 +517,9 @@ export default function CadastroScreen({ navigation }) {
           ? especialidades.split(',').map(s => s.trim()).filter(Boolean) : [],
         pix_reembolso: pixReembolso.trim() || null,
         referencias,
-        verificacao_doc_frente_url: docFrenteUrl,
-        verificacao_doc_verso_url: docVersoUrl,
-        verificacao_selfie_url: selfieUrl,
+        verificacao_doc_frente_url: uploadedDocFrenteUrl,
+        verificacao_doc_verso_url: uploadedDocVersoUrl,
+        verificacao_selfie_url: uploadedSelfieUrl,
         rg: isPrestador ? rg.trim() || null : null,
         rg_orgao: isPrestador ? rgOrgao : null,
         rg_estado: isPrestador ? rgEstado || null : null,
@@ -803,18 +846,18 @@ export default function CadastroScreen({ navigation }) {
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.fotoLabel}>Frente *</Text>
                   <UploadFoto
-                    label="Tirar foto"
+                    label={uploadandoDocFrente ? 'Enviando...' : (docFrenteUrl ? '✅ Enviada' : 'Tirar foto')}
                     valor={docFrente}
-                    onPress={() => selecionarFoto(setDocFrente)}
+                    onPress={() => selecionarFoto(setDocFrente, 'doc_frente', setDocFrenteUrl, setUploadandoDocFrente)}
                   />
                   {erros.docFrente && <Text style={estilos.erroTexto}>{erros.docFrente}</Text>}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.fotoLabel}>Verso *</Text>
                   <UploadFoto
-                    label="Tirar foto"
+                    label={uploadandoDocVerso ? 'Enviando...' : (docVersoUrl ? '✅ Enviada' : 'Tirar foto')}
                     valor={docVerso}
-                    onPress={() => selecionarFoto(setDocVerso)}
+                    onPress={() => selecionarFoto(setDocVerso, 'doc_verso', setDocVersoUrl, setUploadandoDocVerso)}
                   />
                   {erros.docVerso && <Text style={estilos.erroTexto}>{erros.docVerso}</Text>}
                 </View>
@@ -823,9 +866,9 @@ export default function CadastroScreen({ navigation }) {
               <Text style={[estilos.labelSecao, { marginTop: 16 }]}>SELFIE COM DOCUMENTO *</Text>
               <Text style={estilos.labelSecaoDesc}>Segure seu documento ao lado do rosto</Text>
               <UploadFoto
-                label="Tirar selfie com documento"
+                label={uploadandoSelfie ? 'Enviando...' : (selfieUrl ? '✅ Enviada' : 'Tirar selfie com documento')}
                 valor={selfie}
-                onPress={() => selecionarFoto(setSelfie)}
+                onPress={() => selecionarFoto(setSelfie, 'selfie', setSelfieUrl, setUploadandoSelfie)}
               />
               {erros.selfie && <Text style={estilos.erroTexto}>{erros.selfie}</Text>}
             </View>
