@@ -273,7 +273,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       { text: 'Encerrar', onPress: async () => {
         try {
           await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
-          Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+          Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.', [{ text: 'OK', onPress: async () => { setReparo(prev => ({ ...prev, status: 'encerrada' })); await buscar(); navigation.goBack() } }])
         } catch (err) { console.log('[DetalheReparo] falha ao encerrar reparo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
     ])
@@ -717,7 +717,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do prestador: {prestadorMatch.telefone}</Text>
                 </TouchableOpacity>
               )}
-              {temMatch && (
+              {temMatch && reparo?.status !== 'encerrada' && (
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
                 </TouchableOpacity>
@@ -863,7 +863,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
-              {souPrestadorDoMatch && (
+              {souPrestadorDoMatch && reparo?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, encerrando && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando}>
                   <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : '✅ Serviço concluído — Encerrar'}</Text>
                 </TouchableOpacity>

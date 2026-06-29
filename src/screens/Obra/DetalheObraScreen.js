@@ -252,7 +252,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       { text: 'Encerrar', onPress: async () => {
         try {
           await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
-          Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+          Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: async () => { setObra(prev => ({ ...prev, status: 'encerrada' })); await buscar(); navigation.goBack() } }])
         } catch (err) { console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
     ])
@@ -615,7 +615,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do pintor: {pintorMatch.telefone}</Text>
                 </TouchableOpacity>
               )}
-              {temMatch && (
+              {temMatch && obra?.status !== 'encerrada' && (
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar obra</Text>
                 </TouchableOpacity>
@@ -761,7 +761,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
-              {souPintorDoMatch && (
+              {souPintorDoMatch && obra?.status !== 'encerrada' && (
                 <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
                   <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
                 </TouchableOpacity>
