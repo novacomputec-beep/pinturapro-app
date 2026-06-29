@@ -837,10 +837,15 @@ export default function CadastroScreen({ navigation }) {
             </View>
           )}
           <View style={estilos.acoesRow}>
+            {carregando && passo === totalPassos && isPrestador && (
+              <Text style={{ fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginBottom: 12, lineHeight: 18 }}>
+                ⏳ Aguarde — o envio das fotos pode levar até 1 minuto. Não feche o app.
+              </Text>
+            )}
             <BotaoPrimario
-              titulo={passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →'}
+              titulo={carregando && progresso ? progresso : (passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →')}
               onPress={avancar}
-              carregando={carregando}
+              carregando={carregando && !progresso}
               desabilitado={carregando}
             />
           </View>
