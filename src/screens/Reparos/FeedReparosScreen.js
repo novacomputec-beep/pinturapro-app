@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput,
-  KeyboardAvoidingView, Platform
+  KeyboardAvoidingView, Platform, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -257,7 +257,18 @@ export default function FeedReparosScreen({ navigation }) {
       const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`)
       const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, { headers: { 'User-Agent': 'ArrumaPro/1.0' } })
       const data = await r.json()
-      if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
+      if (data.length > 0) {
+        const resultado = data[0]
+        // Validate: display_name must contain the expected UF to avoid wrong-state results
+        const estadosPorUF = { AC:'Acre', AL:'Alagoas', AP:'Amapá', AM:'Amazonas', BA:'Bahia', CE:'Ceará', DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão', MT:'Mato Grosso', MS:'Mato Grosso do Sul', MG:'Minas Gerais', PA:'Pará', PB:'Paraíba', PR:'Paraná', PE:'Pernambuco', PI:'Piauí', RJ:'Rio de Janeiro', RN:'Rio Grande do Norte', RS:'Rio Grande do Sul', RO:'Rondônia', RR:'Roraima', SC:'Santa Catarina', SP:'São Paulo', SE:'Sergipe', TO:'Tocantins' }
+        const nomeEstado = estadosPorUF[uf] || ''
+        const displayName = resultado.display_name || ''
+        if (nomeEstado && !displayName.includes(nomeEstado) && !displayName.includes(uf)) {
+          console.log('[geocodarCidade] resultado fora do estado esperado | uf:', uf, '| display_name:', displayName)
+          return { lat: null, lng: null }
+        }
+        return { lat: parseFloat(resultado.lat), lng: parseFloat(resultado.lon) }
+      }
     } catch (err) { console.log('[FeedReparos] falha ao geocodar cidade | msg:', err.message) }
     return { lat: null, lng: null }
   }
@@ -265,6 +276,12 @@ export default function FeedReparosScreen({ navigation }) {
   const confirmarCidadeBusca = async () => {
     if (!ufSelecionada || !cidadeSelecionada) return
     const { lat, lng } = await geocodarCidade(cidadeSelecionada, ufSelecionada)
+    if (lat === null) {
+      Alert.alert(
+        '⚠️ Localização aproximada',
+        `Não encontramos as coordenadas exatas de "${cidadeSelecionada}". Os filtros por distância (km) usarão seu GPS atual. Apenas os filtros "Cidade" e "Estado" buscarão em ${cidadeSelecionada}.`
+      )
+    }
     const nova = { cidade: cidadeSelecionada, uf: ufSelecionada, lat, lng }
     setCidadeBusca(nova)
     await AsyncStorage.setItem(STORAGE_KEY_CIDADE_BUSCA, JSON.stringify(nova))
