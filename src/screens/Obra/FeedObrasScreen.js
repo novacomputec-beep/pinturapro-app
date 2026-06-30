@@ -418,7 +418,7 @@ export default function FeedObrasScreen({ navigation }) {
                   <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
 
                   <Text style={estilos.modalLabel}>Estado</Text>
-                  <ScrollView style={estilos.listaScroll} nestedScrollEnabled>
+                  <ScrollView style={ufSelecionada ? estilos.listaScrollEstadoColapsado : estilos.listaScroll} nestedScrollEnabled>
                     {estados.map(e => (
                       <TouchableOpacity key={e.sigla} style={[estilos.itemLista, ufSelecionada === e.sigla && estilos.itemListaAtivo]} onPress={() => { setUfSelecionada(e.sigla) }}>
                         <Text style={[estilos.itemListaTxt, ufSelecionada === e.sigla && estilos.itemListaTxtAtivo]}>{e.nome} ({e.sigla})</Text>
@@ -437,7 +437,7 @@ export default function FeedObrasScreen({ navigation }) {
                         onChangeText={setBuscaCidade}
                         autoCapitalize="words"
                       />
-                      <ScrollView style={estilos.listaScroll} nestedScrollEnabled>
+                      <ScrollView style={estilos.listaScrollCidade} nestedScrollEnabled>
                         {cidades.length === 0
                           ? <Text style={estilos.txtCarregando}>Carregando cidades...</Text>
                           : cidades.filter(c => c.nome.toLowerCase().includes(buscaCidade.toLowerCase())).length === 0
@@ -570,6 +570,8 @@ const estilos = StyleSheet.create({
   modalTitulo: { fontSize: 18, fontWeight: '700', color: cores.textoForte, marginBottom: 20, textAlign: 'center' },
   modalLabel: { fontSize: 13, color: cores.textoFraco, fontWeight: '600', marginBottom: 8, marginTop: 12 },
   listaScroll: { maxHeight: 180, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio },
+  listaScrollEstadoColapsado: { maxHeight: 70, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio },
+  listaScrollCidade: { maxHeight: 280, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio },
   itemLista: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca },
   itemListaAtivo: { backgroundColor: cores.primaria + '22' },
   itemListaTxt: { fontSize: 14, color: cores.textoMedio },
