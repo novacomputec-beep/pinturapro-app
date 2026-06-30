@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
-  TouchableOpacity, RefreshControl, ActivityIndicator, Linking
+  TouchableOpacity, RefreshControl, ActivityIndicator, Linking, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
@@ -30,6 +30,32 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const [contratos, setContratos] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
+  const [bloqueados, setBloqueados] = useState(new Set())
+
+  // Carrega a lista de prestadores bloqueados do dono na montagem (só lado dono).
+  useEffect(() => {
+    if (!ehDono) return
+    api.get('/usuarios/prestadores-bloqueados').then(resp => {
+      const ids = new Set((resp.bloqueados || []).map(b => b.prestador_id))
+      setBloqueados(ids)
+    }).catch(err => console.log('[ContratosFinalizados] falha ao carregar bloqueados | msg:', err.message))
+  }, [ehDono])
+
+  const toggleBloqueio = async (prestadorId) => {
+    const jaBloqueado = bloqueados.has(prestadorId)
+    try {
+      if (jaBloqueado) {
+        await api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`)
+        setBloqueados(prev => { const novo = new Set(prev); novo.delete(prestadorId); return novo })
+      } else {
+        await api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId })
+        setBloqueados(prev => new Set(prev).add(prestadorId))
+      }
+    } catch (err) {
+      console.log('[ContratosFinalizados] falha ao alternar bloqueio | msg:', err.message)
+      Alert.alert('Erro', 'Não foi possível atualizar o bloqueio. Tente novamente.')
+    }
+  }
 
   const buscar = async () => {
     try {
@@ -105,6 +131,17 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
         </View>
+
+        {ehDono && item.prestador_id && (
+          <TouchableOpacity
+            style={[estilos.btnBloquear, bloqueados.has(item.prestador_id) && estilos.btnBloquearAtivo]}
+            onPress={() => toggleBloqueio(item.prestador_id)}
+          >
+            <Text style={[estilos.btnBloquearTexto, bloqueados.has(item.prestador_id) && estilos.btnBloquearTextoAtivo]}>
+              {bloqueados.has(item.prestador_id) ? '✅ Desbloquear para futuros serviços' : '🚫 Bloquear para futuros serviços'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     )
   }
@@ -168,6 +205,10 @@ const estilos = StyleSheet.create({
   btnVerTexto:        { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   btnLigar:           { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, alignItems: 'center', borderWidth: 0.5, borderColor: cores.borda, backgroundColor: cores.fundoElevado },
   btnLigarTexto:      { fontSize: 13, fontWeight: '600', color: cores.textoMedio },
+  btnBloquear:        { marginTop: 8, borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 0.5, borderColor: cores.perigo, backgroundColor: 'transparent' },
+  btnBloquearTexto:   { fontSize: 12, fontWeight: '600', color: cores.perigo },
+  btnBloquearAtivo:   { backgroundColor: cores.perigo + '15', borderColor: cores.perigo },
+  btnBloquearTextoAtivo: { color: cores.perigo },
   vazio:              { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   vazioIcone:         { fontSize: 48, marginBottom: 16 },
   vazioTitulo:        { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
