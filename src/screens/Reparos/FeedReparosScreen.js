@@ -24,7 +24,6 @@ const DISTANCIAS = [
 ]
 
 const STORAGE_KEY_DIST_REPAROS = 'filtro_distancia_reparos'
-const STORAGE_KEY_CIDADE_BUSCA = 'filtro_cidade_busca_reparos'
 
 const CATEGORIAS = [
   { id: 'todas',        label: 'Todas'          },
@@ -222,13 +221,8 @@ export default function FeedReparosScreen({ navigation }) {
   }
 
   // ─── "Buscar em outra cidade" ─────────────────────────────────────────
-  // Carrega a cidade de busca salva na montagem (mesmo padrão da persistência de distância).
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY_CIDADE_BUSCA).then(val => {
-      if (val) { try { setCidadeBusca(JSON.parse(val)) } catch (e) {} }
-    })
-  }, [])
-
+  // A cidade de busca vive apenas no estado da sessão atual: ao reabrir o app,
+  // o filtro volta para a cidade do perfil (sem persistência).
   const buscarEstados = async () => {
     try {
       const r = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/estados?orderBy=nome')
@@ -284,15 +278,13 @@ export default function FeedReparosScreen({ navigation }) {
     }
     const nova = { cidade: cidadeSelecionada, uf: ufSelecionada, lat, lng }
     setCidadeBusca(nova)
-    await AsyncStorage.setItem(STORAGE_KEY_CIDADE_BUSCA, JSON.stringify(nova))
     setBuscaCidade('')
     setModalCidadeVisivel(false)
   }
 
-  const limparCidadeBusca = async () => {
+  const limparCidadeBusca = () => {
     setCidadeBusca(null)
     setBuscaCidade('')
-    await AsyncStorage.removeItem(STORAGE_KEY_CIDADE_BUSCA)
   }
 
   const buscarReparos = async (cat = categoria, dist = distancia, { refresh = false } = {}) => {
