@@ -557,7 +557,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </>
           )}
 
-          {midias.length > 0 && (
+          {midias.length > 0 ? (
             <>
               <Text style={estilos.secaoTitulo}>Fotos e vídeos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
@@ -578,7 +578,12 @@ export default function DetalheObraScreen({ route, navigation }) {
                 ))}
               </ScrollView>
             </>
-          )}
+          ) : obra?.status === 'encerrada' ? (
+            <View style={estilos.avisoMidiaRemovida}>
+              <Text style={estilos.avisoMidiaRemovidaIcone}>📷</Text>
+              <Text style={estilos.avisoMidiaRemovidaTexto}>Mídia removida automaticamente após 7 dias da conclusão do serviço</Text>
+            </View>
+          ) : null}
 
           {temMatch && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
             <RelogioRegressivo
@@ -945,6 +950,9 @@ const estilos = StyleSheet.create({
   midiaItem: { width: 160, height: 120, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
   midiaImagem: { width: '100%', height: '100%' },
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  avisoMidiaRemovida: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 20 },
+  avisoMidiaRemovidaIcone: { fontSize: 20 },
+  avisoMidiaRemovidaTexto: { flex: 1, fontSize: 12, color: cores.textoFraco, lineHeight: 18 },
   relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
   relogioExpirado: { backgroundColor: '#2a2a2a', borderColor: '#666' },
   relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
