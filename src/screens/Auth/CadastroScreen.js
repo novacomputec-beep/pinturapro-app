@@ -595,7 +595,7 @@ export default function CadastroScreen({ navigation }) {
     return (
       <SafeAreaView style={estilos.container}>
         <ScrollView contentContainerStyle={estilos.scroll}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Splash')}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <View style={estilos.logoWrap}>
