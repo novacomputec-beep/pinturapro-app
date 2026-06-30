@@ -154,25 +154,32 @@ function PagamentoPendenteScreen() {
   const [carregando, setCarregando] = React.useState(true)
   const [verificando, setVerificando] = React.useState(false)
   const [erro, setErro] = React.useState(null)
+  const mountedRef = React.useRef(true)
+  React.useEffect(() => () => { mountedRef.current = false }, [])
 
   const buscarLink = React.useCallback(async () => {
     setCarregando(true)
     setErro(null)
     try {
       const plano = assinatura?.plano || 'mensal'
-      const pagamento = await comRetry(() => api.post('/pagamentos/criar-assinatura', { plano }))
+      // Timeout de 20s: se a requisição travar sem resolver/rejeitar, força a rejeição
+      // para que o catch rode e a tela não fique presa em "Gerando link...".
+      const pagamento = await Promise.race([
+        comRetry(() => api.post('/pagamentos/criar-assinatura', { plano })),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout_criar_assinatura')), 20000))
+      ])
       if (pagamento.init_point) {
-        setLink(pagamento.init_point)
+        if (mountedRef.current) setLink(pagamento.init_point)
         Linking.openURL(pagamento.init_point).catch(err => console.log('[AppNavigator] falha ao abrir URL de pagamento | msg:', err.message))
       } else {
-        setErro('Link de pagamento não retornado. Toque em "Tentar novamente".')
+        if (mountedRef.current) setErro('Link de pagamento não retornado. Toque em "Tentar novamente".')
       }
     } catch (err) {
       console.log('[AppNavigator] falha ao buscar link de pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem || err.message)
       const msg = err?.mensagem || err?.erro || err?.message || 'Não foi possível gerar o link de pagamento.'
-      setErro(msg)
+      if (mountedRef.current) setErro(msg)
     } finally {
-      setCarregando(false)
+      if (mountedRef.current) setCarregando(false)
     }
   }, [assinatura?.plano])
 
