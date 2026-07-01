@@ -204,7 +204,7 @@ function PagamentoPendenteScreen() {
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
-          Finalize seu pagamento
+          {assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
         </Text>
         <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
           {valorMensal}/mês

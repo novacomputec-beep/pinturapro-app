@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking, Image
 } from 'react-native'
-import { authService } from '../../services/api'
+import api, { authService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -26,6 +26,23 @@ export default function PerfilScreen({ navigation }) {
   const { usuario, assinatura, logout } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
+  const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
+
+  const handleRenovarAssinatura = async () => {
+    setRenovandoAssinatura(true)
+    try {
+      const resposta = await api.post('/pagamentos/criar-assinatura', { plano: assinatura?.plano || 'mensal' })
+      if (resposta?.init_point) {
+        await Linking.openURL(resposta.init_point)
+      } else {
+        Alert.alert('Erro', 'Não foi possível gerar o link de pagamento. Tente novamente.')
+      }
+    } catch (err) {
+      Alert.alert('Erro', 'Não foi possível conectar ao servidor. Tente novamente.')
+    } finally {
+      setRenovandoAssinatura(false)
+    }
+  }
 
   useEffect(() => {
     const buscar = async () => {
@@ -128,9 +145,15 @@ export default function PerfilScreen({ navigation }) {
               </View>
             )}
           </View>
-          {!isDono && (!assinatura || assinatura.status !== 'ativa') && (
-            <TouchableOpacity style={estilos.btnRenovar}>
-              <Text style={estilos.btnRenovarTexto}>Renovar assinatura →</Text>
+          {!isDono && (
+            <TouchableOpacity
+              style={[estilos.btnRenovar, renovandoAssinatura && { opacity: 0.6 }]}
+              onPress={handleRenovarAssinatura}
+              disabled={renovandoAssinatura}
+            >
+              <Text style={estilos.btnRenovarTexto}>
+                {renovandoAssinatura ? 'Aguarde...' : assinatura?.status === 'ativa' ? 'Renovar assinatura →' : 'Pagar agora →'}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
