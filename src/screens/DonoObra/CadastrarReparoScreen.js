@@ -51,12 +51,14 @@ const xhrUpload = (url, form, { isVideo = false } = {}) => new Promise((resolve,
 
 const CATEGORIAS = [
   { id: 'hidraulica',   label: '🚿 Hidráulica'   },
-  { id: 'eletrica',     label: '💡 Elétrica'      },
+  { id: 'eletrica',     label: '⚡ Elétrica'      },
   { id: 'marcenaria',   label: '🪚 Marcenaria'    },
-  { id: 'alvenaria',    label: '🏠 Alvenaria'     },
+  { id: 'alvenaria',    label: '🧱 Alvenaria'     },
   { id: 'climatizacao', label: '❄️ Climatização'  },
   { id: 'chaveiro',     label: '🔑 Chaveiro'      },
   { id: 'faxina',       label: '🧹 Faxina'        },
+  { id: 'eletronica',      label: '📱 Eletrônica'      },
+  { id: 'aula_particular', label: '📚 Aula Particular'  },
   { id: 'outros',       label: '🔨 Outros'        },
 ]
 
@@ -417,7 +419,13 @@ export default function CadastrarReparoScreen({ navigation }) {
       )}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView ref={scrollRef} contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack()
+            } else {
+              navigation.navigate('Meus Reparos')
+            }
+          }}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>Cadastrar{'\n'}reparo</Text>
