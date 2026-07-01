@@ -66,6 +66,16 @@ const detectar = async (usuario) => {
   // reparador — o dono aceitou sua proposta
   if (ehReparador) {
     const resp = await api.get('/reparos/meus-interesses')
+    // Contraproposta pendente do dono — mais urgente, verifica ANTES do aceito.
+    const cp = (resp.ativos || []).find(x => x.status === 'contraproposta_dono' && naoVisto(`contraproposta:${x.id}`))
+    if (cp) return {
+      tipo: 'contraproposta_prestador',
+      chave: `contraproposta:${cp.id}`,
+      titulo: '💬 Nova contraproposta!',
+      mensagem: `O solicitante de "${cp.titulo}" fez uma contraproposta de R$ ${Number(cp.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Veja e responda!`,
+      reparo_id: cp.reparo_id,
+      interesse_id: cp.id,
+    }
     const it = (resp.ativos || []).find(x => x.status === 'aceito' && naoVisto(`interesse:${x.id}`))
     if (it) return {
       chave: `interesse:${it.id}`, emoji: '🎉',
@@ -78,6 +88,16 @@ const detectar = async (usuario) => {
   // pintor/construtor — o dono aceitou sua candidatura
   if (ehPintor) {
     const resp = await api.get('/candidaturas/minhas')
+    // Contraproposta pendente do dono — mais urgente, verifica ANTES do aceito.
+    const cp = (resp.candidaturas || []).find(x => x.status === 'contraproposta_dono' && naoVisto(`contraproposta:${x.id}`))
+    if (cp) return {
+      tipo: 'contraproposta_prestador',
+      chave: `contraproposta:${cp.id}`,
+      titulo: '💬 Nova contraproposta!',
+      mensagem: `O dono da obra "${cp.titulo}" fez uma contraproposta de R$ ${Number(cp.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}. Veja e responda!`,
+      obra_id: cp.obra_id,
+      candidatura_id: cp.id,
+    }
     const c = (resp.candidaturas || []).find(x => (x.status === 'aceito' || x.status === 'aprovada') && naoVisto(`candidatura:${x.id}`))
     if (c) return {
       chave: `candidatura:${c.id}`, emoji: '🎉',
@@ -144,18 +164,28 @@ export default function CelebracaoMatchHost() {
   if (!evento) return null
 
   const fechar = () => setEvento(null)
-  const irParaDetalhe = () => { const ev = evento; setEvento(null); ev?.navegar?.() }
+  const irParaDetalhe = () => {
+    const ev = evento
+    setEvento(null)
+    // Contrapropostas usam ids diretos (sem closure navegar); demais eventos trazem navegar().
+    if (ev?.tipo === 'contraproposta_prestador') {
+      if (ev.reparo_id) navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: ev.reparo_id } } })
+      else if (ev.obra_id) navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: ev.obra_id } } })
+      return
+    }
+    ev?.navegar?.()
+  }
 
   return (
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <View style={estilos.card}>
           <Text style={estilos.confete}>🎉   ✨   🎉</Text>
-          <Text style={estilos.emoji}>{evento.emoji}</Text>
+          {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
           <Text style={estilos.titulo}>{evento.titulo}</Text>
-          <Text style={estilos.subtitulo}>{evento.subtitulo}</Text>
+          <Text style={estilos.subtitulo}>{evento.subtitulo || evento.mensagem}</Text>
           <TouchableOpacity style={estilos.cta} onPress={irParaDetalhe} activeOpacity={0.85}>
-            <Text style={estilos.ctaTexto}>{evento.ctaTexto} →</Text>
+            <Text style={estilos.ctaTexto}>{evento.ctaTexto || 'Ver proposta'} →</Text>
           </TouchableOpacity>
           <TouchableOpacity style={estilos.depois} onPress={fechar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={estilos.depoisTexto}>Ver depois</Text>

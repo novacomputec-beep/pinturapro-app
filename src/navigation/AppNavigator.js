@@ -111,6 +111,12 @@ const navegarParaNotificacao = (data) => {
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
         else navegar(tabEmAndamento)
         break
+      // Contraproposta do dono — deep-link direto ao detalhe (reparo ou obra) p/ o prestador responder
+      case 'contraproposta_dono':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        else navegar(tabEmAndamento)
+        break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
       case 'reparo_5min_restantes':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
