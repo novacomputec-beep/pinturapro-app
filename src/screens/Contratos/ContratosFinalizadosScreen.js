@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
+import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const formatarValor = (v) =>
@@ -31,6 +32,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [bloqueados, setBloqueados] = useState(new Set())
+  const [avaliandoContrato, setAvaliandoContrato] = useState(null)
 
   // Carrega a lista de prestadores bloqueados do dono na montagem (só lado dono).
   useEffect(() => {
@@ -54,6 +56,23 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
     } catch (err) {
       console.log('[ContratosFinalizados] falha ao alternar bloqueio | msg:', err.message)
       Alert.alert('Erro', 'Não foi possível atualizar o bloqueio. Tente novamente.')
+    }
+  }
+
+  const handleEnviarAvaliacao = async (estrelas) => {
+    try {
+      await api.post('/avaliacoes', {
+        contrato_tipo: ehObra ? 'obra' : 'reparo',
+        contrato_id: avaliandoContrato.id,
+        estrelas,
+      })
+      setAvaliandoContrato(null)
+      buscar()  // refresh list so ja_avaliei updates
+    } catch (err) {
+      setAvaliandoContrato(null)
+      // O interceptor de api.js rejeita com { mensagem, status, code }.
+      const msg = err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.'
+      Alert.alert('Erro', msg)
     }
   }
 
@@ -142,6 +161,20 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
             </Text>
           </TouchableOpacity>
         )}
+
+        {(ehDono ? item.prestador_id : item.dono_id) && !item.ja_avaliei && (
+          <TouchableOpacity
+            style={estilos.btnAvaliar}
+            onPress={() => setAvaliandoContrato(item)}
+          >
+            <Text style={estilos.btnAvaliarTexto}>⭐ Avaliar {ehDono ? 'prestador' : 'solicitante'}</Text>
+          </TouchableOpacity>
+        )}
+        {item.ja_avaliei && (
+          <View style={estilos.avaliadoBadge}>
+            <Text style={estilos.avaliadoBadgeTexto}>✅ Você já avaliou este contrato</Text>
+          </View>
+        )}
       </View>
     )
   }
@@ -180,6 +213,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         />
       )}
+
+      <ModalAvaliacao
+        visivel={!!avaliandoContrato}
+        nomeAvaliado={avaliandoContrato ? (ehDono ? avaliandoContrato.prestador_nome : avaliandoContrato.dono_nome) : ''}
+        onEnviar={handleEnviarAvaliacao}
+        onFechar={() => setAvaliandoContrato(null)}
+      />
     </SafeAreaView>
   )
 }
@@ -209,6 +249,10 @@ const estilos = StyleSheet.create({
   btnBloquearTexto:   { fontSize: 12, fontWeight: '600', color: cores.perigo },
   btnBloquearAtivo:   { backgroundColor: cores.perigo + '15', borderColor: cores.perigo },
   btnBloquearTextoAtivo: { color: cores.perigo },
+  btnAvaliar:         { marginTop: 8, borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 0.5, borderColor: '#E8833A', backgroundColor: '#E8833A15' },
+  btnAvaliarTexto:    { fontSize: 12, fontWeight: '700', color: '#E8833A' },
+  avaliadoBadge:      { marginTop: 8, borderRadius: 10, paddingVertical: 10, alignItems: 'center', backgroundColor: cores.fundoElevado },
+  avaliadoBadgeTexto: { fontSize: 12, fontWeight: '600', color: cores.textoMedio },
   vazio:              { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   vazioIcone:         { fontSize: 48, marginBottom: 16 },
   vazioTitulo:        { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
