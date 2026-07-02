@@ -771,6 +771,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
                       )}
                     </View>
+                    {item.avaliacoes_total > 0 ? (
+                      <Text style={estilos.avaliacaoLinha}>
+                        ⭐ {Number(item.avaliacoes_media).toFixed(1)} ({item.avaliacoes_total} {item.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})
+                      </Text>
+                    ) : (
+                      <Text style={estilos.avaliacaoLinhaNovo}>🆕 Novo na plataforma</Text>
+                    )}
                     {item.valor_proposto != null && (
                       <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
                         💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1090,6 +1097,8 @@ const estilos = StyleSheet.create({
   interessadoCard: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 14, marginBottom: 10 },
   interessadoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   interessadoNome: { fontSize: 14, fontWeight: '600', color: cores.textoForte },
+  avaliacaoLinha: { fontSize: 12, color: '#E8833A', fontWeight: '600', marginTop: 2 },
+  avaliacaoLinhaNovo: { fontSize: 12, color: cores.textoMedio, marginTop: 2 },
   interessadoCidade: { fontSize: 11, color: cores.textoFraco },
   interessadoTelefone: { fontSize: 12, color: cores.primaria, marginBottom: 6 },
   mensagemBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6 },
