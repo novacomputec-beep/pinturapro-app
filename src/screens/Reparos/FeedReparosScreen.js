@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
+import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
@@ -200,6 +201,16 @@ export default function FeedReparosScreen({ navigation }) {
     mountedRef.current = false
     abortRef.current?.abort()
   }, [])
+
+  // Rastreamento de visualização no viewport (só reparos): registra cada reparo que
+  // ficar visível para o feed de proximidade. Precisa de identidade estável entre
+  // renders (a FlatList não aceita onViewableItemsChanged mutável).
+  const onViewableItemsChangedRef = useRef(({ viewableItems }) => {
+    viewableItems.forEach(v => {
+      if (v.item?.id) registrarVisualizacao('reparo', v.item.id)
+    })
+  })
+  const viewabilityConfigRef = useRef({ itemVisiblePercentThreshold: 60, minimumViewTime: 500 })
 
   // Refs com os filtros atuais para o refetch ao reganhar foco, sem recriar o callback.
   const categoriaRef = useRef(categoria); categoriaRef.current = categoria
@@ -435,6 +446,8 @@ export default function FeedReparosScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         contentContainerStyle={estilos.lista}
         showsVerticalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChangedRef.current}
+        viewabilityConfig={viewabilityConfigRef.current}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         ListHeaderComponent={
           <>

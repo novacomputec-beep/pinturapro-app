@@ -3,6 +3,7 @@ import api from './api'
 
 let _locationSubscription = null
 let _intervalId = null
+let proximidadeChecadaNestaSessao = false
 const INTERVALO_MS = 15 * 60 * 1000 // 15 minutos
 
 export async function iniciarRastreamento() {
@@ -48,6 +49,15 @@ async function enviarLocalizacao() {
       latitude: localizacao.coords.latitude,
       longitude: localizacao.coords.longitude,
     })
+    // Checagem de proximidade uma única vez por sessão do app, após a 1ª localização
+    // enviada com sucesso. A restrição a prestadores já é feita pelo RastreamentoController.
+    if (!proximidadeChecadaNestaSessao) {
+      proximidadeChecadaNestaSessao = true
+      api.post('/feed/checar-proximidade', {
+        latitude: localizacao.coords.latitude,
+        longitude: localizacao.coords.longitude,
+      }).catch(() => {})
+    }
   } catch (err) {
     console.log('Erro ao enviar localização:', err)
   }
