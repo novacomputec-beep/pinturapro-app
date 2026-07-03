@@ -6,6 +6,7 @@ import {
 import api, { authService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
+import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const LinhaPerfil = ({ label, valor }) => (
@@ -27,6 +28,7 @@ export default function PerfilScreen({ navigation }) {
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
+  const [mostrarExcluir, setMostrarExcluir] = useState(false)
 
   const handleRenovarAssinatura = async () => {
     setRenovandoAssinatura(true)
@@ -64,6 +66,28 @@ export default function PerfilScreen({ navigation }) {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: logout },
     ])
+  }
+
+  // Exclusão definitiva da conta. O ModalExcluirConta captura a senha e exibe
+  // erros inline; aqui fazemos a chamada autenticada e mapeamos os status do
+  // backend para mensagens amigáveis. Ao lançar um erro, o modal o mostra e
+  // mantém-se aberto para nova tentativa. Em caso de sucesso, deslogamos — o
+  // navegador troca para a stack de autenticação (Login) automaticamente.
+  const handleExcluirConta = async (senha) => {
+    try {
+      await api.delete('/conta/excluir', { data: { senha } })
+    } catch (err) {
+      console.log('[Perfil] falha ao excluir conta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      const msg =
+        err.status === 401 ? 'Senha incorreta. Verifique e tente novamente.' :
+        err.status === 400 ? 'Informe sua senha para confirmar a exclusão.' :
+        err.status === 404 ? 'Conta não encontrada. Faça login novamente.' :
+        err.mensagem || 'Não foi possível excluir a conta. Tente novamente.'
+      throw new Error(msg)
+    }
+    setMostrarExcluir(false)
+    await logout()
+    Alert.alert('Conta excluída', 'Sua conta e todos os dados associados foram removidos permanentemente.')
   }
 
   const dados = dadosCompletos || usuario
@@ -198,10 +222,23 @@ export default function PerfilScreen({ navigation }) {
             onPress={confirmarLogout}
             estilo={{ borderColor: cores.perigo + '44' }}
           />
+          <TouchableOpacity
+            style={estilos.btnExcluirConta}
+            onPress={() => setMostrarExcluir(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={estilos.btnExcluirContaTexto}>Excluir minha conta</Text>
+          </TouchableOpacity>
           <Text style={estilos.versaoTexto}>ArrumaPro v1.0.0</Text>
         </View>
 
       </ScrollView>
+
+      <ModalExcluirConta
+        visivel={mostrarExcluir}
+        onConfirmar={handleExcluirConta}
+        onFechar={() => setMostrarExcluir(false)}
+      />
     </SafeAreaView>
   )
 }
@@ -238,5 +275,7 @@ const estilos = StyleSheet.create({
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  btnExcluirConta: { marginTop: 12, paddingVertical: 14, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.perigo, backgroundColor: cores.perigoSuave, alignItems: 'center' },
+  btnExcluirContaTexto: { color: cores.perigo, fontSize: 14, fontWeight: '700' },
   versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
 })
