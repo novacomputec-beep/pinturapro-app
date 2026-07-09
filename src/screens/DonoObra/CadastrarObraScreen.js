@@ -3,15 +3,14 @@ import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
 } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
-import { Audio } from 'expo-av'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useFocusEffect } from '@react-navigation/native'
 import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios } from '../../utils/tema'
+import { useSelecaoMidia, apagarArquivoTemp } from '../../utils/midia'
 
 const CATEGORIAS = [
   { id: 'residencial',   label: '🏠 Residencial'   },
@@ -104,6 +103,42 @@ export default function CadastrarObraScreen({ navigation }) {
     return () => { montadoRef.current = false }
   }, [])
 
+  // Reset completo ao focar a tela — espelha CadastrarReparoScreen para que ambas
+  // se comportem de forma idêntica. Após um envio bem-sucedido navegamos para
+  // 'Minhas Obras' (outra aba); ao voltar para 'Nova Obra' o foco dispara este
+  // reset, limpando as mídias e liberando os bitmaps de preview. Em caso de FALHA
+  // o usuário permanece nesta mesma tela (sem nova transição de foco), então os
+  // anexos NÃO são descartados e podem ser reenviados.
+  useFocusEffect(useCallback(() => {
+    setTitulo('')
+    setCategoria('residencial')
+    setDescricao('')
+    setValorEstimado('')
+    setPrazo(null)
+    setMidias([])
+    setCep('')
+    setLogradouro('')
+    setNumero('')
+    setComplemento('')
+    setBairro('')
+    setCidade('')
+    setUf('')
+    setLatitude(null)
+    setLongitude(null)
+    setErros({})
+    setEnderecoEncontrado(false)
+    setBuscandoCep(false)
+    enviandoRef.current = false
+  }, []))
+
+  // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
+  // destruição da MainActivity (Android). Implementação única em utils/midia.
+  const { usarCameraFoto, usarCameraVideo, usarGaleria } = useSelecaoMidia({
+    logPrefix: '[CadastrarObra]',
+    montadoRef,
+    setMidias,
+  })
+
   // Banner "Parabéns" também na aba inicial (Nova Obra) — uma vez por sessão,
   // com flag própria (independente da aba Minhas Obras).
   useFocusEffect(useCallback(() => {
@@ -186,46 +221,6 @@ export default function CadastrarObraScreen({ navigation }) {
 
   const selecionarMidia = () => setShowMediaPicker(true)
 
-  const usarCameraFoto = async () => {
-    Keyboard.dismiss()
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-    const resultado = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.6,
-      allowsEditing: false,
-    })
-    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-  }
-
-  const usarCameraVideo = async () => {
-    Keyboard.dismiss()
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-    await Audio.requestPermissionsAsync()
-    const resultado = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-      videoMaxDuration: 30,
-      videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-      videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
-      allowsEditing: false,
-    })
-    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-  }
-
-  const usarGaleria = async () => {
-    Keyboard.dismiss()
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsMultipleSelection: true,
-      quality: 0.6,
-      videoMaxDuration: 30,
-    })
-    if (!resultado.canceled) setMidias(prev => [...prev, ...resultado.assets])
-  }
-
   const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
 
   // Upload de uma mídia (vídeo ou foto) para o Cloudinary + registro no backend
@@ -249,6 +244,9 @@ export default function CadastrarObraScreen({ navigation }) {
     if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
     // Idempotente por slot (obra_id, ordem) no backend; seguro repetir em cold start
     await comRetry(() => api.post('/upload/obra-url', { obra_id: obraId, url: cloudData.secure_url, tipo, ordem }), { timeout: true, servidor: true })
+    // Upload confirmado — libera a cópia local no cache (não-fatal). Só ocorre no
+    // sucesso; itens que falharam mantêm o arquivo para permitir reenvio.
+    await apagarArquivoTemp(midia.uri, '[CadastrarObra]')
   }
 
   // Envia a lista de mídias isolando cada item; retorna apenas as que falharam
@@ -431,7 +429,16 @@ export default function CadastrarObraScreen({ navigation }) {
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
               {midias.map((item, index) => (
                 <View key={index} style={estilos.midiaItem}>
-                  <Image source={{ uri: item.uri }} style={estilos.midiaImagem} />
+                  {item.type === 'video' ? (
+                    // Não decodifica frame de vídeo em resolução cheia — placeholder leve.
+                    <View style={[estilos.midiaImagem, estilos.videoPlaceholder]}>
+                      <Text style={{ fontSize: 28 }}>🎬</Text>
+                    </View>
+                  ) : (
+                    // resizeMethod="resize" faz o Fresco (Android) decodificar um bitmap
+                    // já reduzido ao tamanho da view (100x100), em vez do full-res.
+                    <Image source={{ uri: item.uri }} style={estilos.midiaImagem} resizeMethod="resize" resizeMode="cover" />
+                  )}
                   {item.type === 'video' && <View style={estilos.videoOverlay}><Text style={{ color: 'white', fontSize: 20 }}>▶</Text></View>}
                   <TouchableOpacity style={estilos.midiaRemover} onPress={() => removerMidia(index)}>
                     <Text style={{ color: 'white', fontSize: 12 }}>×</Text>
@@ -507,6 +514,7 @@ const estilos = StyleSheet.create({
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
   midiaItem: { width: 100, height: 100, marginRight: 8, borderRadius: 10, overflow: 'hidden', position: 'relative' },
   midiaImagem: { width: '100%', height: '100%' },
+  videoPlaceholder: { backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
