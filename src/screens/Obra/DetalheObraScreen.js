@@ -406,7 +406,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   const distancia = distanciaItemKm(coords, obra)
 
   const abrirWhatsApp = (telefone) => {
-    const digitos = telefone.replace(/\D/g, '')
+    const digitos = (telefone || '').replace(/\D/g, '')
+    if (!digitos) { console.log('[DetalheObra] abrirWhatsApp chamado sem número — ignorado'); return }
     const numero = digitos.length <= 11 ? `55${digitos}` : digitos
     Linking.openURL(`whatsapp://send?phone=${numero}`)
   }
@@ -660,12 +661,17 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.vazioInteressadosTexto}>Nenhum pintor demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
                 </View>
               ) : (
-                candidatos.map((item) => (
+                candidatos.map((item) => {
+                  // Contato (telefone/endereço completo) só é liberado para o pintor MATCHED,
+                  // não em 'aceito'. Deriva do match, não do status. (Novo contrato da API:
+                  // telefone/logradouro voltam null até o pintor confirmar que está a caminho.)
+                  const ehMatch = temMatch && item.usuario_id === obra.match_usuario_id
+                  return (
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.interessadoHeader}>
                       <Text style={estilos.interessadoNome}>{item.nome}</Text>
-                      {item.status !== 'aceito' && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
-                      {item.status === 'aceito' && item.logradouro && (
+                      {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                      {ehMatch && item.logradouro && (
                         <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
                       )}
                     </View>
@@ -750,14 +756,17 @@ export default function DetalheObraScreen({ route, navigation }) {
                         <Text style={{ fontSize: 12, color: '#E8833A' }}>⏳ Aguardando resposta do pintor...</Text>
                       </View>
                     )}
-                    {item.status === 'aceito' && (
+                    {item.status === 'aceito' && !ehMatch && (
+                      <View style={{ marginTop: 8, padding: 10, backgroundColor: '#0a1a0a', borderWidth: 1, borderColor: '#2a4a2a', borderRadius: raios.medio }}>
+                        <Text style={{ fontSize: 13, color: '#4caf50', fontWeight: '600', marginBottom: 4 }}>⏳ Proposta aceita!</Text>
+                        <Text style={{ fontSize: 12, color: cores.textoMedio, lineHeight: 18 }}>
+                          O contato do pintor será liberado assim que ele confirmar que está a caminho.
+                        </Text>
+                      </View>
+                    )}
+                    {item.status === 'aceito' && ehMatch && (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
-                        {item.telefone && (
-                          <TouchableOpacity style={estilos.btnWhatsApp} onPress={() => abrirWhatsApp(item.telefone)}>
-                            <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp: {item.telefone}</Text>
-                          </TouchableOpacity>
-                        )}
+                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — pintor a caminho.</Text>
                       </View>
                     )}
                     {item.status === 'recusado' && (
@@ -766,7 +775,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                       </View>
                     )}
                   </View>
-                ))
+                  )
+                })
               )}
             </>
           )}
