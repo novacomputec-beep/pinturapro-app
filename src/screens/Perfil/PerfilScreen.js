@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking, Image
@@ -46,20 +47,28 @@ export default function PerfilScreen({ navigation }) {
     }
   }
 
-  useEffect(() => {
-    const buscar = async () => {
-      try {
-        const resposta = await authService.perfil()
-        setDadosCompletos(resposta.usuario)
-      } catch (err) {
-        console.log('[Perfil] falha ao buscar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-        setDadosCompletos(usuario)
-      } finally {
-        setCarregando(false)
+  // Rebusca o perfil a CADA foco da tela (não só na montagem). Ao voltar de
+  // "Editar perfil", o nome/telefone/cidade/foto recém-salvos passam a ser
+  // refletidos aqui. Antes o fetch rodava só on-mount, então esta cópia local
+  // (dadosCompletos) ficava defasada e — por ter precedência sobre o contexto
+  // em `dados = dadosCompletos || usuario` — exibia o nome antigo mesmo após
+  // salvar com sucesso.
+  useFocusEffect(
+    useCallback(() => {
+      const buscar = async () => {
+        try {
+          const resposta = await authService.perfil()
+          setDadosCompletos(resposta.usuario)
+        } catch (err) {
+          console.log('[Perfil] falha ao buscar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+          setDadosCompletos(usuario)
+        } finally {
+          setCarregando(false)
+        }
       }
-    }
-    buscar()
-  }, [])
+      buscar()
+    }, [])
+  )
 
   const confirmarLogout = () => {
     Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
