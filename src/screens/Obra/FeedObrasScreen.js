@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView, Platform, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
@@ -22,8 +21,6 @@ const DISTANCIAS = [
   { id: 'estado', label: 'Estado'  },
   { id: 'pais',   label: 'País'    },
 ]
-
-const STORAGE_KEY_DIST_OBRAS = 'filtro_distancia_obras'
 
 const CATEGORIAS = [
   { id: 'todas',         label: 'Todas'           },
@@ -164,20 +161,13 @@ export default function FeedObrasScreen({ navigation }) {
     abortRef.current?.abort()
   }, [])
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY_DIST_OBRAS).then(val => {
-      if (val) setDistancia(val)
-    })
-  }, [])
-
-  const mudarDistancia = async (val) => {
+  const mudarDistancia = (val) => {
     setDistancia(val)
-    await AsyncStorage.setItem(STORAGE_KEY_DIST_OBRAS, val)
     setCarregando(true)
     buscarObras(categoria, val)
   }
 
-  const buscarObras = async (cat = categoria, dist = distancia) => {
+  const buscarObras = async (cat = categoria, dist = distancia, cid = cidadeBusca) => {
     // Cancela qualquer requisição anterior ainda em voo.
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -201,17 +191,17 @@ export default function FeedObrasScreen({ navigation }) {
       const params = {}
       if (cat !== 'todas') params.categoria = cat
       params.raio_km = dist
-      if (cidadeBusca) {
-        params.cidade_busca = cidadeBusca.cidade
-        params.uf_busca = cidadeBusca.uf
+      if (cid) {
+        params.cidade_busca = cid.cidade
+        params.uf_busca = cid.uf
       }
       if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade') {
-        if (cidadeBusca && cidadeBusca.lat != null) {
+        if (cid && cid.lat != null) {
           // Busca em outra cidade: usa as coords geocodificadas da cidade escolhida,
           // sem acionar o GPS do aparelho.
-          params.lat = String(cidadeBusca.lat)
-          params.lng = String(cidadeBusca.lng)
-          if (mountedRef.current && abortRef.current === controller) setCoords({ lat: cidadeBusca.lat, lng: cidadeBusca.lng })
+          params.lat = String(cid.lat)
+          params.lng = String(cid.lng)
+          if (mountedRef.current && abortRef.current === controller) setCoords({ lat: cid.lat, lng: cid.lng })
         } else try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
@@ -337,11 +327,19 @@ export default function FeedObrasScreen({ navigation }) {
     setCidadeBusca(nova)
     setBuscaCidade('')
     setModalCidadeVisivel(false)
+    // Refetch imediato com a nova cidade — mesmo padrão imperativo de mudarCategoria/
+    // mudarDistancia. Passa `nova` explicitamente porque setCidadeBusca só reflete no
+    // próximo render; a lista não deve depender de um efeito para reagir à troca de cidade.
+    setCarregando(true)
+    buscarObras(categoria, distancia, nova)
   }
 
   const limparCidadeBusca = () => {
     setCidadeBusca(null)
     setBuscaCidade('')
+    // Volta para a cidade do perfil e refaz a busca na hora (idem confirmarCidadeBusca).
+    setCarregando(true)
+    buscarObras(categoria, distancia, null)
   }
 
   return (

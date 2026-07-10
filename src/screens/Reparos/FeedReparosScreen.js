@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView, Platform, Alert
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
@@ -23,8 +22,6 @@ const DISTANCIAS = [
   { id: 'estado', label: 'Estado'  },
   { id: 'pais',   label: 'País'    },
 ]
-
-const STORAGE_KEY_DIST_REPAROS = 'filtro_distancia_reparos'
 
 const CATEGORIAS = [
   { id: 'todas',        label: 'Todas'          },
@@ -217,17 +214,12 @@ export default function FeedReparosScreen({ navigation }) {
   const distanciaRef = useRef(distancia); distanciaRef.current = distancia
   const cidadeBuscaRef = useRef(cidadeBusca); cidadeBuscaRef.current = cidadeBusca
 
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY_DIST_REPAROS).then(val => {
-      if (val) setDistancia(val)
-    })
-  }, [])
-
   // Atualização otimista: a seleção (highlight) muda na hora; a busca é disparada pelo
-  // useEffect abaixo, independente da chamada de API.
+  // useEffect abaixo, independente da chamada de API. O filtro de distância NÃO é
+  // persistido: o feed sempre abre no padrão 'cidade' (antes, um valor salvo era
+  // restaurado de forma assíncrona e "pulava" o chip para um raio, ex.: +120 km).
   const mudarDistancia = (val) => {
     setDistancia(val)
-    AsyncStorage.setItem(STORAGE_KEY_DIST_REPAROS, val).catch(() => {})
   }
 
   const mudarCategoria = (cat) => {
