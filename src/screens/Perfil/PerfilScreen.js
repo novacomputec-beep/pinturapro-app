@@ -214,6 +214,12 @@ export default function PerfilScreen({ navigation }) {
             titulo="💬 Suporte"
             onPress={() => Linking.openURL('mailto:novacomputec@gmail.com?subject=Suporte ArrumaPro')}
           />
+          <Separador />
+          <ItemAcao
+            titulo="🗑️ Excluir minha conta"
+            perigo
+            onPress={() => setMostrarExcluir(true)}
+          />
         </View>
 
         <View style={estilos.logoutWrap}>
@@ -222,13 +228,6 @@ export default function PerfilScreen({ navigation }) {
             onPress={confirmarLogout}
             estilo={{ borderColor: cores.perigo + '44' }}
           />
-          <TouchableOpacity
-            style={estilos.btnExcluirConta}
-            onPress={() => setMostrarExcluir(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={estilos.btnExcluirContaTexto}>Excluir minha conta</Text>
-          </TouchableOpacity>
           <Text style={estilos.versaoTexto}>ArrumaPro v1.0.0</Text>
         </View>
 
@@ -275,7 +274,5 @@ const estilos = StyleSheet.create({
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
-  btnExcluirConta: { marginTop: 12, paddingVertical: 14, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.perigo, backgroundColor: cores.perigoSuave, alignItems: 'center' },
-  btnExcluirContaTexto: { color: cores.perigo, fontSize: 14, fontWeight: '700' },
   versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
 })

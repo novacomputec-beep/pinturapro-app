@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler'
 import React, { useRef, useEffect } from 'react'
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Linking } from 'react-native'
+import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
@@ -191,13 +191,39 @@ function PagamentoPendenteScreen() {
 
   React.useEffect(() => { buscarLink() }, [])
 
+  // "Já paguei — verificar acesso" (tela de pagamento). Sempre dá feedback: revalida a
+  // sessão e decide a mensagem pelo status REAL de assinatura devolvido por GET /auth/perfil
+  // (ativa | pendente_verificacao | outro), nunca por suposição. Nunca um no-op silencioso.
   const verificarPagamento = async () => {
     setVerificando(true)
     try {
       // Refresh COMPLETO da sessão (boas-vindas + flags + push), não só usuario/assinatura.
-      await revalidarSessao()
+      const { assinatura: a } = await revalidarSessao()
+      const status = a?.status
+      if (status === 'ativa') {
+        // Aprovado: o AppNavigator troca de tela automaticamente (o app abre). O próprio
+        // avanço é o feedback — não exibimos alerta para não sobrepor a transição.
+        return
+      }
+      if (status === 'pendente_verificacao') {
+        Alert.alert(
+          'Cadastro em análise',
+          'Seu cadastro está em análise. Assim que for aprovado, você terá acesso às demandas disponíveis. Isso costuma levar até 60 minutos.'
+        )
+        return
+      }
+      // Qualquer outro status (expirada, cancelada, pendente, sem assinatura): pagamento
+      // ainda não confirmado pela plataforma.
+      Alert.alert(
+        'Pagamento ainda não confirmado',
+        'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+      )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert(
+        'Não foi possível verificar',
+        'Tivemos um problema ao verificar seu acesso. Verifique sua conexão e tente novamente.'
+      )
     } finally { setVerificando(false) }
   }
 
@@ -270,13 +296,39 @@ function VerificacaoPendenteScreen() {
   const { logout, revalidarSessao } = useAuth()
   const [verificando, setVerificando] = React.useState(false)
 
+  // "Já paguei — verificar acesso" (tela pós-pagamento, aguardando aprovação do admin).
+  // Sempre dá feedback: revalida a sessão e decide a mensagem pelo status REAL devolvido por
+  // GET /auth/perfil. Nesta tela o desfecho esperado é 'pendente_verificacao' até a aprovação.
   const verificarPagamento = async () => {
     setVerificando(true)
     try {
       // Refresh COMPLETO da sessão (boas-vindas + flags + push), não só usuario/assinatura.
-      await revalidarSessao()
+      const { assinatura: a } = await revalidarSessao()
+      const status = a?.status
+      if (status === 'ativa') {
+        // Aprovado: o AppNavigator troca de tela automaticamente (o app abre). O próprio
+        // avanço é o feedback — não exibimos alerta para não sobrepor a transição.
+        return
+      }
+      if (status === 'pendente_verificacao') {
+        Alert.alert(
+          'Cadastro em análise',
+          'Seu cadastro está em análise. Assim que for aprovado, você terá acesso às demandas disponíveis. Isso costuma levar até 60 minutos.'
+        )
+        return
+      }
+      // Qualquer outro status (expirada, cancelada, pendente, sem assinatura): pagamento
+      // ainda não confirmado pela plataforma.
+      Alert.alert(
+        'Pagamento ainda não confirmado',
+        'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+      )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert(
+        'Não foi possível verificar',
+        'Tivemos um problema ao verificar seu acesso. Verifique sua conexão e tente novamente.'
+      )
     } finally { setVerificando(false) }
   }
 
