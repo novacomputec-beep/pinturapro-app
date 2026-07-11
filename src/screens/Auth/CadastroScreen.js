@@ -347,13 +347,48 @@ export default function CadastroScreen({ navigation }) {
     return Object.keys(novos).length === 0
   }
 
+  // Pré-checagem de duplicidade em BACKGROUND — pura conveniência, NÃO trava o fluxo.
+  // Fix 1 garante que um duplicado é pego no submit final como 409 com a mensagem
+  // certa, então não precisamos de gate aqui: fire-and-forget, sem await, sem
+  // spinner/"verificando". Se o servidor confirmar duplicado rápido, avisamos cedo
+  // (alerta não-bloqueante) p/ o usuário voltar e corrigir; se a rede estiver lenta,
+  // ele segue preenchendo normalmente e nada fica "travado".
+  const checarDisponibilidadeBackground = (payload, { marcarOk = false } = {}) => {
+    comRetry(() => api.post('/auth/verificar-disponibilidade', payload), { timeout: true, servidor: true })
+      .then(() => {
+        // e-mail + CPF confirmados livres → handleCadastrar pula a re-checagem no submit.
+        if (marcarOk) disponibilidadeOkRef.current = true
+      })
+      .catch(err => {
+        if (err?.status === 409 && montadoRef.current) {
+          // Aviso não-bloqueante (codigo estável: cpf_duplicado / email_duplicado).
+          Alert.alert('Atenção', err?.mensagem || 'Estes dados já estão cadastrados.')
+        } else {
+          const kind = classificarErro(err)
+          console.log(`[cadastro] ⚠ pré-checagem background ignorada | kind=${kind} | status=${err?.status} | code=${err?.code}`)
+        }
+      })
+  }
+
   const avancar = () => {
     if (passo === 1 && !validarPasso1()) return
     if (passo === 2 && !validarPasso2()) return
     if (passo === 4 && isPrestador && !validarPasso4()) return
+
     if (passo === totalPassos) { handleCadastrar(); return }
     // Para dono, passo 2 já é o último antes de cadastrar
     if (isDono && passo === 2) { handleCadastrar(); return }
+
+    // Chegou aqui = vai avançar de tela (não é submit). Dispara o aviso cedo,
+    // não-bloqueante, no ponto em que o dado passa a existir: e-mail ao sair do
+    // passo 1, CPF ao sair do passo 2 (antes das fotos do prestador, no passo 4).
+    // Vale p/ dono E prestador (mesma tela, mesmos passos 1 e 2).
+    if (passo === 1) {
+      checarDisponibilidadeBackground({ email: email.trim().toLowerCase() })
+    } else if (passo === 2) {
+      checarDisponibilidadeBackground({ email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() }, { marcarOk: true })
+    }
+
     setPasso(p => p + 1)
   }
 

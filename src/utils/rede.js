@@ -11,6 +11,9 @@
 // respostas de negociação: o servidor pode ter processado a 1ª tentativa e o
 // retry duplicaria o efeito.
 //
+// Respostas 4xx NUNCA são reexecutadas (nem com timeout/servidor ligados): são
+// definitivas (duplicado/inválido/não autorizado) e repetir não muda o resultado.
+//
 // Tentativas: no máximo 3 (1 original + 2 retries). A espera antes do retry usa
 // backoff exponencial com jitter de ±20%:
 //   - após a 1ª falha: esperaMs base (padrão 1000ms) → 800–1200ms
@@ -26,9 +29,14 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
     } catch (err) {
       ultimoErro = err
 
-      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
-      const isTimeout = timeout && (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout'))
-      const isServidor = servidor && err.status >= 500
+      // Um 4xx é uma resposta DEFINITIVA do servidor (dado duplicado, inválido, não
+      // autorizado). Repetir só re-executaria o mesmo POST — no cadastro, isso chegou
+      // a re-subir imagens 3x por causa de um CPF duplicado. Nunca reexecuta 4xx,
+      // independentemente das flags timeout/servidor.
+      const isClientError = err.status >= 400 && err.status < 500
+      const isNetwork = !isClientError && (err.code === 'ERR_NETWORK' || err.message === 'Network Error')
+      const isTimeout = !isClientError && timeout && (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout'))
+      const isServidor = !isClientError && servidor && err.status >= 500
       const reexecutavel = isNetwork || isTimeout || isServidor
 
       // Não-reexecutável, ou já foi a última tentativa → propaga o erro.
