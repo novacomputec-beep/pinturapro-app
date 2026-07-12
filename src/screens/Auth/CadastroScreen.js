@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, AppState
 } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as SecureStore from 'expo-secure-store'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
@@ -213,6 +215,92 @@ export default function CadastroScreen({ navigation }) {
   const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
   const disponibilidadeOkRef = useRef(false)              // verificar-disponibilidade roda só 1x por sessão
 
+  // ─── A4: Persistência do rascunho de cadastro ─────────────────────────────
+  // O Android pode reciclar a Activity quando o app vai a segundo plano (tela
+  // apaga / troca de app) no meio do cadastro — isso zerava todo o formulário e
+  // devolvia o usuário à home. Persistimos os campos + o passo atual para
+  // restaurar exatamente onde parou. NÃO persistimos as imagens (arquivos locais
+  // file://): se perdidas, são re-selecionadas (rápido). A senha vai no SecureStore
+  // (cifrado, mesmo mecanismo do token); o resto no AsyncStorage. Limpamos o
+  // rascunho ao concluir o cadastro ou ao sair da tela (cancelar).
+  const RASCUNHO_KEY = 'cadastro_rascunho_v1'
+  const RASCUNHO_SENHA_KEY = 'cadastro_rascunho_senha_v1'
+  const restauradoRef = useRef(false)   // trava saves até a restauração inicial terminar
+  const snapshotRef = useRef({})        // campos NÃO sensíveis (AsyncStorage) — sempre atual
+  const senhaRef = useRef('')           // senha (SecureStore) — sempre atual
+  snapshotRef.current = {
+    tipoConta, passo, nome, sobrenome, email, telefone, cidade, uf, cep,
+    latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
+    cpfCnpj, anosExp, equipe, especialidades, planoSelecionado,
+    rg, rgOrgao, rgEstado, pixReembolso, ref1Nome, ref1Tel, ref2Nome, ref2Tel,
+  }
+  senhaRef.current = senha
+
+  // Lê refs (nunca closures) → seguro chamar de listeners com deps [].
+  const salvarRascunho = async () => {
+    if (!restauradoRef.current) return
+    const s = snapshotRef.current
+    if (!s.tipoConta || s.passo < 1) return   // só salva com progresso real
+    try {
+      await AsyncStorage.setItem(RASCUNHO_KEY, JSON.stringify(s))
+      if (senhaRef.current) await SecureStore.setItemAsync(RASCUNHO_SENHA_KEY, senhaRef.current)
+      else await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY).catch(() => {})
+    } catch (err) {
+      console.log('[CadastroScreen] falha ao salvar rascunho | msg:', err.message)
+    }
+  }
+
+  const limparRascunho = async () => {
+    try {
+      await AsyncStorage.removeItem(RASCUNHO_KEY)
+      await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY)
+    } catch (err) {
+      console.log('[CadastroScreen] falha ao limpar rascunho | msg:', err.message)
+    }
+  }
+
+  // Restaura o rascunho na montagem, ANTES de qualquer interação.
+  useEffect(() => {
+    (async () => {
+      try {
+        const bruto = await AsyncStorage.getItem(RASCUNHO_KEY)
+        if (bruto && montadoRef.current) {
+          const s = JSON.parse(bruto)
+          setTipoConta(s.tipoConta ?? null)
+          setNome(s.nome ?? ''); setSobrenome(s.sobrenome ?? '')
+          setEmail(s.email ?? ''); setTelefone(s.telefone ?? '')
+          setCidade(s.cidade ?? ''); setUf(s.uf ?? '')
+          setCep(s.cep ?? ''); setEnderecoEncontrado(!!s.enderecoEncontrado)
+          setLatitude(s.latitude ?? null); setLongitude(s.longitude ?? null)
+          setLogradouro(s.logradouro ?? ''); setNumero(s.numero ?? '')
+          setComplemento(s.complemento ?? ''); setBairro(s.bairro ?? '')
+          setCpfCnpj(s.cpfCnpj ?? ''); setAnosExp(s.anosExp ?? ''); setEquipe(s.equipe ?? '')
+          setEspecialidades(s.especialidades ?? ''); setPlanoSelecionado(s.planoSelecionado ?? 'mensal')
+          setRg(s.rg ?? ''); setRgOrgao(s.rgOrgao ?? 'SSP'); setRgEstado(s.rgEstado ?? '')
+          setPixReembolso(s.pixReembolso ?? '')
+          setRef1Nome(s.ref1Nome ?? ''); setRef1Tel(s.ref1Tel ?? '')
+          setRef2Nome(s.ref2Nome ?? ''); setRef2Tel(s.ref2Tel ?? '')
+          const senhaSalva = await SecureStore.getItemAsync(RASCUNHO_SENHA_KEY)
+          if (senhaSalva && montadoRef.current) setSenha(senhaSalva)
+          setPasso(s.passo ?? 0)   // por último: renderiza direto a tela onde parou
+        }
+      } catch (err) {
+        console.log('[CadastroScreen] falha ao restaurar rascunho | msg:', err.message)
+      } finally {
+        restauradoRef.current = true
+      }
+    })()
+  }, [])
+
+  // Salva ao ir a segundo plano (o momento exato do item 6) e a cada troca de passo.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'background' || estado === 'inactive') salvarRascunho()
+    })
+    return () => sub.remove()
+  }, [])
+  useEffect(() => { salvarRascunho() }, [passo])
+
   const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
   const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'
   // Prestador tem 4 passos: dados pessoais, profissional, plano, verificação
@@ -395,7 +483,12 @@ export default function CadastroScreen({ navigation }) {
   const voltar = () => {
     if (passo > 1) setPasso(p => p - 1)
     else if (passo === 1) { setTipoConta(null); setPasso(0) }
-    else navigation.goBack()
+    else {
+      // Saiu da tela de cadastro (cancelou): descarta o rascunho para não restaurar depois.
+      restauradoRef.current = false
+      limparRascunho()
+      navigation.goBack()
+    }
   }
 
   const uploadFotoVerificacao = async (uri, tipo) => {
@@ -574,14 +667,19 @@ export default function CadastroScreen({ navigation }) {
         throw err
       }
 
+      // Cadastro concluído com sucesso → descarta o rascunho e interrompe novos saves
+      // (evita re-gravar durante a transição de tela disparada pelo loginComToken).
+      restauradoRef.current = false
+      await limparRascunho()
+
       if (resposta?.token) {
         await loginComToken(resposta.token, resposta.usuario, resposta.assinatura)
 
         // Se for prestador, mostra aviso de verificação pendente
         if (isPrestador) {
           Alert.alert(
-            '✅ Cadastro realizado!',
-            'Seus dados estão sendo verificados. Em até 1 hora você receberá a confirmação por e-mail.\n\nEnquanto isso, você já pode explorar o app!',
+            'Cadastro enviado!',
+            'Seus dados estão em análise. Você receberá a confirmação por e-mail em até 1 hora. O acesso será liberado após a aprovação.',
             [{ text: 'Entendi!' }]
           )
         }
