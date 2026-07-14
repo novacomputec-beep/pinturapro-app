@@ -42,7 +42,7 @@ export const apagarArquivoTemp = async (uri, logPrefix) => {
 // ÚNICO objeto { canceled, assets } ou null — apesar de a tipagem TS declarar
 // `(ImagePickerResult | ImagePickerErrorResult)[]`. Toleramos ambos os formatos
 // (objeto único, array e null) e descartamos entradas de erro (sem `assets`).
-export const recuperarMidiasPendentes = async ({ logPrefix, montadoRef, setMidias }) => {
+export const recuperarMidiasPendentes = async ({ logPrefix, montadoRef, aoReceber }) => {
   try {
     const pendente = await ImagePicker.getPendingResultAsync()
     if (!pendente) return
@@ -53,7 +53,9 @@ export const recuperarMidiasPendentes = async ({ logPrefix, montadoRef, setMidia
     }
     if (recuperadas.length > 0 && montadoRef.current) {
       console.log(`${logPrefix} mídias recuperadas via getPendingResultAsync:`, recuperadas.length)
-      setMidias(prev => [...prev, ...recuperadas])
+      // Callback genérico: cada chamador decide o que fazer com os assets recuperados
+      // (a criação de obra/reparo anexa à lista; o cadastro roteia ao slot em captura).
+      aoReceber(recuperadas)
     }
   } catch (err) {
     console.log(`${logPrefix} getPendingResultAsync falhou (não-fatal) | msg:`, err?.message)
@@ -64,9 +66,12 @@ export const recuperarMidiasPendentes = async ({ logPrefix, montadoRef, setMidia
 // retorno do 2º plano) e devolve os três handlers dos botões do bottom-sheet.
 export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
   useEffect(() => {
-    recuperarMidiasPendentes({ logPrefix, montadoRef, setMidias })
+    // Modelo multi-mídia (obra/reparo): anexa as recuperadas à lista — comportamento
+    // idêntico ao anterior (antes o setMidias era passado direto ao helper).
+    const aoReceber = (assets) => setMidias(prev => [...prev, ...assets])
+    recuperarMidiasPendentes({ logPrefix, montadoRef, aoReceber })
     const sub = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active') recuperarMidiasPendentes({ logPrefix, montadoRef, setMidias })
+      if (estado === 'active') recuperarMidiasPendentes({ logPrefix, montadoRef, aoReceber })
     })
     return () => sub.remove()
     // montadoRef/setMidias são estáveis e logPrefix é constante — registra só uma vez.

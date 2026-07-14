@@ -10,6 +10,7 @@ import { Image } from 'react-native'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
+import { recuperarMidiasPendentes } from '../../utils/midia'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -91,22 +92,32 @@ const IndicadorPassos = ({ passo, total }) => (
   </View>
 )
 
-const UploadFoto = ({ label, valor, onPress }) => (
-  <TouchableOpacity style={estilos.uploadFotoBtn} onPress={onPress} activeOpacity={0.8}>
-    {valor ? (
-      <Image source={{ uri: valor }} style={estilos.uploadFotoPreview} />
-    ) : (
-      <View style={estilos.uploadFotoVazio}>
-        <Text style={estilos.uploadFotoIcone}>📷</Text>
-        <Text style={estilos.uploadFotoTexto}>{label}</Text>
-      </View>
-    )}
-    {valor && (
-      <View style={estilos.uploadFotoOk}>
-        <Text style={{ color: cores.sucesso, fontSize: 11, fontWeight: '600' }}>✓ Adicionada</Text>
-      </View>
-    )}
-  </TouchableOpacity>
+// Slot de foto com estado explícito de upload: enviando / enviada ✓ / erro (+ "Tentar
+// novamente"). Em erro NÃO reverte para "Tirar foto" — mostra a falha e o botão de retry.
+const UploadFoto = ({ label, valor, uploadando, enviada, erro, onPress, onRetry }) => (
+  <View>
+    <TouchableOpacity style={estilos.uploadFotoBtn} onPress={onPress} activeOpacity={0.8}>
+      {valor ? (
+        <Image source={{ uri: valor }} style={estilos.uploadFotoPreview} resizeMethod="resize" resizeMode="cover" />
+      ) : (
+        <View style={estilos.uploadFotoVazio}>
+          <Text style={estilos.uploadFotoIcone}>📷</Text>
+          <Text style={estilos.uploadFotoTexto}>{label}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+    {uploadando ? (
+      <Text style={[estilos.fotoStatus, { color: cores.textoFraco }]}>Enviando…</Text>
+    ) : erro ? (
+      <TouchableOpacity onPress={onRetry} activeOpacity={0.7}>
+        <Text style={[estilos.fotoStatus, { color: cores.perigo }]}>⚠ Falha no envio — tentar novamente</Text>
+      </TouchableOpacity>
+    ) : enviada ? (
+      <Text style={[estilos.fotoStatus, { color: cores.sucesso }]}>✓ Enviada</Text>
+    ) : valor ? (
+      <Text style={[estilos.fotoStatus, { color: cores.textoFraco }]}>Adicionada</Text>
+    ) : null}
+  </View>
 )
 
 // Sobe a mídia direto ao Cloudinary com retry resiliente e SILENCIOSO.
@@ -116,6 +127,11 @@ const UploadFoto = ({ label, valor, onPress }) => (
 // alerta aparece enquanto restam tentativas; só rejeita após esgotar todas.
 const MAX_UPLOAD_RETRIES = 8
 const UPLOAD_TIMEOUT = 45000
+
+// Cutover das 3 fotos de verificação para o NOSSO endpoint (POST /upload/midia).
+// true  = tenta o endpoint e, se falhar, cai no direto-Cloudinary (fallback).
+// false = usa só o direto-Cloudinary (comportamento antigo — revert instantâneo, sem rebuild).
+const USAR_UPLOAD_ENDPOINT = true
 const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   const attempt = (n) => {
@@ -210,10 +226,18 @@ export default function CadastroScreen({ navigation }) {
   const [uploadandoDocFrente, setUploadandoDocFrente] = useState(false)
   const [uploadandoDocVerso, setUploadandoDocVerso] = useState(false)
   const [uploadandoSelfie, setUploadandoSelfie] = useState(false)
+  // Erro por foto (endpoint + fallback falharam): a UI mostra "Tentar novamente"
+  // em vez de reverter silenciosamente para "Tirar foto".
+  const [erroDocFrente, setErroDocFrente] = useState(false)
+  const [erroDocVerso, setErroDocVerso] = useState(false)
+  const [erroSelfie, setErroSelfie] = useState(false)
   const [enviandoDocs, setEnviandoDocs] = useState(false)
   const [progresso, setProgresso] = useState('')          // texto de fase exibido durante o cadastro
   const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
   const disponibilidadeOkRef = useRef(false)              // verificar-disponibilidade roda só 1x por sessão
+  // Slot de foto em captura (frente/verso/selfie): a recuperação pós-destruição da
+  // Activity (getPendingResultAsync) usa isto para rotear a foto perdida ao slot certo.
+  const slotFotoPendenteRef = useRef(null)
 
   // ─── A4: Persistência do rascunho de cadastro ─────────────────────────────
   // O Android pode reciclar a Activity quando o app vai a segundo plano (tela
@@ -308,7 +332,31 @@ export default function CadastroScreen({ navigation }) {
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
-  const selecionarFoto = async (setter, tipo, setUrl, setUploadando) => {
+  const selecionarFoto = async (setter, tipo, setUrl, setUploadando, setErro) => {
+    // Lança câmera/galeria com a MESMA proteção do fluxo de obra/reparo: try/catch para
+    // não falhar em silêncio, marca o slot em captura (para a recuperação pós-retorno)
+    // e distingue um cancelamento involuntário (retorno quase instantâneo, sem asset —
+    // Activity morta por falta de memória) de um cancelamento real do usuário.
+    const lancar = async (origem, abrir) => {
+      slotFotoPendenteRef.current = { setter, tipo, setUrl, setUploadando, setErro }
+      const t0 = Date.now()
+      try {
+        const resultado = await abrir()
+        if (!resultado.canceled && resultado.assets?.length) {
+          setter(resultado.assets[0].uri)
+          if (tipo && setUrl) preUploadFoto(resultado.assets[0].uri, tipo, setUrl, setUploadando, setErro)
+        } else if (resultado.canceled && Date.now() - t0 < 1000) {
+          Alert.alert('Não foi possível abrir', 'O app pode estar com pouca memória neste momento. Se as fotos pararem de abrir, feche o aplicativo completamente e abra de novo.')
+        }
+      } catch (err) {
+        console.log(`[Cadastro] launch ${origem} (${tipo}) rejeitou | msg:`, err?.message)
+        Alert.alert('Não foi possível abrir', 'Tente novamente. Se o problema continuar, feche o aplicativo completamente e abra de novo.')
+      } finally {
+        // Só limpa se a promessa retornou de fato; se a Activity foi morta, ela nunca
+        // resolve e o ref permanece p/ a recuperação via getPendingResultAsync.
+        slotFotoPendenteRef.current = null
+      }
+    }
     Alert.alert(
       'Adicionar foto',
       'Como deseja adicionar a foto?',
@@ -321,16 +369,12 @@ export default function CadastroScreen({ navigation }) {
               Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.')
               return
             }
-            const resultado = await ImagePicker.launchCameraAsync({
+            lancar('camera', () => ImagePicker.launchCameraAsync({
               allowsEditing: true,
               quality: 0.6,
               maxWidth: 1200,
               maxHeight: 1200,
-            })
-            if (!resultado.canceled) {
-              setter(resultado.assets[0].uri)
-              if (tipo && setUrl) preUploadFoto(resultado.assets[0].uri, tipo, setUrl, setUploadando)
-            }
+            }))
           }
         },
         {
@@ -341,17 +385,13 @@ export default function CadastroScreen({ navigation }) {
               Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.')
               return
             }
-            const resultado = await ImagePicker.launchImageLibraryAsync({
+            lancar('galeria', () => ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               quality: 0.6,
               maxWidth: 1200,
               maxHeight: 1200,
-            })
-            if (!resultado.canceled) {
-              setter(resultado.assets[0].uri)
-              if (tipo && setUrl) preUploadFoto(resultado.assets[0].uri, tipo, setUrl, setUploadando)
-            }
+            }))
           }
         },
         { text: 'Cancelar', style: 'cancel' }
@@ -521,21 +561,65 @@ export default function CadastroScreen({ navigation }) {
     return cloudData.secure_url
   }
 
-  // Sobe uma foto e guarda a URL (fire-and-start: não bloqueia a UI). Em caso de
-  // falha, deixa a URL nula e o handleCadastrar refaz o upload no envio (fallback).
-  const preUploadFoto = async (uri, tipo, setUrl, setUploadando) => {
+  // NOVO caminho: sobe a foto para o NOSSO backend (POST /upload/midia, multipart,
+  // campo "arquivo"), que repassa ao Cloudinary. Pré-auth (sem token no cadastro).
+  // Retorna secure_url de { secure_url, public_id, resource_type }.
+  const uploadViaEndpoint = async (uri, tipo) => {
+    const form = new FormData()
+    form.append('arquivo', { uri, type: 'image/jpeg', name: `${tipo}.jpg` })
+    const resp = await api.uploadMidiaPublica(form)
+    if (!resp?.secure_url) throw new Error(resp?.erro || `Resposta sem secure_url no upload de ${tipo}`)
+    return resp.secure_url
+  }
+
+  // Sobe uma foto e guarda a URL (fire-and-start: não bloqueia a UI). Tenta o NOVO
+  // endpoint e, em QUALQUER falha, cai no método direto-Cloudinary (uploadFotoVerificacao)
+  // — nunca pior que antes. Só marca erro por foto se AMBOS falharem; nesse caso a UI
+  // mostra "Tentar novamente" e o handleCadastrar ainda refaz o upload no envio (rede de segurança).
+  const preUploadFoto = async (uri, tipo, setUrl, setUploadando, setErro) => {
     setUploadando(true)
+    if (setErro) setErro(false)
     try {
-      const url = await uploadFotoVerificacao(uri, tipo)
-      if (montadoRef.current) setUrl(url)
+      let url
+      if (USAR_UPLOAD_ENDPOINT) {
+        try {
+          url = await uploadViaEndpoint(uri, tipo)
+        } catch (errEndpoint) {
+          console.log(`[CadastroScreen] endpoint /upload/midia falhou p/ ${tipo} — fallback direto-Cloudinary | msg:`, errEndpoint?.message)
+          url = await uploadFotoVerificacao(uri, tipo)
+        }
+      } else {
+        url = await uploadFotoVerificacao(uri, tipo)
+      }
+      if (montadoRef.current) { setUrl(url); if (setErro) setErro(false) }
     } catch (err) {
-      console.log(`[CadastroScreen] pre-upload falhou para ${tipo} | msg:`, err.message)
-      // Silent fail — will retry during handleCadastrar if URL is still null
-      if (montadoRef.current) setUrl(null)
+      console.log(`[CadastroScreen] pre-upload falhou (endpoint + fallback) p/ ${tipo} | msg:`, err.message)
+      if (montadoRef.current) { setUrl(null); if (setErro) setErro(true) }
     } finally {
       if (montadoRef.current) setUploadando(false)
     }
   }
+
+  // Recuperação pós-destruição da Activity (Android sob pressão de memória): se a
+  // câmera/galeria foi morta durante a captura, o expo-image-picker guarda o resultado
+  // e o entrega via getPendingResultAsync. Reusa a MESMA lógica da criação de obra/reparo
+  // (src/utils/midia.js, sem duplicar), roteando a foto recuperada ao slot em captura.
+  useEffect(() => {
+    const aoReceber = (assets) => {
+      const uri = assets?.[0]?.uri
+      const slot = slotFotoPendenteRef.current
+      if (!uri || !slot || !montadoRef.current) return
+      slot.setter(uri)
+      slotFotoPendenteRef.current = null
+      if (slot.tipo && slot.setUrl) preUploadFoto(uri, slot.tipo, slot.setUrl, slot.setUploadando, slot.setErro)
+    }
+    recuperarMidiasPendentes({ logPrefix: '[Cadastro]', montadoRef, aoReceber })
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') recuperarMidiasPendentes({ logPrefix: '[Cadastro]', montadoRef, aoReceber })
+    })
+    return () => sub.remove()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleCadastrar = async () => {
     if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
@@ -559,7 +643,11 @@ export default function CadastroScreen({ navigation }) {
         } catch (err) {
           const kind = classificarErro(err)
           console.log(`[cadastro] ✗ step1 verificar-disponibilidade FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
-          throw err
+          // FAIL-OPEN: só um 409 (duplicado EXPLÍCITO) bloqueia aqui. Erros não-definitivos
+          // (timeout/rede/5xx) NÃO travam o cadastro — seguimos para o POST /auth/cadastro,
+          // que é o backstop real e devolve 409 com a mensagem certa se de fato for duplicado.
+          if (err?.status === 409) throw err
+          console.log('[cadastro] ↻ step1 falhou por erro não-definitivo — prosseguindo (POST /auth/cadastro é o backstop)')
         }
       } else {
         console.log('[cadastro] ↻ step1 verificar-disponibilidade já validado nesta sessão — pulando')
@@ -718,6 +806,13 @@ export default function CadastroScreen({ navigation }) {
   }
 
   const valores = getValorPlano()
+
+  // "Finalizar cadastro" só habilita quando as 3 fotos de verificação têm URL enviada
+  // (não apenas escolhida). Só se aplica ao prestador no último passo; dono não tem fotos.
+  // O re-upload no submit (handleCadastrar) permanece como rede de segurança; a saída
+  // para o usuário em caso de falha é o "Tentar novamente" por foto.
+  const fotosVerificacaoOk = !!docFrenteUrl && !!docVersoUrl && !!selfieUrl
+  const bloquearFinalizarPorFotos = isPrestador && passo === totalPassos && !fotosVerificacaoOk
 
   // Prestador e dono de reparo usam o ícone; demais tipos seguem com o logo completo.
   const logoSource = (tipoConta === 'prestador' || tipoConta === 'dono_reparo')
@@ -979,18 +1074,26 @@ export default function CadastroScreen({ navigation }) {
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.fotoLabel}>Frente *</Text>
                   <UploadFoto
-                    label={uploadandoDocFrente ? 'Enviando...' : (docFrenteUrl ? '✅ Enviada' : 'Tirar foto')}
+                    label="Tirar foto"
                     valor={docFrente}
-                    onPress={() => selecionarFoto(setDocFrente, 'doc_frente', setDocFrenteUrl, setUploadandoDocFrente)}
+                    uploadando={uploadandoDocFrente}
+                    enviada={!!docFrenteUrl}
+                    erro={erroDocFrente}
+                    onPress={() => selecionarFoto(setDocFrente, 'doc_frente', setDocFrenteUrl, setUploadandoDocFrente, setErroDocFrente)}
+                    onRetry={() => preUploadFoto(docFrente, 'doc_frente', setDocFrenteUrl, setUploadandoDocFrente, setErroDocFrente)}
                   />
                   {erros.docFrente && <Text style={estilos.erroTexto}>{erros.docFrente}</Text>}
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={estilos.fotoLabel}>Verso *</Text>
                   <UploadFoto
-                    label={uploadandoDocVerso ? 'Enviando...' : (docVersoUrl ? '✅ Enviada' : 'Tirar foto')}
+                    label="Tirar foto"
                     valor={docVerso}
-                    onPress={() => selecionarFoto(setDocVerso, 'doc_verso', setDocVersoUrl, setUploadandoDocVerso)}
+                    uploadando={uploadandoDocVerso}
+                    enviada={!!docVersoUrl}
+                    erro={erroDocVerso}
+                    onPress={() => selecionarFoto(setDocVerso, 'doc_verso', setDocVersoUrl, setUploadandoDocVerso, setErroDocVerso)}
+                    onRetry={() => preUploadFoto(docVerso, 'doc_verso', setDocVersoUrl, setUploadandoDocVerso, setErroDocVerso)}
                   />
                   {erros.docVerso && <Text style={estilos.erroTexto}>{erros.docVerso}</Text>}
                 </View>
@@ -999,9 +1102,13 @@ export default function CadastroScreen({ navigation }) {
               <Text style={[estilos.labelSecao, { marginTop: 16 }]}>SELFIE COM DOCUMENTO *</Text>
               <Text style={estilos.labelSecaoDesc}>Segure seu documento ao lado do rosto</Text>
               <UploadFoto
-                label={uploadandoSelfie ? 'Enviando...' : (selfieUrl ? '✅ Enviada' : 'Tirar selfie com documento')}
+                label="Tirar selfie com documento"
                 valor={selfie}
-                onPress={() => selecionarFoto(setSelfie, 'selfie', setSelfieUrl, setUploadandoSelfie)}
+                uploadando={uploadandoSelfie}
+                enviada={!!selfieUrl}
+                erro={erroSelfie}
+                onPress={() => selecionarFoto(setSelfie, 'selfie', setSelfieUrl, setUploadandoSelfie, setErroSelfie)}
+                onRetry={() => preUploadFoto(selfie, 'selfie', setSelfieUrl, setUploadandoSelfie, setErroSelfie)}
               />
               {erros.selfie && <Text style={estilos.erroTexto}>{erros.selfie}</Text>}
             </View>
@@ -1018,11 +1125,16 @@ export default function CadastroScreen({ navigation }) {
                 ⏳ Aguarde — o envio das fotos pode levar até 1 minuto. Não feche o app.
               </Text>
             )}
+            {bloquearFinalizarPorFotos && (
+              <Text style={{ fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginBottom: 8, lineHeight: 18 }}>
+                Envie as 3 fotos (frente, verso e selfie) — aguarde cada uma marcar “✓ Enviada”.
+              </Text>
+            )}
             <BotaoPrimario
               titulo={carregando && progresso ? progresso : (passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →')}
               onPress={avancar}
               carregando={carregando && !progresso}
-              desabilitado={carregando}
+              desabilitado={carregando || bloquearFinalizarPorFotos}
             />
           </View>
 
@@ -1083,6 +1195,7 @@ const estilos = StyleSheet.create({
   referenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
   fotosRow: { flexDirection: 'row', gap: 12 },
   fotoLabel: { fontSize: 11, color: cores.textoFraco, marginBottom: 6 },
+  fotoStatus: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
   uploadFotoBtn: { backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, overflow: 'hidden', height: 100 },
   uploadFotoVazio: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   uploadFotoIcone: { fontSize: 24 },

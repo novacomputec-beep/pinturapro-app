@@ -46,6 +46,17 @@ api.uploadFotoPerfil = async (formData) => {
   return resposta.data
 }
 
+// Upload de mídia via NOSSO backend (POST /upload/midia). Pré-auth: usado no cadastro,
+// quando ainda NÃO há token — por isso NÃO envia Authorization e não passa pela instância
+// `api` (cujo default é application/json). Retorna { secure_url, public_id, resource_type }.
+api.uploadMidiaPublica = async (formData) => {
+  const resposta = await axios.post(`${API_URL}/upload/midia`, formData, {
+    timeout: 60000,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+  return resposta.data
+}
+
 // ─── AUTH ────────────────────────────────────────────────────
 export const authService = {
   login: (email, senha) =>
