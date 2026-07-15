@@ -3,14 +3,13 @@ import {
   View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
 } from 'react-native'
-import { Image } from 'react-native'
-import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
+import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useFocusEffect } from '@react-navigation/native'
 import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios } from '../../utils/tema'
-import { useSelecaoMidia, apagarArquivoTemp } from '../../utils/midia'
+import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 
 const CATEGORIAS = [
   { id: 'residencial',   label: '🏠 Residencial'   },
@@ -29,42 +28,6 @@ const PRAZOS = [
   { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
 ]
 
-// Sobe a mídia direto ao Cloudinary com retry resiliente e SILENCIOSO.
-// Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
-// cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
-// Cloudinary (4xx/5xx com corpo { error }) — que antes furavam o retry. Nenhum
-// alerta aparece enquanto restam tentativas; só rejeita após esgotar todas.
-const MAX_UPLOAD_RETRIES = 8
-const TIMEOUT_FOTO  = 45000    // 45s — fotos são pequenas (quality 0.6)
-const TIMEOUT_VIDEO = 180000   // 180s — vídeos são muito maiores; 45s estourava em conexões móveis
-const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
-const xhrUpload = (url, form, { isVideo = false } = {}) => new Promise((resolve, reject) => {
-  const attempt = (n) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', url)
-    xhr.timeout = isVideo ? TIMEOUT_VIDEO : TIMEOUT_FOTO
-    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), backoffUpload(n)); else rejeitar() }
-    xhr.onload = () => {
-      let parsed = null
-      try { parsed = JSON.parse(xhr.responseText) }
-      catch (e) {
-        console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
-        return retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
-      }
-      // Cloudinary devolve 4xx/5xx com corpo { error: {...} }; trata como falha retentável
-      if (xhr.status >= 400 || parsed?.error) {
-        console.log('[xhrUpload] erro HTTP do Cloudinary | tentativa:', n, '| status:', xhr.status, '| msg:', parsed?.error?.message)
-        return retryOu(() => reject(new Error(parsed?.error?.message || `Erro ${xhr.status} no upload da mídia`)))
-      }
-      resolve(parsed)
-    }
-    xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
-    xhr.ontimeout = () => retryOu(() => { const e = new Error('Tempo esgotado no upload da mídia'); e.code = 'UPLOAD_TIMEOUT'; reject(e) })
-    xhr.send(form)
-  }
-  attempt(0)
-})
-
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
 const gerarRequestId = () =>
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -80,7 +43,6 @@ export default function CadastrarObraScreen({ navigation }) {
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
   const [prazo, setPrazo] = useState(null)
-  const [midias, setMidias] = useState([])
   const [cep, setCep] = useState('')
   const [logradouro, setLogradouro] = useState('')
   const [numero, setNumero] = useState('')
@@ -103,6 +65,12 @@ export default function CadastrarObraScreen({ navigation }) {
     return () => { montadoRef.current = false }
   }, [])
 
+  // Hook compartilhado de upload de mídia (Fase 3): dono do estado dos itens, do
+  // upload em 2º plano (quando a flag USAR_UPLOAD_STREAMING está ligada) e do
+  // registro pós-criação. O caminho antigo (direto ao Cloudinary) segue ativo
+  // enquanto a flag está desligada.
+  const midia = useUploadMidiaDemanda({ vertical: 'obra', montadoRef, logPrefix: '[CadastrarObra]' })
+
   // Reset completo ao focar a tela — espelha CadastrarReparoScreen para que ambas
   // se comportem de forma idêntica. Após um envio bem-sucedido navegamos para
   // 'Minhas Obras' (outra aba); ao voltar para 'Nova Obra' o foco dispara este
@@ -115,7 +83,7 @@ export default function CadastrarObraScreen({ navigation }) {
     setDescricao('')
     setValorEstimado('')
     setPrazo(null)
-    setMidias([])
+    midia.resetar()
     setCep('')
     setLogradouro('')
     setNumero('')
@@ -136,7 +104,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const { usarCameraFoto, usarCameraVideo, usarGaleria } = useSelecaoMidia({
     logPrefix: '[CadastrarObra]',
     montadoRef,
-    setMidias,
+    setMidias: midia.adicionar,
   })
 
   // Banner "Parabéns" também na aba inicial (Nova Obra) — uma vez por sessão,
@@ -221,58 +189,18 @@ export default function CadastrarObraScreen({ navigation }) {
 
   const selecionarMidia = () => setShowMediaPicker(true)
 
-  const removerMidia = (index) => setMidias(prev => prev.filter((_, i) => i !== index))
-
-  // Upload de uma mídia (vídeo ou foto) para o Cloudinary + registro no backend
-  const uploadUmaMidia = async ({ midia, ordem }, obraId) => {
-    const isVideo = midia.type === 'video'
-    const tipo = isVideo ? 'video' : 'foto'
-    // GET idempotente; comRetry cobre timeout/5xx de cold start do Railway
-    const params = await comRetry(() => isVideo
-      ? api.get('/upload/assinatura-cloudinary')
-      : api.get('/upload/assinatura-cloudinary', { params: { folder: 'pinturapro/fotos' } }),
-      { timeout: true, servidor: true })
-    const cloudForm = new FormData()
-    cloudForm.append('file', isVideo
-      ? { uri: midia.uri, type: 'video/mp4', name: `video_${ordem}.mp4` }
-      : { uri: midia.uri, type: 'image/jpeg', name: `foto_${ordem}.jpg` })
-    cloudForm.append('timestamp', String(params.timestamp))
-    cloudForm.append('signature', params.signature)
-    cloudForm.append('api_key', params.api_key)
-    cloudForm.append('folder', params.folder)
-    const cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/${isVideo ? 'video' : 'image'}/upload`, cloudForm, { isVideo })
-    if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
-    // Idempotente por slot (obra_id, ordem) no backend; seguro repetir em cold start
-    await comRetry(() => api.post('/upload/obra-url', { obra_id: obraId, url: cloudData.secure_url, tipo, ordem }), { timeout: true, servidor: true })
-    // Upload confirmado — libera a cópia local no cache (não-fatal). Só ocorre no
-    // sucesso; itens que falharam mantêm o arquivo para permitir reenvio.
-    await apagarArquivoTemp(midia.uri, '[CadastrarObra]')
-  }
-
-  // Envia a lista de mídias isolando cada item; retorna apenas as que falharam
-  const enviarMidias = async (lista, obraId) => {
-    const falhas = []
-    for (const item of lista) {
-      try {
-        await uploadUmaMidia(item, obraId)
-      } catch (err) {
-        console.log('[CadastrarObra] falha no upload de mídia | ordem:', item.ordem, '| code:', err.code, '| msg:', err.message)
-        falhas.push(item)
-      }
-    }
-    return falhas
-  }
-
-  // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes)
-  const finalizarPublicacao = async (lista, obraId) => {
-    const falhas = await enviarMidias(lista, obraId)
+  // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes).
+  // O upload/registro em si vive no hook compartilhado (useUploadMidiaDemanda);
+  // aqui ficam apenas os alertas e a navegação, específicos da obra.
+  const finalizarPublicacao = async (obraId, lista) => {
+    const falhas = await midia.publicarMidias(obraId, lista)
     if (!montadoRef.current) return
     setCarregando(false)
     if (falhas.length === 0) {
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
         [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }], { cancelable: false })
     } else {
-      const temVideoFalho = falhas.some(f => f.midia?.type === 'video')
+      const temVideoFalho = falhas.some(f => f.tipo === 'video')
       const dicaVideo = temVideoFalho
         ? '\n\n📹 Vídeos grandes podem falhar em conexões lentas — tente novamente em Wi-Fi ou grave um vídeo mais curto.'
         : ''
@@ -280,7 +208,7 @@ export default function CadastrarObraScreen({ navigation }) {
         '⚠️ Obra criada',
         `Sua obra foi criada, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
-          { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(falhas, obraId) } },
+          { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(obraId, falhas) } },
           { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Minhas Obras') },
         ],
         { cancelable: false }
@@ -290,6 +218,7 @@ export default function CadastrarObraScreen({ navigation }) {
 
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
+    if (midia.algumEnviando) { Alert.alert('Aguarde o envio das mídias', 'Suas fotos/vídeos ainda estão sendo enviados. Aguarde a conclusão para publicar.'); return }
     if (!validar()) return
     enviandoRef.current = true
     setCarregando(true)
@@ -322,15 +251,14 @@ export default function CadastrarObraScreen({ navigation }) {
       return
     }
     // Fase de mídia: cada item é isolado; falhas não cancelam as demais e podem ser reenviadas
-    const itens = midias.map((midia, idx) => ({ midia, ordem: idx + 1 }))
-    if (itens.length === 0) {
+    if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
         [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }], { cancelable: false })
       return
     }
-    await finalizarPublicacao(itens, obra.id)
+    await finalizarPublicacao(obra.id)
   }
 
   return (
@@ -418,37 +346,14 @@ export default function CadastrarObraScreen({ navigation }) {
             erroEstado={erros.uf}
             erroCidade={erros.cidade}
           />
-          <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
-          <TouchableOpacity style={estilos.uploadBtn} onPress={selecionarMidia}>
-            <Text style={estilos.uploadIcone}>📎</Text>
-            <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
-          </TouchableOpacity>
-          <Text style={estilos.avisoUpload}>📸 Opcional: filme e/ou tire foto(s) se realmente fizer diferença para informar o problema relatado.</Text>
-          <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
-          {midias.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {midias.map((item, index) => (
-                <View key={index} style={estilos.midiaItem}>
-                  {item.type === 'video' ? (
-                    // Não decodifica frame de vídeo em resolução cheia — placeholder leve.
-                    <View style={[estilos.midiaImagem, estilos.videoPlaceholder]}>
-                      <Text style={{ fontSize: 28 }}>🎬</Text>
-                    </View>
-                  ) : (
-                    // resizeMethod="resize" faz o Fresco (Android) decodificar um bitmap
-                    // já reduzido ao tamanho da view (100x100), em vez do full-res.
-                    <Image source={{ uri: item.uri }} style={estilos.midiaImagem} resizeMethod="resize" resizeMode="cover" />
-                  )}
-                  {item.type === 'video' && <View style={estilos.videoOverlay}><Text style={{ color: 'white', fontSize: 20 }}>▶</Text></View>}
-                  <TouchableOpacity style={estilos.midiaRemover} onPress={() => removerMidia(index)}>
-                    <Text style={{ color: 'white', fontSize: 12 }}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+          <PainelMidiaDemanda
+            itens={midia.itens}
+            onAbrirPicker={selecionarMidia}
+            onRemover={midia.remover}
+            onReenviar={midia.reenviar}
+          />
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
-          <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} estilo={{ marginTop: 8 }} />
+          <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
           {carregando && <Text style={estilos.avisoUpload}>📤 Enviando fotos, aguarde...</Text>}
           <Text style={estilos.aviso}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, pintores qualificados da sua região serão notificados.</Text>
         </ScrollView>
@@ -508,15 +413,6 @@ const estilos = StyleSheet.create({
   duasColunas: { flexDirection: 'row', gap: 12 },
   geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
   geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
-  dicaMidia: { fontSize: 12, color: cores.textoFraco, marginBottom: 10, lineHeight: 18 },
-  uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center', gap: 10 },
-  uploadIcone: { fontSize: 20 },
-  uploadTexto: { fontSize: 14, color: cores.textoMedio },
-  midiaItem: { width: 100, height: 100, marginRight: 8, borderRadius: 10, overflow: 'hidden', position: 'relative' },
-  midiaImagem: { width: '100%', height: '100%' },
-  videoPlaceholder: { backgroundColor: '#1a1a1a', alignItems: 'center', justifyContent: 'center' },
-  videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
-  midiaRemover: { position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
   aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
   avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
