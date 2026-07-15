@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "592909036534",
+    "project_id": "pinturapro-881d1",
+    "storage_bucket": "pinturapro-881d1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:592909036534:android:2904910759ddaa868cb5d7",
+        "android_client_info": {
+          "package_name": "com.pinturapro.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArliH7MwGnjKwhHuOJMou_95k_9TvqBYM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
