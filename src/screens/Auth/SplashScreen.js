@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity, Alert } from 'react-native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos } from '../../utils/tema'
 import api from '../../services/api'
+import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
+
+// Garante que o prompt de retomada apareça no máximo uma vez por execução do app
+// (evita re-perguntar ao voltar ao Splash na mesma sessão). Reinicia a cada
+// cold-start porque o módulo é recarregado junto com o processo.
+let resumeCadastroVerificado = false
 
 export default function SplashScreen({ navigation }) {
   const [stats, setStats] = useState({ total_valor_obras: null, total_obras_ativas: null })
@@ -11,6 +17,32 @@ export default function SplashScreen({ navigation }) {
     api.get('/stats/publico')
       .then(data => setStats({ total_valor_obras: data.total_valor_obras, total_obras_ativas: data.total_obras_ativas }))
       .catch(err => console.log('[SplashScreen] falha ao buscar stats públicos | code:', err.code, '| msg:', err.message))
+  }, [])
+
+  // Resume de cold-start: um process kill do Android durante o cadastro reinicia o
+  // app AQUI (Splash, rota inicial pré-auth) e NÃO remonta o CadastroScreen sozinho —
+  // por isso a checagem vive neste ponto de entrada. Se há rascunho fresco (<24h),
+  // oferece retomar; se expirado, limpa em silêncio; se não há, não faz nada.
+  useEffect(() => {
+    if (resumeCadastroVerificado) return
+    resumeCadastroVerificado = true
+    ;(async () => {
+      const estado = await estadoRascunhoCadastro()
+      if (estado === 'expirado') {
+        await limparRascunhoCadastro()
+        return
+      }
+      if (estado === 'fresco') {
+        Alert.alert(
+          'Continuar cadastro?',
+          'Você tem um cadastro em andamento. Deseja continuar de onde parou?',
+          [
+            { text: 'Descartar', style: 'destructive', onPress: () => { limparRascunhoCadastro() } },
+            { text: 'Continuar cadastro', onPress: () => navigation.navigate('Cadastro') },
+          ],
+        )
+      }
+    })()
   }, [])
 
   return (
