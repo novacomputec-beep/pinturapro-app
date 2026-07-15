@@ -356,7 +356,19 @@ export default function CadastrarObraScreen({ navigation }) {
       )}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => {
+            // Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só
+            // contém esta rota (index 0), então "voltar" significa trocar para a aba
+            // "Minhas Obras". No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a
+            // mesma tela é empilhada (index > 0) e aí voltamos de fato. Checamos o index
+            // da PRÓPRIA stack — um goBack() cru sobe para o tab/root e podia sair da
+            // área do dono a partir desta raiz de aba.
+            if ((navigation.getState()?.index ?? 0) > 0) {
+              navigation.goBack()
+            } else {
+              navigation.navigate('Minhas Obras')
+            }
+          }}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
