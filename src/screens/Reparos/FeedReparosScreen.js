@@ -291,6 +291,13 @@ export default function FeedReparosScreen({ navigation }) {
   const limparCidadeBusca = () => {
     setCidadeBusca(null)
     setBuscaCidade('')
+    // Volta imediatamente para a cidade do perfil e refaz a busca, sem depender do
+    // efeito (que só reflete no próximo render). Atualiza o ref já para null para que
+    // o refetch abaixo NÃO leia a cidade selecionada anterior — mesmo padrão imperativo
+    // do limparCidadeBusca do feed de obras (FeedObrasScreen), escrito para os reparos.
+    cidadeBuscaRef.current = null
+    setCarregando(true)
+    buscarReparos(categoria, distancia)
   }
 
   const buscarReparos = async (cat = categoria, dist = distancia, { refresh = false } = {}) => {

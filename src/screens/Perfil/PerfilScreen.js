@@ -115,12 +115,21 @@ export default function PerfilScreen({ navigation }) {
     ? new Date(assinatura.proximo_vencimento).toLocaleDateString('pt-BR')
     : null
   const isDono = usuario?.role === 'dono_obra'
+  // Só o dono de reparo ganha a seta de voltar nesta tela compartilhada: sua aba
+  // "Perfil" não tem outra forma de retornar à lista. Os demais papéis (pintor,
+  // prestador, dono de obra) NÃO são afetados — a seta não é renderizada para eles.
+  const ehDonoReparo = isDono && usuario?.tipo_dono === 'reparo'
 
   return (
     <SafeAreaView style={estilos.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
         <View style={estilos.header}>
+          {ehDonoReparo && (
+            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Meus Reparos')}>
+              <Text style={estilos.btnVoltarTexto}>←</Text>
+            </TouchableOpacity>
+          )}
           <Text style={estilos.headerTitulo}>Meu perfil</Text>
         </View>
 
@@ -254,6 +263,8 @@ export default function PerfilScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   header: { paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 16 },
+  btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  btnVoltarTexto: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, includeFontPadding: false },
   headerTitulo: { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   avatarArea: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: espacos.tela },
   avatarWrap: { position: 'relative', marginBottom: 14 },

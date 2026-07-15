@@ -208,7 +208,7 @@ function PagamentoPendenteScreen() {
       if (status === 'pendente_verificacao') {
         Alert.alert(
           'Cadastro em análise',
-          'Seu cadastro está em análise. Assim que for aprovado, você terá acesso às demandas disponíveis. Isso costuma levar até 60 minutos.'
+          'Seu cadastro está em análise. Assim que for aprovado (em até 1 hora), seu acesso será liberado.'
         )
         return
       }
@@ -313,7 +313,7 @@ function VerificacaoPendenteScreen() {
       if (status === 'pendente_verificacao') {
         Alert.alert(
           'Cadastro em análise',
-          'Seu cadastro está em análise. Assim que for aprovado, você terá acesso às demandas disponíveis. Isso costuma levar até 60 minutos.'
+          'Seu cadastro está em análise. Assim que for aprovado (em até 1 hora), seu acesso será liberado.'
         )
         return
       }

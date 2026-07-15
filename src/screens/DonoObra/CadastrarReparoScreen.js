@@ -390,7 +390,13 @@ export default function CadastrarReparoScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView ref={scrollRef} contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => {
-            if (navigation.canGoBack()) {
+            // Esta tela é a RAIZ da aba "Novo Reparo" (dono_reparo): a stack da aba só
+            // contém esta rota (index 0), então "voltar" significa trocar para a aba
+            // "Meus Reparos". No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a
+            // mesma tela é empilhada (index > 0) e aí voltamos de fato. Checamos o index
+            // da PRÓPRIA stack — canGoBack() sobe para o tab/root e podia resolver true
+            // nesta raiz de aba, disparando um goBack() que saía da área do dono.
+            if ((navigation.getState()?.index ?? 0) > 0) {
               navigation.goBack()
             } else {
               navigation.navigate('Meus Reparos')
