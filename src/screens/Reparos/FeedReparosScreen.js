@@ -87,21 +87,28 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   if (!restante) return null
 
   const { dias, h, m, totalMin } = restante
-  const muitoUrgente = totalMin < 10
+  const urgente = totalMin < 10
   const mm = String(m).padStart(2, '0')
   let texto
-  if (muitoUrgente) {
-    texto = `🔴 Faltam ${m}min — URGENTE!`
-  } else if (dias >= 1) {
-    texto = `⏰ Faltam ${dias} ${dias === 1 ? 'dia' : 'dias'}, ${h}h${mm}min — Ainda tem tempo, aproveite!`
+  if (dias >= 1) {
+    texto = `Finaliza em ${dias} ${dias === 1 ? 'dia' : 'dias'}`
+  } else if (h >= 1) {
+    texto = `Finaliza em ${h}h ${mm}min`
   } else {
-    texto = `⏰ Faltam ${h}h${mm}min — aproveite!`
+    texto = `Finaliza em ${m}min`
   }
+  // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
+  // sob sol forte, não recebe sinal nenhum de um pill só colorido. O banner de
+  // urgência é exclusivo do reparo, então a palavra vai no próprio pill — assim os
+  // dois feeds se sustentam sozinhos, sem depender do banner.
+  if (urgente) texto = `Urgente: ${texto}`
 
   return (
-    <View style={[estilos.countdownBadge, muitoUrgente && estilos.countdownBadgeUrgente]}>
-      {muitoUrgente && <View style={estilos.countdownDot} />}
-      <Text style={[estilos.countdownTexto, muitoUrgente && { color: '#FF5555', fontWeight: '700' }]}>
+    <View style={[estilos.prazoPill, urgente ? estilos.prazoPillUrgente : estilos.prazoPillNormal]}>
+      <Text
+        style={[estilos.prazoTexto, urgente ? estilos.prazoTextoUrgente : estilos.prazoTextoNormal]}
+        numberOfLines={1}
+      >
         {texto}
       </Text>
     </View>
@@ -113,16 +120,16 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
   const urgencia = getUrgenciaInfo(item.prazo_atendimento_horas)
   const emoji = CATEGORIA_EMOJIS[item.categoria] || '🔨'
   const dist = distanciaItemKm(coords, item)
+  // Rede de segurança do thumbnail: foto_capa pode não renderizar (URL quebrada,
+  // mídia já removida, vídeo servido como capa). Sem isto o <Image> deixaria um
+  // quadrado preto; assim cai no placeholder.
+  const [fotoFalhou, setFotoFalhou] = useState(false)
+  const temFoto = !!item.foto_capa && !fotoFalhou
 
   return (
     <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
       {/* Orange left accent strip */}
       <View style={estilos.acentoEsq} />
-
-      {/* Countdown badge — top right */}
-      {item.expira_em && (
-        <ContadorExpiracao expiraEm={item.expira_em} onExpirar={onExpirar} />
-      )}
 
       {/* Urgency banner */}
       {urgencia && (
@@ -132,36 +139,46 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
         </View>
       )}
 
-      {/* Value + Category */}
-      <View style={estilos.valorDestaque}>
-        <View style={estilos.valorDestaqueEsquerda}>
-          <Text style={estilos.valorDestaqueLabel}>💰 VALOR OFERECIDO</Text>
-          <Text style={estilos.valorDestaqueValor}>{formatarValor(item.valor_estimado)}</Text>
-        </View>
-        <View style={estilos.categoriaPill}>
-          <Text style={estilos.categoriaTexto}>{emoji} {item.categoria}</Text>
-        </View>
-      </View>
-
-      {/* Photo */}
-      {item.foto_capa && (
-        <Image source={{ uri: item.foto_capa }} style={estilos.fotoImagem} resizeMode="cover" />
-      )}
-
-      {/* Body */}
       <View style={estilos.cardCorpo}>
-        <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-        <Text style={estilos.cardLocal}>
-          📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
-          {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
-        </Text>
-        {item.descricao && (
-          <Text style={estilos.cardDesc} numberOfLines={2}>{item.descricao}</Text>
-        )}
-        <View style={estilos.cardRodape}>
-          <Text style={estilos.interessados}>🔧 {item.total_interessados || 0} interessado(s)</Text>
-          <View style={estilos.btnVer}>
-            <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
+        {/* Categoria à esquerda, prazo à direita, em flex row: por não serem mais
+            absolutos, não há como se sobreporem, qualquer que seja o tamanho do texto. */}
+        <View style={estilos.topoRow}>
+          <View style={estilos.categoriaPill}>
+            <Text style={estilos.categoriaTexto} numberOfLines={1}>{emoji} {item.categoria}</Text>
+          </View>
+          {item.expira_em && (
+            <ContadorExpiracao expiraEm={item.expira_em} onExpirar={onExpirar} />
+          )}
+        </View>
+
+        <Text style={estilos.valorLabel}>Valor oferecido</Text>
+        <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
+
+        <View style={estilos.conteudoRow}>
+          {temFoto ? (
+            <Image
+              source={{ uri: item.foto_capa }}
+              style={estilos.thumb}
+              resizeMode="cover"
+              onError={() => setFotoFalhou(true)}
+            />
+          ) : (
+            <View style={[estilos.thumb, estilos.thumbVazia]}>
+              <Text style={estilos.thumbIcone}>🖼️</Text>
+            </View>
+          )}
+          <View style={estilos.textoCol}>
+            <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
+            <Text style={estilos.cardLocal} numberOfLines={1}>
+              📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
+              {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
+            </Text>
+            <View style={estilos.cardRodape}>
+              <Text style={estilos.interessados}>🔧 {item.total_interessados || 0} interessado(s)</Text>
+              <View style={estilos.btnVer}>
+                <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
+              </View>
+            </View>
           </View>
         </View>
       </View>
@@ -602,12 +619,13 @@ const estilos = StyleSheet.create({
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
   vazioSub: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
 
-  // Card
+  // Card — fundo bem acima do fundo da tela (#0A0A0A) e borda de 1dp, para os
+  // cards se separarem entre si e da tela. Antes eram #111111/0.5dp: 1.05:1.
   card: {
-    backgroundColor: cores.fundoCard,
+    backgroundColor: '#1C1C1C',
     borderRadius: 16,
-    borderWidth: 0.5,
-    borderColor: cores.borda,
+    borderWidth: 1,
+    borderColor: '#2E2E2E',
     overflow: 'hidden',
     elevation: 4,
   },
@@ -616,44 +634,46 @@ const estilos = StyleSheet.create({
     width: 4, backgroundColor: cores.primaria, zIndex: 2,
   },
 
-  // Countdown badge
-  countdownBadge: {
-    position: 'absolute', top: 10, right: 10, zIndex: 10,
-    backgroundColor: 'rgba(10,10,10,0.88)',
-    borderWidth: 0.5, borderColor: cores.borda,
-    borderRadius: 9, paddingHorizontal: 10, paddingVertical: 4,
-    flexDirection: 'row', alignItems: 'center', gap: 5, maxWidth: '88%',
-  },
-  countdownBadgeUrgente: { backgroundColor: 'rgba(139,0,0,0.92)', borderColor: '#FF4444' },
-  countdownDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#FF4444' },
-  countdownTexto: { fontSize: 10, fontWeight: '600', color: cores.textoFraco, flexShrink: 1 },
-
   // Urgency banner
   urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 0.5 },
   urgenciaTexto: { fontSize: 13, fontWeight: '700' },
   urgenciaHoras: { fontSize: 11, fontWeight: '500' },
 
-  // Value row
-  valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: cores.sucesso + '33' },
-  valorDestaqueEsquerda: { flex: 1 },
-  valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 2 },
-  valorDestaqueValor: { fontSize: 22, fontWeight: '700', color: cores.sucesso },
-  categoriaPill: { backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 5 },
-  categoriaTexto: { fontSize: 12, color: cores.textoFraco, textTransform: 'capitalize' },
+  cardCorpo: { padding: 14, paddingLeft: 18 },
 
-  // Photo
-  fotoImagem: { width: '100%', height: 140 },
+  // Topo: categoria (esq) + prazo (dir). Ambos em fluxo normal — nunca absolutos.
+  topoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 },
+  categoriaPill: { backgroundColor: cores.primaria + '2E', borderWidth: 0.5, borderColor: cores.primaria + '55', borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 1 },
+  categoriaTexto: { fontSize: 12, fontWeight: '600', color: cores.primaria, textTransform: 'capitalize' },
 
-  // Body
-  cardCorpo: { padding: 16 },
-  cardTitulo: { fontSize: 15, fontWeight: '600', color: cores.textoForte, lineHeight: 22, marginBottom: 6 },
-  cardLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 6 },
+  // Prazo: âmbar quando ainda há tempo, vermelho perto de expirar. Texto claro
+  // sobre o próprio tom (4.5:1+); o #E24B4A puro só chegava a 3.57:1.
+  // flexShrink 0: o prazo é a informação crítica e nunca deve ser cortado — quem
+  // encolhe é a categoria (que ainda se identifica pelo emoji).
+  prazoPill: { borderRadius: raios.pill, borderWidth: 0.5, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
+  prazoPillNormal: { backgroundColor: '#FFC1072E', borderColor: '#FFC10755' },
+  prazoPillUrgente: { backgroundColor: cores.perigo + '2E', borderColor: cores.perigo + '66' },
+  prazoTexto: { fontSize: 12, fontWeight: '700' },
+  prazoTextoNormal: { color: '#FFC107' },
+  prazoTextoUrgente: { color: '#FF6B6B' },
+
+  // Valor
+  valorLabel: { fontSize: 11, color: cores.textoMedio, marginBottom: 2 },
+  valorTexto: { fontSize: 24, fontWeight: '700', color: cores.sucesso, marginBottom: 14 },
+
+  // Thumbnail + coluna de texto (substitui a faixa de foto de 140dp)
+  conteudoRow: { flexDirection: 'row', gap: 12 },
+  thumb: { width: 64, height: 64, borderRadius: 12 },
+  thumbVazia: { backgroundColor: '#2E2E2E', alignItems: 'center', justifyContent: 'center' },
+  thumbIcone: { fontSize: 24 },
+  textoCol: { flex: 1 },
+  cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  cardLocal: { fontSize: 12, color: cores.textoMedio, marginTop: 3 },
   cardDistancia: { color: cores.primaria, fontWeight: '600' },
-  cardDesc: { fontSize: 12, color: cores.textoMedio, lineHeight: 18, marginBottom: 10 },
-  cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  interessados: { fontSize: 11, color: cores.textoMutado },
-  btnVer: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 7 },
-  btnVerTexto: { fontSize: 11, fontWeight: '600', color: '#0A0A0A' },
+  cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  interessados: { fontSize: 11, color: cores.textoMedio },
+  btnVer: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 },
+  btnVerTexto: { fontSize: 11, fontWeight: '700', color: '#0A0A0A' },
 
   // "Buscar em outra cidade"
   btnCidadeBusca: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoCard, borderRadius: raios.medio, paddingHorizontal: 14, paddingVertical: 10, marginHorizontal: 16, marginBottom: 8, borderWidth: 0.5, borderColor: cores.borda },
