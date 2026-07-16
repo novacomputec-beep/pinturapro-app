@@ -356,9 +356,17 @@ export default function CadastrarObraScreen({ navigation }) {
       )}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
+          {/* Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém
+              esta rota (index 0) e não existe "voltar" — por isso a seta nem é renderizada.
+              No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a mesma tela é
+              empilhada (index > 0) e aí a seta aparece e volta de fato. Checamos o index da
+              PRÓPRIA stack — canGoBack() sobe para o tab/root e podia resolver true nesta
+              raiz de aba, disparando um goBack() que saía da área do dono. */}
+          {(navigation.getState()?.index ?? 0) > 0 && (
+            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+              <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
+            </TouchableOpacity>
+          )}
           <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
           <Text style={estilos.subtitulo}>Descreva a obra e encontre um profissional qualificado</Text>
           <View style={estilos.avisoBanner}>
