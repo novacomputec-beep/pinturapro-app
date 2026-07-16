@@ -7,5 +7,13 @@ build/
 .env.local
 ios/
 
-# Credenciais FCM (fornecidas via EAS file secret, nao versionadas)
+# Credenciais FCM (fornecidas via EAS file secret, nao versionadas).
+# A regra é sem barra, então casa com google-services.json em QUALQUER nível — e o
+# EAS filtra o upload pelo .gitignore SEM consultar o índice do git (eas-cli:
+# makeShallowCopyAsync -> fs.cp com filter: !ignore.ignores(path)). Ou seja: o
+# arquivo de android/app/ ficava de fora do build mesmo estando commitado, e o
+# Gradle falhava em :app:processReleaseGoogleServices com "File google-services.json
+# is missing". Daí a negação abaixo — mantém a cópia da raiz ignorada e sobe a de
+# android/app/, que é intencionalmente versionada (não é segredo: vai dentro do APK).
 google-services.json
+!android/app/google-services.json
