@@ -21,6 +21,7 @@ const CATEGORIAS = [
   { id: 'faxina',       label: '🧹 Faxina'        },
   { id: 'eletronica',      label: '📱 Eletrônica'      },
   { id: 'aula_particular', label: '📚 Aula Particular'  },
+  { id: 'cuidador',        label: '🤝 Cuidador'        },
   { id: 'outros',       label: '🔨 Outros'        },
 ]
 
