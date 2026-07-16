@@ -828,6 +828,9 @@ export default function CadastroScreen({ navigation }) {
           </TouchableOpacity>
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
+            <Text style={estilos.logoNome}>
+              Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+            </Text>
           </View>
           <Text style={[estilos.titulo, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
           <Text style={[estilos.subtitulo, { textAlign: 'center' }]}>Escolha o perfil que melhor descreve você</Text>
@@ -1150,6 +1153,8 @@ const estilos = StyleSheet.create({
   logoWrap: { alignItems: 'center', marginBottom: 10 },
   logo: { width: 170, height: 80 },
   logoIcone: { width: 170, height: 170, marginBottom: 4 },
+  // Mesmos valores do rótulo da SplashScreen (logoNome), para as duas telas baterem.
+  logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6 },
   btnVoltar: { marginTop: 16, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 20 },

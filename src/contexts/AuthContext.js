@@ -30,7 +30,7 @@ const configurarCanalAndroid = async () => {
   if (Platform.OS !== 'android') return
   try {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'ArrumaPro',
+      name: 'PinturaPro',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#E8833A',
