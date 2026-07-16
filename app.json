@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ArrumaPro",
+    "name": "PinturaPro",
     "slug": "pinturapro",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,8 +23,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#E8833A"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
       },
       "package": "com.pinturapro.app",
       "googleServicesFile": "./google-services.json",

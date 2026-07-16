@@ -5,11 +5,11 @@ import { cores, espacos } from '../../utils/tema'
 const SECOES = [
   {
     titulo: '1. Aceitação dos Termos',
-    texto: 'Ao usar o aplicativo ArrumaPro, você concorda com estes Termos de Uso. Se não concordar, não utilize o aplicativo.'
+    texto: 'Ao usar o aplicativo PinturaPro, você concorda com estes Termos de Uso. Se não concordar, não utilize o aplicativo.'
   },
   {
     titulo: '2. Descrição do Serviço',
-    texto: 'O ArrumaPro é uma plataforma que conecta donos de obra/reparo com prestadores de serviço profissionais. Não somos parte nas negociações entre usuários.'
+    texto: 'O PinturaPro é uma plataforma que conecta donos de obra/reparo com prestadores de serviço profissionais. Não somos parte nas negociações entre usuários.'
   },
   {
     titulo: '3. Cadastro e Conta',
@@ -25,7 +25,7 @@ const SECOES = [
   },
   {
     titulo: '6. Limitação de Responsabilidade',
-    texto: 'O ArrumaPro não se responsabiliza por danos decorrentes de serviços prestados entre usuários, informações incorretas ou falhas técnicas fora de nosso controle.'
+    texto: 'O PinturaPro não se responsabiliza por danos decorrentes de serviços prestados entre usuários, informações incorretas ou falhas técnicas fora de nosso controle.'
   },
   {
     titulo: '7. Alterações nos Termos',

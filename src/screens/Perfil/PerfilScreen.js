@@ -221,7 +221,7 @@ export default function PerfilScreen({ navigation }) {
           <Separador />
           <ItemAcao
             titulo="💬 Suporte"
-            onPress={() => Linking.openURL('mailto:novacomputec@gmail.com?subject=Suporte ArrumaPro')}
+            onPress={() => Linking.openURL('mailto:novacomputec@gmail.com?subject=Suporte PinturaPro')}
           />
           <Separador />
           <ItemAcao
@@ -237,7 +237,7 @@ export default function PerfilScreen({ navigation }) {
             onPress={confirmarLogout}
             estilo={{ borderColor: cores.perigo + '44' }}
           />
-          <Text style={estilos.versaoTexto}>ArrumaPro v1.0.0</Text>
+          <Text style={estilos.versaoTexto}>PinturaPro v1.0.0</Text>
         </View>
 
       </ScrollView>
