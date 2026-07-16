@@ -5,6 +5,9 @@ import {
 } from 'react-native'
 import { cores, fontes, raios, espacos } from '../utils/tema'
 
+// Seção de mídia compartilhada (obra/reparo) — Fase 3.
+export { default as PainelMidiaDemanda } from './PainelMidiaDemanda'
+
 // ─── BOTÃO PRIMÁRIO ──────────────────────────────────────────
 export const BotaoPrimario = ({ titulo, onPress, carregando, desabilitado, estilo }) => (
   <TouchableOpacity
