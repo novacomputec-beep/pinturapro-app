@@ -11,6 +11,7 @@ import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { recuperarMidiasPendentes } from '../../utils/midia'
+import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 import { useAuth } from '../../contexts/AuthContext'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -247,11 +248,10 @@ export default function CadastroScreen({ navigation }) {
   // file://): se perdidas, são re-selecionadas (rápido). A senha vai no SecureStore
   // (cifrado, mesmo mecanismo do token); o resto no AsyncStorage. Limpamos o
   // rascunho ao concluir o cadastro ou ao sair da tela (cancelar).
-  const RASCUNHO_KEY = 'cadastro_rascunho_v1'
-  const RASCUNHO_SENHA_KEY = 'cadastro_rascunho_senha_v1'
   const restauradoRef = useRef(false)   // trava saves até a restauração inicial terminar
   const snapshotRef = useRef({})        // campos NÃO sensíveis (AsyncStorage) — sempre atual
   const senhaRef = useRef('')           // senha (SecureStore) — sempre atual
+  const fotosRef = useRef({})           // secure_urls das fotos (SecureStore) — sempre atual
   snapshotRef.current = {
     tipoConta, passo, nome, sobrenome, email, telefone, cidade, uf, cep,
     latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
@@ -259,6 +259,7 @@ export default function CadastroScreen({ navigation }) {
     rg, rgOrgao, rgEstado, pixReembolso, ref1Nome, ref1Tel, ref2Nome, ref2Tel,
   }
   senhaRef.current = senha
+  fotosRef.current = { docFrenteUrl, docVersoUrl, selfieUrl }
 
   // Lê refs (nunca closures) → seguro chamar de listeners com deps [].
   const salvarRascunho = async () => {
@@ -266,22 +267,24 @@ export default function CadastroScreen({ navigation }) {
     const s = snapshotRef.current
     if (!s.tipoConta || s.passo < 1) return   // só salva com progresso real
     try {
-      await AsyncStorage.setItem(RASCUNHO_KEY, JSON.stringify(s))
+      // _ts em toda gravação → janela de validade de 24h no resume de cold-start.
+      await AsyncStorage.setItem(RASCUNHO_KEY, JSON.stringify({ ...s, _ts: Date.now() }))
       if (senhaRef.current) await SecureStore.setItemAsync(RASCUNHO_SENHA_KEY, senhaRef.current)
       else await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY).catch(() => {})
+      // Fotos de verificação (PII) → SecureStore, apenas secure_urls (nunca file://).
+      const f = fotosRef.current
+      if (f.docFrenteUrl || f.docVersoUrl || f.selfieUrl) {
+        await SecureStore.setItemAsync(RASCUNHO_FOTOS_KEY, JSON.stringify(f))
+      } else {
+        await SecureStore.deleteItemAsync(RASCUNHO_FOTOS_KEY).catch(() => {})
+      }
     } catch (err) {
       console.log('[CadastroScreen] falha ao salvar rascunho | msg:', err.message)
     }
   }
 
-  const limparRascunho = async () => {
-    try {
-      await AsyncStorage.removeItem(RASCUNHO_KEY)
-      await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY)
-    } catch (err) {
-      console.log('[CadastroScreen] falha ao limpar rascunho | msg:', err.message)
-    }
-  }
+  // Delega ao limpador compartilhado (remove AsyncStorage + senha + fotos).
+  const limparRascunho = () => limparRascunhoCadastro()
 
   // Restaura o rascunho na montagem, ANTES de qualquer interação.
   useEffect(() => {
@@ -306,6 +309,18 @@ export default function CadastroScreen({ navigation }) {
           setRef2Nome(s.ref2Nome ?? ''); setRef2Tel(s.ref2Tel ?? '')
           const senhaSalva = await SecureStore.getItemAsync(RASCUNHO_SENHA_KEY)
           if (senhaSalva && montadoRef.current) setSenha(senhaSalva)
+          // Fotos de verificação já enviadas (secure_urls): restaura para o slot
+          // aparecer como "✓ Enviada" sem re-upload. Só URLs — o preview local
+          // file:// não sobrevive ao process kill, mas a foto já está no Cloudinary.
+          try {
+            const fotosBrutas = await SecureStore.getItemAsync(RASCUNHO_FOTOS_KEY)
+            if (fotosBrutas && montadoRef.current) {
+              const f = JSON.parse(fotosBrutas)
+              if (f.docFrenteUrl) setDocFrenteUrl(f.docFrenteUrl)
+              if (f.docVersoUrl) setDocVersoUrl(f.docVersoUrl)
+              if (f.selfieUrl) setSelfieUrl(f.selfieUrl)
+            }
+          } catch (e) { /* fotos corrompidas: ignora — usuário re-tira */ }
           setPasso(s.passo ?? 0)   // por último: renderiza direto a tela onde parou
         }
       } catch (err) {
@@ -324,6 +339,9 @@ export default function CadastroScreen({ navigation }) {
     return () => sub.remove()
   }, [])
   useEffect(() => { salvarRascunho() }, [passo])
+  // Salva também logo após cada upload de foto concluído: as novas secure_urls
+  // entram no estado *Url, então persistimos na hora (mesmo idioma do save-por-passo).
+  useEffect(() => { salvarRascunho() }, [docFrenteUrl, docVersoUrl, selfieUrl])
 
   const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
   const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'

@@ -7,6 +7,7 @@ import { authService } from '../services/api'
 import api from '../services/api'
 import { resetarFlagsSessao } from '../utils/sessao'
 import { comRetry } from '../utils/rede'
+import { limparRascunhoCadastro } from '../utils/rascunhoCadastro'
 
 const AuthContext = createContext({})
 
@@ -139,6 +140,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, senha) => {
     const resposta = await authService.login(email, senha)
     resetarFlagsSessao()
+    // Defensivo: em aparelho compartilhado, um login (de qualquer usuário) descarta
+    // um eventual rascunho de cadastro pré-auth que tenha ficado, para não ressurgir
+    // para outra pessoa. Best-effort, não bloqueia o login.
+    limparRascunhoCadastro().catch(() => {})
     await SecureStore.setItemAsync('token', resposta.token)
     setUsuario(resposta.usuario)
     setAssinatura(resposta.assinatura)
