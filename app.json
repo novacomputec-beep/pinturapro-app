@@ -24,7 +24,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#E8833A"
+        "backgroundColor": "#0A0A0A"
       },
       "package": "com.pinturapro.app",
       "googleServicesFile": "./google-services.json",
