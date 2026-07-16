@@ -159,6 +159,20 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     resetarFlagsSessao()
+    // Best-effort e NÃO bloqueante: limpa o push_token no servidor ANTES de
+    // destruir o token local, fechando a colisão de token em aparelho compartilhado
+    // (RELATORIO.txt #2). O header é fixado explicitamente porque o SecureStore é
+    // apagado logo abaixo — o interceptor poderia não encontrar mais o token.
+    // Dispara e segue; qualquer falha só é logada e nunca impede o logout local.
+    try {
+      const token = await SecureStore.getItemAsync('token')
+      if (token) {
+        api.post('/auth/push-token/clear', {}, { headers: { Authorization: `Bearer ${token}` } })
+          .catch(err => console.log('[Push] falha ao limpar push_token no logout | msg:', err?.mensagem || err?.message))
+      }
+    } catch (err) {
+      console.log('[Push] erro ao ler token para limpar push_token no logout | msg:', err?.message)
+    }
     await SecureStore.deleteItemAsync('token')
     setUsuario(null)
     setAssinatura(null)
