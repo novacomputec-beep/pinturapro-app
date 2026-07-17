@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import { thumbnailDeCapa } from '../../utils/thumbnail'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -31,6 +32,17 @@ const CATEGORIAS = [
   { id: 'rural',         label: '🌾 Rural'        },
   { id: 'outros',        label: '🔨 Outros'       },
 ]
+
+// Emoji por categoria, usado no thumbnail quando a obra não tem mídia. Não são
+// emojis novos: são os MESMOS já exibidos nos labels de CATEGORIAS aqui e em
+// CadastrarObraScreen — extraídos para que o thumbnail bata com o chip de filtro
+// que a pessoa acabou de tocar. Espelha CATEGORIA_EMOJIS do FeedReparos.
+// O fallback 🏗️ cobre categoria desconhecida (o banco pode ter valor legado que
+// não está nesta lista) sem se disfarçar de "outros", que é 🔨 legítimo.
+const CATEGORIA_EMOJIS = {
+  residencial: '🏠', comercial: '🏢', institucional: '🏛️',
+  galpao: '🏭', rural: '🌾', outros: '🔨',
+}
 
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
@@ -95,11 +107,14 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 
 const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const dist = distanciaItemKm(coords, item)
-  // Rede de segurança do thumbnail: foto_capa pode não renderizar (URL quebrada,
-  // mídia já removida, vídeo servido como capa). Sem isto o <Image> deixaria um
-  // quadrado preto; assim cai no placeholder.
+  const emoji = CATEGORIA_EMOJIS[item.categoria] || '🏗️'
+  // Rede de segurança do thumbnail: a capa pode não renderizar (URL quebrada,
+  // mídia já removida, transformação recusada pelo Cloudinary). Sem isto o <Image>
+  // deixaria um quadrado preto; assim cai no emoji da categoria.
   const [fotoFalhou, setFotoFalhou] = useState(false)
-  const temFoto = !!item.foto_capa && !fotoFalhou
+  // Vídeo vira frame estático; foto passa direto; sem mídia devolve null.
+  const capa = thumbnailDeCapa(item.foto_capa)
+  const temFoto = !!capa && !fotoFalhou
 
   return (
   <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
@@ -117,20 +132,23 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
         )}
       </View>
 
-      <Text style={estilos.valorLabel}>Valor oferecido</Text>
-      <Text style={estilos.valorTexto}>{formatarValor(item.valor || item.valor_estimado)}</Text>
+      {/* Label e valor na mesma linha (Text aninhado, como local/distância
+          abaixo): alinha pela baseline sozinho e poupa ~24dp por card. */}
+      <Text style={estilos.valorLinha}>
+        Valor oferecido: <Text style={estilos.valorTexto}>{formatarValor(item.valor || item.valor_estimado)}</Text>
+      </Text>
 
       <View style={estilos.conteudoRow}>
         {temFoto ? (
           <Image
-            source={{ uri: item.foto_capa }}
+            source={{ uri: capa }}
             style={estilos.thumb}
             resizeMode="cover"
             onError={() => setFotoFalhou(true)}
           />
         ) : (
           <View style={[estilos.thumb, estilos.thumbVazia]}>
-            <Text style={estilos.thumbIcone}>🖼️</Text>
+            <Text style={estilos.thumbIcone}>{emoji}</Text>
           </View>
         )}
         <View style={estilos.textoCol}>
@@ -580,9 +598,12 @@ const estilos = StyleSheet.create({
   prazoTextoNormal: { color: '#FFC107' },
   prazoTextoUrgente: { color: '#FF6B6B' },
 
-  // Valor
-  valorLabel: { fontSize: 11, color: cores.textoMedio, marginBottom: 2 },
-  valorTexto: { fontSize: 24, fontWeight: '700', color: cores.sucesso, marginBottom: 14 },
+  // Valor — label e número na mesma linha. O número caiu de 24px p/ 17px: abaixo
+  // dos 18.66px o WCAG deixa de tratá-lo como "texto grande" (3:1) e passa a exigir
+  // 4.5:1; o #5DC98A sobre o #1C1C1C do card dá 8.27:1, então passa AA nos dois
+  // regimes. Label #888888 = 4.81:1, também AA.
+  valorLinha: { fontSize: 11, color: cores.textoMedio, marginBottom: 14 },
+  valorTexto: { fontSize: 17, fontWeight: '700', color: cores.sucesso },
 
   // Thumbnail + coluna de texto (substitui a faixa de foto de 140dp)
   conteudoRow: { flexDirection: 'row', gap: 12 },
