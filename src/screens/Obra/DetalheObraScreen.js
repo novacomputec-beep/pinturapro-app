@@ -953,8 +953,17 @@ const estilos = StyleSheet.create({
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
   valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
   valorDestaqueValor: { fontSize: 24, fontWeight: '700', color: cores.sucesso },
-  categoriaPill: { backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 4 },
-  categoriaTexto: { fontSize: 11, color: cores.textoFraco, textTransform: 'capitalize' },
+  // Pill de categoria: mesmo padrão tintado dos cards do feed (laranja sobre o
+  // próprio tom), para a categoria não trocar de cor entre feed e detalhe.
+  // O #444444 sobre #1A1A1A dava 1.79:1 — o mesmo par que o redesign do feed já
+  // havia derrubado, e que sobreviveu aqui.
+  // O tint é 1F e não o 2E do feed porque o fundo é outro: a pill vive dentro do
+  // valorDestaque, cujo #5DC98A22 é TRANSLÚCIDO e compõe para #15231B sobre o
+  // #0A0A0A da tela. Esse verde levanta a luminância da composição e come a
+  // margem — com 2E o texto cairia para 4.55:1. Menos tint = pill mais escura =
+  // mais contraste com o laranja claro: 1F dá 5.00:1 (AA pede 4.5:1).
+  categoriaPill: { backgroundColor: cores.primaria + '1F', borderWidth: 0.5, borderColor: cores.primaria + '55', borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 4 },
+  categoriaTexto: { fontSize: 11, color: cores.primaria, textTransform: 'capitalize' },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 28, marginBottom: 6 },
   local: { fontSize: 13, color: cores.textoFraco, marginBottom: 16 },
   enderecoLinha: { fontSize: 12, color: cores.textoFraco, marginTop: -10, marginBottom: 16, lineHeight: 17 },
