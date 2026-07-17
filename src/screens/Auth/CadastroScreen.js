@@ -911,6 +911,14 @@ export default function CadastroScreen({ navigation }) {
               style={logoSource === require('../../../assets/icone.png') ? estilos.logoIcone : estilos.logo}
               resizeMode="contain"
             />
+            {/* O rótulo acompanha o logo completo; quem usa o ícone não o recebe.
+                Amarrado ao logoSource (e não a tipoConta) para não poder dessincronizar
+                de qual imagem realmente aparece — mesma comparação da linha acima. */}
+            {logoSource !== require('../../../assets/icone.png') && (
+              <Text style={estilos.logoNome}>
+                Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+              </Text>
+            )}
           </View>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
