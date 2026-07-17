@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
+import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const CATEGORIAS = [
   { id: 'residencial',   label: '🏠 Residencial'   },
@@ -198,7 +199,7 @@ export default function CadastrarObraScreen({ navigation }) {
     setCarregando(false)
     if (falhas.length === 0) {
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
-        [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }], { cancelable: false })
+        [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
       const dicaVideo = temVideoFalho
@@ -255,7 +256,7 @@ export default function CadastrarObraScreen({ navigation }) {
       setCarregando(false)
       if (!montadoRef.current) return
       Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
-        [{ text: 'OK', onPress: () => navigation.navigate('Minhas Obras') }], { cancelable: false })
+        [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
       return
     }
     await finalizarPublicacao(obra.id)
