@@ -132,14 +132,13 @@ export const AuthProvider = ({ children }) => {
     })()
   }
 
-  const registrarPushToken = async () => {
-    // O canal precisa existir ANTES de pedir o token no Android 8+.
-    await configurarCanalAndroid()
-
-    // Permissão: consulta o estado atual e só dispara o prompt se ainda não concedida.
-    // canAskAgain === false = bloqueio permanente (usuário marcou "não perguntar de
-    // novo"); é o que distingue 'bloqueada' de 'negada'. Default true = a alegação
-    // mais fraca, para uma falha de captura reportar 'negada', nunca 'bloqueada'.
+  // Pede a permissão de notificação ao SO — o ÚNICO ponto que chama
+  // requestPermissionsAsync. Consulta o estado e, se ainda dá para pedir, dispara o
+  // diálogo; captura canAskAgain das DUAS fontes; reporta o status e devolve se ficou
+  // concedida. Chamado só pelo soft-ask ("Sim, ativar"), num momento de relevância —
+  // NUNCA no boot/login, para não gastar a única tentativa do SO num diálogo sem
+  // contexto (o bug que a Fase 2 corrige).
+  const garantirPermissaoConcedida = async () => {
     let status
     let canAskAgain = true
     try {
@@ -153,6 +152,34 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('[Push] falha ao obter/solicitar permissão de notificação | msg:', err?.message, err)
+      reportarStatusPush('erro_registro')
+      return false
+    }
+    if (status !== 'granted') {
+      console.error('[Push] permissão de notificação NÃO concedida | status:', status)
+      reportarStatusPush(canAskAgain === false ? 'bloqueada' : 'negada')
+      return false
+    }
+    reportarStatusPush('concedida')
+    return true
+  }
+
+  const registrarPushToken = async () => {
+    // O canal precisa existir ANTES de pedir o token no Android 8+.
+    await configurarCanalAndroid()
+
+    // PROMPT-FREE: só consulta, NUNCA chama requestPermissionsAsync — pedir permissão
+    // é responsabilidade do soft-ask (garantirPermissaoConcedida), num momento de
+    // relevância. canAskAgain (só do getPermissionsAsync, sem request) distingue
+    // 'bloqueada' de 'negada'; default true = a alegação mais fraca.
+    let status
+    let canAskAgain = true
+    try {
+      const atual = await Notifications.getPermissionsAsync()
+      status = atual.status
+      canAskAgain = atual.canAskAgain
+    } catch (err) {
+      console.error('[Push] falha ao consultar permissão de notificação | msg:', err?.message, err)
       reportarStatusPush('erro_registro')
       return
     }
@@ -280,6 +307,8 @@ export const AuthProvider = ({ children }) => {
       logout,
       setUsuario,
       setAssinatura,
+      garantirPermissaoConcedida,
+      registrarPushToken,
     }}>
       {children}
     </AuthContext.Provider>

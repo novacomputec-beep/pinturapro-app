@@ -11,6 +11,7 @@ import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
+import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -298,6 +299,9 @@ export default function FeedObrasScreen({ navigation }) {
   }
 
   useFocusEffect(useCallback(() => { buscarObras() }, [categoria, distancia, cidadeBusca]))
+  // Soft-ask de notificação no primeiro momento de relevância do pintor: ver o feed.
+  // mostrar() faz o próprio check ao vivo e só exibe uma vez — chamar a cada foco é ok.
+  useFocusEffect(useCallback(() => { softAskRef.mostrar?.('pintor') }, []))
 
   const onRefresh = () => { setAtualizando(true); buscarObras() }
 

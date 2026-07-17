@@ -12,6 +12,7 @@ import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
+import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -432,6 +433,9 @@ export default function FeedReparosScreen({ navigation }) {
     if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
     buscarReparos(categoriaRef.current, distanciaRef.current)
   }, []))
+  // Soft-ask de notificação no primeiro momento de relevância do reparador: ver o feed.
+  // mostrar() faz o próprio check ao vivo e só exibe uma vez — chamar a cada foco é ok.
+  useFocusEffect(useCallback(() => { softAskRef.mostrar?.('reparador') }, []))
 
   const onRefresh = () => { setAtualizando(true); buscarReparos(categoria, distancia, { refresh: true }) }
 

@@ -11,6 +11,7 @@ import api from '../services/api'
 import { comRetry } from '../utils/rede'
 import { navigationRef } from './navigationRef'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
+import SoftAskNotificacao from '../components/SoftAskNotificacao'
 import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
 
 // Auth
@@ -617,6 +618,7 @@ export default function AppNavigator() {
         )}
       </Stack.Navigator>
       {usuario && <CelebracaoMatchHost />}
+      {usuario && <SoftAskNotificacao />}
     </NavigationContainer>
   )
 }

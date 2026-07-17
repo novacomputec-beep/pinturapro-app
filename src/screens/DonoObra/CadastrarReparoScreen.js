@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
+import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const CATEGORIAS = [
   { id: 'hidraulica',   label: '🚿 Hidráulica'   },
@@ -219,7 +220,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     setCarregando(false)
     if (falhas.length === 0) {
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
-        [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }], { cancelable: false })
+        [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
       const dicaVideo = temVideoFalho
@@ -289,7 +290,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       setCarregando(false)
       if (!montadoRef.current) return
       Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
-        [{ text: 'OK', onPress: () => navigation.navigate('Meus Reparos') }], { cancelable: false })
+        [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
       return
     }
     await finalizarPublicacao(reparo.id)
