@@ -106,26 +106,62 @@ export const AuthProvider = ({ children }) => {
     }
   }, [])
 
+  // Reporta ao servidor o resultado do registro de push, para o backend distinguir
+  // 'sem token' entre negada / bloqueada / erro / concedida — hoje invisível
+  // (push_token NULL conflava tudo). Fire-and-forget e BLINDADO: roda numa IIFE
+  // destacada com try/catch cobrindo todo o corpo, então nunca pode lançar para
+  // dentro de registrarPushToken nem bloquear a aquisição do token.
+  // Dedupe SÓ do 'concedida': é o estado dos usuários saudáveis, que bootam todo dia —
+  // sem isso, um POST por boot sem sinal novo. Os três estados negativos SEMPRE
+  // reportam: num aparelho compartilhado, o negativo do 2º usuário jamais pode ser
+  // suprimido pelo 'concedida' do 1º (é a mentira que o report existe para evitar).
+  // O guard é gravado SÓ DEPOIS do POST ok — um envio perdido nunca vira permanente.
+  const CHAVE_STATUS_PUSH = 'push_status_reportado'
+  const reportarStatusPush = (status) => {
+    ;(async () => {
+      try {
+        if (status === 'concedida') {
+          const anterior = await SecureStore.getItemAsync(CHAVE_STATUS_PUSH)
+          if (anterior === 'concedida') return
+        }
+        await comRetry(() => api.post('/auth/push-status', { status }))
+        await SecureStore.setItemAsync(CHAVE_STATUS_PUSH, status)
+      } catch (err) {
+        console.error('[Push][status] falha ao reportar | status:', status, '| msg:', err?.mensagem || err?.message, err)
+      }
+    })()
+  }
+
   const registrarPushToken = async () => {
     // O canal precisa existir ANTES de pedir o token no Android 8+.
     await configurarCanalAndroid()
 
     // Permissão: consulta o estado atual e só dispara o prompt se ainda não concedida.
+    // canAskAgain === false = bloqueio permanente (usuário marcou "não perguntar de
+    // novo"); é o que distingue 'bloqueada' de 'negada'. Default true = a alegação
+    // mais fraca, para uma falha de captura reportar 'negada', nunca 'bloqueada'.
     let status
+    let canAskAgain = true
     try {
       const atual = await Notifications.getPermissionsAsync()
       status = atual.status
+      canAskAgain = atual.canAskAgain
       if (status !== 'granted' && atual.canAskAgain !== false) {
-        status = (await Notifications.requestPermissionsAsync()).status
+        const solicitado = await Notifications.requestPermissionsAsync()
+        status = solicitado.status
+        canAskAgain = solicitado.canAskAgain
       }
     } catch (err) {
       console.error('[Push] falha ao obter/solicitar permissão de notificação | msg:', err?.message, err)
+      reportarStatusPush('erro_registro')
       return
     }
     if (status !== 'granted') {
       console.error('[Push] permissão de notificação NÃO concedida | status:', status, '— token não será gerado')
+      reportarStatusPush(canAskAgain === false ? 'bloqueada' : 'negada')
       return
     }
+    reportarStatusPush('concedida')
 
     // projectId: caminho correto é extra.eas.projectId (não extra.projectId).
     const projectId = Constants.expoConfig?.extra?.eas?.projectId
@@ -138,6 +174,7 @@ export const AuthProvider = ({ children }) => {
       pushToken = tokenData.data
     } catch (err) {
       console.error('[Push] getExpoPushTokenAsync FALHOU | projectId:', projectId, '| msg:', err?.message, err)
+      reportarStatusPush('erro_registro')
       return
     }
 
@@ -146,6 +183,7 @@ export const AuthProvider = ({ children }) => {
       console.log('[Push] token registrado com sucesso | projectId:', projectId, '| token:', pushToken)
     } catch (err) {
       console.error('[Push] POST /auth/push-token FALHOU | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message, err)
+      reportarStatusPush('erro_registro')
     }
   }
 
