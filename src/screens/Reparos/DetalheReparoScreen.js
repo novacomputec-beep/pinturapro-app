@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
+import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -146,6 +147,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [encerrando, setEncerrando] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
+  const [modalEstender, setModalEstender] = useState(false)
+  const [estendendo, setEstendendo] = useState(false)
+  const [orcamentoEstender, setOrcamentoEstender] = useState(null)
+  const [buscandoOrcamento, setBuscandoOrcamento] = useState(false)
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
   // Após o match, mantém a contagem na tela por ~2 min e então devolve a aba "Meus Reparos"
@@ -333,6 +338,63 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O prestador não chegou a tempo. O reparo está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
+  }
+
+  // Lazy-fetch do orçamento de extensão NO TOQUE (não no mount): busca o detalhe fresco
+  // só quando o dono decide aumentar o prazo, lê extensao_maxima_horas e abre o modal.
+  // Não altera o comportamento de mount da tela. Falha → toast e NÃO abre o modal
+  // (nunca abrir com orçamento adivinhado/velho). Espelha o abrirModalEstender da obra.
+  const abrirModalEstender = async () => {
+    if (buscandoOrcamento) return
+    setBuscandoOrcamento(true)
+    try {
+      const resposta = await comRetry(() => api.get(`/reparos/${reparo.id}`))
+      setOrcamentoEstender(Number(resposta?.reparo?.extensao_maxima_horas) || 0)
+      setModalEstender(true)
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao buscar orçamento de extensão | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível carregar as opções de prazo. Tente novamente.')
+    } finally {
+      setBuscandoOrcamento(false)
+    }
+  }
+
+  // Aumentar prazo (dono do reparo). Espelha o padrão de handleResponderInteresse:
+  // comRetry + flag de loading + buscar() para refresh + ramo ERR_NETWORK. Após sucesso,
+  // buscar() (refresh de mutação já usado por esta tela, NÃO um refetch de mount) reidrata
+  // expira_em e a contagem reinicia via o efeito [expiraEm]. Erros documentados da API:
+  // 422 (acima do teto 2x), 409 (não aberta / já com match), 404.
+  const handleEstender = async (horas) => {
+    if (estendendo) return
+    setEstendendo(true)
+    try {
+      await comRetry(() => api.post(`/reparos/${reparo.id}/estender`, { horas }))
+      setModalEstender(false)
+      await buscar()
+      Alert.alert('✅ Prazo aumentado!', 'O novo prazo já está valendo.')
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao estender prazo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (err.status === 422) {
+        setModalEstender(false)
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este reparo já está no prazo máximo permitido.')
+      } else if (err.status === 409) {
+        setModalEstender(false)
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este reparo não está mais disponível para aumento de prazo.')
+      } else if (err.status === 404) {
+        setModalEstender(false)
+        Alert.alert('Não encontrado', err.mensagem || 'Reparo não encontrado.')
+      } else if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível aumentar o prazo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+          { text: 'Tentar novamente', onPress: () => handleEstender(horas) },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else {
+        Alert.alert('Erro', err.mensagem || 'Não foi possível aumentar o prazo.')
+      }
+    } finally {
+      setEstendendo(false)
+    }
   }
 
   const handleResponderInteresse = async (interesseId, action) => {
@@ -715,6 +777,22 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {isDono && (
             <>
+              {reparo.status === 'aberta' && !reparo.match_usuario_id && (
+                <TouchableOpacity
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, buscandoOrcamento && { opacity: 0.6 }]}
+                  onPress={abrirModalEstender}
+                  disabled={buscandoOrcamento}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{buscandoOrcamento ? 'Carregando…' : '⏳ Aumentar prazo do reparo'}</Text>
+                </TouchableOpacity>
+              )}
+              <ModalEstenderPrazo
+                visivel={modalEstender}
+                extensaoMaximaHoras={orcamentoEstender}
+                mensagemCap="Este reparo já está no prazo máximo permitido."
+                onEstender={handleEstender}
+                onFechar={() => setModalEstender(false)}
+              />
               {temMatch && prestadorMatch?.telefone && (
                 <TouchableOpacity
                   style={estilos.btnWhatsApp}

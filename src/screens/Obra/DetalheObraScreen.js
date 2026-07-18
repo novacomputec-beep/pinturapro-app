@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
+import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -134,6 +135,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
+  const [modalEstender, setModalEstender] = useState(false)
+  const [estendendo, setEstendendo] = useState(false)
+  const [orcamentoEstender, setOrcamentoEstender] = useState(null)
+  const [buscandoOrcamento, setBuscandoOrcamento] = useState(false)
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
 
@@ -264,6 +269,66 @@ export default function DetalheObraScreen({ route, navigation }) {
       setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O pintor não chegou a tempo. A obra está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
+  }
+
+  // Lazy-fetch do orçamento de extensão NO TOQUE (não no mount): busca o detalhe fresco
+  // só quando o dono decide aumentar o prazo, lê extensao_maxima_horas e abre o modal.
+  // Não altera o comportamento de mount da tela. Falha → toast e NÃO abre o modal
+  // (nunca abrir com orçamento adivinhado/velho). Espelha o abrirModalEstender do reparo.
+  const abrirModalEstender = async () => {
+    if (buscandoOrcamento) return
+    setBuscandoOrcamento(true)
+    try {
+      const resposta = await comRetry(() => obrasService.detalhe(obra.id))
+      const det = resposta?.obra || resposta
+      setOrcamentoEstender(Number(det?.extensao_maxima_horas) || 0)
+      setModalEstender(true)
+    } catch (err) {
+      console.log('[DetalheObra] falha ao buscar orçamento de extensão | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível carregar as opções de prazo. Tente novamente.')
+    } finally {
+      setBuscandoOrcamento(false)
+    }
+  }
+
+  // Aumentar prazo (dono da obra). Espelha o padrão de handleResponderCandidatura:
+  // comRetry + flag de loading + ramo ERR_NETWORK. Esta tela mantém a obra no estado
+  // vinda da navegação; após sucesso, atualiza APENAS expira_em a partir da resposta do
+  // POST (a contagem reinicia via o efeito [expiraEm]) — sem refetch, sem sobrescrever o
+  // objeto inteiro. Erros documentados da API: 422 (acima do teto 2x), 409 (não aberta /
+  // já com match), 404.
+  const handleEstender = async (horas) => {
+    if (estendendo) return
+    setEstendendo(true)
+    try {
+      const resp = await comRetry(() => api.post(`/obras/${obra.id}/estender`, { horas }))
+      setModalEstender(false)
+      const novoExpira = resp?.expira_em || resp?.obra?.expira_em
+      if (novoExpira) setObra(prev => ({ ...prev, expira_em: novoExpira }))
+      Alert.alert('✅ Prazo aumentado!', 'O novo prazo já está valendo.')
+    } catch (err) {
+      console.log('[DetalheObra] falha ao estender prazo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (err.status === 422) {
+        setModalEstender(false)
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Esta obra já está no prazo máximo permitido.')
+      } else if (err.status === 409) {
+        setModalEstender(false)
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Esta obra não está mais disponível para aumento de prazo.')
+      } else if (err.status === 404) {
+        setModalEstender(false)
+        Alert.alert('Não encontrado', err.mensagem || 'Obra não encontrada.')
+      } else if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível aumentar o prazo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+          { text: 'Tentar novamente', onPress: () => handleEstender(horas) },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else {
+        Alert.alert('Erro', err.mensagem || 'Não foi possível aumentar o prazo.')
+      }
+    } finally {
+      setEstendendo(false)
+    }
   }
 
   const handleResponderCandidatura = async (candidaturaId, action) => {
@@ -613,6 +678,22 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isDono && (
             <>
+              {obra.status === 'aberta' && !obra.match_usuario_id && (
+                <TouchableOpacity
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, buscandoOrcamento && { opacity: 0.6 }]}
+                  onPress={abrirModalEstender}
+                  disabled={buscandoOrcamento}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{buscandoOrcamento ? 'Carregando…' : '⏳ Aumentar prazo da obra'}</Text>
+                </TouchableOpacity>
+              )}
+              <ModalEstenderPrazo
+                visivel={modalEstender}
+                extensaoMaximaHoras={orcamentoEstender}
+                mensagemCap="Esta obra já está no prazo máximo permitido."
+                onEstender={handleEstender}
+                onFechar={() => setModalEstender(false)}
+              />
               {temMatch && pintorMatch?.telefone && (
                 <TouchableOpacity
                   style={estilos.btnWhatsApp}
