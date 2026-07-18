@@ -305,6 +305,13 @@ export default function CadastrarObraScreen({ navigation }) {
               <Text style={estilos.avisoTexto}>Mostre o local da obra e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
             </View>
           </View>
+          <View style={estilos.dicaTituloBanner}>
+            <Text style={estilos.dicaTituloIcone}>📝</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.dicaTituloTitulo}>CAPRICHE NO TÍTULO!</Text>
+              <Text style={estilos.dicaTituloTexto}>Um bom título atrai mais profissionais. Ex: 'Pintura de apartamento 2 quartos' é melhor que 'pintura'.</Text>
+            </View>
+          </View>
           <Input label="TÍTULO DA OBRA" placeholder="Ex: Pintura interna residência 3 quartos" value={titulo} onChangeText={setTitulo} erro={erros.titulo} />
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
@@ -404,6 +411,10 @@ const estilos = StyleSheet.create({
   avisoIcone: { fontSize: 32 },
   avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
   avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
+  dicaTituloBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: cores.infoSuave, borderWidth: 1.5, borderColor: cores.info, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
+  dicaTituloIcone: { fontSize: 32 },
+  dicaTituloTitulo: { fontSize: 13, fontWeight: '800', color: cores.info, letterSpacing: 0.5, marginBottom: 4 },
+  dicaTituloTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
   labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },

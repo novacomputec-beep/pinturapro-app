@@ -17,6 +17,10 @@ export const cores = {
   perigo:        '#E24B4A',
   perigoSuave:   '#E24B4A22',
 
+  info:          '#3B82F6',  // azul — dicas/destaques informativos
+  infoSuave:     '#3B82F622',
+  infoBorda:     '#3B82F644',
+
   textoForte:    '#F0EDE6',
   textoMedio:    '#888888',
   textoFraco:    '#444444',
