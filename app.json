@@ -45,13 +45,7 @@
     "plugins": [
       "expo-location",
       "expo-secure-store",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#E8833A"
-        }
-      ],
+      "expo-notifications",
       [
         "expo-image-picker",
         {
