@@ -89,6 +89,18 @@ const navegarParaNotificacao = (data) => {
 
   const navegar = (nome) => navigationRef.current.navigate(nome)
   try {
+    // Alertas de expiração (obra/reparo): cobrem por prefixo TODOS os marcos
+    // (…_6h/_60/_30/_15) e o legado …_sem_interessados — deep-link direto ao detalhe.
+    // Só navega com o id presente; sem id, cai no switch (que não trata estes tipos)
+    // e não faz nada, em vez de abrir o detalhe com id indefinido.
+    if (data.tipo.startsWith('obra_expirando') && data.obra_id) {
+      navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+      return
+    }
+    if (data.tipo.startsWith('reparo_expirando') && data.reparo_id) {
+      navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+      return
+    }
     switch (data.tipo) {
       // Feed
       case 'nova_obra':
