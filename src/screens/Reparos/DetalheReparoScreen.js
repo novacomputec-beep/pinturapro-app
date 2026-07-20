@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
+import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -149,6 +150,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [valorContraPrestador, setValorContraPrestador] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [encerrando, setEncerrando] = useState(false)
+  const [avaliarVisivel, setAvaliarVisivel] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
   const [modalEstender, setModalEstender] = useState(false)
@@ -282,10 +284,54 @@ export default function DetalheReparoScreen({ route, navigation }) {
       { text: 'Encerrar', onPress: async () => {
         try {
           await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
-          Alert.alert('✅ Reparo encerrado!', 'O reparo foi encerrado com sucesso.', [{ text: 'OK', onPress: async () => { setReparo(prev => ({ ...prev, status: 'encerrada' })); await buscar(); navigation.goBack() } }])
+          // 2º ponto de entrada da avaliação (o 1º é Contratos Finalizados). Em vez de
+          // voltar direto à lista, abre o ModalAvaliacao para o dono avaliar o prestador.
+          if (mountedRef.current) setReparo(prev => ({ ...prev, status: 'encerrada' }))
+          buscar()
+          if (mountedRef.current) setAvaliarVisivel(true)
         } catch (err) { console.log('[DetalheReparo] falha ao encerrar reparo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
     ])
+  }
+
+  // Pós-encerrar (fluxo do dono). Avaliar é OPCIONAL: pular (onFechar) conclui o
+  // encerramento normalmente, voltando à lista. Se avaliar, reusa EXATAMENTE a invocação
+  // de ContratosFinalizadosScreen.handleEnviarAvaliacao (POST /avaliacoes com
+  // contrato_tipo/contrato_id) e, em seguida, oferece o bloqueio do prestador — mesma ação
+  // do card (POST /usuarios/bloquear-prestador). A UNIQUE(contrato_tipo,contrato_id,
+  // avaliador_id) do servidor já barra avaliação dupla se ele já avaliou por outro caminho.
+  const finalizarPosEncerrar = () => {
+    setAvaliarVisivel(false)
+    if (navigation.canGoBack()) navigation.goBack()
+  }
+
+  const oferecerBloqueioEncerrar = () => {
+    setAvaliarVisivel(false)
+    const prestadorId = reparo.match_usuario_id
+    if (!prestadorId) { finalizarPosEncerrar(); return }
+    Alert.alert(
+      'Bloquear para futuros serviços?',
+      'Você pode impedir que este prestador seja pareado com você novamente. É opcional.',
+      [
+        { text: 'Agora não', style: 'cancel', onPress: finalizarPosEncerrar },
+        { text: 'Bloquear', style: 'destructive', onPress: async () => {
+          try { await api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }) }
+          catch (err) { console.log('[DetalheReparo] falha ao bloquear prestador | msg:', err.message) }
+          finalizarPosEncerrar()
+        } },
+      ],
+    )
+  }
+
+  const enviarAvaliacaoEncerrar = async (estrelas) => {
+    try {
+      await api.post('/avaliacoes', { contrato_tipo: 'reparo', contrato_id: reparo.id, estrelas })
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
+    }
+    // Avaliação enviada (ou falha tratada) → oferece bloqueio e conclui. Opcional em ambos.
+    oferecerBloqueioEncerrar()
   }
 
   // Encerramento pelo PRESTADOR (reparador). Separado do handleEncerrar do dono para não
@@ -1120,6 +1166,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
         </View>
       </ScrollView>
+
+      {/* Avaliação pós-encerrar (dono). Mesma invocação de ContratosFinalizadosScreen. */}
+      <ModalAvaliacao
+        visivel={avaliarVisivel}
+        nomeAvaliado={prestadorMatch?.nome || 'o prestador'}
+        onEnviar={enviarAvaliacaoEncerrar}
+        onFechar={finalizarPosEncerrar}
+      />
     </SafeAreaView>
   )
 }

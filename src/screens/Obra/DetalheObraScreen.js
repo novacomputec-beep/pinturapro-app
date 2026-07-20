@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
+import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -117,6 +118,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const { obra: obraInicial } = route.params
   const { usuario } = useAuth()
   const [obra, setObra] = useState(obraInicial)
+  const [avaliarVisivel, setAvaliarVisivel] = useState(false)
   const [midias, setMidias] = useState([])
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
   const [candidatos, setCandidatos] = useState([])
@@ -262,10 +264,58 @@ export default function DetalheObraScreen({ route, navigation }) {
       { text: 'Encerrar', onPress: async () => {
         try {
           await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
-          Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: async () => { setObra(prev => ({ ...prev, status: 'encerrada' })); await buscar(); navigation.goBack() } }])
+          if (mountedRef.current) setObra(prev => ({ ...prev, status: 'encerrada' }))
+          // Dono: em vez de voltar direto à lista, abre o ModalAvaliacao para avaliar o
+          // pintor (2º ponto de entrada; o 1º é Contratos Finalizados). Prestador mantém
+          // o comportamento original (aviso + volta à lista) — o bloqueio é ação do dono.
+          if (isDono) {
+            buscar()
+            if (mountedRef.current) setAvaliarVisivel(true)
+          } else {
+            Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: async () => { await buscar(); navigation.goBack() } }])
+          }
         } catch (err) { console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
       }}
     ])
+  }
+
+  // Pós-encerrar (fluxo do dono). Avaliar é OPCIONAL: pular (onFechar) conclui o
+  // encerramento normalmente, voltando à lista. Se avaliar, reusa EXATAMENTE a invocação
+  // de ContratosFinalizadosScreen.handleEnviarAvaliacao (POST /avaliacoes com
+  // contrato_tipo/contrato_id) e, em seguida, oferece o bloqueio do pintor — mesma ação
+  // do card (POST /usuarios/bloquear-prestador). A UNIQUE(contrato_tipo,contrato_id,
+  // avaliador_id) do servidor já barra avaliação dupla se ele já avaliou por outro caminho.
+  const finalizarPosEncerrar = () => {
+    setAvaliarVisivel(false)
+    if (navigation.canGoBack()) navigation.goBack()
+  }
+
+  const oferecerBloqueioEncerrar = () => {
+    setAvaliarVisivel(false)
+    const pintorId = obra.match_usuario_id
+    if (!pintorId) { finalizarPosEncerrar(); return }
+    Alert.alert(
+      'Bloquear para futuros serviços?',
+      'Você pode impedir que este profissional seja pareado com você novamente. É opcional.',
+      [
+        { text: 'Agora não', style: 'cancel', onPress: finalizarPosEncerrar },
+        { text: 'Bloquear', style: 'destructive', onPress: async () => {
+          try { await api.post('/usuarios/bloquear-prestador', { prestador_id: pintorId }) }
+          catch (err) { console.log('[DetalheObra] falha ao bloquear pintor | msg:', err.message) }
+          finalizarPosEncerrar()
+        } },
+      ],
+    )
+  }
+
+  const enviarAvaliacaoEncerrar = async (estrelas) => {
+    try {
+      await api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, estrelas })
+    } catch (err) {
+      console.log('[DetalheObra] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
+    }
+    oferecerBloqueioEncerrar()
   }
 
   const handleExpirarMatch = async () => {
@@ -1022,6 +1072,14 @@ export default function DetalheObraScreen({ route, navigation }) {
           )}
         </View>
       </ScrollView>
+
+      {/* Avaliação pós-encerrar (dono). Mesma invocação de ContratosFinalizadosScreen. */}
+      <ModalAvaliacao
+        visivel={avaliarVisivel}
+        nomeAvaliado={pintorMatch?.nome || 'o profissional'}
+        onEnviar={enviarAvaliacaoEncerrar}
+        onFechar={finalizarPosEncerrar}
+      />
     </SafeAreaView>
   )
 }
