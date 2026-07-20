@@ -35,11 +35,13 @@ export const BotaoSecundario = ({ titulo, onPress, estilo }) => (
 )
 
 // ─── INPUT ───────────────────────────────────────────────────
-export const Input = ({ label, erro, estilo, ...props }) => (
+// estiloInput: override OPCIONAL do box do TextInput (não do wrapper). Fica ANTES de
+// inputErro para que a borda de erro (vermelha) sempre prevaleça quando há erro.
+export const Input = ({ label, erro, estilo, estiloInput, ...props }) => (
   <View style={[estilos.inputWrap, estilo]}>
     {label && <Text style={estilos.inputLabel}>{label}</Text>}
     <TextInput
-      style={[estilos.input, erro && estilos.inputErro]}
+      style={[estilos.input, estiloInput, erro && estilos.inputErro]}
       placeholderTextColor={cores.textoMutado}
       {...props}
     />
