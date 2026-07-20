@@ -66,7 +66,13 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
   </View>
 )
 
-const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
+// Pós-match: conta até expira_em (o MESMO prazo do contador pré-match), tornando a
+// contagem contínua através do match — o pintor vê o tempo que RESTAVA no Rol, não uma
+// janela nova de match_feito_em + prazo. Ao chegar a zero dispara onExpirar (POST
+// /obras/:id/expirar-match) no exato momento de expira_em; o job verificarCronometroObras
+// faz o mesmo no servidor — quem disparar primeiro vence, o outro é no-op idempotente.
+// match_feito_em segue usado noutros lugares, mas não para esta contagem.
+const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   const [tempo, setTempo] = useState('')
   const [expirou, setExpirou] = useState(false)
   const expirouRef = React.useRef(false)
@@ -74,8 +80,7 @@ const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
   useEffect(() => {
     expirouRef.current = false
     const calcular = () => {
-      const inicio = new Date(matchFeitoEm)
-      const fim = new Date(inicio.getTime() + prazoHoras * 3600 * 1000)
+      const fim = new Date(expiraEm)
       const agora = new Date()
       const diff = fim - agora
       if (diff <= 0) {
@@ -95,7 +100,7 @@ const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
     calcular()
     const interval = setInterval(calcular, 1000)
     return () => clearInterval(interval)
-  }, [matchFeitoEm, prazoHoras])
+  }, [expiraEm])
 
   const urgente = tempo && tempo.startsWith('00:')
   return (
@@ -651,10 +656,9 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           ) : null}
 
-          {temMatch && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
+          {temMatch && obra.expira_em && (
             <RelogioRegressivo
-              matchFeitoEm={obra.match_feito_em}
-              prazoHoras={(obra.horas_para_expirar || obra.prazo_execucao_horas)}
+              expiraEm={obra.expira_em}
               onExpirar={handleExpirarMatch}
             />
           )}
