@@ -115,6 +115,10 @@ export default function PerfilScreen({ navigation }) {
     ? new Date(assinatura.proximo_vencimento).toLocaleDateString('pt-BR')
     : null
   const isDono = usuario?.role === 'dono_obra'
+  // "Avaliações recebidas" é só para quem RECEBE avaliações (prestadores: reparador e
+  // pintor/construtor — role 'prestador' ou o legado 'assinante'). Donos dão avaliações,
+  // não as recebem por aqui, então não veem a entrada.
+  const ehPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
   // Só o dono de reparo ganha a seta de voltar nesta tela compartilhada: sua aba
   // "Perfil" não tem outra forma de retornar à lista. Os demais papéis (pintor,
   // prestador, dono de obra) NÃO são afetados — a seta não é renderizada para eles.
@@ -216,6 +220,12 @@ export default function PerfilScreen({ navigation }) {
         <View style={estilos.acoesWrap}>
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
+          {ehPrestador && (
+            <>
+              <ItemAcao titulo="⭐ Avaliações recebidas" onPress={() => navigation.navigate('AvaliacoesRecebidas')} />
+              <Separador />
+            </>
+          )}
           <ItemAcao titulo="🔒 Alterar senha" onPress={() => navigation.navigate('AlterarSenha')} />
           <Separador />
           <ItemAcao
