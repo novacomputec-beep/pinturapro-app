@@ -77,7 +77,12 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
   </View>
 )
 
-const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
+// Pós-match: conta até expira_em (o MESMO prazo do contador pré-match), tornando a
+// contagem contínua através do match — o prestador vê o tempo que RESTAVA no Rol, não
+// uma janela nova de match_feito_em + prazo. expira_em é a fonte única do deadline
+// (a API mantém esse campo inalterado no match). match_feito_em segue usado noutros
+// lugares (ordenação, "aceitou há X min"), mas não para esta contagem.
+const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   const [tempo, setTempo] = useState('')
   const [expirou, setExpirou] = useState(false)
   const expirouRef = React.useRef(false)
@@ -85,8 +90,7 @@ const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
   useEffect(() => {
     expirouRef.current = false
     const calcular = () => {
-      const inicio = new Date(matchFeitoEm)
-      const fim = new Date(inicio.getTime() + prazoHoras * 3600 * 1000)
+      const fim = new Date(expiraEm)
       const agora = new Date()
       const diff = fim - agora
       if (diff <= 0) {
@@ -106,7 +110,7 @@ const RelogioRegressivo = ({ matchFeitoEm, prazoHoras, onExpirar }) => {
     calcular()
     const interval = setInterval(calcular, 1000)
     return () => clearInterval(interval)
-  }, [matchFeitoEm, prazoHoras])
+  }, [expiraEm])
 
   const urgente = tempo && tempo.startsWith('00:')
   return (
@@ -740,10 +744,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
 
           {/* B72-06: a contagem (RelogioRegressivo) NÃO deve renderizar quando encerrada */}
-          {temMatch && reparo.prazo_atendimento_horas && reparo.status !== 'encerrada' && (
+          {temMatch && reparo.expira_em && reparo.status !== 'encerrada' && (
             <RelogioRegressivo
-              matchFeitoEm={reparo.match_feito_em}
-              prazoHoras={reparo.prazo_atendimento_horas}
+              expiraEm={reparo.expira_em}
               onExpirar={handleExpirarMatch}
             />
           )}
