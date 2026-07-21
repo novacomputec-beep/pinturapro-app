@@ -6,6 +6,7 @@ import {
 } from 'react-native'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
+import { mascararTelefone } from '../../utils/telefone'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
@@ -208,7 +209,7 @@ export default function PerfilScreen({ navigation }) {
         <View style={estilos.secaoCard}>
           <Text style={estilos.secaoTitulo}>Dados profissionais</Text>
           <Separador estilo={{ marginBottom: 12 }} />
-          <LinhaPerfil label="Telefone" valor={dados?.telefone} />
+          <LinhaPerfil label="Telefone" valor={dados?.telefone ? mascararTelefone(dados.telefone) : null} />
           <LinhaPerfil label="Cidade" valor={dados?.cidade ? `${dados.cidade}, MG` : null} />
           {/* Campos só de prestador — donos (role 'dono_obra') não têm e não devem vê-los. */}
           {ehPrestador && (
