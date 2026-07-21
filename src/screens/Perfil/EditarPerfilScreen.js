@@ -49,7 +49,7 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
 export default function EditarPerfilScreen({ navigation }) {
   const { usuario, setUsuario } = useAuth()
   const [nome, setNome] = useState(usuario?.nome || '')
-  const [telefone, setTelefone] = useState(usuario?.telefone || '')
+  const [telefone, setTelefone] = useState(mascararTelefone(usuario?.telefone || ''))
   const [cidade, setCidade] = useState(usuario?.cidade || '')
   const [carregando, setCarregando] = useState(false)
   const [uploadandoFoto, setUploadandoFoto] = useState(false)
@@ -166,7 +166,7 @@ export default function EditarPerfilScreen({ navigation }) {
           <Text style={estilos.avatarDica}>{uploadandoFoto ? '📤 Enviando foto, aguarde...' : 'Toque para alterar a foto'}</Text>
 
           <Input label="NOME COMPLETO" placeholder="Seu nome" value={nome} onChangeText={setNome} />
-          <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={setTelefone} keyboardType="phone-pad" />
+          <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
           <Input label="CIDADE" placeholder="Ex: Uberlândia, MG" value={cidade} onChangeText={setCidade} />
 
           <View style={estilos.infoBox}>
