@@ -325,7 +325,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const enviarAvaliacaoEncerrar = async (estrelas) => {
     try {
-      await api.post('/avaliacoes', { contrato_tipo: 'reparo', contrato_id: reparo.id, estrelas })
+      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'reparo', contrato_id: reparo.id, estrelas }))
     } catch (err) {
       console.log('[DetalheReparo] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
