@@ -460,7 +460,7 @@ const TabsPintorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Obras"                 component={FeedStackNavigator} options={{ title: 'Obras' }} />
+    <Tab.Screen name="Obras"                 component={FeedStackNavigator} options={{ title: 'Obras disponíveis' }} />
     <Tab.Screen name="Minhas Obras"          component={MinhasObrasInteresseNavigator} />
     <Tab.Screen name="Contratos Finalizados" component={ContratosFinObraNavigator} />
     <Tab.Screen name="Mensagens"             component={MensagensScreen} />
@@ -480,7 +480,7 @@ const TabsPrestadorNavigator = () => (
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Reparos' }} />
+    <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Reparos disponíveis' }} />
     <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Reparos' }} />
     <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
