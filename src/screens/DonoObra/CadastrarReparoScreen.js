@@ -455,7 +455,7 @@ const estilos = StyleSheet.create({
   labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  categoriaPill: { width: '48%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
