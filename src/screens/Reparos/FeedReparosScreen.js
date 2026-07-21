@@ -38,13 +38,14 @@ const CATEGORIAS = [
   { id: 'eletronica',      label: '📱 Eletrônica'      },
   { id: 'aula_particular', label: '📚 Aula Particular'  },
   { id: 'cuidador',        label: '🤝 Cuidador'        },
+  { id: 'jardineiro',      label: '🌳 Jardineiro'      },
   { id: 'outros',       label: '🔨 Outros'      },
 ]
 
 const CATEGORIA_EMOJIS = {
   hidraulica: '🚿', eletrica: '⚡', marcenaria: '🪚', alvenaria: '🧱',
   climatizacao: '❄️', chaveiro: '🔑', faxina: '🧹', outros: '🔨',
-  eletronica: '📱', aula_particular: '📚', cuidador: '🤝',
+  eletronica: '📱', aula_particular: '📚', cuidador: '🤝', jardineiro: '🌳',
 }
 
 const getUrgenciaInfo = (horas) => {
