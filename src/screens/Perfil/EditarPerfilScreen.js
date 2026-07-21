@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { authService } from '../../services/api'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
+import { mascararTelefone } from '../../utils/telefone'
 import { cores, espacos, raios } from '../../utils/tema'
 
 // Sobe a foto direto ao Cloudinary com retry resiliente e SILENCIOSO.
