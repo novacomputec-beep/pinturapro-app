@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
@@ -277,7 +278,7 @@ export default function FeedObrasScreen({ navigation }) {
           console.log('[FeedObras] falha ao obter localização | code:', err.code, '| msg:', err.message)
         }
       }
-      const resposta = await api.get('/obras', { params, signal: controller.signal })
+      const resposta = await comRetry(() => api.get('/obras', { params, signal: controller.signal }))
       // Só aplica se ainda for a requisição atual (descarta respostas obsoletas).
       if (!timedOut && mountedRef.current && abortRef.current === controller) {
         setObras(resposta.obras || [])

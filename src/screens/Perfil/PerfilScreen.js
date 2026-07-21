@@ -5,6 +5,7 @@ import {
   TouchableOpacity, Alert, ActivityIndicator, Linking, Image
 } from 'react-native'
 import api, { authService } from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
@@ -57,7 +58,7 @@ export default function PerfilScreen({ navigation }) {
     useCallback(() => {
       const buscar = async () => {
         try {
-          const resposta = await authService.perfil()
+          const resposta = await comRetry(() => authService.perfil())
           setDadosCompletos(resposta.usuario)
         } catch (err) {
           console.log('[Perfil] falha ao buscar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)

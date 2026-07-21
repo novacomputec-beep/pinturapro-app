@@ -70,7 +70,7 @@ export const AuthProvider = ({ children }) => {
         const token = await SecureStore.getItemAsync('token')
         if (token) {
           try {
-            const perfil = await authService.perfil()
+            const perfil = await comRetry(() => authService.perfil())
             u = perfil.usuario
             a = perfil.assinatura
             registrarPushToken()
@@ -282,7 +282,7 @@ export const AuthProvider = ({ children }) => {
   // prestador recém-aprovado entre no app já com boas-vindas e feed corretos,
   // em vez do refresh parcial antigo que exigia relogar (B72).
   const revalidarSessao = async () => {
-    const { usuario, assinatura } = await authService.perfil()
+    const { usuario, assinatura } = await comRetry(() => authService.perfil())
     resetarFlagsSessao()
     setUsuario(usuario)
     setAssinatura(assinatura)

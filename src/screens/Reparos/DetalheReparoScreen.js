@@ -191,7 +191,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   const buscar = async () => {
     try {
-      const resposta = await api.get(`/reparos/${reparoInicial.id}`)
+      const resposta = await comRetry(() => api.get(`/reparos/${reparoInicial.id}`))
       if (mountedRef.current) {
         setReparo(resposta.reparo)
         setMidias(resposta.midias || [])

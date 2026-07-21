@@ -4,6 +4,7 @@ import {
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, ScrollView
 } from 'react-native'
 import { obrasService } from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLocalizacao } from '../../hooks/useLocalizacao'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -175,7 +176,7 @@ export default function FeedScreen({ navigation }) {
         params.longitude = coordsRef.current.longitude
         params.raio = raioRef.current
       }
-      const resposta = await obrasService.listar(params)
+      const resposta = await comRetry(() => obrasService.listar(params))
       setObras(resposta.obras || [])
     } catch (err) {
       console.log('[FeedScreen] falha ao buscar obras | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
