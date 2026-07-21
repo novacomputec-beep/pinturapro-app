@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -61,11 +62,11 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
   const handleEnviarAvaliacao = async (estrelas) => {
     try {
-      await api.post('/avaliacoes', {
+      await comRetry(() => api.post('/avaliacoes', {
         contrato_tipo: ehObra ? 'obra' : 'reparo',
         contrato_id: avaliandoContrato.id,
         estrelas,
-      })
+      }))
       setAvaliandoContrato(null)
       buscar()  // refresh list so ja_avaliei updates
     } catch (err) {

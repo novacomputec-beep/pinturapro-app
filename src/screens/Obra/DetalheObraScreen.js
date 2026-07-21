@@ -310,7 +310,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   const enviarAvaliacaoEncerrar = async (estrelas) => {
     try {
-      await api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, estrelas })
+      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, estrelas }))
     } catch (err) {
       console.log('[DetalheObra] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
