@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
@@ -30,7 +31,7 @@ export default function MeusInteressesScreen({ navigation }) {
 
   const buscar = async () => {
     try {
-      const data = await api.get('/reparos/meus-interesses')
+      const data = await comRetry(() => api.get('/reparos/meus-interesses'))
       // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; reparos encerrados pelo
       // dono saem de "Ativos" na hora (vão para "Contratos Finalizados") sem precisar relogar.
       setAtivos((data.ativos || []).filter(item => item.reparo_status !== 'encerrada'))

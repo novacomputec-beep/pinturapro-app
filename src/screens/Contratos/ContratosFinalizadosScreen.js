@@ -38,7 +38,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   // Carrega a lista de prestadores bloqueados do dono na montagem (só lado dono).
   useEffect(() => {
     if (!ehDono) return
-    api.get('/usuarios/prestadores-bloqueados').then(resp => {
+    comRetry(() => api.get('/usuarios/prestadores-bloqueados')).then(resp => {
       const ids = new Set((resp.bloqueados || []).map(b => b.prestador_id))
       setBloqueados(ids)
     }).catch(err => console.log('[ContratosFinalizados] falha ao carregar bloqueados | msg:', err.message))
@@ -79,7 +79,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
   const buscar = async () => {
     try {
-      const data = await api.get(endpoint)
+      const data = await comRetry(() => api.get(endpoint))
       setContratos(data.contratos || [])
     } catch (err) {
       console.log('[ContratosFinalizados] falha ao carregar | tipo:', tipo, '| status:', err.status, '| code:', err.code, '| msg:', err.mensagem)

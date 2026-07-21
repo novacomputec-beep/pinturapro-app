@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -403,7 +404,7 @@ export default function FeedReparosScreen({ navigation }) {
           console.log('[FeedReparos] falha ao obter localização | code:', err.code, '| msg:', err.message)
         }
       }
-      const resposta = await api.get(`/reparos?${params.toString()}`, { signal: controller.signal })
+      const resposta = await comRetry(() => api.get(`/reparos?${params.toString()}`, { signal: controller.signal }))
       // Só aplica se ainda for a requisição atual (descarta respostas obsoletas).
       if (!timedOut && mountedRef.current && abortRef.current === controller) {
         setReparos(resposta.reparos || [])

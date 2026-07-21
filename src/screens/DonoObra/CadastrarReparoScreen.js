@@ -136,7 +136,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     ;(async () => {
       if (bannerInteressadosHomeJaExibido()) return
       try {
-        const resp = await api.get('/reparos/minhas')
+        const resp = await comRetry(() => api.get('/reparos/minhas'))
         const pendente = (resp.reparos || []).find(r => Number(r.interesses_pendentes) > 0)
         if (pendente && ativo && !bannerInteressadosHomeJaExibido()) {
           marcarBannerInteressadosHomeExibido()

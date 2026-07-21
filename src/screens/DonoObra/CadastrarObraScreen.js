@@ -115,7 +115,7 @@ export default function CadastrarObraScreen({ navigation }) {
     ;(async () => {
       if (bannerInteressadosHomeJaExibido()) return
       try {
-        const resp = await api.get('/obras/minhas')
+        const resp = await comRetry(() => api.get('/obras/minhas'))
         const pendente = (resp.obras || []).find(o => Number(o.candidaturas_pendentes) > 0)
         if (pendente && ativo && !bannerInteressadosHomeJaExibido()) {
           marcarBannerInteressadosHomeExibido()

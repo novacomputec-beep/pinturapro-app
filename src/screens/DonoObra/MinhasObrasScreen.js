@@ -6,6 +6,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
+import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
@@ -38,8 +39,8 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const buscarDados = async () => {
     try {
       const [obrasResp, reparosResp] = await Promise.all([
-        api.get('/obras/minhas'),
-        api.get('/reparos/minhas'),
+        comRetry(() => api.get('/obras/minhas')),
+        comRetry(() => api.get('/reparos/minhas')),
       ])
       setObras(obrasResp.obras || [])
       // Itens encerrados saem do Histórico e passam a viver na aba "Contratos Finalizados";

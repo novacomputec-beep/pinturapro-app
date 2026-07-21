@@ -176,7 +176,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   const buscar = async () => {
     try {
-      const resposta = await obrasService.detalhe(obraInicial.id)
+      const resposta = await comRetry(() => obrasService.detalhe(obraInicial.id))
       if (mountedRef.current) {
         setObra(resposta.obra || resposta)
         setMidias(resposta.midias || [])
