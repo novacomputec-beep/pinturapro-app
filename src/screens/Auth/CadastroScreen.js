@@ -10,6 +10,7 @@ import { Image } from 'react-native'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
+import { mascararTelefone } from '../../utils/telefone'
 import { recuperarMidiasPendentes } from '../../utils/midia'
 import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 import { useAuth } from '../../contexts/AuthContext'
@@ -71,14 +72,6 @@ const mascararCpfCnpj = (valor) => {
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1/$2')
     .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
-}
-
-const mascararTelefone = (valor) => {
-  const nums = valor.replace(/\D/g, '').slice(0, 11)
-  if (nums.length <= 10) {
-    return nums.replace(/(\d{2})(\d{4})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '')
-  }
-  return nums.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').replace(/-$/, '')
 }
 
 const IndicadorPassos = ({ passo, total }) => (
