@@ -57,6 +57,7 @@ export const BadgeStatus = ({ status }) => {
     encerrada:  { cor: cores.textoFraco, fundo: cores.fundoElevado, texto: 'Encerrada'   },
     pendente:   { cor: cores.primaria,  fundo: cores.primariaSuave, texto: 'Pendente'    },
     aprovada:   { cor: cores.sucesso,   fundo: cores.sucessoSuave,  texto: 'Aprovada'    },
+    ativa:      { cor: cores.sucesso,   fundo: cores.sucessoSuave,  texto: 'Ativa'       },
     recusada:   { cor: cores.perigo,    fundo: cores.perigoSuave,   texto: 'Recusada'    },
     // Vocabulário do fluxo aceitar/recusar via DetalheObra (espelha aprovada/recusada)
     aceito:              { cor: cores.sucesso,  fundo: cores.sucessoSuave,  texto: 'Aceita'         },
