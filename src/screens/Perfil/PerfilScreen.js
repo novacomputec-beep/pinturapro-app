@@ -209,12 +209,17 @@ export default function PerfilScreen({ navigation }) {
           <Separador estilo={{ marginBottom: 12 }} />
           <LinhaPerfil label="Telefone" valor={dados?.telefone} />
           <LinhaPerfil label="Cidade" valor={dados?.cidade ? `${dados.cidade}, MG` : null} />
-          <LinhaPerfil label="Experiência" valor={dados?.anos_experiencia ? `${dados.anos_experiencia} anos` : null} />
-          <LinhaPerfil label="Equipe" valor={dados?.tamanho_equipe ? `${dados.tamanho_equipe} profissionais` : null} />
-          <LinhaPerfil
-            label="Especialidades"
-            valor={dados?.especialidades?.length ? dados.especialidades.join(', ') : null}
-          />
+          {/* Campos só de prestador — donos (role 'dono_obra') não têm e não devem vê-los. */}
+          {ehPrestador && (
+            <>
+              <LinhaPerfil label="Experiência" valor={dados?.anos_experiencia ? `${dados.anos_experiencia} anos` : null} />
+              <LinhaPerfil label="Equipe" valor={dados?.tamanho_equipe ? `${dados.tamanho_equipe} profissionais` : null} />
+              <LinhaPerfil
+                label="Especialidades"
+                valor={dados?.especialidades?.length ? dados.especialidades.join(', ') : null}
+              />
+            </>
+          )}
         </View>
 
         <View style={estilos.acoesWrap}>

@@ -121,7 +121,7 @@ export default function EditarPerfilScreen({ navigation }) {
         telefone: telefone.trim(),
         cidade: cidade.trim()
       }), { timeout: true, servidor: true })
-      setUsuario(prev => ({ ...prev, nome: atualizado.nome, cidade: atualizado.cidade }))
+      setUsuario(prev => ({ ...prev, nome: atualizado.nome, telefone: telefone.trim(), cidade: atualizado.cidade }))
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ])
