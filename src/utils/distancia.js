@@ -13,11 +13,17 @@ export const distanciaKm = (lat1, lon1, lat2, lon2) => {
 export const formatarDistancia = (km) =>
   km < 1 ? 'menos de 1 km' : `${Math.round(km)} km de você`
 
-// Distância do usuário (coords) até um item com latitude/longitude; null quando faltar dado
+// Distância do usuário (coords) até um item com latitude/longitude; null quando faltar dado.
+// Também null quando as coordenadas do item foram derivadas do centro do município
+// (coordenadas_origem === 'centro_cidade'): a distância pareceria exata ("menos de 1 km
+// de você") para todo prestador da cidade. 'cliente' (endereço informado no app) e
+// NULL (linha antiga, origem desconhecida) seguem calculando como antes.
 export const distanciaItemKm = (coords, item) =>
-  coords && item?.latitude != null && item?.longitude != null
-    ? distanciaKm(coords.lat, coords.lng, parseFloat(item.latitude), parseFloat(item.longitude))
-    : null
+  item?.coordenadas_origem === 'centro_cidade'
+    ? null
+    : coords && item?.latitude != null && item?.longitude != null
+      ? distanciaKm(coords.lat, coords.lng, parseFloat(item.latitude), parseFloat(item.longitude))
+      : null
 
 // Carrega a localização do usuário para exibir distância — sem solicitar nova permissão:
 // só usa se já concedida (ex.: pelo filtro por raio). Retorna [coords, setCoords] para que

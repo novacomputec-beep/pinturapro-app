@@ -8,6 +8,7 @@ import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLocalizacao } from '../../hooks/useLocalizacao'
 import { cores, espacos, raios } from '../../utils/tema'
+import { distanciaKm, distanciaItemKm, formatarDistancia } from '../../utils/distancia'
 import { useFocusEffect } from '@react-navigation/native'
 
 const CATEGORIAS = [
@@ -25,16 +26,6 @@ const OPCOES_RAIO = [
   { id: 100, label: '100 km'  },
   { id: 200, label: '200 km'  },
 ]
-
-const calcularDistanciaKm = (lat1, lon1, lat2, lon2) => {
-  const R = 6371
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLon = (lon2 - lon1) * Math.PI / 180
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2)
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-}
 
 const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   const [restante, setRestante] = useState(null)
@@ -128,9 +119,9 @@ const CardObra = ({ obra, onPress, onExpirar }) => {
             <Text style={estilos.midiasTexto}>📷 {obra.total_midias}</Text>
           </View>
         )}
-        {obra.distancia_km != null && (
+        {obra.distancia_exibida_km != null && (
           <View style={estilos.distanciaBadge}>
-            <Text style={estilos.distanciaTexto}>📍 {obra.distancia_km.toFixed(0)} km</Text>
+            <Text style={estilos.distanciaTexto}>📍 {formatarDistancia(obra.distancia_exibida_km)}</Text>
           </View>
         )}
       </View>
@@ -199,11 +190,16 @@ export default function FeedScreen({ navigation }) {
       setObrasFiltradas(obras)
       return
     }
+    const coords = { lat: coordenadas.latitude, lng: coordenadas.longitude }
     const filtradas = obras
       .map(o => {
-        if (!o.latitude || !o.longitude) return { ...o, distancia_km: null }
-        const dist = calcularDistanciaKm(coordenadas.latitude, coordenadas.longitude, o.latitude, o.longitude)
-        return { ...o, distancia_km: dist }
+        if (!o.latitude || !o.longitude) return { ...o, distancia_km: null, distancia_exibida_km: null }
+        // distancia_km continua sendo a distância crua: é ela que filtra pelo raio e ordena
+        // a lista, e para isso o centro do município serve. Já distancia_exibida_km passa
+        // pelo distanciaItemKm, que devolve null quando coordenadas_origem === 'centro_cidade'
+        // — assim o badge não anuncia uma precisão que a coordenada não tem.
+        const dist = distanciaKm(coords.lat, coords.lng, o.latitude, o.longitude)
+        return { ...o, distancia_km: dist, distancia_exibida_km: distanciaItemKm(coords, o) }
       })
       .filter(o => o.distancia_km == null || o.distancia_km <= raioFiltro)
       .sort((a, b) => {
