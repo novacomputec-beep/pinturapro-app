@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput,
-  KeyboardAvoidingView, Platform, Alert
+  KeyboardAvoidingView, Platform
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Location from 'expo-location'
@@ -206,13 +206,19 @@ export default function FeedObrasScreen({ navigation }) {
     abortRef.current?.abort()
   }, [])
 
+  // Refs com os filtros atuais para o refetch ao reganhar foco, sem recriar o callback.
+  const categoriaRef = useRef(categoria); categoriaRef.current = categoria
+  const distanciaRef = useRef(distancia); distanciaRef.current = distancia
+  const cidadeBuscaRef = useRef(cidadeBusca); cidadeBuscaRef.current = cidadeBusca
+
+  // Atualização otimista: a seleção (highlight) muda na hora; a busca é disparada pelo
+  // useEffect abaixo. Sem chamada imperativa aqui — ela somava com o efeito e disparava
+  // DUAS requisições por toque no chip.
   const mudarDistancia = (val) => {
     setDistancia(val)
-    setCarregando(true)
-    buscarObras(categoria, val)
   }
 
-  const buscarObras = async (cat = categoria, dist = distancia, cid = cidadeBusca) => {
+  const buscarObras = async (cat = categoria, dist = distancia, cid = cidadeBusca, { refresh = false } = {}) => {
     // Cancela qualquer requisição anterior ainda em voo.
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -231,6 +237,11 @@ export default function FeedObrasScreen({ navigation }) {
       }
     }, 20000)
 
+    // O spinner é ligado aqui (e não em quem chama): a busca passou a ser disparada pelo
+    // useEffect, não mais por chamadas imperativas em mudarDistancia/mudarCategoria.
+    // No pull-to-refresh não liga, senão o RefreshControl e o indicador se somariam.
+    if (!refresh && mountedRef.current) setCarregando(true)
+
     try {
       setErro(null)
       const params = {}
@@ -240,18 +251,11 @@ export default function FeedObrasScreen({ navigation }) {
         params.cidade_busca = cid.cidade
         params.uf_busca = cid.uf
       }
-      if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade') {
-        if (cid) {
-          // Busca em outra cidade: o servidor resolve a âncora a partir de cidade_busca +
-          // uf_busca (enviados acima), então o GPS do aparelho não entra na conta — nem
-          // quando o geocode do cliente falhou e lat/lng vieram nulos. Antes esse caso caía
-          // no bloco de GPS e prendia o toque no chip por segundos, sem necessidade.
-          if (cid.lat != null) {
-            params.lat = String(cid.lat)
-            params.lng = String(cid.lng)
-            if (mountedRef.current && abortRef.current === controller) setCoords({ lat: cid.lat, lng: cid.lng })
-          }
-        } else try {
+      // GPS só quando o raio é medido a partir de onde o usuário está: filtro por km E sem
+      // cidade escolhida. Com cidade escolhida, o servidor ancora a busca em cidade_busca +
+      // uf_busca (enviados acima) e as coordenadas do aparelho não têm papel nenhum.
+      if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade' && !cid) {
+        try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
             const agora = Date.now()
@@ -318,17 +322,23 @@ export default function FeedObrasScreen({ navigation }) {
     }
   }
 
-  useFocusEffect(useCallback(() => { buscarObras() }, [categoria, distancia, cidadeBusca]))
+  // Fonte única de busca: dispara na montagem e a cada troca de filtro (uma requisição por troca).
+  useEffect(() => { buscarObras(categoria, distancia, cidadeBusca) }, [categoria, distancia, cidadeBusca])
+
+  // Refetch ao reganhar foco — pula o primeiro foco, já coberto pelo useEffect acima.
+  const primeiroFocoRef = useRef(true)
+  useFocusEffect(useCallback(() => {
+    if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
+    buscarObras(categoriaRef.current, distanciaRef.current, cidadeBuscaRef.current)
+  }, []))
   // Soft-ask de notificação no primeiro momento de relevância do pintor: ver o feed.
   // mostrar() faz o próprio check ao vivo e só exibe uma vez — chamar a cada foco é ok.
   useFocusEffect(useCallback(() => { softAskRef.mostrar?.('pintor') }, []))
 
-  const onRefresh = () => { setAtualizando(true); buscarObras() }
+  const onRefresh = () => { setAtualizando(true); buscarObras(categoria, distancia, cidadeBusca, { refresh: true }) }
 
   const mudarCategoria = (cat) => {
     setCategoria(cat)
-    setCarregando(true)
-    buscarObras(cat, distancia)
   }
 
   // ─── "Buscar em outra cidade" ─────────────────────────────────────────
@@ -357,52 +367,23 @@ export default function FeedObrasScreen({ navigation }) {
     if (ufSelecionada) buscarCidades(ufSelecionada)
   }, [ufSelecionada])
 
-  const geocodarCidade = async (cidade, uf) => {
-    try {
-      const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`)
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, { headers: { 'User-Agent': 'ArrumaPro/1.0' } })
-      const data = await r.json()
-      if (data.length > 0) {
-        const resultado = data[0]
-        // Validate: display_name must contain the expected UF to avoid wrong-state results
-        const estadosPorUF = { AC:'Acre', AL:'Alagoas', AP:'Amapá', AM:'Amazonas', BA:'Bahia', CE:'Ceará', DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão', MT:'Mato Grosso', MS:'Mato Grosso do Sul', MG:'Minas Gerais', PA:'Pará', PB:'Paraíba', PR:'Paraná', PE:'Pernambuco', PI:'Piauí', RJ:'Rio de Janeiro', RN:'Rio Grande do Norte', RS:'Rio Grande do Sul', RO:'Rondônia', RR:'Roraima', SC:'Santa Catarina', SP:'São Paulo', SE:'Sergipe', TO:'Tocantins' }
-        const nomeEstado = estadosPorUF[uf] || ''
-        const displayName = resultado.display_name || ''
-        if (nomeEstado && !displayName.includes(nomeEstado) && !displayName.includes(uf)) {
-          console.log('[geocodarCidade] resultado fora do estado esperado | uf:', uf, '| display_name:', displayName)
-          return { lat: null, lng: null }
-        }
-        return { lat: parseFloat(resultado.lat), lng: parseFloat(resultado.lon) }
-      }
-    } catch (err) { console.log('[FeedObras] falha ao geocodar cidade | msg:', err.message) }
-    return { lat: null, lng: null }
-  }
-
-  const confirmarCidadeBusca = async () => {
+  // Sem geocodificação no cliente: o servidor resolve a âncora da busca a partir de
+  // cidade_busca + uf_busca, com o centroide do próprio dataset de municípios — o mesmo
+  // ponto que o Nominatim devolvia, só que na hora, sem rede e sem limite de requisições.
+  const confirmarCidadeBusca = () => {
     if (!ufSelecionada || !cidadeSelecionada) return
-    const { lat, lng } = await geocodarCidade(cidadeSelecionada, ufSelecionada)
-    if (lat === null) {
-      Alert.alert(
-        '⚠️ Localização aproximada',
-        `Não encontramos as coordenadas exatas de "${cidadeSelecionada}". Os filtros por distância (km) usarão seu GPS atual. Apenas os filtros "Cidade" e "Estado" buscarão em ${cidadeSelecionada}.`
-      )
-    }
-    const nova = { cidade: cidadeSelecionada, uf: ufSelecionada, lat, lng }
-    setCidadeBusca(nova)
+    setCidadeBusca({ cidade: cidadeSelecionada, uf: ufSelecionada })
     setBuscaCidade('')
     setModalCidadeVisivel(false)
-    // Refetch imediato com a nova cidade — mesmo padrão imperativo de mudarCategoria/
-    // mudarDistancia. Passa `nova` explicitamente porque setCidadeBusca só reflete no
-    // próximo render; a lista não deve depender de um efeito para reagir à troca de cidade.
-    setCarregando(true)
-    buscarObras(categoria, distancia, nova)
   }
 
   const limparCidadeBusca = () => {
     setCidadeBusca(null)
     setBuscaCidade('')
-    // Volta para a cidade do perfil e refaz a busca na hora (idem confirmarCidadeBusca).
-    setCarregando(true)
+    // Volta imediatamente para a cidade do perfil e refaz a busca, sem depender do efeito
+    // (que só reflete no próximo render). Atualiza o ref já para null para que o refetch ao
+    // reganhar foco NÃO leia a cidade selecionada anterior — mesmo padrão do FeedReparos.
+    cidadeBuscaRef.current = null
     buscarObras(categoria, distancia, null)
   }
 
@@ -429,7 +410,7 @@ export default function FeedObrasScreen({ navigation }) {
       {erro && (
         <View style={estilos.erroBox}>
           <Text style={estilos.erroTexto}>{erro}</Text>
-          <TouchableOpacity onPress={buscarObras} style={{ marginTop: 8 }}>
+          <TouchableOpacity onPress={() => buscarObras(categoria, distancia, cidadeBusca)} style={{ marginTop: 8 }}>
             <Text style={{ color: cores.primaria, fontSize: 13 }}>Tentar novamente</Text>
           </TouchableOpacity>
         </View>

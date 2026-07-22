@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput,
-  KeyboardAvoidingView, Platform, Alert
+  KeyboardAvoidingView, Platform
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Location from 'expo-location'
@@ -282,38 +282,12 @@ export default function FeedReparosScreen({ navigation }) {
     if (ufSelecionada) buscarCidades(ufSelecionada)
   }, [ufSelecionada])
 
-  const geocodarCidade = async (cidade, uf) => {
-    try {
-      const q = encodeURIComponent(`${cidade}, ${uf}, Brasil`)
-      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`, { headers: { 'User-Agent': 'ArrumaPro/1.0' } })
-      const data = await r.json()
-      if (data.length > 0) {
-        const resultado = data[0]
-        // Validate: display_name must contain the expected UF to avoid wrong-state results
-        const estadosPorUF = { AC:'Acre', AL:'Alagoas', AP:'Amapá', AM:'Amazonas', BA:'Bahia', CE:'Ceará', DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão', MT:'Mato Grosso', MS:'Mato Grosso do Sul', MG:'Minas Gerais', PA:'Pará', PB:'Paraíba', PR:'Paraná', PE:'Pernambuco', PI:'Piauí', RJ:'Rio de Janeiro', RN:'Rio Grande do Norte', RS:'Rio Grande do Sul', RO:'Rondônia', RR:'Roraima', SC:'Santa Catarina', SP:'São Paulo', SE:'Sergipe', TO:'Tocantins' }
-        const nomeEstado = estadosPorUF[uf] || ''
-        const displayName = resultado.display_name || ''
-        if (nomeEstado && !displayName.includes(nomeEstado) && !displayName.includes(uf)) {
-          console.log('[geocodarCidade] resultado fora do estado esperado | uf:', uf, '| display_name:', displayName)
-          return { lat: null, lng: null }
-        }
-        return { lat: parseFloat(resultado.lat), lng: parseFloat(resultado.lon) }
-      }
-    } catch (err) { console.log('[FeedReparos] falha ao geocodar cidade | msg:', err.message) }
-    return { lat: null, lng: null }
-  }
-
-  const confirmarCidadeBusca = async () => {
+  // Sem geocodificação no cliente: o servidor resolve a âncora da busca a partir de
+  // cidade_busca + uf_busca, com o centroide do próprio dataset de municípios — o mesmo
+  // ponto que o Nominatim devolvia, só que na hora, sem rede e sem limite de requisições.
+  const confirmarCidadeBusca = () => {
     if (!ufSelecionada || !cidadeSelecionada) return
-    const { lat, lng } = await geocodarCidade(cidadeSelecionada, ufSelecionada)
-    if (lat === null) {
-      Alert.alert(
-        '⚠️ Localização aproximada',
-        `Não encontramos as coordenadas exatas de "${cidadeSelecionada}". Os filtros por distância (km) usarão seu GPS atual. Apenas os filtros "Cidade" e "Estado" buscarão em ${cidadeSelecionada}.`
-      )
-    }
-    const nova = { cidade: cidadeSelecionada, uf: ufSelecionada, lat, lng }
-    setCidadeBusca(nova)
+    setCidadeBusca({ cidade: cidadeSelecionada, uf: ufSelecionada })
     setBuscaCidade('')
     setModalCidadeVisivel(false)
   }
@@ -363,20 +337,11 @@ export default function FeedReparosScreen({ navigation }) {
         params.set('cidade_busca', cidadeBusca.cidade)
         params.set('uf_busca', cidadeBusca.uf)
       }
-      if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade') {
-        if (cidadeBusca) {
-          // Busca em outra cidade: o servidor resolve a âncora a partir de cidade_busca +
-          // uf_busca (enviados acima), então o GPS do aparelho não entra na conta — nem
-          // quando o geocode do cliente falhou e lat/lng vieram nulos. Antes esse caso caía
-          // no bloco de GPS e prendia o toque no chip por segundos, sem necessidade.
-          if (cidadeBusca.lat != null) {
-            params.set('lat', String(cidadeBusca.lat))
-            params.set('lng', String(cidadeBusca.lng))
-            if (mountedRef.current && abortRef.current === controller) {
-              setCoords({ lat: cidadeBusca.lat, lng: cidadeBusca.lng })
-            }
-          }
-        } else try {
+      // GPS só quando o raio é medido a partir de onde o usuário está: filtro por km E sem
+      // cidade escolhida. Com cidade escolhida, o servidor ancora a busca em cidade_busca +
+      // uf_busca (enviados acima) e as coordenadas do aparelho não têm papel nenhum.
+      if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade' && !cidadeBusca) {
+        try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
             const agora = Date.now()
