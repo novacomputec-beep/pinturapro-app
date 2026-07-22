@@ -380,11 +380,11 @@ export default function FeedObrasScreen({ navigation }) {
   const limparCidadeBusca = () => {
     setCidadeBusca(null)
     setBuscaCidade('')
-    // Volta imediatamente para a cidade do perfil e refaz a busca, sem depender do efeito
-    // (que só reflete no próximo render). Atualiza o ref já para null para que o refetch ao
-    // reganhar foco NÃO leia a cidade selecionada anterior — mesmo padrão do FeedReparos.
+    // Sem busca imperativa aqui: cidadeBusca é dependência do efeito único, que dispara
+    // sozinho — a chamada extra somava com ele e fazia DUAS requisições por limpeza.
+    // O ref, porém, precisa zerar já: quem o lê é o refetch ao reganhar foco, e deixá-lo
+    // velho faria um foco posterior buscar de novo a cidade que o usuário acabou de limpar.
     cidadeBuscaRef.current = null
-    buscarObras(categoria, distancia, null)
   }
 
   return (
