@@ -207,7 +207,7 @@ export default function PerfilScreen({ navigation }) {
         </View>
 
         <View style={estilos.secaoCard}>
-          <Text style={estilos.secaoTitulo}>Dados profissionais</Text>
+          <Text style={estilos.secaoTitulo}>{ehPrestador ? 'Dados profissionais' : 'Dados pessoais'}</Text>
           <Separador estilo={{ marginBottom: 12 }} />
           <LinhaPerfil label="Telefone" valor={dados?.telefone ? mascararTelefone(dados.telefone) : null} />
           <LinhaPerfil label="Cidade" valor={dados?.cidade ? `${dados.cidade}, MG` : null} />

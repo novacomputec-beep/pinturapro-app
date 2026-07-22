@@ -31,10 +31,11 @@ const ContadorExpiracaoObra = ({ expiraEm }) => {
         }
         return
       }
-      const h = Math.floor(diff / 3600000)
+      const d = Math.floor(diff / 86400000)
+      const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ h, m, s })
+      setRestante({ d, h, m, s })
     }
     tick()
     const interval = setInterval(tick, 1000)
@@ -45,8 +46,18 @@ const ContadorExpiracaoObra = ({ expiraEm }) => {
     return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: '700' }}>EXPIRADO</Text>
   }
 
-  const urgente = restante.h === 0 && restante.m < 10
-  const texto = `Expira em: ${restante.h > 0 ? `${restante.h}h ` : ''}${String(restante.m).padStart(2, '0')}m ${String(restante.s).padStart(2, '0')}s`
+  const { d, h, m, s } = restante
+  const pad = (n) => String(n).padStart(2, '0')
+  // Trunca para as unidades mais significativas, com granularidade decrescente:
+  //   ≥ 1 dia  → "19 dias 7h 25m" (sem segundos — evita jitter em prazos longos)
+  //   ≥ 1 hora → "7h 25m 03s"
+  //   < 1 hora → "25m 03s"
+  const texto = d > 0
+    ? `Expira em: ${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
+    : h > 0
+      ? `Expira em: ${h}h ${pad(m)}m ${pad(s)}s`
+      : `Expira em: ${m}m ${pad(s)}s`
+  const urgente = d === 0 && h === 0 && m < 10
   return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
 }
 

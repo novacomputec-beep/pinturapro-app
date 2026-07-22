@@ -131,6 +131,17 @@ const navegarParaNotificacao = (data) => {
         else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
         else navegar(tabEmAndamento)
         break
+      // Demanda próxima: quem recebe ainda NÃO está envolvido com ela, então o item vive
+      // no feed de disponíveis — e é por lá que se chega ao detalhe. Mandar para
+      // "Meus Reparos"/"Minhas Obras" cairia numa lista onde a demanda não aparece.
+      case 'reparo_proximo':
+        if (data.reparo_id) navigationRef.current.navigate('Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        else navegar('Reparos')
+        break
+      case 'obra_proxima':
+        if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        else navegar('Obras')
+        break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
       case 'reparo_5min_restantes':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
@@ -153,6 +164,11 @@ const navegarParaNotificacao = (data) => {
       case 'candidatura_aprovada':
       case 'candidatura_recusada':
         navegar(tabEmAndamento); break
+      // Tipo desconhecido: não navega, mas DEIXA RASTRO. 'reparo_proximo' e 'obra_proxima'
+      // passaram meses sem rota nenhuma e ninguém percebeu, porque cair fora do switch era
+      // silencioso — o toque simplesmente não fazia nada. Log, não erro ao usuário.
+      default:
+        console.log('[notificacao] tipo sem rota | tipo:', data.tipo, '| payload:', JSON.stringify(data))
     }
   } catch (err) {
     console.log('Erro ao navegar para notificação:', err)
