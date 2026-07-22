@@ -45,6 +45,7 @@ const CAMPOS_OBRIGATORIOS = [
   { chave: 'descricao',     msg: 'Descreva o reparo necessário antes de continuar.' },
   { chave: 'valorEstimado', msg: 'Informe quanto você quer pagar antes de continuar.' },
   { chave: 'cep',           msg: 'Informe um CEP válido antes de continuar.' },
+  { chave: 'logradouro',    msg: 'Informe a rua/avenida do endereço antes de continuar.' },
   { chave: 'numero',        msg: 'Informe o número do endereço antes de continuar.' },
   { chave: 'uf',            msg: 'Selecione o estado antes de continuar.' },
   { chave: 'cidade',        msg: 'Selecione a cidade antes de continuar.' },
@@ -167,6 +168,10 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (cepLimpo.length !== 8) return
     setBuscandoCep(true)
     setEnderecoEncontrado(false)
+    // Zera as coordenadas do CEP anterior: sem isto, corrigir o CEP publicava a
+    // localização do primeiro endereço junto com o texto do segundo.
+    setLatitude(null)
+    setLongitude(null)
     try {
       const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
       const dados = await resp.json()
@@ -178,16 +183,9 @@ export default function CadastrarReparoScreen({ navigation }) {
         setUf(dados.uf || '')
         setEnderecoEncontrado(true)
       }
-      const endereco = `${dados.logradouro}, ${dados.localidade}, ${dados.uf}, Brasil`
-      const geoResp = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'PinturaPro/1.0' } }
-      )
-      const geoData = await geoResp.json()
-      if (geoData.length > 0 && montadoRef.current) {
-        setLatitude(parseFloat(geoData[0].lat))
-        setLongitude(parseFloat(geoData[0].lon))
-      }
+      // O geocode NÃO acontece aqui: neste ponto o endereço ainda não está completo —
+      // falta o número, e em cidade de "CEP geral" falta o próprio logradouro, que o
+      // usuário ainda vai digitar. Ele roda no envio, sobre o endereço final.
     } catch (err) {
       console.log('[CadastrarReparo] falha ao buscar CEP | msg:', err.message)
       Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
@@ -204,10 +202,38 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!uf) novos.uf = 'Selecione o estado'
     if (!cidade) novos.cidade = 'Selecione a cidade'
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
+    if (enderecoEncontrado && !logradouro.trim()) novos.logradouro = 'Informe a rua/avenida'
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
     if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
     setErros(novos)
     return novos
+  }
+
+  // Geocodifica o endereço FINAL — com o logradouro que o usuário pode ter digitado.
+  // Só roda no envio: é o único momento em que o endereço está completo.
+  // SEM logradouro não geocodifica e não manda coordenada nenhuma. Mandar o ponto da
+  // cidade como coordenada do cliente faria o servidor tratá-la como precisa, e o card
+  // anunciaria "menos de 1 km de você" para a cidade inteira — exatamente a mentira que
+  // a supressão por 'centro_cidade' existe para evitar. Sem coordenada, o servidor cai
+  // no centro do município e marca a origem honestamente.
+  const geocodificarEnderecoFinal = async () => {
+    if (!logradouro.trim()) return { lat: null, lng: null }
+    const consulta = [logradouro, numero, bairro, cidade, uf, 'Brasil'].filter(Boolean).join(', ')
+    try {
+      // Teto de 4s: publicar NUNCA espera pelo geocode. Estourou ou falhou, segue sem coordenada.
+      const resp = await Promise.race([
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(consulta)}&format=json&limit=1`,
+          { headers: { 'User-Agent': 'PinturaPro/1.0' } }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('geocode_timeout')), 4000)),
+      ])
+      const geoData = await resp.json()
+      if (geoData.length > 0) {
+        return { lat: parseFloat(geoData[0].lat), lng: parseFloat(geoData[0].lon) }
+      }
+    } catch (err) {
+      console.log('[CadastrarReparo] geocode indisponível, publicando sem coordenadas | msg:', err.message)
+    }
+    return { lat: null, lng: null }
   }
 
   const selecionarMidia = () => setShowMediaPicker(true)
@@ -259,6 +285,8 @@ export default function CadastrarReparoScreen({ navigation }) {
     enviandoRef.current = true
     setCarregando(true)
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
+    const geo = await geocodificarEnderecoFinal()
+    if (montadoRef.current) { setLatitude(geo.lat); setLongitude(geo.lng) }
     let reparo
     try {
       reparo = await comRetry(() => api.post('/reparos/dono', {
@@ -272,8 +300,8 @@ export default function CadastrarReparoScreen({ navigation }) {
         bairro: bairro.trim(),
         prazo_atendimento_horas: urgencia,
         endereco_obra: enderecoCompleto,
-        latitude,
-        longitude,
+        latitude: geo.lat,
+        longitude: geo.lng,
         client_request_id: clientRequestIdRef.current,
       }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
@@ -378,15 +406,22 @@ export default function CadastrarReparoScreen({ navigation }) {
           </View>
           {enderecoEncontrado && (
             <>
-              <Input label="LOGRADOURO" value={logradouro} onChangeText={setLogradouro} editable={false} estilo={{ backgroundColor: cores.fundoElevado }} />
+              {/* Editável: em cidade pequena de "CEP geral" o ViaCEP não devolve logradouro,
+                  e travar o campo deixava o usuário sem nenhuma forma de informar a rua. */}
+              <View onLayout={registrarY('logradouro')}>
+                <Input label="LOGRADOURO (rua/avenida)" placeholder="Preenchido pelo CEP — ou digite a rua" value={logradouro} onChangeText={setLogradouro} erro={erros.logradouro} />
+              </View>
               <View style={estilos.duasColunas} onLayout={registrarY('numero')}>
                 <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" erro={erros.numero} estilo={{ flex: 1 }} />
                 <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={setComplemento} estilo={{ flex: 1 }} />
               </View>
               <Input label="BAIRRO" value={bairro} onChangeText={setBairro} />
-              {latitude && (
+              {/* Antes dependia de `latitude`, preenchida na busca do CEP. O geocode passou
+                  para o envio, então o gatilho aqui é ter a rua — que é o que de fato
+                  permite localizar o reparo. */}
+              {logradouro.trim() !== '' && (
                 <View style={estilos.geoConfirm}>
-                  <Text style={estilos.geoConfirmTexto}>📍 Localização encontrada — prestadores próximos serão notificados!</Text>
+                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — prestadores próximos serão notificados!</Text>
                 </View>
               )}
             </>
