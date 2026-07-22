@@ -142,6 +142,14 @@ const navegarParaNotificacao = (data) => {
         if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
         else navegar('Obras')
         break
+      // Resultado da moderação da obra — deep-link ao detalhe para o DONO. Em 'obra_recusada'
+      // este é o único caminho até ela: a obra recusada não aparece em "Minhas Obras", então
+      // sem o id o dono não tem como abrir o motivo da recusa.
+      case 'obra_aprovada':
+      case 'obra_recusada':
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        else navegar(tabEmAndamento)
+        break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
       case 'reparo_5min_restantes':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
