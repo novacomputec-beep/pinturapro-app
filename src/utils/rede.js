@@ -42,6 +42,13 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
       // Não-reexecutável, ou já foi a última tentativa → propaga o erro.
       if (!reexecutavel || tentativa === maxTentativas - 1) throw err
 
+      // Erro de REDE na 1ª tentativa: repete NA HORA, sem espera. O caso típico é um
+      // socket de keep-alive reaproveitado depois de um tempo ocioso e já fechado do
+      // outro lado: ele falha em milissegundos, e esperar ~1s não muda nada — só
+      // segura o usuário olhando o spinner. A repetição imediata abre conexão nova.
+      // Da 2ª em diante, e para timeout/5xx, o backoff exponencial continua valendo.
+      if (isNetwork && tentativa === 0) continue
+
       // Backoff exponencial: esperaMs, esperaMs*2, ... com jitter de ±20%.
       const base = esperaMs * Math.pow(2, tentativa)
       const espera = base * (0.8 + Math.random() * 0.4)
