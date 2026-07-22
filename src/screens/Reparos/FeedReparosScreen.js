@@ -197,8 +197,11 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
 
 // Cache de GPS em nível de módulo: evita chamar o GPS a cada toque no filtro de
 // distância (a leitura pode travar o spinner por segundos em aparelhos lentos).
+// TTL de 5 min: o menor raio filtrável é 40 km, e em 5 min ninguém se desloca o
+// bastante para mudar o resultado — 30s expirava entre um toque e outro e fazia
+// o usuário pagar uma leitura de GPS por chip.
 let gpsCache = { coords: null, timestamp: 0 }
-const GPS_CACHE_TTL = 30000 // 30 seconds
+const GPS_CACHE_TTL = 300000 // 5 minutos
 
 export default function FeedReparosScreen({ navigation }) {
   const { usuario } = useAuth()
@@ -361,13 +364,17 @@ export default function FeedReparosScreen({ navigation }) {
         params.set('uf_busca', cidadeBusca.uf)
       }
       if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade') {
-        if (cidadeBusca && cidadeBusca.lat != null) {
-          // Busca em outra cidade: usa as coords geocodificadas da cidade escolhida,
-          // sem acionar o GPS do aparelho.
-          params.set('lat', String(cidadeBusca.lat))
-          params.set('lng', String(cidadeBusca.lng))
-          if (mountedRef.current && abortRef.current === controller) {
-            setCoords({ lat: cidadeBusca.lat, lng: cidadeBusca.lng })
+        if (cidadeBusca) {
+          // Busca em outra cidade: o servidor resolve a âncora a partir de cidade_busca +
+          // uf_busca (enviados acima), então o GPS do aparelho não entra na conta — nem
+          // quando o geocode do cliente falhou e lat/lng vieram nulos. Antes esse caso caía
+          // no bloco de GPS e prendia o toque no chip por segundos, sem necessidade.
+          if (cidadeBusca.lat != null) {
+            params.set('lat', String(cidadeBusca.lat))
+            params.set('lng', String(cidadeBusca.lng))
+            if (mountedRef.current && abortRef.current === controller) {
+              setCoords({ lat: cidadeBusca.lat, lng: cidadeBusca.lng })
+            }
           }
         } else try {
           const { status } = await Location.requestForegroundPermissionsAsync()
@@ -375,15 +382,21 @@ export default function FeedReparosScreen({ navigation }) {
             const agora = Date.now()
             let coordsUsar = null
             if (gpsCache.coords && (agora - gpsCache.timestamp) < GPS_CACHE_TTL) {
-              // Cache de GPS ainda válido (< 30s): usa direto, sem chamar o GPS.
+              // Cache de GPS ainda válido: usa direto, sem chamar o GPS.
               coordsUsar = gpsCache.coords
             } else {
               try {
-                // GPS com timeout próprio de 5s (separado do timeout total da requisição).
-                const loc = await Promise.race([
-                  Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
-                  new Promise((_, reject) => setTimeout(() => reject(new Error('gps_timeout')), 5000))
-                ])
+                // Primeiro a última posição conhecida do SO: volta praticamente na hora e
+                // é precisa o bastante para um raio de dezenas de km. Só quando não há
+                // nenhuma é que vale uma leitura ao vivo — e ainda assim com teto curto,
+                // para o toque no chip não ficar preso esperando o GPS.
+                let loc = await Location.getLastKnownPositionAsync()
+                if (!loc) {
+                  loc = await Promise.race([
+                    Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('gps_timeout')), 1500))
+                  ])
+                }
                 gpsCache = { coords: loc.coords, timestamp: Date.now() }
                 coordsUsar = loc.coords
               } catch (errGps) {
@@ -406,9 +419,13 @@ export default function FeedReparosScreen({ navigation }) {
         }
       }
       const resposta = await comRetry(() => api.get(`/reparos?${params.toString()}`, { signal: controller.signal }))
-      // Só aplica se ainda for a requisição atual (descarta respostas obsoletas).
-      if (!timedOut && mountedRef.current && abortRef.current === controller) {
+      // Só aplica se ainda for a requisição atual (descarta respostas obsoletas). Estourar
+      // o timeout de 20s não descarta mais o que chegou: se a resposta veio e ainda é a
+      // corrente, ela é renderizada e o aviso de tempo esgotado deixa de valer — o timeout
+      // manda no aviso de erro, não em dado já pago.
+      if (mountedRef.current && abortRef.current === controller) {
         setReparos(resposta.reparos || [])
+        if (timedOut) setErro(null)
       }
     } catch (err) {
       // Cancelada (substituída por nova seleção ou pelo timeout): ignora silenciosamente.
@@ -419,7 +436,9 @@ export default function FeedReparosScreen({ navigation }) {
       }
     } finally {
       clearTimeout(timer)
-      if (!timedOut && mountedRef.current && abortRef.current === controller) {
+      // Sem o !timedOut: se a requisição corrente terminou — inclusive depois do timeout —
+      // o spinner tem de sair. Quando o próprio timer já baixou os flags, isto é inócuo.
+      if (mountedRef.current && abortRef.current === controller) {
         setCarregando(false)
         setAtualizando(false)
       }
@@ -582,6 +601,15 @@ export default function FeedReparosScreen({ navigation }) {
                 </TouchableOpacity>
               )}
             />
+            {/* Recarga sobre uma lista já preenchida: o ActivityIndicator do
+                ListEmptyComponent só aparece com a lista vazia, então sem isto trocar de
+                filtro não dava sinal nenhum de que algo estava acontecendo. */}
+            {carregando && reparos.length > 0 && (
+              <View style={estilos.carregandoInline}>
+                <ActivityIndicator color={cores.primaria} size="small" />
+                <Text style={estilos.carregandoInlineTexto}>Atualizando…</Text>
+              </View>
+            )}
           </>
         }
         ListEmptyComponent={
@@ -617,6 +645,8 @@ const estilos = StyleSheet.create({
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
   filtros: { paddingHorizontal: espacos.tela, paddingVertical: 12 },
   filtrosDistancia: { paddingHorizontal: espacos.tela, paddingBottom: 10 },
+  carregandoInline: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingBottom: 10 },
+  carregandoInlineTexto: { fontSize: 12, color: cores.textoMedio, marginLeft: 8 },
   filtroPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillDistAtivo: { backgroundColor: '#1a1a3a', borderColor: '#6060cc', borderWidth: 0.5, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
