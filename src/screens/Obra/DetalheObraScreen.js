@@ -889,7 +889,12 @@ export default function DetalheObraScreen({ route, navigation }) {
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={{ flex: 1, backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 10, alignItems: 'center' }}
-                              onPress={() => setContrapropostaCandidaturaId(item.id)}
+                              // Warm-up ao ABRIR o campo: entre carregar a tela e tocar em
+                              // "Enviar" o usuário lê a proposta e digita um valor, minutos
+                              // sem tráfego nenhum. Se a conexão ociosa já morreu, quem paga
+                              // é este ping descartável — não a contraproposta do usuário.
+                              // Mesmo padrão do warm-up do CadastroScreen: sem await, erro engolido.
+                              onPress={() => { api.get('/health').catch(() => {}); setContrapropostaCandidaturaId(item.id) }}
                             >
                               <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contraproposta</Text>
                             </TouchableOpacity>
