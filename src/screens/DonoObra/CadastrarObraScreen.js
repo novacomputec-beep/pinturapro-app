@@ -205,9 +205,12 @@ export default function CadastrarObraScreen({ navigation }) {
       const dicaVideo = temVideoFalho
         ? '\n\n📹 Vídeos grandes podem falhar em conexões lentas — tente novamente em Wi-Fi ou grave um vídeo mais curto.'
         : ''
+      // A aprovação é dita AQUI também: este ramo substitui o alerta de sucesso, e sem
+      // repetir o aviso o dono que tropeça numa mídia nunca fica sabendo que a obra
+      // ainda passa por análise.
       Alert.alert(
-        '⚠️ Obra criada',
-        `Sua obra foi criada, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
+        '⚠️ Obra enviada para análise (mídias pendentes)',
+        `Sua obra foi recebida e passará por uma breve aprovação. Mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
           { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(obraId, falhas) } },
           { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Minhas Obras') },
@@ -362,9 +365,11 @@ export default function CadastrarObraScreen({ navigation }) {
             onReenviar={midia.reenviar}
           />
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
+          {/* Acima do botão, e não abaixo: embaixo o aviso ficava fora da dobra, em 11px
+              apagados, e era lido depois de publicar — quando já não informa decisão nenhuma. */}
+          <Text style={estilos.avisoUpload}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, pintores qualificados da sua região serão notificados.</Text>
           <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
           {carregando && <Text style={estilos.avisoUpload}>📤 Enviando fotos, aguarde...</Text>}
-          <Text style={estilos.aviso}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, pintores qualificados da sua região serão notificados.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
