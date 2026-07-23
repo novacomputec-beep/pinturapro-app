@@ -349,6 +349,13 @@ export default function CadastroScreen({ navigation }) {
   const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'
   // Prestador tem 4 passos: dados pessoais, profissional, plano, verificação
   const totalPassos = isDono ? 2 : 4
+  // Lançamento grátis: o prestador pula a etapa de plano (passo 3). O fluxo VISÍVEL
+  // vira 3 etapas [1, 2, verificação]; internamente a verificação continua sendo o
+  // passo 4 (mesmos gates de render/submit/validação intactos), então o caminho pago
+  // fica byte-idêntico. Só a navegação (2→4) e a numeração exibida são remapeadas.
+  const modoLancamento = lancamentoGratis && isPrestador
+  const totalPassosVisivel = modoLancamento ? 3 : totalPassos
+  const passoVisivel = modoLancamento && passo === 4 ? 3 : passo
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
@@ -537,11 +544,12 @@ export default function CadastroScreen({ navigation }) {
       checarDisponibilidadeBackground({ email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() }, { marcarOk: true })
     }
 
-    setPasso(p => p + 1)
+    // Free: do passo 2 salta direto para a verificação (passo 4), pulando o plano.
+    setPasso(p => (modoLancamento && p === 2) ? 4 : p + 1)
   }
 
   const voltar = () => {
-    if (passo > 1) setPasso(p => p - 1)
+    if (passo > 1) setPasso(p => (modoLancamento && p === 4) ? 2 : p - 1)
     else if (passo === 1) { setTipoConta(null); setPasso(0) }
     else {
       // Saiu da tela de cadastro (cancelou): descarta o rascunho para não restaurar depois.
@@ -943,13 +951,13 @@ export default function CadastroScreen({ navigation }) {
               : 'Verificação\nde identidade'}
           </Text>
           <Text style={estilos.subtitulo}>
-            {`Passo ${passo} de ${totalPassos} — ${
+            {`Passo ${passoVisivel} de ${totalPassosVisivel} — ${
               passo === 1 ? 'dados pessoais'
               : passo === 2 ? (isDono ? 'localização e documento' : 'informações profissionais')
               : passo === 3 ? 'assinatura'
               : 'documentos e referências'}`}
           </Text>
-          <IndicadorPassos passo={passo} total={totalPassos} />
+          <IndicadorPassos passo={passoVisivel} total={totalPassosVisivel} />
 
           {/* PASSO 1 — Dados pessoais */}
           {passo === 1 && (

@@ -331,8 +331,12 @@ function PagamentoPendenteScreen() {
 }
 
 function VerificacaoPendenteScreen() {
-  const { logout, revalidarSessao } = useAuth()
+  const { logout, revalidarSessao, assinatura } = useAuth()
   const [verificando, setVerificando] = React.useState(false)
+  // Conta gratuita (janela de lançamento): a API marca assinatura.tipo === 'gratuito'.
+  // Nesse caso a tela troca a copy de pagamento por "aguardando aprovação". Qualquer
+  // outro tipo (pago, null ou ausente) mantém a copy original byte-idêntica.
+  const ehGratuito = assinatura?.tipo === 'gratuito'
 
   // "Já paguei — verificar acesso" (tela pós-pagamento, aguardando aprovação do admin).
   // Sempre dá feedback: revalida a sessão e decide a mensagem pelo status REAL devolvido por
@@ -373,12 +377,14 @@ function VerificacaoPendenteScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
+        <Text style={{ fontSize: 48, marginBottom: 16 }}>{ehGratuito ? '✅' : '💳'}</Text>
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
-          Pagamento efetuado com sucesso
+          {ehGratuito ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
         </Text>
         <Text style={{ fontSize: 15, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
-          Em instantes aprovaremos seu cadastro — isto pode levar até uma hora
+          {ehGratuito
+            ? 'Estamos analisando seus dados — isso pode levar até uma hora. Você será avisado assim que for aprovado.'
+            : 'Em instantes aprovaremos seu cadastro — isto pode levar até uma hora'}
         </Text>
 
         <TouchableOpacity
@@ -387,7 +393,7 @@ function VerificacaoPendenteScreen() {
           disabled={verificando}
         >
           <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
-            {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+            {verificando ? 'Verificando...' : (ehGratuito ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
