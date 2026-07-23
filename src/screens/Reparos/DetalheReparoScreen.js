@@ -178,6 +178,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   useEffect(() => {
     mountedRef.current = true
     buscar()
+    // Arma a proximidade (redesign): ao ABRIR o detalhe, o reparador sinaliza ao servidor
+    // que viu este reparo. O servidor arma a notificação se o reparo estiver a >5km do
+    // endereço de cadastro dele; a aproximação (<5km) é detectada depois via
+    // checar-proximidade / cron. Fire-and-forget, uma vez por reparo aberto, e só para o
+    // reparador vendo reparo de OUTRO (o dono do próprio reparo não arma). Idempotente no
+    // servidor (ON CONFLICT DO NOTHING), então uma falha silenciosa é inócua.
+    if (isPrestador && !isDono) {
+      api.post(`/reparos/${reparoInicial.id}/abertura`).catch(() => {})
+    }
     return () => { mountedRef.current = false }
   }, [reparoInicial.id])
 
