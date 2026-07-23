@@ -170,6 +170,12 @@ export default function CadastroScreen({ navigation }) {
 
   useEffect(() => {
     api.get('/health').catch(err => console.log('[CadastroScreen] falha no warmup /health | code:', err.code, '| msg:', err.mensagem))
+    // Janela de lançamento (grátis) — COSMÉTICO e fire-and-forget: nunca bloqueia/atrasa
+    // o render. Endpoint público (pré-login, sem token). Qualquer erro/timeout mantém o
+    // default false (preço normal). Só "sobe" para o estado grátis se resolver gratis:true.
+    api.get('/config/lancamento')
+      .then(resp => { if (montadoRef.current) setLancamentoGratis(!!resp?.gratis) })
+      .catch(() => {})
     return () => { montadoRef.current = false }
   }, [])
 
@@ -177,6 +183,7 @@ export default function CadastroScreen({ navigation }) {
   const [passo, setPasso] = useState(0)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
+  const [lancamentoGratis, setLancamentoGratis] = useState(false)
 
   const [nome, setNome] = useState('')
   const [sobrenome, setSobrenome] = useState('')
@@ -853,7 +860,14 @@ export default function CadastroScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou construtor, pedreiro ou pintor</Text>
               <Text style={estilos.tipoDesc}>Quero encontrar obras disponíveis na minha região</Text>
-              <Text style={estilos.tipoPreco}>R$ 99,90/mês</Text>
+              {lancamentoGratis ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[estilos.tipoPreco, { color: cores.perigo, textDecorationLine: 'line-through' }]}>R$ 99,90/mês</Text>
+                  <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
+                </View>
+              ) : (
+                <Text style={estilos.tipoPreco}>R$ 99,90/mês</Text>
+              )}
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
@@ -863,7 +877,14 @@ export default function CadastroScreen({ navigation }) {
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou prestador de serviços domésticos</Text>
               <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na minha região</Text>
-              <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
+              {lancamentoGratis ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[estilos.tipoPreco, { color: cores.perigo, textDecorationLine: 'line-through' }]}>R$ 49,90/mês</Text>
+                  <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
+                </View>
+              ) : (
+                <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
+              )}
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
