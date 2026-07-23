@@ -916,7 +916,7 @@ export default function CadastroScreen({ navigation }) {
 
   return (
     <SafeAreaView style={estilos.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
