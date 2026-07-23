@@ -14,6 +14,7 @@ import { mascararTelefone } from '../../utils/telefone'
 import { recuperarMidiasPendentes } from '../../utils/midia'
 import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 import { useAuth } from '../../contexts/AuthContext'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios } from '../../utils/tema'
 
 // ─── VALIDAÇÃO CPF/CNPJ ──────────────────────────────────────
@@ -164,6 +165,7 @@ const classificarErro = (err) => {
 
 export default function CadastroScreen({ navigation }) {
   const { loginComToken } = useAuth()
+  const insets = useSafeAreaInsets()
   const montadoRef = useRef(true)
 
   useEffect(() => {
@@ -833,7 +835,7 @@ export default function CadastroScreen({ navigation }) {
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
-        <ScrollView contentContainerStyle={estilos.scroll}>
+        <ScrollView contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Splash')}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
@@ -894,7 +896,7 @@ export default function CadastroScreen({ navigation }) {
   return (
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
