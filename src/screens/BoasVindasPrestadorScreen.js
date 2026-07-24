@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, BackHandler, ActivityIndicator } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios } from '../utils/tema'
 
@@ -27,7 +28,7 @@ export default function BoasVindasPrestadorScreen() {
   }
 
   return (
-    <View style={estilos.fundo}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.fundo}>
       <View style={estilos.card}>
         <Text style={estilos.confete}>🎉   ✨   🎉</Text>
         <Text style={estilos.emoji}>✅</Text>
@@ -46,7 +47,7 @@ export default function BoasVindasPrestadorScreen() {
             : <Text style={estilos.ctaTexto}>Começar a atender! →</Text>}
         </TouchableOpacity>
       </View>
-    </View>
+    </SafeAreaView>
   )
 }
 

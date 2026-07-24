@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
@@ -184,7 +185,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const dados     = secao === 'ativos' ? aAtivos : aHistorico
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       {mostrarBanner && (
         <View style={estilos.bannerParabens}>
           <TouchableOpacity

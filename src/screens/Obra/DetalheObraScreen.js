@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'react-native'
 import { Video, ResizeMode } from 'expo-av'
 import api, { obrasService } from '../../services/api'
@@ -545,7 +546,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   if (carregando) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
       </SafeAreaView>
     )
@@ -553,7 +554,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   if (!obra) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <View style={estilos.topbar}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
@@ -567,7 +568,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.topbar}>
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>

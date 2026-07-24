@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler'
 import React, { useRef, useEffect } from 'react'
-import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
@@ -270,7 +271,7 @@ function PagamentoPendenteScreen() {
     : usuario?.role === 'prestador' ? 'R$ 49,90' : 'R$ 99,90'
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
@@ -375,7 +376,7 @@ function VerificacaoPendenteScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: cores.fundo }}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>{ehGratuito ? '✅' : '💳'}</Text>
         <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
@@ -478,12 +479,31 @@ const ContratosFinDonoObraNavigator = () => (
   </ContratosFinDonoObraStack.Navigator>
 )
 
+// Estilo compartilhado da barra de abas. Deriva a reserva inferior do inset da barra
+// de navegação do sistema (Android 15 edge-to-edge / notch iOS) via useSafeAreaInsets,
+// restaurando o inset que o React Navigation aplicaria sozinho e que o height fixo
+// anterior (72) anulava. Mantém o mesmo tamanho visível (72 - 8 - 14 = 50) somando o
+// inset a height e paddingBottom. Chamado dentro de componentes sob o SafeAreaProvider raiz.
+const useTabBarStyle = () => {
+  const { bottom } = useSafeAreaInsets()
+  return {
+    backgroundColor: cores.fundo,
+    borderTopWidth: 0.5,
+    borderTopColor: cores.bordaFraca,
+    height: 72 + bottom,
+    paddingBottom: 14 + bottom,
+    paddingTop: 8,
+  }
+}
+
 // Tabs do Pintor
-const TabsPintorNavigator = () => (
+const TabsPintorNavigator = () => {
+  const tabBarStyle = useTabBarStyle()
+  return (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarStyle: { backgroundColor: cores.fundo, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, height: 72, paddingBottom: 14, paddingTop: 8 },
+      tabBarStyle,
       tabBarActiveTintColor: cores.primaria,
       tabBarInactiveTintColor: cores.textoFraco,
       tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
@@ -496,14 +516,17 @@ const TabsPintorNavigator = () => (
     <Tab.Screen name="Mensagens"             component={MensagensScreen} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </Tab.Navigator>
-)
+  )
+}
 
 // Tabs do Prestador (Reparos, Meus Reparos, Contratos Finalizados, Mensagens, Perfil)
-const TabsPrestadorNavigator = () => (
+const TabsPrestadorNavigator = () => {
+  const tabBarStyle = useTabBarStyle()
+  return (
   <Tab.Navigator
     screenOptions={({ route }) => ({
       headerShown: false,
-      tabBarStyle: { backgroundColor: cores.fundo, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, height: 72, paddingBottom: 14, paddingTop: 8 },
+      tabBarStyle,
       tabBarActiveTintColor: cores.primaria,
       tabBarInactiveTintColor: cores.textoFraco,
       tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
@@ -515,7 +538,8 @@ const TabsPrestadorNavigator = () => (
     <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
-)
+  )
+}
 
 // Tab: Novo Reparo (dono_reparo)
 const NovoReparoTabStack = () => (
@@ -535,19 +559,21 @@ const MeusReparosTabStack = () => (
 // Tab Navigator para dono de reparo
 const donoTabOpts = {
   headerShown: false,
-  tabBarStyle: { backgroundColor: cores.fundo, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, height: 72, paddingBottom: 14, paddingTop: 8 },
   tabBarActiveTintColor: cores.primaria,
   tabBarInactiveTintColor: cores.textoFraco,
   tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
 }
-const DonoReparoTabNavigator = () => (
-  <DonoReparoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
+const DonoReparoTabNavigator = () => {
+  const tabBarStyle = useTabBarStyle()
+  return (
+  <DonoReparoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarStyle, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
     <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} />
     <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} />
     <DonoReparoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoReparoNavigator} />
     <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoReparoTab.Navigator>
-)
+  )
+}
 
 // Tab: Nova Obra (dono_obra)
 const NovaObraTabStack = () => (
@@ -566,15 +592,18 @@ const MinhasObrasTabStack = () => (
 )
 
 // Tab Navigator para dono de pintura
-const DonoObraTabNavigator = () => (
-  <DonoObraTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
+const DonoObraTabNavigator = () => {
+  const tabBarStyle = useTabBarStyle()
+  return (
+  <DonoObraTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarStyle, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
     <DonoObraTab.Screen name="Nova Obra"      component={NovaObraTabStack} />
     <DonoObraTab.Screen name="Minhas Obras"   component={MinhasObrasTabStack} />
     <DonoObraTab.Screen name="Contratos Finalizados" component={ContratosFinDonoObraNavigator} />
     <DonoObraTab.Screen name="Mensagens"      component={MensagensScreen} />
     <DonoObraTab.Screen name="Perfil"         component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoObraTab.Navigator>
-)
+  )
+}
 
 // Stack do Dono de Obra (fallback para tipo_dono não definido)
 const DonoObraNavigator = () => (

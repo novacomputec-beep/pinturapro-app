@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, KeyboardAvoidingView, Platform
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -46,7 +47,7 @@ export default function AlterarSenhaScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>

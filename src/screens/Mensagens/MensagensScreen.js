@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, TextInput, ActivityIndicator, Alert
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api, { candidaturasService, mensagensService } from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -109,7 +110,7 @@ export default function MensagensScreen() {
 
   if (carregando) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
       </SafeAreaView>
     )
@@ -117,7 +118,7 @@ export default function MensagensScreen() {
 
   if (candidaturas.length === 0) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <View style={estilos.header}>
           <Text style={estilos.titulo}>Mensagens</Text>
         </View>
@@ -133,7 +134,7 @@ export default function MensagensScreen() {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Mensagens</Text>
       </View>
