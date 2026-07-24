@@ -180,21 +180,21 @@ export default function PerfilScreen({ navigation }) {
             <View style={estilos.assinaturaItem}>
               <Text style={estilos.assinaturaLabel}>Valor</Text>
               <Text style={[estilos.assinaturaValor, { color: cores.sucesso }]}>
-                {isDono ? 'Gratuito' : (usuario?.tipo_prestador === 'pintor'
+                {isDono ? 'Gratuito' : assinatura?.tipo === 'gratuito' ? 'grátis' : (usuario?.tipo_prestador === 'pintor'
                   ? (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês')
                   : usuario?.role === 'prestador'
                     ? (assinatura?.plano === 'anual' ? 'R$ 41,58/mês' : 'R$ 49,90/mês')
                     : (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês'))}
               </Text>
             </View>
-            {!isDono && vencimento && (
+            {!isDono && assinatura?.tipo !== 'gratuito' && vencimento && (
               <View style={estilos.assinaturaItem}>
                 <Text style={estilos.assinaturaLabel}>Próximo vencimento</Text>
                 <Text style={estilos.assinaturaValor}>{vencimento}</Text>
               </View>
             )}
           </View>
-          {!isDono && (
+          {!isDono && assinatura?.tipo !== 'gratuito' && (
             <TouchableOpacity
               style={[estilos.btnRenovar, renovandoAssinatura && { opacity: 0.6 }]}
               onPress={handleRenovarAssinatura}
