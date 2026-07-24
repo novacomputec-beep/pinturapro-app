@@ -1,5 +1,6 @@
 import React from 'react'
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, espacos } from '../../utils/tema'
 
 const SECOES = [
@@ -39,7 +40,7 @@ const SECOES = [
 
 export default function TermosScreen({ navigation }) {
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
       <View style={estilos.topbar}>
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>

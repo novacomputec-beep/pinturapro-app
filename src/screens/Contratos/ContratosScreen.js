@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, ActivityIndicator
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { candidaturasService } from '../../services/api'
 import { BadgeStatus, Card, Separador } from '../../components'
@@ -143,7 +144,7 @@ export default function ContratosScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Contratos</Text>
         <Text style={estilos.subtitulo}>{lista.length} candidatura(s)</Text>

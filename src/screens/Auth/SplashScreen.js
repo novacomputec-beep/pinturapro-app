@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, SafeAreaView, Image, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
 import api from '../../services/api'
@@ -46,7 +47,7 @@ export default function SplashScreen({ navigation }) {
   }, [])
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
 
       {/* Logo */}
       <View style={estilos.logoArea}>

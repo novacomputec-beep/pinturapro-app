@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -31,7 +32,7 @@ export default function EsqueciSenhaScreen({ navigation }) {
 
   if (enviado) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
         <ScrollView contentContainerStyle={[estilos.scroll, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}>
           <Text style={{ fontSize: 56, marginBottom: 20 }}>📧</Text>
           <Text style={estilos.titulo}>Verifique{'\n'}seu e-mail</Text>
@@ -52,7 +53,7 @@ export default function EsqueciSenhaScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>

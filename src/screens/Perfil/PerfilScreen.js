@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, ActivityIndicator, Linking, Image
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
@@ -105,7 +106,7 @@ export default function PerfilScreen({ navigation }) {
 
   if (carregando) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />
       </SafeAreaView>
     )
@@ -127,7 +128,7 @@ export default function PerfilScreen({ navigation }) {
   const ehDonoReparo = isDono && usuario?.tipo_dono === 'reparo'
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
         <View style={estilos.header}>

@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Linking, Alert
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
@@ -104,7 +105,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
   if (carregando) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <ActivityIndicator color={cores.primaria} style={{ marginTop: 60 }} />
       </SafeAreaView>
     )
@@ -181,7 +182,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Contratos Finalizados</Text>
         <Text style={estilos.subtitulo}>

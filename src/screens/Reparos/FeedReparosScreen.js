@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput,
   KeyboardAvoidingView, Platform
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
@@ -424,7 +425,7 @@ export default function FeedReparosScreen({ navigation }) {
   const onRefresh = () => { setAtualizando(true); buscarReparos(categoria, distancia, { refresh: true }) }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🔧</Text>

@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, ScrollView, Modal,
+  View, Text, StyleSheet, ScrollView, Modal,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
@@ -293,7 +294,7 @@ export default function CadastrarObraScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       {mostrarBanner && (
         <View style={estilos.bannerParabens}>
           <TouchableOpacity

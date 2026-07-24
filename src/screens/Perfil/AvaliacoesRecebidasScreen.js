@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView, FlatList,
+  View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
@@ -73,7 +74,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
 
   if (carregando) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <Cabecalho />
         <ActivityIndicator color={cores.primaria} style={{ marginTop: 40 }} />
       </SafeAreaView>
@@ -102,7 +103,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
   )
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       {avaliacoes.length === 0 ? (
         <>
           <Cabecalho />

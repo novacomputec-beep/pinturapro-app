@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import {
-  View, Text, StyleSheet, SafeAreaView,
+  View, Text, StyleSheet,
   TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Linking
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
@@ -53,7 +54,7 @@ export default function LoginScreen({ navigation }) {
 
   if (linkPagamento) {
     return (
-      <SafeAreaView style={estilos.container}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
         <ScrollView contentContainerStyle={[estilos.scroll, { alignItems: 'center', paddingTop: 60 }]}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
           <Text style={[estilos.titulo, { textAlign: 'center' }]}>Pagamento pendente</Text>
@@ -77,7 +78,7 @@ export default function LoginScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={estilos.container}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
