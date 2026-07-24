@@ -17,6 +17,36 @@ import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
+// Iniciais para o avatar-placeholder do candidato (mesmo padrão de PerfilScreen/feed).
+const iniciaisDe = (nome) =>
+  (nome || '').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
+
+// Rótulo humano da experiência. O cadastro grava anos_experiencia como INTEIRO (parseInt),
+// mas a API pode devolver um bucket ("menos_1_ano"/"1_a_3"/"3_a_5"/"mais_5"); tratamos ambos.
+const EXPERIENCIA_LABELS = {
+  menos_1_ano: 'Menos de 1 ano',
+  '1_a_3': '1 a 3 anos',
+  '3_a_5': '3 a 5 anos',
+  mais_5: 'Mais de 5 anos',
+  mais_5_anos: 'Mais de 5 anos',
+}
+const formatarExperiencia = (v) => {
+  if (v == null || v === '') return null
+  const s = String(v).trim()
+  if (/^\d+$/.test(s)) {                                  // inteiro: "N anos de experiência"
+    const n = Number(s)
+    return n > 0 ? `${n} ${n === 1 ? 'ano' : 'anos'} de experiência` : null
+  }
+  return EXPERIENCIA_LABELS[s] || s.replace(/_/g, ' ')    // bucket conhecido, ou fallback limpo
+}
+
+// especialidades pode vir como array (cadastro) ou CSV; normaliza para "a, b, c".
+const especialidadesTexto = (esp) => {
+  const arr = Array.isArray(esp) ? esp : (typeof esp === 'string' ? esp.split(',') : [])
+  const limpos = arr.map(s => String(s).trim()).filter(Boolean)
+  return limpos.length ? limpos.join(', ') : null
+}
+
 const ContadorExpiracaoObra = ({ expiraEm }) => {
   const [restante, setRestante] = useState(null)
   const expiradoRef = useRef(false)
@@ -813,22 +843,39 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // não em 'aceito'. Deriva do match, não do status. (Novo contrato da API:
                   // telefone/logradouro voltam null até o pintor confirmar que está a caminho.)
                   const ehMatch = temMatch && item.usuario_id === obra.match_usuario_id
+                  const expTexto = formatarExperiencia(item.anos_experiencia)
+                  const equipeN = Number(item.tamanho_equipe)
+                  const linhaQualif = [expTexto, equipeN > 1 ? `equipe de ${equipeN}` : null].filter(Boolean).join(' · ')
+                  const espTexto = especialidadesTexto(item.especialidades)
                   return (
                   <View key={item.id} style={estilos.interessadoCard}>
-                    <View style={estilos.interessadoHeader}>
-                      <Text style={estilos.interessadoNome}>{item.nome}</Text>
-                      {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
-                      {ehMatch && item.logradouro && (
-                        <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
+                    <View style={estilos.candidatoTopo}>
+                      {item.foto_url ? (
+                        <Image source={{ uri: item.foto_url }} style={estilos.candidatoAvatar} />
+                      ) : (
+                        <View style={[estilos.candidatoAvatar, estilos.candidatoAvatarVazio]}>
+                          <Text style={estilos.candidatoAvatarIniciais}>{iniciaisDe(item.nome)}</Text>
+                        </View>
                       )}
+                      <View style={{ flex: 1 }}>
+                        <View style={estilos.interessadoHeader}>
+                          <Text style={estilos.interessadoNome}>{item.nome}</Text>
+                          {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                          {ehMatch && item.logradouro && (
+                            <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
+                          )}
+                        </View>
+                        {item.avaliacoes_total > 0 ? (
+                          <Text style={estilos.avaliacaoLinha}>
+                            ⭐ {Number(item.avaliacoes_media).toFixed(1)} ({item.avaliacoes_total} {item.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})
+                          </Text>
+                        ) : (
+                          <Text style={estilos.avaliacaoLinhaNovo}>🆕 Novo na plataforma</Text>
+                        )}
+                      </View>
                     </View>
-                    {item.avaliacoes_total > 0 ? (
-                      <Text style={estilos.avaliacaoLinha}>
-                        ⭐ {Number(item.avaliacoes_media).toFixed(1)} ({item.avaliacoes_total} {item.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})
-                      </Text>
-                    ) : (
-                      <Text style={estilos.avaliacaoLinhaNovo}>🆕 Novo na plataforma</Text>
-                    )}
+                    {linhaQualif ? <Text style={estilos.candidatoLinha}>⏱ {linhaQualif}</Text> : null}
+                    {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
                     {item.valor_proposto != null && (
                       <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
                         💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -1172,6 +1219,11 @@ const estilos = StyleSheet.create({
   avaliacaoLinha: { fontSize: 12, color: '#E8833A', fontWeight: '600', marginTop: 2 },
   avaliacaoLinhaNovo: { fontSize: 12, color: cores.textoMedio, marginTop: 2 },
   interessadoCidade: { fontSize: 11, color: cores.textoFraco },
+  candidatoTopo: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  candidatoAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
+  candidatoAvatarVazio: { backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center' },
+  candidatoAvatarIniciais: { color: cores.primaria, fontSize: 14, fontWeight: '700' },
+  candidatoLinha: { fontSize: 12, color: cores.textoMedio, marginTop: 4 },
   mensagemBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6 },
   mensagemTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
   contratoBanner: { backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: '#4a4a8a', borderRadius: raios.grande, padding: 16, marginBottom: 16 },
