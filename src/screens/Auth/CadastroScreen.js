@@ -870,7 +870,7 @@ export default function CadastroScreen({ navigation }) {
               <Text style={estilos.tipoDesc}>Quero encontrar obras disponíveis na minha região</Text>
               {lancamentoGratis ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[estilos.tipoPreco, { color: cores.perigo, textDecorationLine: 'line-through' }]}>R$ 99,90/mês</Text>
+                  <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 99,90/mês</Text>
                   <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
                 </View>
               ) : (
@@ -887,7 +887,7 @@ export default function CadastroScreen({ navigation }) {
               <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na minha região</Text>
               {lancamentoGratis ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[estilos.tipoPreco, { color: cores.perigo, textDecorationLine: 'line-through' }]}>R$ 49,90/mês</Text>
+                  <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 49,90/mês</Text>
                   <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
                 </View>
               ) : (
