@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { candidaturasService } from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { BadgeStatus, Card, Separador } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -30,6 +31,7 @@ export default function ContratosScreen({ navigation }) {
   const [candidaturas, setCandidaturas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [filtro, setFiltro] = useState('todos')
+  const { usuario } = useAuth()
 
   const buscar = async () => {
     try {
@@ -63,6 +65,14 @@ export default function ContratosScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const temContrato = STATUS_GRUPO.aprovada.includes(item.status)
     const obra = item.obras || item
+    // "Ainda no páreo": só enquanto a candidatura não foi decidida (grupo pendente) e a
+    // obra segue aberta. O match vem da API (match_usuario_id); comparo com o meu id
+    // (useAuth) para distinguir "ninguém escolhido ainda" de "escolheram outro".
+    const demandaAberta    = item.obra_status !== 'encerrada' && !(item.expira_em && new Date(item.expira_em) < new Date())
+    const emAnalise        = STATUS_GRUPO.pendente.includes(item.status)
+    const semMatch         = item.match_usuario_id == null
+    const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
+    const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
 
     const abrirDetalhe = () => navigation?.navigate('DetalheObra', {
       obra: {
@@ -91,6 +101,14 @@ export default function ContratosScreen({ navigation }) {
           <Text style={estilos.obraLocal}>
             📍 {item.obra_cidade || item.cidade || '—'}{item.obra_uf || item.uf ? `, ${item.obra_uf || item.uf}` : ''}
           </Text>
+
+          {mostrarParaeo && (
+            <Text style={[estilos.avisoParaeo, { color: semMatch ? cores.sucesso : cores.textoFraco }]}>
+              {semMatch
+                ? 'Você segue no páreo — nenhum profissional foi escolhido ainda.'
+                : 'Outro profissional foi selecionado.'}
+            </Text>
+          )}
 
           <View style={estilos.infoRow}>
             <View style={estilos.infoItem}>
@@ -204,6 +222,7 @@ const estilos = StyleSheet.create({
   dataTexto: { fontSize: 11, color: cores.textoMutado },
   obraTitulo: { fontSize: 15, fontWeight: '600', color: cores.textoForte, lineHeight: 22, marginBottom: 4 },
   obraLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 14 },
+  avisoParaeo: { fontSize: 12, lineHeight: 16, marginBottom: 14 },
   infoRow: { flexDirection: 'row', gap: 8 },
   infoItem: { flex: 1, backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, alignItems: 'center' },
   infoLabel: { fontSize: 10, color: cores.textoFraco, marginBottom: 3 },

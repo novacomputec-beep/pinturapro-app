@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
+import { useAuth } from '../../contexts/AuthContext'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -29,6 +30,7 @@ export default function MeusInteressesScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [coords]                  = useCoordsUsuario()
+  const { usuario }               = useAuth()
 
   const buscar = async () => {
     try {
@@ -66,6 +68,15 @@ export default function MeusInteressesScreen({ navigation }) {
     const eEncerrado = item.reparo_status === 'encerrada'
     const eExpirado  = !eEncerrado && item.reparo_status === 'aberta' && item.expira_em && new Date(item.expira_em) < new Date()
     const dist       = distanciaItemKm(coords, item)
+    // "Ainda no páreo": só faz sentido enquanto a candidatura não foi decidida (nem
+    // aceito nem recusado) e a demanda segue aberta. O estado do match vem da API
+    // (match_usuario_id); comparo com o meu id (useAuth) para distinguir "ninguém
+    // escolhido ainda" de "escolheram outro".
+    const demandaAberta    = !eEncerrado && !eExpirado
+    const emAnalise        = item.status === 'pendente' || item.status === 'contraproposta_dono'
+    const semMatch         = item.match_usuario_id == null
+    const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
+    const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
 
     return (
       <View style={estilos.card}>
@@ -81,6 +92,13 @@ export default function MeusInteressesScreen({ navigation }) {
               {eEncerrado ? '🔒 Reparo encerrado' : '⏰ Prazo expirado'}
             </Text>
           </View>
+        )}
+        {mostrarParaeo && (
+          <Text style={[estilos.avisoParaeo, { color: semMatch ? cores.sucesso : cores.textoFraco }]}>
+            {semMatch
+              ? 'Você segue no páreo — nenhum profissional foi escolhido ainda.'
+              : 'Outro profissional foi selecionado.'}
+          </Text>
         )}
         <Text style={estilos.cardMeta}>
           {item.categoria} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
@@ -194,6 +212,7 @@ const estilos = StyleSheet.create({
   tagExpiradoTexto: { fontSize: 11, color: '#f44336', fontWeight: '700' },
   statusBadgeInativo: { opacity: 0.5 },
   cardMeta:         { fontSize: 12, color: cores.textoFraco, marginBottom: 12, textTransform: 'capitalize' },
+  avisoParaeo:      { fontSize: 12, lineHeight: 16, marginBottom: 10 },
   cardDistancia:    { color: cores.primaria, fontWeight: '600', textTransform: 'none' },
   valoresRow:       { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 },
   valorLabel:       { fontSize: 10, color: cores.textoMutado, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
