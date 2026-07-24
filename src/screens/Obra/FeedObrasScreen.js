@@ -83,7 +83,12 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   const urgente = totalMin < 10
   const mm = String(m).padStart(2, '0')
   let texto
-  if (dias >= 1) {
+  if (dias >= 60) {
+    const meses = Math.floor(dias / 30)
+    const diasRest = dias % 30
+    texto = `Finaliza em ${meses} ${meses === 1 ? 'mês' : 'meses'}` +
+      (diasRest > 0 ? ` e ${diasRest} ${diasRest === 1 ? 'dia' : 'dias'}` : '')
+  } else if (dias >= 1) {
     texto = `Finaliza em ${dias} ${dias === 1 ? 'dia' : 'dias'}`
   } else if (h >= 1) {
     texto = `Finaliza em ${h}h ${mm}min`
