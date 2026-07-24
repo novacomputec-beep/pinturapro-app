@@ -64,7 +64,11 @@ export default function SplashScreen({ navigation }) {
 
       {/* Arte central */}
       <View style={estilos.artArea}>
-        <View style={estilos.artCard}>
+        <TouchableOpacity
+          style={estilos.artCard}
+          onPress={() => navigation.navigate('Cadastro')}
+          activeOpacity={0.8}
+        >
           <View style={estilos.artLinha}>
             <View style={[estilos.artBloco, { flex: 2, backgroundColor: cores.primariaSuave }]} />
             <View style={[estilos.artBloco, { flex: 1 }]} />
@@ -89,7 +93,7 @@ export default function SplashScreen({ navigation }) {
                 : 'empreitada disponível'}
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Ações */}
