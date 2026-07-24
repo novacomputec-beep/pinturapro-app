@@ -28,6 +28,7 @@ const PRAZOS = [
   { id: 720,  label: '🗓️ Este mês',        desc: 'Execução este mês'    },
   { id: 1440, label: '📋 Mês que vem',    desc: 'Execução mês que vem' },
   { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
+  { id: 'data', label: '📅 Defina a data inicial', desc: 'Escolha uma data específica' },
 ]
 
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
@@ -37,6 +38,26 @@ const gerarRequestId = () =>
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
   })
 
+// Converte "dd/mm/aaaa" no FIM do dia escolhido (23:59:59.999 local); null se não for um
+// dia de calendário real (rejeita 31/02 etc., que o Date "rolaria" para o mês seguinte).
+const fimDoDiaData = (str) => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(str || '')
+  if (!m) return null
+  const dia = parseInt(m[1], 10), mes = parseInt(m[2], 10), ano = parseInt(m[3], 10)
+  const d = new Date(ano, mes - 1, dia, 23, 59, 59, 999)
+  if (d.getFullYear() !== ano || d.getMonth() !== mes - 1 || d.getDate() !== dia) return null
+  return d
+}
+
+// horas_para_expirar equivalente à data inicial: do agora até o fim do dia escolhido.
+// Mín. 1h para que o dia inteiro escolhido conte como "antes do início" (mesma semântica
+// dos buckets em horas). null se a data for inválida.
+const horasAteData = (str) => {
+  const fim = fimDoDiaData(str)
+  if (!fim) return null
+  return Math.max(1, Math.ceil((fim.getTime() - Date.now()) / 3600000))
+}
+
 export default function CadastrarObraScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -45,6 +66,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
   const [prazo, setPrazo] = useState(null)
+  const [dataInicial, setDataInicial] = useState('')
   const [cep, setCep] = useState('')
   const [logradouro, setLogradouro] = useState('')
   const [numero, setNumero] = useState('')
@@ -85,6 +107,7 @@ export default function CadastrarObraScreen({ navigation }) {
     setDescricao('')
     setValorEstimado('')
     setPrazo(null)
+    setDataInicial('')
     midia.resetar()
     setCep('')
     setLogradouro('')
@@ -140,6 +163,15 @@ export default function CadastrarObraScreen({ navigation }) {
     return `${reaisStr},${String(cents).padStart(2, '0')}`
   }
 
+  // Máscara dd/mm/aaaa no mesmo estilo de mascararValor: extrai só dígitos e formata
+  // conforme o usuário digita. Sem dependência de picker/máscara.
+  const mascararData = (valor) => {
+    const nums = valor.replace(/\D/g, '').slice(0, 8)
+    if (nums.length <= 2) return nums
+    if (nums.length <= 4) return `${nums.slice(0, 2)}/${nums.slice(2)}`
+    return `${nums.slice(0, 2)}/${nums.slice(2, 4)}/${nums.slice(4)}`
+  }
+
   const buscarCep = async (cepDigitado) => {
     const cepLimpo = cepDigitado.replace(/\D/g, '')
     setCep(cepLimpo)
@@ -177,6 +209,10 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva a obra necessária'
     if (!prazo) novos.prazo = 'Selecione o prazo de execução'
+    else if (prazo === 'data') {
+      const fim = fimDoDiaData(dataInicial)
+      if (!fim || fim.getTime() <= Date.now()) novos.dataInicial = 'Informe uma data futura válida (dd/mm/aaaa)'
+    }
     if (!uf) novos.uf = 'Selecione o estado'
     if (!cidade) novos.cidade = 'Selecione a cidade'
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
@@ -266,7 +302,7 @@ export default function CadastrarObraScreen({ navigation }) {
         uf: uf.trim(),
         cidade: cidade.trim(),
         bairro: bairro.trim(),
-        horas_para_expirar: prazo,
+        horas_para_expirar: prazo === 'data' ? horasAteData(dataInicial) : prazo,
         endereco_obra: enderecoCompleto,
         latitude: geo.lat,
         longitude: geo.lng,
@@ -355,6 +391,17 @@ export default function CadastrarObraScreen({ navigation }) {
               </TouchableOpacity>
             ))}
           </View>
+          {prazo === 'data' && (
+            <Input
+              label="DATA INICIAL DA OBRA"
+              placeholder="dd/mm/aaaa"
+              value={dataInicial}
+              onChangeText={(t) => setDataInicial(mascararData(t))}
+              keyboardType="numeric"
+              maxLength={10}
+              erro={erros.dataInicial}
+            />
+          )}
           <Input label="DESCRIÇÃO DA OBRA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
           <Input label="VALOR OFERECIDO PARA A OBRA (R$)" placeholder="Ex: 2.500,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
           <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
