@@ -508,7 +508,10 @@ export default function CadastroScreen({ navigation }) {
   // spinner/"verificando". Se o servidor confirmar duplicado rápido, avisamos cedo
   // (alerta não-bloqueante) p/ o usuário voltar e corrigir; se a rede estiver lenta,
   // ele segue preenchendo normalmente e nada fica "travado".
-  const checarDisponibilidadeBackground = (payload, { marcarOk = false } = {}) => {
+  // aoDuplicar: quando informado, o 409 vira aviso INLINE (erro sob o campo) em vez do
+  // Alert. Usado pela checagem de CPF no onBlur, onde o usuário ainda está na tela do
+  // campo e um popup atrapalharia mais do que ajudaria.
+  const checarDisponibilidadeBackground = (payload, { marcarOk = false, aoDuplicar = null } = {}) => {
     comRetry(() => api.post('/auth/verificar-disponibilidade', payload), { timeout: true, servidor: true })
       .then(() => {
         // e-mail + CPF confirmados livres → handleCadastrar pula a re-checagem no submit.
@@ -517,12 +520,34 @@ export default function CadastroScreen({ navigation }) {
       .catch(err => {
         if (err?.status === 409 && montadoRef.current) {
           // Aviso não-bloqueante (codigo estável: cpf_duplicado / email_duplicado).
-          Alert.alert('Atenção', err?.mensagem || 'Estes dados já estão cadastrados.')
+          if (aoDuplicar) aoDuplicar(err)
+          else Alert.alert('Atenção', err?.mensagem || 'Estes dados já estão cadastrados.')
         } else {
           const kind = classificarErro(err)
           console.log(`[cadastro] ⚠ pré-checagem background ignorada | kind=${kind} | status=${err?.status} | code=${err?.code}`)
         }
       })
+  }
+
+  // Aviso EARLY de CPF duplicado, no ponto mais cedo possível: ao SAIR do campo, assim
+  // que o formato passa. Vale p/ prestador E dono — o dono nunca chegava no gate de
+  // transição do passo 2 (lá o passo 2 é o submit), então só descobria o duplicado no
+  // final. Mesma checagem de background do passo 1/2: fire-and-forget, sem gate.
+  const verificarCpfDisponivel = () => {
+    const doc = cpfCnpj.trim()
+    // Formato inválido/incompleto não vai à rede — validarPasso2 já cobre esse caso.
+    if (!doc || !validarCpfCnpj(doc)) return
+    checarDisponibilidadeBackground({ cpf_cnpj: doc }, {
+      aoDuplicar: (err) => setErros(e => ({ ...e, cpfCnpj: err?.mensagem || 'CPF/CNPJ já cadastrado' })),
+    })
+  }
+
+  // Qualquer edição de e-mail ou CPF invalida a pré-checagem já confirmada: o ref volta
+  // a false (handleCadastrar reconsulta no submit em vez de confiar no dado antigo) e o
+  // aviso inline sai da tela, já que se refere ao valor anterior.
+  const invalidarDisponibilidade = () => {
+    disponibilidadeOkRef.current = false
+    setErros(e => (e.cpfCnpj ? { ...e, cpfCnpj: null } : e))
   }
 
   const avancar = () => {
@@ -966,7 +991,7 @@ export default function CadastroScreen({ navigation }) {
                 <Input label="NOME" placeholder="Primeiro nome" value={nome} onChangeText={setNome} erro={erros.nome} estilo={{ flex: 1 }} />
                 <Input label="SOBRENOME" placeholder="Sobrenome" value={sobrenome} onChangeText={setSobrenome} estilo={{ flex: 1 }} />
               </View>
-              <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" erro={erros.email} />
+              <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={(t) => { setEmail(t); invalidarDisponibilidade() }} keyboardType="email-address" autoCapitalize="none" erro={erros.email} />
               <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
               <View>
                 <Input label="SENHA" placeholder="Mínimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
@@ -1008,7 +1033,7 @@ export default function CadastroScreen({ navigation }) {
                 erroEstado={erros.uf}
                 erroCidade={erros.cidade}
               />
-              <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={(t) => setCpfCnpj(mascararCpfCnpj(t))} keyboardType="numeric" erro={erros.cpfCnpj} />
+              <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={(t) => { setCpfCnpj(mascararCpfCnpj(t)); invalidarDisponibilidade() }} onBlur={verificarCpfDisponivel} keyboardType="numeric" erro={erros.cpfCnpj} />
               {isPrestador && (
                 <>
                   <View style={estilos.duasColunas}>
