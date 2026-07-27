@@ -75,7 +75,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const deletarItem = async (item, tipo) => {
     const jaPublicado = item.status === 'aberta' || item.status_aprovacao === 'aprovada'
     const aviso = jaPublicado
-      ? `⚠️ ATENÇÃO: ${tipo === 'obra' ? 'Esta obra' : 'Este reparo'} já foi publicado e prestadores podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
+      ? `⚠️ ATENÇÃO: ${tipo === 'obra' ? 'Esta obra' : 'Este reparo'} já foi publicado e profissionais podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
       : `Deseja excluir "${item.titulo}"?`
 
     Alert.alert('Excluir', aviso, [
@@ -145,7 +145,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
         {temMatch && (
           <View style={estilos.matchBadge}>
-            <Text style={estilos.matchBadgeTexto}>⏱ Prestador a caminho — toque para ver</Text>
+            <Text style={estilos.matchBadgeTexto}>⏱ Profissional a caminho — toque para ver</Text>
           </View>
         )}
 
