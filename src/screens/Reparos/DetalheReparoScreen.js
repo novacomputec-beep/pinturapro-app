@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -744,7 +744,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
           {reparo.prazo_atendimento_horas && (
@@ -1228,6 +1229,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Avaliação pós-encerrar (dono). Mesma invocação de ContratosFinalizadosScreen. */}
       <ModalAvaliacao
@@ -1246,6 +1248,9 @@ const estilos = StyleSheet.create({
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   topbarTitulo: { fontSize: 14, color: cores.textoMedio, fontWeight: '500' },
   corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  // Folga extra no fim da rolagem para o teclado não cobrir o último campo
+  // (contraproposta) — o padding horizontal/topo continua vindo de `corpo`.
+  scroll: { flexGrow: 1, paddingBottom: 40 },
   urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f4433644', borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
   urgenciaTexto: { fontSize: 14, fontWeight: '700', color: '#f44336' },
   urgenciaHoras: { fontSize: 12, color: '#f44336' },
