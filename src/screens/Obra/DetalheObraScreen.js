@@ -150,7 +150,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
     <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
       <Text style={estilos.relogioLabel}>{expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}</Text>
       <Text style={[estilos.relogioTempo, urgente && !expirou && { color: '#f44336' }, expirou && { color: '#666' }]}>{tempo}</Text>
-      {!expirou && <Text style={estilos.relogioSub}>O pintor deve chegar dentro deste prazo</Text>}
+      {!expirou && <Text style={estilos.relogioSub}>O profissional deve chegar dentro deste prazo</Text>}
       {expirou && <Text style={estilos.relogioSub}>A obra voltou para disponível</Text>}
     </View>
   )
@@ -364,7 +364,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     try {
       await comRetry(() => api.post(`/obras/${obra.id}/expirar-match`, {}))
       setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
-      Alert.alert('⏰ Tempo esgotado', 'O pintor não chegou a tempo. A obra está disponível novamente.')
+      Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. A obra está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
   }
 
@@ -521,7 +521,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     try {
       await comRetry(() => api.post(`/obras/${obra.id}/perguntar-tempo`, {}))
       setObra(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
-      Alert.alert('✅ Pintor notificado!', 'Ele vai informar quantos minutos precisa.')
+      Alert.alert('✅ Profissional notificado!', 'Ele vai informar quantos minutos precisa.')
     } catch (err) { console.log('[DetalheObra] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
   }
 
@@ -542,7 +542,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const handleResponderTempo = (aceito) => {
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O pintor precisará de ${obra.pedido_tempo_minutos} minuto(s) a mais.` : 'A obra voltará para disponível e o pintor será bloqueado.',
+      aceito ? `O profissional precisará de ${obra.pedido_tempo_minutos} minuto(s) a mais.` : 'A obra voltará para disponível e o profissional será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
@@ -796,7 +796,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   style={estilos.btnWhatsApp}
                   onPress={() => abrirWhatsApp(pintorMatch.telefone)}
                 >
-                  <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do pintor: {pintorMatch.telefone}</Text>
+                  <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do profissional: {pintorMatch.telefone}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && obra?.status !== 'encerrada' && (
@@ -806,7 +806,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               )}
               {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && (
                 <View style={estilos.pedidoAlertaBox}>
-                  <Text style={estilos.pedidoAlertaTitulo}>⚠️ Pintor precisa de mais tempo</Text>
+                  <Text style={estilos.pedidoAlertaTitulo}>⚠️ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
                   <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleperguntarTempo}>
                     <Text style={estilos.btnPerguntarTempoTexto}>⏱ Quanto tempo a mais você precisa?</Text>
@@ -815,12 +815,12 @@ export default function DetalheObraScreen({ route, navigation }) {
               )}
               {temMatch && obra.pedido_tempo_status === 'aguardando_minutos' && (
                 <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o pintor informar quantos minutos precisa...</Text>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o profissional informar quantos minutos precisa...</Text>
                 </View>
               )}
               {temMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && (
                 <View style={estilos.pedidoAlertaBox}>
-                  <Text style={estilos.pedidoAlertaTitulo}>⏳ Pintor precisa de mais tempo</Text>
+                  <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
                   <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {obra.pedido_tempo_minutos} minuto(s)</Text>
                   <View style={estilos.pedidoBotoesRow}>
@@ -833,10 +833,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
-              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🎨 Pintores candidatos ({candidatos.length})</Text>
+              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🎨 Profissionais candidatos ({candidatos.length})</Text>
               {candidatos.length === 0 ? (
                 <View style={estilos.vazioInteressados}>
-                  <Text style={estilos.vazioInteressadosTexto}>Nenhum pintor demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
+                  <Text style={estilos.vazioInteressadosTexto}>Nenhum profissional demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
                 </View>
               ) : (
                 candidatos.map((item) => {
@@ -953,20 +953,20 @@ export default function DetalheObraScreen({ route, navigation }) {
                     )}
                     {item.status === 'contraproposta_dono' && (
                       <View style={{ marginTop: 8, padding: 8, backgroundColor: '#2a1a00', borderRadius: raios.medio }}>
-                        <Text style={{ fontSize: 12, color: '#E8833A' }}>⏳ Aguardando resposta do pintor...</Text>
+                        <Text style={{ fontSize: 12, color: '#E8833A' }}>⏳ Aguardando resposta do profissional...</Text>
                       </View>
                     )}
                     {item.status === 'aceito' && !ehMatch && (
                       <View style={{ marginTop: 8, padding: 10, backgroundColor: '#0a1a0a', borderWidth: 1, borderColor: '#2a4a2a', borderRadius: raios.medio }}>
                         <Text style={{ fontSize: 13, color: '#4caf50', fontWeight: '600', marginBottom: 4 }}>⏳ Proposta aceita!</Text>
                         <Text style={{ fontSize: 12, color: cores.textoMedio, lineHeight: 18 }}>
-                          O contato do pintor será liberado assim que ele confirmar que está a caminho.
+                          O contato do profissional será liberado assim que ele confirmar que está a caminho.
                         </Text>
                       </View>
                     )}
                     {item.status === 'aceito' && ehMatch && (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — pintor a caminho.</Text>
+                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — profissional a caminho.</Text>
                       </View>
                     )}
                     {item.status === 'recusado' && (
@@ -1105,7 +1105,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                           onChangeText={v => setValorProposto(mascararValor(v))}
                         />
                         <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-                          ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros pintores até que o solicitante aceite. Pense bem!
+                          ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros profissionais até que o solicitante aceite. Pense bem!
                         </Text>
                       </View>
                     )}

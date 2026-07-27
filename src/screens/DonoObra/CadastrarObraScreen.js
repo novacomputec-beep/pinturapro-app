@@ -260,7 +260,7 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!montadoRef.current) return
     setCarregando(false)
     if (falhas.length === 0) {
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
@@ -322,7 +322,7 @@ export default function CadastrarObraScreen({ navigation }) {
     if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para pintores qualificados da sua região!',
+      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
       return
     }
@@ -426,7 +426,7 @@ export default function CadastrarObraScreen({ navigation }) {
                   permite localizar a obra. */}
               {logradouro.trim() !== '' && (
                 <View style={estilos.geoConfirm}>
-                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — pintores próximos serão notificados!</Text>
+                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — profissionais próximos serão notificados!</Text>
                 </View>
               )}
             </>
@@ -447,7 +447,7 @@ export default function CadastrarObraScreen({ navigation }) {
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           {/* Acima do botão, e não abaixo: embaixo o aviso ficava fora da dobra, em 11px
               apagados, e era lido depois de publicar — quando já não informa decisão nenhuma. */}
-          <Text style={estilos.avisoUpload}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, pintores qualificados da sua região serão notificados.</Text>
+          <Text style={estilos.avisoUpload}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, profissionais qualificados da sua região serão notificados.</Text>
           <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
           {carregando && <Text style={estilos.avisoUpload}>📤 Enviando fotos, aguarde...</Text>}
         </ScrollView>

@@ -20,7 +20,7 @@ const dicasPintura = [
   { icone: '🎨', titulo: 'Especifique o tipo de tinta', desc: 'Se tiver preferência por marca ou tipo de tinta (acrílica, PVA, textura), informe.' },
   { icone: '💰', titulo: 'Valor justo atrai profissionais', desc: 'Pesquise o valor médio por m² na sua região para uma proposta mais competitiva.' },
   { icone: '📋', titulo: 'Liste todos os serviços', desc: 'Massa corrida, selador, rodapés, janelas — liste tudo que precisa ser feito.' },
-  { icone: '😊', titulo: 'Boa sorte!', desc: 'Com essas dicas, você encontrará o pintor ideal para sua obra. Sucesso!' },
+  { icone: '😊', titulo: 'Boa sorte!', desc: 'Com essas dicas, você encontrará o profissional ideal para sua obra. Sucesso!' },
 ]
 
 export default function DicasCadastroScreen({ route, navigation }) {
@@ -29,7 +29,7 @@ export default function DicasCadastroScreen({ route, navigation }) {
   const titulo = tipo === 'reparo' ? 'Dicas para seu\nreparo' : 'Dicas para sua\nobra de pintura'
   const subtitulo = tipo === 'reparo'
     ? 'Siga essas dicas para encontrar o profissional ideal mais rápido!'
-    : 'Siga essas dicas para atrair os melhores pintores!'
+    : 'Siga essas dicas para atrair os melhores profissionais!'
   const proximaTela = tipo === 'reparo' ? 'CadastrarReparo' : 'CadastrarObra'
 
   return (

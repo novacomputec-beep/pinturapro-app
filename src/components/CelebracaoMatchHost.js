@@ -34,7 +34,7 @@ const detectar = async (usuario) => {
     if (r) return {
       chave: `interesse:${r.interesse_pendente_recente_id}`, emoji: '🔔',
       titulo: 'Seu reparo recebeu uma proposta!',
-      subtitulo: `"${r.titulo}" tem prestador(es) interessado(s). Veja e escolha o melhor!`,
+      subtitulo: `"${r.titulo}" tem profissional(is) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: r }, initial: false }),
     }
