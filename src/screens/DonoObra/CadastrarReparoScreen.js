@@ -334,7 +334,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             style={{ flex: 1 }}
             onPress={() => {
               setMostrarBanner(false)
-              if (reparoPendente) navigation.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: reparoPendente } })
+              if (reparoPendente) navigation.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: reparoPendente }, initial: false })
             }}
           >
             <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – seu reparo recebeu interessado(s) · toque para ver</Text>

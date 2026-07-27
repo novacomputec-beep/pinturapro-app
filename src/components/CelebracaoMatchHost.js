@@ -36,7 +36,7 @@ const detectar = async (usuario) => {
       titulo: 'Seu reparo recebeu uma proposta!',
       subtitulo: `"${r.titulo}" tem prestador(es) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
-      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: r } }),
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: r }, initial: false }),
     }
     const matched = (resp.reparos || []).find(x =>
       x.match_feito_em && x.match_usuario_id && naoVisto(`reparo_match:${x.id}`)
@@ -46,7 +46,7 @@ const detectar = async (usuario) => {
       titulo: 'Seu reparo vai ser realizado!',
       subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched } }),
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
   }
   // dono_obra — um pintor/construtor se candidatou
@@ -60,7 +60,7 @@ const detectar = async (usuario) => {
       titulo: 'Sua obra recebeu uma proposta!',
       subtitulo: `"${o.titulo}" tem profissional(is) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: o } }),
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: o }, initial: false }),
     }
     const matched = (resp.obras || []).find(x =>
       x.match_feito_em && x.match_usuario_id && naoVisto(`obra_match:${x.id}`)
@@ -70,7 +70,7 @@ const detectar = async (usuario) => {
       titulo: 'Sua obra vai ser realizada!',
       subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched } }),
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
   }
   // reparador — o dono aceitou sua proposta
@@ -92,7 +92,7 @@ const detectar = async (usuario) => {
       titulo: 'Parabéns! Você conseguiu o serviço!',
       subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } } }),
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
     }
   }
   // pintor/construtor — o dono aceitou sua candidatura
@@ -114,7 +114,7 @@ const detectar = async (usuario) => {
       titulo: 'Parabéns! Você conseguiu a obra!',
       subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } } }),
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
     }
   }
   return null
@@ -179,8 +179,8 @@ export default function CelebracaoMatchHost() {
     setEvento(null)
     // Contrapropostas usam ids diretos (sem closure navegar); demais eventos trazem navegar().
     if (ev?.tipo === 'contraproposta_prestador') {
-      if (ev.reparo_id) navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: ev.reparo_id } } })
-      else if (ev.obra_id) navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: ev.obra_id } } })
+      if (ev.reparo_id) navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: ev.reparo_id } }, initial: false })
+      else if (ev.obra_id) navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: ev.obra_id } }, initial: false })
       return
     }
     ev?.navegar?.()

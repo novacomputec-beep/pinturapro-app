@@ -337,7 +337,7 @@ export default function CadastrarObraScreen({ navigation }) {
             style={{ flex: 1 }}
             onPress={() => {
               setMostrarBanner(false)
-              if (obraPendente) navigation.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: obraPendente } })
+              if (obraPendente) navigation.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: obraPendente }, initial: false })
             }}
           >
             <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s) · toque para ver</Text>
