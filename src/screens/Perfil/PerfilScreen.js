@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios } from '../../utils/tema'
+import { avatar } from '../../utils/imagemOtimizada'
 
 const LinhaPerfil = ({ label, valor }) => (
   <View style={estilos.linhaWrap}>
@@ -147,7 +148,7 @@ export default function PerfilScreen({ navigation }) {
             activeOpacity={0.8}
           >
             {fotoUrl ? (
-              <Image source={{ uri: fotoUrl }} style={estilos.avatarFoto} />
+              <Image source={{ uri: avatar(fotoUrl) }} style={estilos.avatarFoto} />
             ) : (
               <View style={estilos.avatarCirculo}>
                 <Text style={estilos.avatarTexto}>{iniciais}</Text>

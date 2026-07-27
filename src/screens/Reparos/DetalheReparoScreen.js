@@ -16,6 +16,7 @@ import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import { avatar, media, full } from '../../utils/imagemOtimizada'
 
 const ContadorExpiracaoReparo = ({ expiraEm }) => {
   const [restante, setRestante] = useState(null)
@@ -688,7 +689,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           >
             <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>✕</Text>
           </TouchableOpacity>
-          <Image source={{ uri: fotoFullscreen }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+          <Image source={{ uri: full(fotoFullscreen) }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
         </View>
       </Modal>
 
@@ -806,7 +807,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
                     activeOpacity={0.7}
                   >
-                    <Image source={{ uri: midia.url }} style={estilos.midiaImagem} resizeMode="cover" />
+                    <Image source={{ uri: media(midia.url) }} style={estilos.midiaImagem} resizeMode="cover" />
                     {midia.tipo === 'video' && (
                       <View style={estilos.videoOverlay}>
                         <Text style={{ fontSize: 32, color: 'white' }}>▶</Text>
@@ -944,7 +945,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.candidatoTopo}>
                       {item.foto_url ? (
-                        <Image source={{ uri: item.foto_url }} style={estilos.candidatoAvatar} />
+                        <Image source={{ uri: avatar(item.foto_url) }} style={estilos.candidatoAvatar} />
                       ) : (
                         <View style={[estilos.candidatoAvatar, estilos.candidatoAvatarVazio]}>
                           <Text style={estilos.candidatoAvatarIniciais}>{iniciaisDe(item.nome)}</Text>
