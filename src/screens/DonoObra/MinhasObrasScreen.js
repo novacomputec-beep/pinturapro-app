@@ -103,7 +103,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
   const renderItem = ({ item, tipo }) => {
     const eEncerrado = item.status === 'encerrada'
-    const eExpirado  = !eEncerrado && item.status === 'aberta' && item.expira_em && new Date(item.expira_em) < new Date()
+    // Expiração vem PRONTA do servidor (relógio do banco). Comparar expira_em com o
+    // relógio do aparelho fazia a lista discordar do servidor quando a hora local estava
+    // adiantada/atrasada — o mesmo item aparecia expirado aqui e ativo lá.
+    const eExpirado  = !eEncerrado && item.status === 'aberta' && item.expirada
     const info       = eEncerrado || eExpirado
       ? null
       : (statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente)
