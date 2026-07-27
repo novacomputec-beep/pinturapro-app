@@ -19,12 +19,20 @@ const detectar = async (usuario) => {
   const ehReparador  = usuario.role === 'prestador' && usuario.tipo_prestador !== 'pintor'
   const ehPintor     = (usuario.role === 'prestador' && usuario.tipo_prestador === 'pintor') || usuario.role === 'assinante'
 
+  // Donos: a marca d'água é POR PROPOSTA (interesse/candidatura), não por reparo/obra.
+  // Chavear por `reparo:${id}`/`obra:${id}` silenciava o item para sempre depois da 1ª
+  // proposta — quem negociava e não fechava (o prestador recusa a contraproposta, p.ex.)
+  // nunca mais era avisado das propostas seguintes daquele mesmo reparo/obra. A API
+  // devolve o id da proposta pendente mais recente; enquanto ele mudar, o modal reaparece.
+
   // dono_reparo — um reparador demonstrou interesse
   if (ehDonoReparo) {
     const resp = await api.get('/reparos/minhas')
-    const r = (resp.reparos || []).find(x => Number(x.interesses_pendentes) > 0 && naoVisto(`reparo:${x.id}`))
+    const r = (resp.reparos || []).find(x =>
+      x.interesse_pendente_recente_id != null && naoVisto(`interesse:${x.interesse_pendente_recente_id}`)
+    )
     if (r) return {
-      chave: `reparo:${r.id}`, emoji: '🔔',
+      chave: `interesse:${r.interesse_pendente_recente_id}`, emoji: '🔔',
       titulo: 'Seu reparo recebeu uma proposta!',
       subtitulo: `"${r.titulo}" tem prestador(es) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
@@ -44,9 +52,11 @@ const detectar = async (usuario) => {
   // dono_obra — um pintor/construtor se candidatou
   if (ehDonoObra) {
     const resp = await api.get('/obras/minhas')
-    const o = (resp.obras || []).find(x => Number(x.candidaturas_pendentes) > 0 && naoVisto(`obra:${x.id}`))
+    const o = (resp.obras || []).find(x =>
+      x.candidatura_pendente_recente_id != null && naoVisto(`candidatura:${x.candidatura_pendente_recente_id}`)
+    )
     if (o) return {
-      chave: `obra:${o.id}`, emoji: '🔔',
+      chave: `candidatura:${o.candidatura_pendente_recente_id}`, emoji: '🔔',
       titulo: 'Sua obra recebeu uma proposta!',
       subtitulo: `"${o.titulo}" tem profissional(is) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
