@@ -969,7 +969,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     {linhaQualif ? <Text style={estilos.candidatoLinha}>⏱ {linhaQualif}</Text> : null}
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
                     {item.valor_proposto != null && (
-                      <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
+                      <Text style={{ fontSize: 18, fontWeight: '700', color: cores.textoMedio, marginBottom: 4 }}>
                         💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
