@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -671,7 +671,8 @@ export default function DetalheObraScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
           {(obra.horas_para_expirar || obra.prazo_execucao_horas) && (
@@ -1136,6 +1137,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Avaliação pós-encerrar (dono). Mesma invocação de ContratosFinalizadosScreen. */}
       <ModalAvaliacao
@@ -1154,6 +1156,9 @@ const estilos = StyleSheet.create({
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   topbarTitulo: { fontSize: 14, color: cores.textoMedio, fontWeight: '500' },
   corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  // Folga extra no fim da rolagem para o teclado não cobrir o último campo
+  // (contraproposta) — o padding horizontal/topo continua vindo de `corpo`.
+  scroll: { flexGrow: 1, paddingBottom: 40 },
   urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria + '44', borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
   urgenciaTexto: { fontSize: 14, fontWeight: '700', color: cores.primaria },
   urgenciaHoras: { fontSize: 12, color: cores.primaria },
