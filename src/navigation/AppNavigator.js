@@ -175,7 +175,6 @@ const navegarParaNotificacao = (data) => {
       case 'pedido_tempo':
       case 'aprovar_tempo':
       case 'interesse_recusado':
-      case 'contraproposta_dono':
       case 'contra_oferta':
       case 'perguntar_tempo':
       case 'tempo_aceito':
