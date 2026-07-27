@@ -135,10 +135,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
         {(eEncerrado || eExpirado) && (
           <View style={[estilos.tagHistorico, eEncerrado ? estilos.tagEncerrado : estilos.tagExpirado]}>
-            <Text style={[estilos.tagHistoricoTexto, { color: eEncerrado ? '#4caf50' : '#888' }]}>
+            <Text style={[estilos.tagHistoricoTexto, { color: eEncerrado ? '#4caf50' : '#f44336' }]}>
               {eEncerrado
                 ? (tipo === 'obra' ? '🔒 Obra encerrada' : '🔒 Reparo encerrado')
-                : '⏰ Expirado sem match'}
+                : (tipo === 'obra' ? '⏰ OBRA EXPIRADA' : '⏰ REPARO EXPIRADO')}
             </Text>
           </View>
         )}

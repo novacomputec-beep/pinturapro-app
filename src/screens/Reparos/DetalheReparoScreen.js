@@ -868,11 +868,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
             <>
               {reparo.status === 'aberta' && !reparo.match_usuario_id && (
                 <TouchableOpacity
-                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, buscandoOrcamento && { opacity: 0.6 }]}
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (buscandoOrcamento || reparo.expirada) && { opacity: 0.6 }]}
                   onPress={abrirModalEstender}
-                  disabled={buscandoOrcamento}
+                  disabled={buscandoOrcamento || reparo.expirada}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{buscandoOrcamento ? 'Carregando…' : '⏳ Aumentar prazo do reparo'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{buscandoOrcamento ? 'Carregando…' : reparo.expirada ? 'Prazo encerrado' : '⏳ Aumentar prazo do reparo'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
