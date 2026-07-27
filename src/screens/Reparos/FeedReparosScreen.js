@@ -14,6 +14,7 @@ import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
+import { avatar } from '../../utils/imagemOtimizada'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
@@ -167,7 +168,7 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
         <View style={estilos.conteudoRow}>
           {temFoto ? (
             <Image
-              source={{ uri: capa }}
+              source={{ uri: avatar(capa) }}
               style={estilos.thumb}
               resizeMode="cover"
               onError={() => setFotoFalhou(true)}
@@ -435,7 +436,7 @@ export default function FeedReparosScreen({ navigation }) {
         </View>
         <TouchableOpacity style={estilos.avatar} onPress={() => navigation.navigate('Perfil')}>
           {usuario?.foto_url ? (
-            <Image source={{ uri: usuario.foto_url }} style={{ width: 34, height: 34, borderRadius: 17 }} />
+            <Image source={{ uri: avatar(usuario.foto_url) }} style={{ width: 34, height: 34, borderRadius: 17 }} />
           ) : (
             <Text style={estilos.avatarTexto}>
               {usuario?.nome?.substring(0, 2).toUpperCase()}

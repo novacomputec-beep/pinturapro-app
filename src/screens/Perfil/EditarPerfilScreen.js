@@ -12,6 +12,7 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
 import { cores, espacos, raios } from '../../utils/tema'
+import { avatar } from '../../utils/imagemOtimizada'
 
 // Sobe a foto direto ao Cloudinary com retry resiliente e SILENCIOSO.
 // Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
@@ -153,7 +154,7 @@ export default function EditarPerfilScreen({ navigation }) {
                 <ActivityIndicator color={cores.primaria} />
               </View>
             ) : fotoUrl ? (
-              <Image source={{ uri: fotoUrl }} style={estilos.avatarFoto} />
+              <Image source={{ uri: avatar(fotoUrl) }} style={estilos.avatarFoto} />
             ) : (
               <View style={estilos.avatarCirculo}>
                 <Text style={estilos.avatarIniciais}>
