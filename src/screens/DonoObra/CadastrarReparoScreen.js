@@ -247,7 +247,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!montadoRef.current) return
     setCarregando(false)
     if (falhas.length === 0) {
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
+      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
@@ -319,7 +319,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para prestadores qualificados da sua região!',
+      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
       return
     }
@@ -422,7 +422,7 @@ export default function CadastrarReparoScreen({ navigation }) {
                   permite localizar o reparo. */}
               {logradouro.trim() !== '' && (
                 <View style={estilos.geoConfirm}>
-                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — prestadores próximos serão notificados!</Text>
+                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — profissionais próximos serão notificados!</Text>
                 </View>
               )}
             </>
