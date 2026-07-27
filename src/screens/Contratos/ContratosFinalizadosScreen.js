@@ -138,7 +138,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
         {(ehDono ? item.prestador_nome : item.dono_nome) && (
           <Text style={estilos.dono}>
-            👤 {ehDono ? `Prestador: ${item.prestador_nome}` : item.dono_nome}
+            👤 {ehDono ? `Profissional: ${item.prestador_nome}` : item.dono_nome}
           </Text>
         )}
 
@@ -169,7 +169,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
             style={estilos.btnAvaliar}
             onPress={() => setAvaliandoContrato(item)}
           >
-            <Text style={estilos.btnAvaliarTexto}>⭐ Avaliar {ehDono ? 'prestador' : 'solicitante'}</Text>
+            <Text style={estilos.btnAvaliarTexto}>⭐ Avaliar {ehDono ? 'profissional' : 'solicitante'}</Text>
           </TouchableOpacity>
         )}
         {item.ja_avaliei && (
