@@ -126,6 +126,18 @@ const navegarParaNotificacao = (data) => {
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
         else navegar(tabEmAndamento)
         break
+      // Proposta NOVA recebida (dono) — deep-link direto ao detalhe, que é onde vive a
+      // lista de candidatos/interessados. Cair só na aba deixava o dono numa lista cujo
+      // único indício é o contador "N profissional(is) interessado(s)": não diz QUAL
+      // demanda recebeu a proposta nem leva até ela. Mesma forma de 'candidatura_aceita'.
+      case 'nova_candidatura':
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        else navegar(tabEmAndamento)
+        break
+      case 'novo_interesse':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        else navegar(tabEmAndamento)
+        break
       // Contraproposta do dono — deep-link direto ao detalhe (reparo ou obra) p/ o prestador responder
       case 'contraproposta_dono':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
@@ -158,9 +170,7 @@ const navegarParaNotificacao = (data) => {
         break
       // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
       // negociações em andamento — vão para a lista correspondente do usuário
-      case 'nova_candidatura':
       case 'match_obra':
-      case 'novo_interesse':
       case 'match_reparo':
       case 'pedido_tempo':
       case 'aprovar_tempo':
