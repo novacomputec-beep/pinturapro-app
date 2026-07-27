@@ -96,11 +96,11 @@ const navegarParaNotificacao = (data) => {
     // Só navega com o id presente; sem id, cai no switch (que não trata estes tipos)
     // e não faz nada, em vez de abrir o detalhe com id indefinido.
     if (data.tipo.startsWith('obra_expirando') && data.obra_id) {
-      navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+      navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
       return
     }
     if (data.tipo.startsWith('reparo_expirando') && data.reparo_id) {
-      navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+      navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
       return
     }
     switch (data.tipo) {
@@ -119,11 +119,11 @@ const navegarParaNotificacao = (data) => {
         navegar((ehPrestador || ehDonoComAba) ? 'Contratos Finalizados' : tabEmAndamento); break
       // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe
       case 'candidatura_aceita':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'interesse_aceito':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Proposta NOVA recebida (dono) — deep-link direto ao detalhe, que é onde vive a
@@ -131,28 +131,28 @@ const navegarParaNotificacao = (data) => {
       // único indício é o contador "N profissional(is) interessado(s)": não diz QUAL
       // demanda recebeu a proposta nem leva até ela. Mesma forma de 'candidatura_aceita'.
       case 'nova_candidatura':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'novo_interesse':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Contraproposta do dono — deep-link direto ao detalhe (reparo ou obra) p/ o prestador responder
       case 'contraproposta_dono':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
-        else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Demanda próxima: quem recebe ainda NÃO está envolvido com ela, então o item vive
       // no feed de disponíveis — e é por lá que se chega ao detalhe. Mandar para
       // "Meus Reparos"/"Minhas Obras" cairia numa lista onde a demanda não aparece.
       case 'reparo_proximo':
-        if (data.reparo_id) navigationRef.current.navigate('Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        if (data.reparo_id) navigationRef.current.navigate('Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar('Reparos')
         break
       case 'obra_proxima':
-        if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar('Obras')
         break
       // Resultado da moderação da obra — deep-link ao detalhe para o DONO. Em 'obra_recusada'
@@ -160,12 +160,12 @@ const navegarParaNotificacao = (data) => {
       // sem o id o dono não tem como abrir o motivo da recusa.
       case 'obra_aprovada':
       case 'obra_recusada':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } } })
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
       case 'reparo_5min_restantes':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } } })
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
