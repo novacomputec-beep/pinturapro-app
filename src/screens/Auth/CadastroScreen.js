@@ -250,6 +250,9 @@ export default function CadastroScreen({ navigation }) {
   // file://): se perdidas, são re-selecionadas (rápido). A senha vai no SecureStore
   // (cifrado, mesmo mecanismo do token); o resto no AsyncStorage. Limpamos o
   // rascunho ao concluir o cadastro ou ao sair da tela (cancelar).
+  // A ScrollView do formulário é UMA só para os 4 passos (sem key por passo, logo não
+  // remonta): sem este handle não há como devolver o scroll ao topo na troca de passo.
+  const scrollRef = useRef(null)
   const restauradoRef = useRef(false)   // trava saves até a restauração inicial terminar
   const snapshotRef = useRef({})        // campos NÃO sensíveis (AsyncStorage) — sempre atual
   const senhaRef = useRef('')           // senha (SecureStore) — sempre atual
@@ -340,7 +343,15 @@ export default function CadastroScreen({ navigation }) {
     })
     return () => sub.remove()
   }, [])
-  useEffect(() => { salvarRascunho() }, [passo])
+  // Troca de passo: salva o rascunho e devolve o scroll ao topo. Como só o miolo do
+  // formulário troca (o cabeçalho e a própria ScrollView continuam montados), o offset
+  // sobrevive à transição e o passo novo abriria no meio. Sem animação: é um recomeço
+  // de tela, não um deslocamento que o usuário pediu. No passo 0 o ref está nulo —
+  // aquela tela tem ScrollView própria — e o encadeamento opcional cobre o caso.
+  useEffect(() => {
+    salvarRascunho()
+    scrollRef.current?.scrollTo({ y: 0, animated: false })
+  }, [passo])
   // Salva também logo após cada upload de foto concluído: as novas secure_urls
   // entram no estado *Url, então persistimos na hora (mesmo idioma do save-por-passo).
   useEffect(() => { salvarRascunho() }, [docFrenteUrl, docVersoUrl, selfieUrl])
@@ -950,7 +961,7 @@ export default function CadastroScreen({ navigation }) {
   return (
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
