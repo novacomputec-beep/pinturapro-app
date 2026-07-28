@@ -82,6 +82,10 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [mostrarBanner, setMostrarBanner] = useState(false)
   const [reparoPendente, setReparoPendente] = useState(null)
   const enviandoRef = useRef(false)
+  // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
+  // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
+  // outra aba no meio de um POST que ainda pode falhar apagaria o formulário à toa.
+  const submetidoRef = useRef(false)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
   const scrollRef = useRef(null)
@@ -102,7 +106,17 @@ export default function CadastrarReparoScreen({ navigation }) {
   // enquanto a flag está desligada.
   const midia = useUploadMidiaDemanda({ vertical: 'reparo', montadoRef, logPrefix: '[CadastrarReparo]' })
 
+  // Reset APÓS ENVIO BEM-SUCEDIDO — espelhado em CadastrarObraScreen. Após um envio
+  // bem-sucedido navegamos para 'Meus Reparos' (outra aba); ao voltar para 'Novo Reparo'
+  // o foco dispara este reset, limpando as mídias e liberando os bitmaps de preview. Em
+  // caso de FALHA o usuário permanece nesta mesma tela (sem nova transição de foco),
+  // então os anexos NÃO são descartados e podem ser reenviados.
+  // O foco sozinho não diz POR QUE a tela foi focada: sem a trava abaixo, uma simples
+  // ida-e-volta de aba era indistinguível do retorno pós-envio e apagava um formulário
+  // já preenchido. Só a criação confirmada arma o reset, e ele se desarma ao rodar.
   useFocusEffect(useCallback(() => {
+    if (!submetidoRef.current) return
+    submetidoRef.current = false
     setTitulo('')
     setCategoria('hidraulica')
     setDescricao('')
@@ -307,6 +321,10 @@ export default function CadastrarReparoScreen({ navigation }) {
       }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
+      // O reparo existe: daqui em diante o retorno a esta aba é um recomeço, e só agora o
+      // reset por foco fica armado. Vale para os dois desfechos abaixo (com e sem mídia),
+      // inclusive quando alguma mídia falha — o reparo já foi criado de qualquer forma.
+      submetidoRef.current = true
     } catch (e) {
       console.log('[CadastrarReparo] falha ao criar reparo | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
       const msg = e.mensagem || 'Não foi possível cadastrar o reparo. Tente novamente.'
