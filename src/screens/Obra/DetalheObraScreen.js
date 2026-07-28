@@ -787,6 +787,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               )}
               <ModalEstenderPrazo
                 visivel={modalEstender}
+                unidade="dias"
                 extensaoMaximaHoras={orcamentoEstender}
                 mensagemCap="Esta obra já está no prazo máximo permitido."
                 onEstender={handleEstender}
