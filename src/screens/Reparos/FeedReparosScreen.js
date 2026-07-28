@@ -245,6 +245,9 @@ export default function FeedReparosScreen({ navigation }) {
   const categoriaRef = useRef(categoria); categoriaRef.current = categoria
   const distanciaRef = useRef(distancia); distanciaRef.current = distancia
   const cidadeBuscaRef = useRef(cidadeBusca); cidadeBuscaRef.current = cidadeBusca
+  // Mesmo motivo: a âncora do raio sai da cidade cadastrada, e o perfil pode ser editado
+  // (EditarPerfil chama setUsuario) enquanto o callback de foco segue preso ao 1º render.
+  const usuarioRef = useRef(usuario); usuarioRef.current = usuario
 
   // Atualização otimista: a seleção (highlight) muda na hora; a busca é disparada pelo
   // useEffect abaixo, independente da chamada de API. O filtro de distância NÃO é
@@ -337,10 +340,34 @@ export default function FeedReparosScreen({ navigation }) {
         params.set('cidade_busca', cidadeBusca.cidade)
         params.set('uf_busca', cidadeBusca.uf)
       }
-      // GPS só quando o raio é medido a partir de onde o usuário está: filtro por km E sem
-      // cidade escolhida. Com cidade escolhida, o servidor ancora a busca em cidade_busca +
-      // uf_busca (enviados acima) e as coordenadas do aparelho não têm papel nenhum.
+      // Filtro por km: a âncora do raio é sempre uma CIDADE, nunca o aparelho. Com cidade
+      // escolhida ela já foi enviada acima; sem cidade escolhida, entra a cidade CADASTRADA
+      // do usuário. O servidor resolve o centroide a partir de cidade_busca + uf_busca, então
+      // os dois campos andam juntos — um sozinho não identifica município. Sem cidade/uf no
+      // cadastro, segue sem âncora e a API cai para o filtro por cidade.
       if (dist !== 'estado' && dist !== 'pais' && dist !== 'cidade' && !cidadeBusca) {
+        const u = usuarioRef.current
+        // Há cadastro em que a UF vem colada na cidade ("Niterói, RJ"). O sufixo é sempre
+        // retirado do nome — com ele o servidor não acha o município nem quando a UF existe
+        // em campo próprio. A UF cadastrada tem prioridade; o sufixo só cobre quem não a tem.
+        let cidadeAncora = u?.cidade || null
+        let ufSufixo = null
+        if (cidadeAncora) {
+          const partes = cidadeAncora.match(/^\s*(.+?),\s*([A-Za-z]{2})\s*$/)
+          if (partes) {
+            cidadeAncora = partes[1].trim()
+            ufSufixo = partes[2].toUpperCase()
+          } else {
+            cidadeAncora = cidadeAncora.trim()
+          }
+        }
+        const ufAncora = u?.uf || ufSufixo
+        if (cidadeAncora && ufAncora) {
+          params.set('cidade_busca', cidadeAncora)
+          params.set('uf_busca', ufAncora)
+        }
+        // O GPS continua sendo lido aqui, mas SÓ alimenta a distância por card (setCoords):
+        // não entra mais nos parâmetros da busca, logo não desloca mais o raio.
         try {
           const { status } = await Location.requestForegroundPermissionsAsync()
           if (status === 'granted') {
@@ -366,14 +393,13 @@ export default function FeedReparosScreen({ navigation }) {
                 coordsUsar = loc.coords
               } catch (errGps) {
                 // Timeout/permissão de GPS: se houver coords em cache (mesmo expiradas),
-                // usa silenciosamente; senão segue sem lat/lng (API cai p/ filtro por cidade).
+                // usa silenciosamente; senão a distância por card fica sem base nesta
+                // passada — a busca em si não depende mais disto.
                 console.log('[FeedReparos] GPS indisponível, usando cache se houver | msg:', errGps.message)
                 if (gpsCache.coords) coordsUsar = gpsCache.coords
               }
             }
             if (coordsUsar) {
-              params.set('lat', String(coordsUsar.latitude))
-              params.set('lng', String(coordsUsar.longitude))
               if (mountedRef.current && abortRef.current === controller) {
                 setCoords({ lat: coordsUsar.latitude, lng: coordsUsar.longitude })
               }
