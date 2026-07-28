@@ -82,6 +82,10 @@ export default function CadastrarObraScreen({ navigation }) {
   const [mostrarBanner, setMostrarBanner] = useState(false)
   const [obraPendente, setObraPendente] = useState(null)
   const enviandoRef = useRef(false)
+  // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
+  // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
+  // outra aba no meio de um POST que ainda pode falhar apagaria o formulário à toa.
+  const submetidoRef = useRef(false)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
 
@@ -95,13 +99,18 @@ export default function CadastrarObraScreen({ navigation }) {
   // enquanto a flag está desligada.
   const midia = useUploadMidiaDemanda({ vertical: 'obra', montadoRef, logPrefix: '[CadastrarObra]' })
 
-  // Reset completo ao focar a tela — espelha CadastrarReparoScreen para que ambas
-  // se comportem de forma idêntica. Após um envio bem-sucedido navegamos para
-  // 'Minhas Obras' (outra aba); ao voltar para 'Nova Obra' o foco dispara este
-  // reset, limpando as mídias e liberando os bitmaps de preview. Em caso de FALHA
-  // o usuário permanece nesta mesma tela (sem nova transição de foco), então os
-  // anexos NÃO são descartados e podem ser reenviados.
+  // Reset APÓS ENVIO BEM-SUCEDIDO — espelha CadastrarReparoScreen para que ambas se
+  // comportem de forma idêntica. Após um envio bem-sucedido navegamos para 'Minhas
+  // Obras' (outra aba); ao voltar para 'Nova Obra' o foco dispara este reset, limpando
+  // as mídias e liberando os bitmaps de preview. Em caso de FALHA o usuário permanece
+  // nesta mesma tela (sem nova transição de foco), então os anexos NÃO são descartados
+  // e podem ser reenviados.
+  // O foco sozinho não diz POR QUE a tela foi focada: sem a trava abaixo, uma simples
+  // ida-e-volta de aba era indistinguível do retorno pós-envio e apagava um formulário
+  // já preenchido. Só a criação confirmada arma o reset, e ele se desarma ao rodar.
   useFocusEffect(useCallback(() => {
+    if (!submetidoRef.current) return
+    submetidoRef.current = false
     setTitulo('')
     setCategoria('residencial')
     setDescricao('')
@@ -310,6 +319,10 @@ export default function CadastrarObraScreen({ navigation }) {
       }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
+      // A obra existe: daqui em diante o retorno a esta aba é um recomeço, e só agora o
+      // reset por foco fica armado. Vale para os dois desfechos abaixo (com e sem mídia),
+      // inclusive quando alguma mídia falha — a obra já foi criada de qualquer forma.
+      submetidoRef.current = true
     } catch (e) {
       console.log('[CadastrarObra] falha ao criar obra | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
       const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
