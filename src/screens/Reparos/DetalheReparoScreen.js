@@ -187,8 +187,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [minutosTempo, setMinutosTempo] = useState('')
   const [modalEstender, setModalEstender] = useState(false)
   const [estendendo, setEstendendo] = useState(false)
-  const [orcamentoEstender, setOrcamentoEstender] = useState(null)
-  const [buscandoOrcamento, setBuscandoOrcamento] = useState(false)
   // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
   // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
   // futuro nem vale abrir o modal — o envio só voltaria recusado.
@@ -451,25 +449,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. O reparo está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
-  }
-
-  // Lazy-fetch do orçamento de extensão NO TOQUE (não no mount): busca o detalhe fresco
-  // só quando o dono decide aumentar o prazo, lê extensao_maxima_horas e abre o modal.
-  // Não altera o comportamento de mount da tela. Falha → toast e NÃO abre o modal
-  // (nunca abrir com orçamento adivinhado/velho). Espelha o abrirModalEstender da obra.
-  const abrirModalEstender = async () => {
-    if (buscandoOrcamento) return
-    setBuscandoOrcamento(true)
-    try {
-      const resposta = await comRetry(() => api.get(`/reparos/${reparo.id}`))
-      setOrcamentoEstender(Number(resposta?.reparo?.extensao_maxima_horas) || 0)
-      setModalEstender(true)
-    } catch (err) {
-      console.log('[DetalheReparo] falha ao buscar orçamento de extensão | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      Alert.alert('Erro', err.mensagem || 'Não foi possível carregar as opções de prazo. Tente novamente.')
-    } finally {
-      setBuscandoOrcamento(false)
-    }
   }
 
   // Aumentar prazo (dono do reparo). Espelha o padrão de handleResponderInteresse:
@@ -892,20 +871,18 @@ export default function DetalheReparoScreen({ route, navigation }) {
             <>
               {reparo.status === 'aberta' && !reparo.match_usuario_id && (
                 <TouchableOpacity
-                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (buscandoOrcamento || reparo.expirada || emEsperaEstender) && { opacity: 0.6 }]}
-                  onPress={abrirModalEstender}
-                  disabled={buscandoOrcamento || reparo.expirada || emEsperaEstender}
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (reparo.expirada || emEsperaEstender) && { opacity: 0.6 }]}
+                  onPress={() => setModalEstender(true)}
+                  disabled={reparo.expirada || emEsperaEstender}
                 >
                   {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
                       para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{buscandoOrcamento ? 'Carregando…' : reparo.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar prazo do reparo'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{reparo.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar prazo do reparo'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
                 visivel={modalEstender}
                 unidade="horas"
-                extensaoMaximaHoras={orcamentoEstender}
-                mensagemCap="Este reparo já está no prazo máximo permitido."
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
               />

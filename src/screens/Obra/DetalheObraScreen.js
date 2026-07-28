@@ -187,8 +187,6 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [minutosTempo, setMinutosTempo] = useState('')
   const [modalEstender, setModalEstender] = useState(false)
   const [estendendo, setEstendendo] = useState(false)
-  const [orcamentoEstender, setOrcamentoEstender] = useState(null)
-  const [buscandoOrcamento, setBuscandoOrcamento] = useState(false)
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
 
@@ -367,26 +365,6 @@ export default function DetalheObraScreen({ route, navigation }) {
       setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. A obra está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
-  }
-
-  // Lazy-fetch do orçamento de extensão NO TOQUE (não no mount): busca o detalhe fresco
-  // só quando o dono decide aumentar o prazo, lê extensao_maxima_horas e abre o modal.
-  // Não altera o comportamento de mount da tela. Falha → toast e NÃO abre o modal
-  // (nunca abrir com orçamento adivinhado/velho). Espelha o abrirModalEstender do reparo.
-  const abrirModalEstender = async () => {
-    if (buscandoOrcamento) return
-    setBuscandoOrcamento(true)
-    try {
-      const resposta = await comRetry(() => obrasService.detalhe(obra.id))
-      const det = resposta?.obra || resposta
-      setOrcamentoEstender(Number(det?.extensao_maxima_horas) || 0)
-      setModalEstender(true)
-    } catch (err) {
-      console.log('[DetalheObra] falha ao buscar orçamento de extensão | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      Alert.alert('Erro', err.mensagem || 'Não foi possível carregar as opções de prazo. Tente novamente.')
-    } finally {
-      setBuscandoOrcamento(false)
-    }
   }
 
   // Aumentar prazo (dono da obra). Espelha o padrão de handleResponderCandidatura:
@@ -778,18 +756,16 @@ export default function DetalheObraScreen({ route, navigation }) {
             <>
               {obra.status === 'aberta' && !obra.match_usuario_id && (
                 <TouchableOpacity
-                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (buscandoOrcamento || obra.expirada) && { opacity: 0.6 }]}
-                  onPress={abrirModalEstender}
-                  disabled={buscandoOrcamento || obra.expirada}
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, obra.expirada && { opacity: 0.6 }]}
+                  onPress={() => setModalEstender(true)}
+                  disabled={obra.expirada}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{buscandoOrcamento ? 'Carregando…' : obra.expirada ? 'Prazo encerrado' : '⏳ Aumentar prazo da obra'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : '⏳ Aumentar prazo da obra'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
                 visivel={modalEstender}
                 unidade="dias"
-                extensaoMaximaHoras={orcamentoEstender}
-                mensagemCap="Esta obra já está no prazo máximo permitido."
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
               />
