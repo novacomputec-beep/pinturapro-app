@@ -74,6 +74,9 @@ export default function CadastrarObraScreen({ navigation }) {
   const [bairro, setBairro] = useState('')
   const [cidade, setCidade] = useState('')
   const [uf, setUf] = useState('')
+  // Opcional e independente do CEP: ajuda o profissional a achar o local ("portão azul",
+  // "em frente à padaria"). Fica sempre visível, inclusive sem CEP válido.
+  const [pontoReferencia, setPontoReferencia] = useState('')
   const [latitude, setLatitude] = useState(null)
   const [longitude, setLongitude] = useState(null)
   const [buscandoCep, setBuscandoCep] = useState(false)
@@ -125,6 +128,7 @@ export default function CadastrarObraScreen({ navigation }) {
     setBairro('')
     setCidade('')
     setUf('')
+    setPontoReferencia('')
     setLatitude(null)
     setLongitude(null)
     setErros({})
@@ -313,6 +317,8 @@ export default function CadastrarObraScreen({ navigation }) {
         bairro: bairro.trim(),
         horas_para_expirar: prazo === 'data' ? horasAteData(dataInicial) : prazo,
         endereco_obra: enderecoCompleto,
+        // Campo livre e opcional: vazio vira null em vez de string vazia.
+        ponto_referencia: pontoReferencia.trim() || null,
         latitude: geo.lat,
         longitude: geo.lng,
         client_request_id: clientRequestIdRef.current,
@@ -444,6 +450,14 @@ export default function CadastrarObraScreen({ navigation }) {
               )}
             </>
           )}
+          {/* Sempre visível: não depende de enderecoEncontrado, porque é justamente em
+              endereço difícil (CEP geral, sem logradouro) que a referência mais ajuda. */}
+          <Input
+            label="PONTO DE REFERÊNCIA (opcional)"
+            placeholder="Ex: portão azul, em frente à padaria"
+            value={pontoReferencia}
+            onChangeText={setPontoReferencia}
+          />
           <SeletorLocalidade
             uf={uf}
             cidade={cidade}

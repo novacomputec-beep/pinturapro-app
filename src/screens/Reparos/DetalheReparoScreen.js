@@ -830,6 +830,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
             <View style={estilos.enderecoMatchBox}>
               <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
               <Text style={estilos.enderecoMatchTexto}>{reparo.endereco_reparo}</Text>
+              {/* Opcional no cadastro: só ocupa espaço quando o dono realmente informou. */}
+              {reparo.ponto_referencia ? (
+                <Text style={estilos.pontoReferenciaTexto}>🔎 Referência: {reparo.ponto_referencia}</Text>
+              ) : null}
             </View>
           ) : null}
           <Text style={estilos.local}>
@@ -837,7 +841,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
             {distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
           </Text>
           {isDono && reparo.endereco_reparo ? (
-            <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
+            <>
+              <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
+              {reparo.ponto_referencia ? (
+                <Text style={estilos.pontoReferenciaLinha}>🔎 Referência: {reparo.ponto_referencia}</Text>
+              ) : null}
+            </>
           ) : null}
 
           {reparo.descricao && (
@@ -1325,6 +1334,11 @@ const estilos = StyleSheet.create({
   enderecoMatchBox: { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 12, marginBottom: 12 },
   enderecoMatchLabel: { fontSize: 12, fontWeight: '700', color: cores.primaria, marginBottom: 4 },
   enderecoMatchTexto: { fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
+  pontoReferenciaTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginTop: 6 },
+  // Mesmo visual do pontoReferenciaTexto (dentro da caixa), com o espaçamento da linha
+  // simples do dono: o marginTop negativo aproxima da linha de endereço acima, como o
+  // enderecoLinha faz com a linha de cidade/bairro.
+  pontoReferenciaLinha: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginTop: -10, marginBottom: 16 },
   localDistancia: { color: cores.primaria, fontWeight: '600' },
   secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
   descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
