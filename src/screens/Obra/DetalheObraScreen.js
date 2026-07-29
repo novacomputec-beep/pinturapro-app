@@ -542,6 +542,11 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const temMatch = obra?.match_feito_em && obra?.match_usuario_id
+  // Obra finalizada é SOMENTE LEITURA. Encerrar não limpa match_feito_em/match_usuario_id,
+  // então todo bloco pendurado apenas em temMatch/souPintorDoMatch continuaria ativo depois
+  // da conclusão. Este flag é o gate único de todas as ações; os botões de Encerrar já testam
+  // o status por conta própria e ficam como estão.
+  const encerrada = obra?.status === 'encerrada'
   const souPintorDoMatch = temMatch && obra?.match_usuario_id === usuario?.id
   const pintorMatch = temMatch ? candidatos.find(c => c.usuario_id === obra.match_usuario_id) : null
   const distancia = distanciaItemKm(coords, obra)
@@ -728,7 +733,9 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           ) : null}
 
-          {temMatch && obra.expira_em && (
+          {/* Paridade com DetalheReparo: a contagem NÃO deve renderizar quando encerrada
+              (evita, inclusive, o onExpirar disparar /expirar-match numa obra concluída). */}
+          {temMatch && obra.expira_em && !encerrada && (
             <RelogioRegressivo
               expiraEm={obra.expira_em}
               onExpirar={handleExpirarMatch}
@@ -743,7 +750,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           ) : null}
 
-          {temMatch && (
+          {temMatch && !encerrada && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>
@@ -769,7 +776,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
               />
-              {temMatch && pintorMatch?.telefone && (
+              {temMatch && pintorMatch?.telefone && !encerrada && (
                 <TouchableOpacity
                   style={estilos.btnWhatsApp}
                   onPress={() => abrirWhatsApp(pintorMatch.telefone)}
@@ -782,7 +789,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar obra</Text>
                 </TouchableOpacity>
               )}
-              {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && (
+              {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⚠️ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
@@ -791,12 +798,12 @@ export default function DetalheObraScreen({ route, navigation }) {
                   </TouchableOpacity>
                 </View>
               )}
-              {temMatch && obra.pedido_tempo_status === 'aguardando_minutos' && (
+              {temMatch && obra.pedido_tempo_status === 'aguardando_minutos' && !encerrada && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o profissional informar quantos minutos precisa...</Text>
                 </View>
               )}
-              {temMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && (
+              {temMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && (
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
@@ -870,7 +877,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                         <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
                       </View>
                     )}
-                    {item.status === 'pendente' && !temMatch && (
+                    {item.status === 'pendente' && !temMatch && !encerrada && (
                       <View style={{ marginTop: 10 }}>
                         {contrapropostaCandidaturaId === item.id ? (
                           <View>
@@ -966,27 +973,27 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
                 </TouchableOpacity>
               )}
-              {souPintorDoMatch && !obra.pedido_tempo_status && (
+              {souPintorDoMatch && !obra.pedido_tempo_status && !encerrada && (
                 <TouchableOpacity style={estilos.btnPedirTempo} onPress={handlePedirTempo}>
                   <Text style={estilos.btnPedirTempoTexto}>⚠️ Preciso de mais tempo para chegar</Text>
                 </TouchableOpacity>
               )}
-              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_tempo' && (
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
                 </View>
               )}
-              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_minutos' && (
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_minutos' && !encerrada && (
                 <TouchableOpacity style={estilos.btnInformarTempo} onPress={handleInformarTempo}>
                   <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
                 </TouchableOpacity>
               )}
-              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && (
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {obra.pedido_tempo_minutos} minuto(s) extra...</Text>
                 </View>
               )}
-              {!temMatch && (
+              {!temMatch && !encerrada && (
                 minhaCandidatura ? (
                   <View style={estilos.interesseFeito}>
                     {minhaCandidatura.status === 'pendente' && (
