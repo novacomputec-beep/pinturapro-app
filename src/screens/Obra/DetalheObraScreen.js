@@ -198,7 +198,12 @@ export default function DetalheObraScreen({ route, navigation }) {
     return `${reaisStr},${String(centavos % 100).padStart(2, '0')}`
   }
 
-  const isDono = usuario?.id === obra?.criado_por
+  // Ids podem chegar como número ou string conforme o endpoint; compara em String para não
+  // errar o lado por diferença de tipo (mesmo padrão de ContratosScreen.js:74). Os testes
+  // != null vêm ANTES porque String(undefined) === String(undefined) daria "igual" — dois
+  // ids ausentes (deep-link que só passa { id }, antes do buscar()) não podem casar.
+  const isDono = usuario?.id != null && obra?.criado_por != null &&
+    String(usuario.id) === String(obra.criado_por)
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
   useEffect(() => {
@@ -547,8 +552,15 @@ export default function DetalheObraScreen({ route, navigation }) {
   // da conclusão. Este flag é o gate único de todas as ações; os botões de Encerrar já testam
   // o status por conta própria e ficam como estão.
   const encerrada = obra?.status === 'encerrada'
-  const souPintorDoMatch = temMatch && obra?.match_usuario_id === usuario?.id
-  const pintorMatch = temMatch ? candidatos.find(c => c.usuario_id === obra.match_usuario_id) : null
+  // Mesma comparação guardada do isDono/ehMatch: temMatch já garante match_usuario_id
+  // presente, então só falta exigir o id do usuário logado antes de comparar em String.
+  const souPintorDoMatch = temMatch && usuario?.id != null &&
+    String(obra.match_usuario_id) === String(usuario.id)
+  // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
+  // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
+  const pintorMatch = temMatch
+    ? candidatos.find(c => c.usuario_id != null && String(c.usuario_id) === String(obra.match_usuario_id))
+    : null
   const distancia = distanciaItemKm(coords, obra)
 
   const abrirWhatsApp = (telefone) => {
@@ -830,7 +842,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // Contato (telefone/endereço completo) só é liberado para o pintor MATCHED,
                   // não em 'aceito'. Deriva do match, não do status. (Novo contrato da API:
                   // telefone/logradouro voltam null até o pintor confirmar que está a caminho.)
-                  const ehMatch = temMatch && item.usuario_id === obra.match_usuario_id
+                  // Comparação em String como no isDono. temMatch já garante
+                  // obra.match_usuario_id presente; falta exigir o id do candidato.
+                  const ehMatch = temMatch && item.usuario_id != null &&
+                    String(item.usuario_id) === String(obra.match_usuario_id)
                   const expTexto = formatarExperiencia(item.anos_experiencia)
                   const equipeN = Number(item.tamanho_equipe)
                   const linhaQualif = [expTexto, equipeN > 1 ? `equipe de ${equipeN}` : null].filter(Boolean).join(' · ')
