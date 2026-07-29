@@ -11,6 +11,7 @@ import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
+import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -69,6 +70,14 @@ export default function MinhasObrasScreen({ navigation, route }) {
   }
 
   useFocusEffect(useCallback(() => { buscarDados() }, []))
+  // Soft-ask de notificação no momento de relevância do dono: ver a própria lista de
+  // demandas. Espelha os feeds do profissional (FeedObrasScreen/FeedReparosScreen) —
+  // mostrar() faz o próprio check ao vivo e respeita teto e intervalo, então chamar a
+  // cada foco é ok. A variante vem do soAba da aba montada; sem soAba (stack de fallback
+  // do dono) cai em 'dono_obra', mesmo default do título e do estado inicial de `aba`.
+  useFocusEffect(useCallback(() => {
+    softAskRef.mostrar?.(soAba === 'reparos' ? 'dono_reparo' : 'dono_obra')
+  }, [soAba]))
 
   const onRefresh = () => { setAtualizando(true); buscarDados() }
 
