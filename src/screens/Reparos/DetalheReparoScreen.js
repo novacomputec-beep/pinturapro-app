@@ -1014,7 +1014,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         {/* Cidade/endereço saem da linha do nome: em row com space-between
                             disputavam largura com ele e o endereço completo do prestador
                             do match espremia tudo. Em linha própria, quebram naturalmente. */}
-                        {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                        {/* Cidade e, quando houver, bairro depois da vírgula — mesma ordem da
+                            linha de local do reparo no topo da tela. */}
+                        {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}</Text>}
                         {ehMatch && item.logradouro && (
                           <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
                         )}
