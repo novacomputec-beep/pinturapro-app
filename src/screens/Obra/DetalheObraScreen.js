@@ -305,23 +305,46 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const handleEncerrar = async () => {
+    const concluirComSucesso = () => {
+      if (mountedRef.current) setObra(prev => ({ ...prev, status: 'encerrada' }))
+      // Dono: em vez de voltar direto à lista, abre o ModalAvaliacao para avaliar o
+      // pintor (2º ponto de entrada; o 1º é Contratos Finalizados). Prestador mantém
+      // o comportamento original (aviso + volta à lista) — o bloqueio é ação do dono.
+      if (isDono) {
+        buscar()
+        if (mountedRef.current) setAvaliarVisivel(true)
+      } else {
+        Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: async () => { await buscar(); navigation.goBack() } }])
+      }
+    }
+    const executar = async () => {
+      try {
+        await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
+        concluirComSucesso()
+      } catch (err) {
+        console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        // Mesmo tratamento de handleEncerrarPrestador (DetalheReparo): a 1ª tentativa pode
+        // ter sido aceita no servidor e só a resposta se perdeu (troca de rede). Reconsulta
+        // antes de acusar erro — se a obra já está encerrada, segue como sucesso e o
+        // ModalAvaliacao do dono abre. O detalhe volta { obra } ou a obra na raiz.
+        try {
+          const atual = await obrasService.detalhe(obra.id)
+          if ((atual?.obra || atual)?.status === 'encerrada') { concluirComSucesso(); return }
+        } catch (e2) { console.log('[DetalheObra] reconsulta pós-encerrar falhou | code:', e2.code) }
+        const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+        if (isNetwork) {
+          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+            { text: 'Tentar novamente', onPress: executar },
+            { text: 'Cancelar', style: 'cancel' },
+          ])
+        } else {
+          Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.')
+        }
+      }
+    }
     Alert.alert('✅ Encerrar obra?', 'Confirme que o serviço foi concluído.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Encerrar', onPress: async () => {
-        try {
-          await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
-          if (mountedRef.current) setObra(prev => ({ ...prev, status: 'encerrada' }))
-          // Dono: em vez de voltar direto à lista, abre o ModalAvaliacao para avaliar o
-          // pintor (2º ponto de entrada; o 1º é Contratos Finalizados). Prestador mantém
-          // o comportamento original (aviso + volta à lista) — o bloqueio é ação do dono.
-          if (isDono) {
-            buscar()
-            if (mountedRef.current) setAvaliarVisivel(true)
-          } else {
-            Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: async () => { await buscar(); navigation.goBack() } }])
-          }
-        } catch (err) { console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
-      }}
+      { text: 'Encerrar', onPress: executar },
     ])
   }
 
