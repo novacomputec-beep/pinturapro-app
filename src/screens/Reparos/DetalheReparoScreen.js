@@ -352,9 +352,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
       buscar()
       if (mountedRef.current) setAvaliarVisivel(true)
     }
+    // Pedido registrado, mas o reparo NÃO fechou: não mexe no status local e não abre o
+    // ModalAvaliacao — avaliar só faz sentido depois que a outra parte confirmar. buscar()
+    // reidrata encerramento_solicitado_por/_em, que trocam o rótulo do botão.
+    const aguardarOutraParte = () => {
+      buscar()
+      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. O reparo será concluído quando a outra parte confirmar.')
+    }
     const executar = async () => {
       try {
-        await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
+        const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
+        if (resp?.encerramento === 'pendente') { aguardarOutraParte(); return }
         concluirComSucesso()
       } catch (err) {
         console.log('[DetalheReparo] falha ao encerrar reparo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -365,6 +373,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
         try {
           const atual = await api.get(`/reparos/${reparo.id}`)
           if (atual?.reparo?.status === 'encerrada') { concluirComSucesso(); return }
+          // O pedido pode ter sido registrado e só a resposta se perdeu: idem, é sucesso.
+          if (atual?.reparo?.encerramento_solicitado_por != null) { aguardarOutraParte(); return }
         } catch (e2) { console.log('[DetalheReparo] reconsulta pós-encerrar (dono) falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
@@ -437,11 +447,18 @@ export default function DetalheReparoScreen({ route, navigation }) {
         { text: 'OK', onPress: () => navigation.navigate('Contratos Finalizados') },
       ])
     }
+    // Pedido registrado sem fechar o reparo: nada de status local nem de navegar para
+    // Contratos Finalizados — o reparo ainda não está lá.
+    const aguardarOutraParte = () => {
+      buscar()
+      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. O reparo será concluído quando o solicitante confirmar.')
+    }
     const executar = async () => {
       if (encerrando) return
       setEncerrando(true)
       try {
-        await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
+        const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
+        if (resp?.encerramento === 'pendente') { aguardarOutraParte(); return }
         concluirComSucesso()
       } catch (err) {
         console.log('[DetalheReparo] falha ao encerrar (prestador) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -451,6 +468,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         try {
           const atual = await api.get(`/reparos/${reparo.id}`)
           if (atual?.reparo?.status === 'encerrada') { concluirComSucesso(); return }
+          if (atual?.reparo?.encerramento_solicitado_por != null) { aguardarOutraParte(); return }
         } catch (e2) { console.log('[DetalheReparo] reconsulta pós-encerrar falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
@@ -653,6 +671,21 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // da conclusão. Este flag é o gate único de todas as ações; os botões de Encerrar já testam
   // o status por conta própria e ficam como estão.
   const encerrada = reparo?.status === 'encerrada'
+  // Encerramento em duas etapas: quando uma parte pede, o servidor devolve
+  // encerramento 'pendente' e o reparo NÃO fecha — fecha só quando a outra confirma.
+  // Enquanto pende, o status segue 'aberta', então `encerrada` continua false e a tela
+  // permanece operável de propósito.
+  // O detalhe não traz um campo 'encerramento': o pendente é inferido de quem pediu —
+  // encerramento_solicitado_por preenchido (junto com encerramento_solicitado_em) na
+  // linha do reparo.
+  const encerramentoPendente = reparo?.encerramento_solicitado_por != null
+  // Quem pediu vê "aguardando"; a outra parte vê "confirmar". Comparação em String como no
+  // isDono; encerramentoPendente já garante o id do solicitante presente.
+  const euSolicitei = encerramentoPendente && usuario?.id != null &&
+    String(reparo.encerramento_solicitado_por) === String(usuario.id)
+  // Rótulo dos botões de encerrar (dono e prestador): o padrão só vale fora do pendente.
+  const rotuloEncerrar = (padrao) =>
+    euSolicitei ? '⏳ Aguardando a outra parte' : encerramentoPendente ? '✅ Confirmar encerramento' : padrao
   // Mesma comparação guardada do isDono/ehMatch: temMatch já garante match_usuario_id
   // presente, então só falta exigir o id do usuário logado antes de comparar em String.
   const souPrestadorDoMatch = temMatch && usuario?.id != null &&
@@ -946,8 +979,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 </TouchableOpacity>
               )}
               {temMatch && reparo?.status !== 'encerrada' && (
-                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar reparo</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
+                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar reparo')}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
@@ -1138,8 +1171,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
           {isPrestador && !isDono && (
             <>
               {souPrestadorDoMatch && reparo?.status !== 'encerrada' && (
-                <TouchableOpacity style={[estilos.btnEncerrar, encerrando && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando}>
-                  <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : '✅ Serviço concluído — Encerrar'}</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, (encerrando || euSolicitei) && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando || euSolicitei}>
+                  <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
                 </TouchableOpacity>
               )}
               {souPrestadorDoMatch && !reparo.pedido_tempo_status && !encerrada && (

@@ -317,9 +317,18 @@ export default function DetalheObraScreen({ route, navigation }) {
         Alert.alert('✅ Obra encerrada!', 'A obra foi encerrada com sucesso.', [{ text: 'OK', onPress: async () => { await buscar(); navigation.goBack() } }])
       }
     }
+    // Pedido registrado, mas a obra NÃO fechou: não mexe no status local, não abre o
+    // ModalAvaliacao do dono e não volta à lista pelo ramo do pintor — avaliar e concluir
+    // só fazem sentido depois que a outra parte confirmar. buscar() reidrata
+    // encerramento_solicitado_por/_em, que trocam o rótulo do botão.
+    const aguardarOutraParte = () => {
+      buscar()
+      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. A obra será concluída quando a outra parte confirmar.')
+    }
     const executar = async () => {
       try {
-        await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
+        const resp = await comRetry(() => api.post(`/obras/${obra.id}/encerrar`, {}))
+        if (resp?.encerramento === 'pendente') { aguardarOutraParte(); return }
         concluirComSucesso()
       } catch (err) {
         console.log('[DetalheObra] falha ao encerrar obra | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -330,6 +339,8 @@ export default function DetalheObraScreen({ route, navigation }) {
         try {
           const atual = await obrasService.detalhe(obra.id)
           if ((atual?.obra || atual)?.status === 'encerrada') { concluirComSucesso(); return }
+          // O pedido pode ter sido registrado e só a resposta se perdeu: idem, é sucesso.
+          if ((atual?.obra || atual)?.encerramento_solicitado_por != null) { aguardarOutraParte(); return }
         } catch (e2) { console.log('[DetalheObra] reconsulta pós-encerrar falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
@@ -575,6 +586,21 @@ export default function DetalheObraScreen({ route, navigation }) {
   // da conclusão. Este flag é o gate único de todas as ações; os botões de Encerrar já testam
   // o status por conta própria e ficam como estão.
   const encerrada = obra?.status === 'encerrada'
+  // Encerramento em duas etapas: quando uma parte pede, o servidor devolve
+  // encerramento 'pendente' e a obra NÃO fecha — fecha só quando a outra confirma.
+  // Enquanto pende, o status segue 'aberta', então `encerrada` continua false e a tela
+  // permanece operável de propósito.
+  // O detalhe não traz um campo 'encerramento': o pendente é inferido de quem pediu —
+  // encerramento_solicitado_por preenchido (junto com encerramento_solicitado_em) na
+  // linha da obra.
+  const encerramentoPendente = obra?.encerramento_solicitado_por != null
+  // Quem pediu vê "aguardando"; a outra parte vê "confirmar". Comparação em String como no
+  // isDono; encerramentoPendente já garante o id do solicitante presente.
+  const euSolicitei = encerramentoPendente && usuario?.id != null &&
+    String(obra.encerramento_solicitado_por) === String(usuario.id)
+  // Rótulo dos botões de encerrar (dono e pintor): o padrão só vale fora do pendente.
+  const rotuloEncerrar = (padrao) =>
+    euSolicitei ? '⏳ Aguardando a outra parte' : encerramentoPendente ? '✅ Confirmar encerramento' : padrao
   // Mesma comparação guardada do isDono/ehMatch: temMatch já garante match_usuario_id
   // presente, então só falta exigir o id do usuário logado antes de comparar em String.
   const souPintorDoMatch = temMatch && usuario?.id != null &&
@@ -831,8 +857,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                 </TouchableOpacity>
               )}
               {temMatch && obra?.status !== 'encerrada' && (
-                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>✅ Confirmar conclusão — Encerrar obra</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
+                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar obra')}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
@@ -1023,8 +1049,8 @@ export default function DetalheObraScreen({ route, navigation }) {
           {isPrestador && !isDono && (
             <>
               {souPintorDoMatch && obra?.status !== 'encerrada' && (
-                <TouchableOpacity style={estilos.btnEncerrar} onPress={handleEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>✅ Serviço concluído — Encerrar</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
+                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
                 </TouchableOpacity>
               )}
               {souPintorDoMatch && !obra.pedido_tempo_status && !encerrada && (
