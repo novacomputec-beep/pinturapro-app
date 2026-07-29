@@ -164,15 +164,18 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           </TouchableOpacity>
         )}
 
-        {(ehDono ? item.prestador_id : item.dono_id) && !item.ja_avaliei && (
+        {/* Avaliar é exclusivo do DONO: só quem contratou avalia o profissional. Para o
+            prestador (lado do match) o contrato finalizado é somente leitura — sem botão
+            e sem o aviso de "já avaliou". */}
+        {ehDono && item.prestador_id && !item.ja_avaliei && (
           <TouchableOpacity
             style={estilos.btnAvaliar}
             onPress={() => setAvaliandoContrato(item)}
           >
-            <Text style={estilos.btnAvaliarTexto}>⭐ Avaliar {ehDono ? 'profissional' : 'solicitante'}</Text>
+            <Text style={estilos.btnAvaliarTexto}>⭐ Avaliar profissional</Text>
           </TouchableOpacity>
         )}
-        {item.ja_avaliei && (
+        {ehDono && item.ja_avaliei && (
           <View style={estilos.avaliadoBadge}>
             <Text style={estilos.avaliadoBadgeTexto}>✅ Você já avaliou este contrato</Text>
           </View>
