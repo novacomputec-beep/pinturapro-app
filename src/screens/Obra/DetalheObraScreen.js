@@ -690,11 +690,21 @@ export default function DetalheObraScreen({ route, navigation }) {
           )}
 
           <Text style={estilos.titulo}>{obra.titulo}</Text>
+          {/* Endereço do serviço em destaque para o profissional, acima da linha de
+              cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
+              O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
+              exclusivos por isDono, então o endereço nunca renderiza duas vezes. */}
+          {obra.endereco_obra && !isDono ? (
+            <View style={estilos.enderecoMatchBox}>
+              <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
+              <Text style={estilos.enderecoMatchTexto}>{obra.endereco_obra}</Text>
+            </View>
+          ) : null}
           <Text style={estilos.local}>
             📍 {obra.cidade}{obra.bairro ? `, ${obra.bairro}` : ''}
             {distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
           </Text>
-          {obra.endereco_obra ? (
+          {isDono && obra.endereco_obra ? (
             <Text style={estilos.enderecoLinha}>📍 {obra.endereco_obra}</Text>
           ) : null}
 
@@ -741,14 +751,6 @@ export default function DetalheObraScreen({ route, navigation }) {
               onExpirar={handleExpirarMatch}
             />
           )}
-
-          {/* Pós-match: endereço em destaque — o pintor precisa saber para onde ir */}
-          {temMatch && obra.endereco_obra && !isDono ? (
-            <View style={estilos.enderecoMatchBox}>
-              <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
-              <Text style={estilos.enderecoMatchTexto}>{obra.endereco_obra}</Text>
-            </View>
-          ) : null}
 
           {temMatch && !encerrada && (
             <View style={estilos.contratoBanner}>
