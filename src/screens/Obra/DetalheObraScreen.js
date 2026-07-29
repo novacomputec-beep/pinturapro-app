@@ -847,12 +847,15 @@ export default function DetalheObraScreen({ route, navigation }) {
                       )}
                       <View style={{ flex: 1 }}>
                         <View style={estilos.interessadoHeader}>
-                          <Text style={estilos.interessadoNome}>{item.nome}</Text>
-                          {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
-                          {ehMatch && item.logradouro && (
-                            <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
-                          )}
+                          <Text style={[estilos.interessadoNome, { flex: 1 }]}>{item.nome}</Text>
                         </View>
+                        {/* Cidade/endereço saem da linha do nome: em row com space-between
+                            disputavam largura com ele e o endereço completo do pintor do
+                            match espremia tudo. Em linha própria, quebram naturalmente. */}
+                        {!ehMatch && item.cidade && <Text style={estilos.interessadoCidade}>📍 {item.cidade}</Text>}
+                        {ehMatch && item.logradouro && (
+                          <Text style={estilos.interessadoCidade}>📍 {item.logradouro}{item.numero ? ', ' + item.numero : ''}{item.bairro ? ' — ' + item.bairro : ''} — {item.cidade}</Text>
+                        )}
                         {item.avaliacoes_total > 0 ? (
                           <Text style={estilos.avaliacaoLinha}>
                             ⭐ {Number(item.avaliacoes_media).toFixed(1)} ({item.avaliacoes_total} {item.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})
