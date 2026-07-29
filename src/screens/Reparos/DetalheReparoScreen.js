@@ -345,18 +345,41 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const handleEncerrar = async () => {
+    // 2º ponto de entrada da avaliação (o 1º é Contratos Finalizados). Em vez de
+    // voltar direto à lista, abre o ModalAvaliacao para o dono avaliar o prestador.
+    const concluirComSucesso = () => {
+      if (mountedRef.current) setReparo(prev => ({ ...prev, status: 'encerrada' }))
+      buscar()
+      if (mountedRef.current) setAvaliarVisivel(true)
+    }
+    const executar = async () => {
+      try {
+        await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
+        concluirComSucesso()
+      } catch (err) {
+        console.log('[DetalheReparo] falha ao encerrar reparo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        // Mesmo tratamento de handleEncerrarPrestador: a 1ª tentativa pode ter sido aceita
+        // no servidor e só a resposta se perdeu (troca de rede). Reconsulta antes de acusar
+        // erro — se o reparo já está encerrado, segue como sucesso e o ModalAvaliacao abre,
+        // em vez de deixar o dono sem o 2º ponto de entrada da avaliação.
+        try {
+          const atual = await api.get(`/reparos/${reparo.id}`)
+          if (atual?.reparo?.status === 'encerrada') { concluirComSucesso(); return }
+        } catch (e2) { console.log('[DetalheReparo] reconsulta pós-encerrar (dono) falhou | code:', e2.code) }
+        const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+        if (isNetwork) {
+          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+            { text: 'Tentar novamente', onPress: executar },
+            { text: 'Cancelar', style: 'cancel' },
+          ])
+        } else {
+          Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.')
+        }
+      }
+    }
     Alert.alert('✅ Encerrar reparo?', 'Confirme que o serviço foi concluído.', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Encerrar', onPress: async () => {
-        try {
-          await comRetry(() => api.post(`/reparos/${reparo.id}/encerrar`, {}))
-          // 2º ponto de entrada da avaliação (o 1º é Contratos Finalizados). Em vez de
-          // voltar direto à lista, abre o ModalAvaliacao para o dono avaliar o prestador.
-          if (mountedRef.current) setReparo(prev => ({ ...prev, status: 'encerrada' }))
-          buscar()
-          if (mountedRef.current) setAvaliarVisivel(true)
-        } catch (err) { console.log('[DetalheReparo] falha ao encerrar reparo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.') }
-      }}
+      { text: 'Encerrar', onPress: executar },
     ])
   }
 
