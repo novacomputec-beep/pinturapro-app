@@ -5,6 +5,7 @@ import {
   TouchableOpacity, Alert, ActivityIndicator, Linking, Image
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as Notifications from 'expo-notifications'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
@@ -21,19 +22,25 @@ const LinhaPerfil = ({ label, valor }) => (
   </View>
 )
 
-const ItemAcao = ({ titulo, onPress, perigo }) => (
+// `estado` é opcional: só as linhas que refletem uma condição do aparelho (hoje, a
+// permissão de notificação) mostram um rótulo antes da seta. As demais seguem idênticas.
+const ItemAcao = ({ titulo, onPress, perigo, estado, estadoCor }) => (
   <TouchableOpacity style={estilos.itemAcao} onPress={onPress} activeOpacity={0.7}>
     <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }]}>{titulo}</Text>
-    <Text style={estilos.itemAcaoSeta}>→</Text>
+    <View style={estilos.itemAcaoDireita}>
+      {!!estado && <Text style={[estilos.itemAcaoEstado, estadoCor && { color: estadoCor }]}>{estado}</Text>}
+      <Text style={estilos.itemAcaoSeta}>→</Text>
+    </View>
   </TouchableOpacity>
 )
 
 export default function PerfilScreen({ navigation }) {
-  const { usuario, assinatura, logout } = useAuth()
+  const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
   const [mostrarExcluir, setMostrarExcluir] = useState(false)
+  const [permNotif, setPermNotif] = useState(null)
 
   const handleRenovarAssinatura = async () => {
     setRenovandoAssinatura(true)
@@ -73,6 +80,53 @@ export default function PerfilScreen({ navigation }) {
       buscar()
     }, [])
   )
+
+  // Estado AO VIVO da permissão de notificação, reconsultado a cada foco: a pessoa pode
+  // ter mudado o ajuste nas Configurações do sistema e voltado para o app.
+  // Esta linha NÃO passa pelo soft-ask e não toca no contador dele (shows/ultimoShowMs):
+  // existe justamente para quem quer resolver isso por conta própria — inclusive depois
+  // de o soft-ask ter esgotado as 3 exibições ou de ter sido declinado.
+  const verificarPermissaoNotif = useCallback(async () => {
+    try {
+      const { granted, canAskAgain } = await Notifications.getPermissionsAsync()
+      setPermNotif({ granted, canAskAgain })
+    } catch (err) {
+      console.log('[Perfil] falha ao consultar permissão de notificação | msg:', err.message)
+      setPermNotif(null)
+    }
+  }, [])
+
+  useFocusEffect(useCallback(() => { verificarPermissaoNotif() }, [verificarPermissaoNotif]))
+
+  const handleAtivarNotificacoes = async () => {
+    // Reconsulta no toque: o estado em memória pode ser de minutos atrás.
+    let estado = permNotif
+    try { estado = await Notifications.getPermissionsAsync() } catch (err) {
+      console.log('[Perfil] falha ao reconsultar permissão | msg:', err.message)
+    }
+    if (estado?.granted) {
+      Alert.alert('Notificações ativadas', 'Você já recebe os avisos do PinturaPro neste aparelho.')
+      return
+    }
+    // canAskAgain false = bloqueio permanente do SO. O app não consegue mais pedir; só as
+    // Configurações do aparelho revertem. Explica antes de jogar a pessoa para fora do app.
+    if (estado?.canAskAgain === false) {
+      Alert.alert(
+        'Notificações bloqueadas',
+        'O aviso foi bloqueado nas configurações do aparelho, e só por lá é possível liberar.',
+        [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Abrir Configurações', onPress: () => Linking.openSettings() },
+        ],
+      )
+      return
+    }
+    // Ainda dá para pedir: garantirPermissaoConcedida é o ÚNICO ponto que dispara o diálogo
+    // do SO, e registrarPushToken só faz sentido depois do "sim" — mesma dupla do soft-ask.
+    const concedida = await garantirPermissaoConcedida()
+    if (concedida) registrarPushToken()
+    verificarPermissaoNotif()
+  }
 
   const confirmarLogout = () => {
     Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
@@ -127,6 +181,18 @@ export default function PerfilScreen({ navigation }) {
   // "Perfil" não tem outra forma de retornar à lista. Os demais papéis (pintor,
   // prestador, dono de obra) NÃO são afetados — a seta não é renderizada para eles.
   const ehDonoReparo = isDono && usuario?.tipo_dono === 'reparo'
+  // Rótulo do estado da permissão. null = ainda consultando (ou falha na consulta): melhor
+  // não mostrar rótulo nenhum do que afirmar algo errado sobre a permissão.
+  const estadoNotifTexto = permNotif == null
+    ? ''
+    : permNotif.granted ? 'Ativadas'
+    : permNotif.canAskAgain === false ? 'Bloqueadas'
+    : 'Desativadas'
+  const estadoNotifCor = permNotif == null
+    ? null
+    : permNotif.granted ? cores.sucesso
+    : permNotif.canAskAgain === false ? cores.perigo
+    : cores.textoFraco
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
@@ -229,6 +295,16 @@ export default function PerfilScreen({ navigation }) {
         <View style={estilos.acoesWrap}>
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
+          {/* Para TODOS os papéis: dono e prestador dependem igualmente de push (interesse
+              recebido, proposta aceita, encerramento). Sem gate de role e sem gate do
+              soft-ask — é a porta sempre disponível para resolver a permissão. */}
+          <ItemAcao
+            titulo="🔔 Ativar notificações"
+            estado={estadoNotifTexto}
+            estadoCor={estadoNotifCor}
+            onPress={handleAtivarNotificacoes}
+          />
+          <Separador />
           {ehPrestador && (
             <>
               <ItemAcao titulo="⭐ Avaliações recebidas" onPress={() => navigation.navigate('AvaliacoesRecebidas')} />
@@ -311,6 +387,8 @@ const estilos = StyleSheet.create({
   acoesWrap: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, overflow: 'hidden', marginBottom: 16 },
   itemAcao: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },
+  itemAcaoDireita: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemAcaoEstado: { fontSize: 12, fontWeight: '600', color: cores.textoFraco },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
   versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
