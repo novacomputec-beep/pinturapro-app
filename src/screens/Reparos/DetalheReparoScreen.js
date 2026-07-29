@@ -787,11 +787,21 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
 
           <Text style={estilos.titulo}>{reparo.titulo}</Text>
+          {/* Endereço do serviço em destaque para o profissional, acima da linha de
+              cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
+              O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
+              exclusivos por isDono, então o endereço nunca renderiza duas vezes. */}
+          {reparo.endereco_reparo && !isDono ? (
+            <View style={estilos.enderecoMatchBox}>
+              <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
+              <Text style={estilos.enderecoMatchTexto}>{reparo.endereco_reparo}</Text>
+            </View>
+          ) : null}
           <Text style={estilos.local}>
             📍 {reparo.cidade}{reparo.bairro ? `, ${reparo.bairro}` : ''}
             {distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
           </Text>
-          {reparo.endereco_reparo ? (
+          {isDono && reparo.endereco_reparo ? (
             <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
           ) : null}
 
@@ -844,14 +854,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onExpirar={handleExpirarMatch}
             />
           )}
-
-          {/* Pós-match: endereço em destaque — o prestador precisa saber para onde ir */}
-          {temMatch && reparo.endereco_reparo && !isDono ? (
-            <View style={estilos.enderecoMatchBox}>
-              <Text style={estilos.enderecoMatchLabel}>📍 Endereço do serviço:</Text>
-              <Text style={estilos.enderecoMatchTexto}>{reparo.endereco_reparo}</Text>
-            </View>
-          ) : null}
 
           {/* B72-04: dono aceitou, aguardando o prestador confirmar a ida (antes da contagem) */}
           {aguardandoPrestadorPartir && (
