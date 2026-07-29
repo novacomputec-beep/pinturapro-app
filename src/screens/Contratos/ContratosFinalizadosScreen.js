@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
+import ModalDenuncia from '../../components/ModalDenuncia'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const formatarValor = (v) =>
@@ -35,6 +36,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const [atualizando, setAtualizando] = useState(false)
   const [bloqueados, setBloqueados] = useState(new Set())
   const [avaliandoContrato, setAvaliandoContrato] = useState(null)
+  const [denunciandoContrato, setDenunciandoContrato] = useState(null)
 
   // Carrega a lista de prestadores bloqueados do dono na montagem (só lado dono).
   useEffect(() => {
@@ -74,6 +76,26 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       setAvaliandoContrato(null)
       // O interceptor de api.js rejeita com { mensagem, status, code }.
       const msg = err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.'
+      Alert.alert('Erro', msg)
+    }
+  }
+
+  // Espelha handleEnviarAvaliacao: mesma identificação de contrato (contrato_tipo +
+  // contrato_id) e mesmo tratamento de erro do interceptor. Não há refresh depois porque a
+  // lista não traz um "já denunciei" — quem barra denúncia repetida é o servidor.
+  const handleEnviarDenuncia = async (categoria, descricao) => {
+    try {
+      await comRetry(() => api.post('/denuncias', {
+        contrato_tipo: ehObra ? 'obra' : 'reparo',
+        contrato_id: denunciandoContrato.id,
+        categoria,
+        descricao,
+      }))
+      setDenunciandoContrato(null)
+      Alert.alert('Denúncia enviada', 'Recebemos sua denúncia. Nossa equipe vai analisar o caso.')
+    } catch (err) {
+      setDenunciandoContrato(null)
+      const msg = err?.mensagem || 'Não foi possível enviar a denúncia. Tente novamente.'
       Alert.alert('Erro', msg)
     }
   }
@@ -180,6 +202,17 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
             <Text style={estilos.avaliadoBadgeTexto}>✅ Você já avaliou este contrato</Text>
           </View>
         )}
+
+        {/* Contrapartida do Avaliar: o dono avalia, o profissional denuncia. Mesmo formato
+            de gate — !ehDono e o id da outra parte presente. */}
+        {!ehDono && item.dono_id && (
+          <TouchableOpacity
+            style={estilos.btnDenunciar}
+            onPress={() => setDenunciandoContrato(item)}
+          >
+            <Text style={estilos.btnDenunciarTexto}>🚩 Denunciar solicitante</Text>
+          </TouchableOpacity>
+        )}
       </View>
     )
   }
@@ -225,6 +258,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
         onEnviar={handleEnviarAvaliacao}
         onFechar={() => setAvaliandoContrato(null)}
       />
+
+      <ModalDenuncia
+        visivel={!!denunciandoContrato}
+        nomeDenunciado={denunciandoContrato ? denunciandoContrato.dono_nome : ''}
+        onEnviar={handleEnviarDenuncia}
+        onFechar={() => setDenunciandoContrato(null)}
+      />
     </SafeAreaView>
   )
 }
@@ -256,6 +296,8 @@ const estilos = StyleSheet.create({
   btnBloquearTextoAtivo: { color: cores.perigo },
   btnAvaliar:         { marginTop: 8, borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 0.5, borderColor: '#E8833A', backgroundColor: '#E8833A15' },
   btnAvaliarTexto:    { fontSize: 12, fontWeight: '700', color: '#E8833A' },
+  btnDenunciar:       { marginTop: 8, borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 0.5, borderColor: cores.perigo, backgroundColor: 'transparent' },
+  btnDenunciarTexto:  { fontSize: 12, fontWeight: '600', color: cores.perigo },
   avaliadoBadge:      { marginTop: 8, borderRadius: 10, paddingVertical: 10, alignItems: 'center', backgroundColor: cores.fundoElevado },
   avaliadoBadgeTexto: { fontSize: 12, fontWeight: '600', color: cores.textoMedio },
   vazio:              { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
