@@ -402,7 +402,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       'Bloquear para futuros serviços?',
       'Você pode impedir que este profissional seja pareado com você novamente. É opcional.',
       [
-        { text: 'Agora não', style: 'cancel', onPress: finalizarPosEncerrar },
+        { text: 'Não, fiquei satisfeito(a)', style: 'cancel', onPress: finalizarPosEncerrar },
         { text: 'Bloquear', style: 'destructive', onPress: async () => {
           try { await api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }) }
           catch (err) { console.log('[DetalheReparo] falha ao bloquear prestador | msg:', err.message) }
