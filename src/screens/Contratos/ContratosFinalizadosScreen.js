@@ -50,16 +50,22 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const toggleBloqueio = async (prestadorId) => {
     const jaBloqueado = bloqueados.has(prestadorId)
     try {
+      // comRetry sem flags, como os irmãos desta tela: reexecuta só em erro de rede
+      // duro, onde a requisição não chegou ao servidor. Repetir bloqueio/desbloqueio é
+      // inofensivo (o destino é um estado, não um novo recurso), mas timeout/5xx ficam
+      // de fora mesmo assim para não divergir do padrão do arquivo.
       if (jaBloqueado) {
-        await api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`)
+        await comRetry(() => api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`))
         setBloqueados(prev => { const novo = new Set(prev); novo.delete(prestadorId); return novo })
       } else {
-        await api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId })
+        await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }))
         setBloqueados(prev => new Set(prev).add(prestadorId))
       }
     } catch (err) {
       console.log('[ContratosFinalizados] falha ao alternar bloqueio | msg:', err.message)
-      Alert.alert('Erro', 'Não foi possível atualizar o bloqueio. Tente novamente.')
+      // A mensagem do interceptor já traz o erro do backend ou a dica de conexão; o texto
+      // fixo escondia a causa (sessão expirada lia igual a estar sem rede).
+      Alert.alert('Erro', err.mensagem || 'Não foi possível atualizar o bloqueio. Tente novamente.')
     }
   }
 

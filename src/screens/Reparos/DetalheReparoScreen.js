@@ -426,8 +426,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
       [
         { text: 'Não, fiquei satisfeito(a)', style: 'cancel', onPress: finalizarPosEncerrar },
         { text: 'Bloquear', style: 'destructive', onPress: async () => {
-          try { await api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }) }
-          catch (err) { console.log('[DetalheReparo] falha ao bloquear prestador | msg:', err.message) }
+          try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId })) }
+          catch (err) {
+            console.log('[DetalheReparo] falha ao bloquear prestador | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+            // Antes falhava calado: quem tocou "Bloquear" saía da tela achando que tinha
+            // bloqueado. O alerta sobe antes do goBack e sobrevive à navegação.
+            Alert.alert('Erro', err.mensagem || 'Não foi possível bloquear o profissional.')
+          }
           finalizarPosEncerrar()
         } },
       ],

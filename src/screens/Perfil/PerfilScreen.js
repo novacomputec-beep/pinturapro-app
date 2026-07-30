@@ -156,7 +156,10 @@ export default function PerfilScreen({ navigation }) {
   // navegador troca para a stack de autenticação (Login) automaticamente.
   const handleExcluirConta = async (senha) => {
     try {
-      await api.delete('/conta/excluir', { data: { senha } })
+      // comRetry sem flags: reexecuta só em erro de rede duro (a requisição não chegou ao
+      // servidor). Senha errada é 401 e 4xx nunca é reexecutado, então o retry não insiste
+      // numa credencial inválida nem repete uma exclusão já efetivada.
+      await comRetry(() => api.delete('/conta/excluir', { data: { senha } }))
     } catch (err) {
       console.log('[Perfil] falha ao excluir conta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const msg =

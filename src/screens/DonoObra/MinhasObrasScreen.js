@@ -92,12 +92,15 @@ export default function MinhasObrasScreen({ navigation, route }) {
       {
         text: 'Excluir', style: 'destructive', onPress: async () => {
           try {
+            // comRetry sem flags: só erro de rede duro, onde a requisição não chegou ao
+            // servidor. Repetir a exclusão de um id já removido devolveria 404, e 4xx
+            // nunca é reexecutado, então o retry não transforma sucesso em erro.
             if (tipo === 'obra') {
-              await api.delete(`/obras/dono/${item.id}`)
+              await comRetry(() => api.delete(`/obras/dono/${item.id}`))
               setObras(prev => prev.filter(o => o.id !== item.id))
               setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
             } else {
-              await api.delete(`/reparos/dono/${item.id}`)
+              await comRetry(() => api.delete(`/reparos/dono/${item.id}`))
               setReparos(prev => prev.filter(r => r.id !== item.id))
               setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
             }
