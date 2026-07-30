@@ -9,7 +9,6 @@ import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios } from '../utils/tema'
 import api from '../services/api'
-import { comRetry } from '../utils/rede'
 import { navigationRef } from './navigationRef'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao from '../components/SoftAskNotificacao'
@@ -218,8 +217,13 @@ function PagamentoPendenteScreen() {
       const plano = assinatura?.plano || 'mensal'
       // Timeout de 20s: se a requisição travar sem resolver/rejeitar, força a rejeição
       // para que o catch rode e a tela não fique presa em "Gerando link...".
+      // SEM comRetry, de propósito: este POST cria um checkout pagável. O retry de rede
+      // parte do princípio de que a requisição não chegou ao servidor, mas o caso oposto
+      // — chegou, o checkout foi criado e só a RESPOSTA se perdeu — é indistinguível do
+      // lado do app, e nele a repetição gera um segundo link cobrável. Uma tentativa só;
+      // falhando, o usuário decide pelo botão "Tentar novamente".
       const pagamento = await Promise.race([
-        comRetry(() => api.post('/pagamentos/criar-assinatura', { plano })),
+        api.post('/pagamentos/criar-assinatura', { plano }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('timeout_criar_assinatura')), 20000))
       ])
       if (pagamento.init_point) {
