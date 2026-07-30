@@ -9,6 +9,11 @@ import { carregarVistas, marcarVista } from '../utils/celebracao'
 // Detecta o match a comemorar para o usuário atual, conforme o papel. Retorna o
 // primeiro evento ainda não visto (marca d'água local) ou null. Cada papel celebra
 // o momento certo do funil: donos ao receber proposta; prestadores ao serem aceitos.
+//
+// O encerramento pendente entra por último em cada papel, de propósito: ele não usa
+// marca d'água (repete até ser resolvido) e, na frente dos demais, esconderia todo o
+// resto enquanto durasse. Atrás, os eventos de uma vez só disparam, ficam marcados e
+// saem do caminho — na verificação seguinte o encerramento aparece.
 const detectar = async (usuario) => {
   const uid = usuario.id
   const vistas = await carregarVistas(uid)
@@ -48,6 +53,17 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
+    const enc = (resp.reparos || []).find(x =>
+      x.encerramento_solicitado_por != null && String(x.encerramento_solicitado_por) !== String(uid)
+    )
+    if (enc) return {
+      semMarca: true,
+      chave: `encerramento:${enc.id}`, emoji: '🤝',
+      titulo: 'Confirme o encerramento',
+      subtitulo: `O profissional marcou "${enc.titulo}" como concluído. O reparo só encerra quando você confirmar.`,
+      ctaTexto: 'Confirmar encerramento',
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: enc }, initial: false }),
+    }
   }
   // dono_obra — um pintor/construtor se candidatou
   if (ehDonoObra) {
@@ -72,6 +88,17 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
+    const enc = (resp.obras || []).find(x =>
+      x.encerramento_solicitado_por != null && String(x.encerramento_solicitado_por) !== String(uid)
+    )
+    if (enc) return {
+      semMarca: true,
+      chave: `encerramento:${enc.id}`, emoji: '🤝',
+      titulo: 'Confirme o encerramento',
+      subtitulo: `O profissional marcou "${enc.titulo}" como concluída. A obra só encerra quando você confirmar.`,
+      ctaTexto: 'Confirmar encerramento',
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: enc }, initial: false }),
+    }
   }
   // reparador — o dono aceitou sua proposta
   if (ehReparador) {
@@ -94,6 +121,20 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
     }
+    // Exige o interesse ACEITO: a lista traz também propostas recusadas/pendentes do
+    // mesmo reparo, e o pedido de encerramento só diz respeito a quem está no serviço.
+    const enc = (resp.ativos || []).find(x =>
+      x.status === 'aceito' && x.encerramento_solicitado_por != null &&
+      String(x.encerramento_solicitado_por) !== String(uid)
+    )
+    if (enc) return {
+      semMarca: true,
+      chave: `encerramento:${enc.reparo_id}`, emoji: '🤝',
+      titulo: 'Confirme o encerramento',
+      subtitulo: `O solicitante marcou "${enc.titulo}" como concluído. O reparo só encerra quando você confirmar.`,
+      ctaTexto: 'Confirmar encerramento',
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: enc.reparo_id } }, initial: false }),
+    }
   }
   // pintor/construtor — o dono aceitou sua candidatura
   if (ehPintor) {
@@ -115,6 +156,19 @@ const detectar = async (usuario) => {
       subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
+    }
+    // Mesmo motivo do reparador: só a candidatura aceita está no serviço.
+    const enc = (resp.candidaturas || []).find(x =>
+      (x.status === 'aceito' || x.status === 'aprovada') && x.encerramento_solicitado_por != null &&
+      String(x.encerramento_solicitado_por) !== String(uid)
+    )
+    if (enc) return {
+      semMarca: true,
+      chave: `encerramento:${enc.obra_id}`, emoji: '🤝',
+      titulo: 'Confirme o encerramento',
+      subtitulo: `O dono${enc.titulo ? ` de "${enc.titulo}"` : ' da obra'} marcou o serviço como concluído. A obra só encerra quando você confirmar.`,
+      ctaTexto: 'Confirmar encerramento',
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: enc.obra_id } }, initial: false }),
     }
   }
   return null
@@ -143,7 +197,13 @@ export default function CelebracaoMatchHost() {
     try {
       const ev = await detectar(usuario)
       // Marca como visto ao exibir → comemora exatamente uma vez, mesmo se só dispensar.
-      if (ev) { await marcarVista(usuario.id, ev.chave); setEvento(ev) }
+      // Exceto os eventos `semMarca` (encerramento pendente): não são notícia a comemorar
+      // uma vez, e sim uma ação que falta. Ficam fora da marca d'água e reaparecem a cada
+      // verificação até a outra parte deixar de estar esperando.
+      if (ev) {
+        if (!ev.semMarca) await marcarVista(usuario.id, ev.chave)
+        setEvento(ev)
+      }
     } catch (e) {
       console.log('[Celebracao] falha ao verificar match | code:', e.code)
     } finally {
