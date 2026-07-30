@@ -6,6 +6,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
+import * as Application from 'expo-application'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
@@ -14,6 +15,19 @@ import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
+
+// Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
+// o versionCode é gerado pelo EAS e não existe em nenhum arquivo do repositório, então
+// a única fonte é o próprio APK/AAB instalado. Constantes, não estado: o valor não muda
+// enquanto o app está aberto. Fora de um build nativo (Expo Go) as duas vêm null, e aí
+// cada trecho ausente simplesmente não é exibido em vez de virar "vnull".
+const versaoNativa = Application.nativeApplicationVersion
+const buildNativo = Application.nativeBuildVersion
+const textoVersao = [
+  'PinturaPro',
+  versaoNativa && `v${versaoNativa}`,
+  buildNativo && `(build ${buildNativo})`,
+].filter(Boolean).join(' ')
 
 const LinhaPerfil = ({ label, valor }) => (
   <View style={estilos.linhaWrap}>
@@ -341,7 +355,7 @@ export default function PerfilScreen({ navigation }) {
             onPress={confirmarLogout}
             estilo={{ borderColor: cores.perigo + '44' }}
           />
-          <Text style={estilos.versaoTexto}>PinturaPro v1.0.0</Text>
+          <Text style={estilos.versaoTexto}>{textoVersao}</Text>
         </View>
 
       </ScrollView>
