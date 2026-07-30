@@ -18,6 +18,22 @@ import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full } from '../../utils/imagemOtimizada'
 
+// Trunca para as unidades mais significativas, com granularidade decrescente:
+//   ≥ 1 dia  → "19 dias 7h 25m" (sem segundos — evita jitter em prazos longos)
+//   ≥ 1 hora → "7h 25m 03s"
+//   < 1 hora → "25m 03s"
+// Estava inline no contador da lista; virou função de módulo para o RelogioRegressivo
+// usar a MESMA regra. Ele formatava hh:mm:ss com a hora acumulada, e um prazo de uma
+// semana aparecia como "167:45:46" — um número que ninguém lê como prazo.
+const formatarTempoRestante = ({ d, h, m, s }) => {
+  const pad = (n) => String(n).padStart(2, '0')
+  return d > 0
+    ? `${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
+    : h > 0
+      ? `${h}h ${pad(m)}m ${pad(s)}s`
+      : `${m}m ${pad(s)}s`
+}
+
 const ContadorExpiracaoReparo = ({ expiraEm }) => {
   const [restante, setRestante] = useState(null)
   const expiradoRef = useRef(false)
@@ -48,17 +64,8 @@ const ContadorExpiracaoReparo = ({ expiraEm }) => {
     return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: '700' }}>EXPIRADO</Text>
   }
 
-  const { d, h, m, s } = restante
-  const pad = (n) => String(n).padStart(2, '0')
-  // Trunca para as unidades mais significativas, com granularidade decrescente:
-  //   ≥ 1 dia  → "19 dias 7h 25m" (sem segundos — evita jitter em prazos longos)
-  //   ≥ 1 hora → "7h 25m 03s"
-  //   < 1 hora → "25m 03s"
-  const texto = d > 0
-    ? `Expira em: ${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
-    : h > 0
-      ? `Expira em: ${h}h ${pad(m)}m ${pad(s)}s`
-      : `Expira em: ${m}m ${pad(s)}s`
+  const { d, h, m } = restante
+  const texto = `Expira em: ${formatarTempoRestante(restante)}`
   const urgente = d === 0 && h === 0 && m < 10
   return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
 }
@@ -116,7 +123,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 // (a API mantém esse campo inalterado no match). match_feito_em segue usado noutros
 // lugares (ordenação, "aceitou há X min"), mas não para esta contagem.
 const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
-  const [tempo, setTempo] = useState('')
+  const [restante, setRestante] = useState(null)
   const [expirou, setExpirou] = useState(false)
   const expirouRef = React.useRef(false)
 
@@ -127,7 +134,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
       const agora = new Date()
       const diff = fim - agora
       if (diff <= 0) {
-        setTempo('00:00:00')
+        setRestante({ d: 0, h: 0, m: 0, s: 0 })
         if (!expirouRef.current) {
           expirouRef.current = true
           setExpirou(true)
@@ -135,17 +142,22 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
         }
         return
       }
-      const horas = Math.floor(diff / 3600000)
-      const minutos = Math.floor((diff % 3600000) / 60000)
-      const segundos = Math.floor((diff % 60000) / 1000)
-      setTempo(`${String(horas).padStart(2, '0')}:${String(minutos).padStart(2, '0')}:${String(segundos).padStart(2, '0')}`)
+      // Dias separados das horas (antes a hora era acumulada, daí o "167:45:46").
+      const d = Math.floor(diff / 86400000)
+      const h = Math.floor((diff % 86400000) / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setRestante({ d, h, m, s })
     }
     calcular()
     const interval = setInterval(calcular, 1000)
     return () => clearInterval(interval)
   }, [expiraEm])
 
-  const urgente = tempo && tempo.startsWith('00:')
+  // Mesmo limiar de antes — o "00:" inicial só era verdade abaixo de 1 hora —, agora
+  // lido dos campos em vez do texto, que não é mais hh:mm:ss.
+  const urgente = !!restante && restante.d === 0 && restante.h === 0
+  const tempo = restante ? formatarTempoRestante(restante) : ''
   return (
     <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
       <Text style={estilos.relogioLabel}>{expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}</Text>
@@ -1030,6 +1042,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   const equipeN = Number(item.tamanho_equipe)
                   const linhaQualif = [expTexto, equipeN > 1 ? `equipe de ${equipeN}` : null].filter(Boolean).join(' · ')
                   const espTexto = especialidadesTexto(item.especialidades)
+                  // Fechado o match, o valor do prestador escolhido não é mais proposta: vira o
+                  // combinado, mesma troca de rótulo do topo da tela. QUAL linha carrega esse
+                  // valor segue o COALESCE(contraproposta, proposto) usado lá — havendo
+                  // contraproposta é ela que vale, e a de cima segue sendo a proposta original.
+                  const propostoEhCombinado = ehMatch && item.valor_contraproposta == null
                   return (
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.candidatoTopo}>
@@ -1066,12 +1083,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
                     {item.valor_proposto != null && (
                       <Text style={{ fontSize: 18, fontWeight: '700', color: cores.textoMedio, marginBottom: 4 }}>
-                        💰 Valor proposto: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        💰 {propostoEhCombinado ? 'Valor combinado' : 'Valor proposto'}: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
                     {item.valor_contraproposta != null && (
                       <Text style={{ fontSize: 13, color: '#E8833A', marginBottom: 4 }}>
-                        🤝 Minha contraproposta: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        🤝 {ehMatch ? 'Valor combinado' : 'Minha contraproposta'}: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
                     {item.mensagem && (
