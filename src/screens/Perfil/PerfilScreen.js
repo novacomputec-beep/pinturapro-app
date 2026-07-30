@@ -355,6 +355,7 @@ export default function PerfilScreen({ navigation }) {
             onPress={confirmarLogout}
             estilo={{ borderColor: cores.perigo + '44' }}
           />
+          <Text style={estilos.creditoTexto}>By Nova Computec</Text>
           <Text style={estilos.versaoTexto}>{textoVersao}</Text>
         </View>
 
@@ -405,5 +406,8 @@ const estilos = StyleSheet.create({
   itemAcaoEstado: { fontSize: 12, fontWeight: '600', color: cores.textoFraco },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
-  versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
+  // O respiro de 16 passou para o crédito, que agora abre o bloco; a versão fica logo
+  // abaixo dele, com o espaçamento de linha em vez do de bloco.
+  creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
+  versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 2 },
 })

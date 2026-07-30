@@ -144,6 +144,10 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
 
+          {/* Fora do `form` (flex: 1), que se estica e empurra o crédito para o rodapé
+              mesmo em tela alta, sem precisar de posicionamento absoluto. */}
+          <Text style={estilos.creditoTexto}>By Nova Computec</Text>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -167,6 +171,7 @@ const estilos = StyleSheet.create({
   ouDivisor: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
   ouLinha: { flex: 1, height: 0.5, backgroundColor: cores.bordaFraca },
   ouTexto: { fontSize: 11, color: cores.textoMutado },
+  creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 24 },
   btnDepois: { padding: 14, alignItems: 'center' },
   btnDepoisTexto: { fontSize: 14, color: cores.textoFraco },
 })
