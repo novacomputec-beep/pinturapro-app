@@ -430,6 +430,14 @@ export default function CadastrarObraScreen({ navigation }) {
             {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
             {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
           </View>
+          {/* Sempre visível: não depende de enderecoEncontrado, porque é justamente em
+              endereço difícil (CEP geral, sem logradouro) que a referência mais ajuda. */}
+          <Input
+            label="PONTO DE REFERÊNCIA (opcional)"
+            placeholder="Ex: portão azul, em frente à padaria"
+            value={pontoReferencia}
+            onChangeText={setPontoReferencia}
+          />
           {enderecoEncontrado && (
             <>
               {/* Editável: em cidade pequena de "CEP geral" o ViaCEP não devolve logradouro,
@@ -450,14 +458,6 @@ export default function CadastrarObraScreen({ navigation }) {
               )}
             </>
           )}
-          {/* Sempre visível: não depende de enderecoEncontrado, porque é justamente em
-              endereço difícil (CEP geral, sem logradouro) que a referência mais ajuda. */}
-          <Input
-            label="PONTO DE REFERÊNCIA (opcional)"
-            placeholder="Ex: portão azul, em frente à padaria"
-            value={pontoReferencia}
-            onChangeText={setPontoReferencia}
-          />
           <SeletorLocalidade
             uf={uf}
             cidade={cidade}
