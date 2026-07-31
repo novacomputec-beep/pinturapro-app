@@ -945,6 +945,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // obra.match_usuario_id presente; falta exigir o id do candidato.
                   const ehMatch = temMatch && item.usuario_id != null &&
                     String(item.usuario_id) === String(obra.match_usuario_id)
+                  // Aceite nas duas grafias do backend (ver STATUS_GRUPO em
+                  // ContratosScreen.js:24), como já se faz no painel do próprio candidato
+                  // logo abaixo. Derivado uma vez porque os dois badges de aceite —
+                  // com e sem match — precisam do mesmo teste.
+                  const foiAceito = item.status === 'aceito' || item.status === 'aprovada'
                   const expTexto = formatarExperiencia(item.anos_experiencia)
                   const equipeN = Number(item.tamanho_equipe)
                   const linhaQualif = [expTexto, equipeN > 1 ? `equipe de ${equipeN}` : null].filter(Boolean).join(' · ')
@@ -1072,7 +1077,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                         <Text style={{ fontSize: 12, color: '#E8833A' }}>⏳ Aguardando resposta do profissional...</Text>
                       </View>
                     )}
-                    {item.status === 'aceito' && !ehMatch && (
+                    {foiAceito && !ehMatch && (
                       <View style={{ marginTop: 8, padding: 10, backgroundColor: '#0a1a0a', borderWidth: 1, borderColor: '#2a4a2a', borderRadius: raios.medio }}>
                         <Text style={{ fontSize: 13, color: '#4caf50', fontWeight: '600', marginBottom: 4 }}>⏳ Proposta aceita!</Text>
                         <Text style={{ fontSize: 12, color: cores.textoMedio, lineHeight: 18 }}>
@@ -1080,7 +1085,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                         </Text>
                       </View>
                     )}
-                    {item.status === 'aceito' && ehMatch && (
+                    {foiAceito && ehMatch && (
                       <View style={{ marginTop: 8 }}>
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — profissional a caminho.</Text>
                       </View>
