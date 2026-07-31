@@ -49,19 +49,22 @@ const especialidadesTexto = (esp) => {
 }
 
 // Trunca para as unidades mais significativas, com granularidade decrescente:
-//   ≥ 1 dia  → "19 dias 7h 25m" (sem segundos — evita jitter em prazos longos)
-//   ≥ 1 hora → "7h 25m 03s"
-//   < 1 hora → "25m 03s"
+//   ≥ 1 dia  → "19 dias 7h 25m"
+//   ≥ 1 hora → "7h 25m"
+//   ≥ 1 min  → "25m"
+//   < 1 min  → "menos de 1 min"
 // Estava inline no contador da lista; virou função de módulo para o RelogioRegressivo
 // usar a MESMA regra. Ele formatava hh:mm:ss com a hora acumulada, e um prazo de uma
 // semana aparecia como "167:45:46" — um número que ninguém lê como prazo.
-const formatarTempoRestante = ({ d, h, m, s }) => {
+// Segundos saíram de TODAS as faixas: um prazo medido em horas não se decide no
+// segundo, e o dígito piscando puxava o olho para o único número que não importa.
+// O último minuto não vira "0m" (que se lê como esgotado, e não é): vira uma frase.
+const formatarTempoRestante = ({ d, h, m }) => {
   const pad = (n) => String(n).padStart(2, '0')
-  return d > 0
-    ? `${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
-    : h > 0
-      ? `${h}h ${pad(m)}m ${pad(s)}s`
-      : `${m}m ${pad(s)}s`
+  if (d > 0) return `${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
+  if (h > 0) return `${h}h ${pad(m)}m`
+  if (m > 0) return `${m}m`
+  return 'menos de 1 min'
 }
 
 const ContadorExpiracaoObra = ({ expiraEm }) => {
@@ -162,7 +165,9 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   return (
     <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
       <Text style={estilos.relogioLabel}>{expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}</Text>
-      <Text style={[estilos.relogioTempo, urgente && !expirou && { color: '#f44336' }, expirou && { color: '#666' }]}>{tempo}</Text>
+      {/* Esgotado NÃO mostra tempo: zerado, o formatador devolve "menos de 1 min", que
+          contradiz o rótulo — e mesmo um "0m" só repetiria o que ESGOTADO já diz. */}
+      {!expirou && <Text style={[estilos.relogioTempo, urgente && { color: '#f44336' }]}>{tempo}</Text>}
       {!expirou && <Text style={estilos.relogioSub}>O profissional deve chegar dentro deste prazo</Text>}
       {expirou && <Text style={estilos.relogioSub}>A obra voltou para disponível</Text>}
     </View>
