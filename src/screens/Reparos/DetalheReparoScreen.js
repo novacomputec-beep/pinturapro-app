@@ -865,7 +865,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
-          {reparo.prazo_atendimento_horas && (
+          {/* !encerrada: o rótulo ("📅 Amanhã") descreve o prazo CONFIGURADO, não o tempo
+              que resta — não muda com a aproximação e não sabia nada do encerramento. Num
+              reparo concluído ele seguia no topo, urgindo atendimento logo acima do banner
+              verde "SERVIÇO FINALIZADO". Some o banner inteiro: sem prazo a correr, nem o
+              rótulo nem o texto de horas têm o que dizer. */}
+          {!encerrada && reparo.prazo_atendimento_horas && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
                 {reparo.prazo_atendimento_horas <= 1 ? '🔴 Urgente agora!'
