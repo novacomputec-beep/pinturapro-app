@@ -92,15 +92,18 @@ export default function MinhasObrasScreen({ navigation, route }) {
       {
         text: 'Excluir', style: 'destructive', onPress: async () => {
           try {
-            // comRetry sem flags: só erro de rede duro, onde a requisição não chegou ao
-            // servidor. Repetir a exclusão de um id já removido devolveria 404, e 4xx
-            // nunca é reexecutado, então o retry não transforma sucesso em erro.
+            // { timeout: true }: DELETE de um id é IDEMPOTENTE — repetir a exclusão de
+            // um id já removido devolveria 404, e 4xx nunca é reexecutado, então o retry
+            // não transforma sucesso em erro. Um socket ocioso derrubado pelo SO não
+            // falha só na hora (ERR_NETWORK): pode travar até o timeout de 30 s, e é o
+            // mesmo evento — a requisição não foi processada nos dois casos. { servidor }
+            // fica FORA: um 5xx prova que a requisição chegou e pode ter excluído.
             if (tipo === 'obra') {
-              await comRetry(() => api.delete(`/obras/dono/${item.id}`))
+              await comRetry(() => api.delete(`/obras/dono/${item.id}`), { timeout: true })
               setObras(prev => prev.filter(o => o.id !== item.id))
               setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
             } else {
-              await comRetry(() => api.delete(`/reparos/dono/${item.id}`))
+              await comRetry(() => api.delete(`/reparos/dono/${item.id}`), { timeout: true })
               setReparos(prev => prev.filter(r => r.id !== item.id))
               setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
             }

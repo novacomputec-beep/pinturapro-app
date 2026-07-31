@@ -392,7 +392,12 @@ export default function DetalheObraScreen({ route, navigation }) {
       [
         { text: 'Não, fiquei satisfeito(a)', style: 'cancel', onPress: finalizarPosEncerrar },
         { text: 'Bloquear', style: 'destructive', onPress: async () => {
-          try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: pintorId })) }
+          // { timeout: true }: bloquear é IDEMPOTENTE (grava um estado, não cria
+          // recurso). Um socket ocioso morto também se manifesta como timeout de
+          // 30 s, e aqui isso é caro: o fluxo segue para finalizarPosEncerrar() e a
+          // pessoa sai da tela achando que bloqueou. { servidor } fica fora — 5xx
+          // significa que a requisição chegou.
+          try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: pintorId }), { timeout: true }) }
           catch (err) {
             console.log('[DetalheObra] falha ao bloquear pintor | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             // Antes falhava calado: quem tocou "Bloquear" saía da tela achando que tinha

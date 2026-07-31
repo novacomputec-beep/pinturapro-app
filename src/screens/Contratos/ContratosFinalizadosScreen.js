@@ -50,15 +50,17 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const toggleBloqueio = async (prestadorId) => {
     const jaBloqueado = bloqueados.has(prestadorId)
     try {
-      // comRetry sem flags, como os irmãos desta tela: reexecuta só em erro de rede
-      // duro, onde a requisição não chegou ao servidor. Repetir bloqueio/desbloqueio é
-      // inofensivo (o destino é um estado, não um novo recurso), mas timeout/5xx ficam
-      // de fora mesmo assim para não divergir do padrão do arquivo.
+      // { timeout: true }: bloquear/desbloquear é IDEMPOTENTE — o destino é um estado
+      // ("bloqueado" ou "não"), não um recurso novo, então reexecutar leva ao mesmo
+      // lugar. Um socket ocioso derrubado pelo SO não falha só na hora (ERR_NETWORK);
+      // pode sumir sem resposta até o timeout de 30 s, e aí o usuário vê meio minuto de
+      // espera para um bloqueio que nunca saiu. Sendo o mesmo evento, os dois merecem
+      // retry aqui. { servidor } fica FORA: um 5xx prova que a requisição chegou.
       if (jaBloqueado) {
-        await comRetry(() => api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`))
+        await comRetry(() => api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`), { timeout: true })
         setBloqueados(prev => { const novo = new Set(prev); novo.delete(prestadorId); return novo })
       } else {
-        await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }))
+        await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }), { timeout: true })
         setBloqueados(prev => new Set(prev).add(prestadorId))
       }
     } catch (err) {

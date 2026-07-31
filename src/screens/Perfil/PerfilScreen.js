@@ -156,10 +156,13 @@ export default function PerfilScreen({ navigation }) {
   // navegador troca para a stack de autenticação (Login) automaticamente.
   const handleExcluirConta = async (senha) => {
     try {
-      // comRetry sem flags: reexecuta só em erro de rede duro (a requisição não chegou ao
-      // servidor). Senha errada é 401 e 4xx nunca é reexecutado, então o retry não insiste
-      // numa credencial inválida nem repete uma exclusão já efetivada.
-      await comRetry(() => api.delete('/conta/excluir', { data: { senha } }))
+      // { timeout: true }: a exclusão é IDEMPOTENTE — senha errada é 401 e 4xx nunca é
+      // reexecutado, então o retry não insiste numa credencial inválida nem repete uma
+      // exclusão já efetivada. Cobrir o timeout importa especialmente aqui: um socket
+      // ocioso morto trava 30 s e o modal devolve "não foi possível excluir" para uma
+      // conta que estava intacta — a pessoa tenta de novo achando que falhou.
+      // { servidor } fica FORA: um 5xx prova que a requisição chegou.
+      await comRetry(() => api.delete('/conta/excluir', { data: { senha } }), { timeout: true })
     } catch (err) {
       console.log('[Perfil] falha ao excluir conta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const msg =
