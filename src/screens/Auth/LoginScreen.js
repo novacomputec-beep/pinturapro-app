@@ -146,7 +146,7 @@ export default function LoginScreen({ navigation }) {
 
           {/* Fora do `form` (flex: 1), que se estica e empurra o crédito para o rodapé
               mesmo em tela alta, sem precisar de posicionamento absoluto. */}
-          <Text style={estilos.creditoTexto}>By Nova Computec</Text>
+          <Text style={estilos.creditoTexto}>By Nova Computec Informática</Text>
 
         </ScrollView>
       </KeyboardAvoidingView>

@@ -361,7 +361,7 @@ export default function PerfilScreen({ navigation }) {
             onPress={confirmarLogout}
             estilo={{ borderColor: cores.perigo + '44' }}
           />
-          <Text style={estilos.creditoTexto}>By Nova Computec</Text>
+          <Text style={estilos.creditoTexto}>By Nova Computec Informática</Text>
           <Text style={estilos.versaoTexto}>{textoVersao}</Text>
         </View>
 
