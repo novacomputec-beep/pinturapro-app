@@ -756,7 +756,11 @@ export default function DetalheObraScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
-          {(obra.horas_para_expirar || obra.prazo_execucao_horas) && (
+          {/* !encerrada: o rótulo ("📅 Hoje") descreve o prazo CONFIGURADO, não o tempo que
+              resta — não muda com a aproximação e não sabia nada do encerramento. Numa obra
+              concluída ele seguia no topo anunciando urgência. Some o banner inteiro: sem
+              prazo a correr, nem o rótulo nem o texto de prazo têm o que dizer. */}
+          {!encerrada && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
                 {(obra.horas_para_expirar || obra.prazo_execucao_horas) <= 24 ? '📅 Hoje'
