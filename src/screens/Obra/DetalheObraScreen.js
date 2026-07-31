@@ -959,6 +959,20 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // valor segue o COALESCE(contraproposta, proposto) usado lá — havendo
                   // contraproposta é ela que vale, e a de cima segue sendo a proposta original.
                   const propostoEhCombinado = ehMatch && item.valor_contraproposta == null
+                  // "Aceitou o meu preço": o botão do profissional COPIA o valor pedido para
+                  // valor_proposto (handleInteresse, :265) e não manda flag nenhuma — a
+                  // igualdade com o pedido é o ÚNICO sinal que chega aqui. Fonte do pedido é
+                  // sempre obra.valor || obra.valor_estimado, o mesmo par que o botão lê.
+                  // Exige pedido > 0, a mesma guarda do botão em :1211: sem valor pedido,
+                  // 0 === 0 anunciaria um aceite que não houve. Pedido ausente vira NaN, que
+                  // nunca é igual a nada, então cai no rótulo neutro.
+                  // Não vale quando já é "Valor combinado" — ali o match já foi fechado.
+                  const valorPedidoObra = Number(obra.valor || obra.valor_estimado || 0)
+                  const aceitouValorPedido = !propostoEhCombinado && valorPedidoObra > 0 &&
+                    Number(item.valor_proposto) === valorPedidoObra
+                  const propostoFmt = item.valor_proposto != null
+                    ? Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+                    : ''
                   return (
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.candidatoTopo}>
@@ -995,7 +1009,9 @@ export default function DetalheObraScreen({ route, navigation }) {
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
                     {item.valor_proposto != null && (
                       <Text style={{ fontSize: 18, fontWeight: '700', color: cores.textoMedio, marginBottom: 4 }}>
-                        💰 {propostoEhCombinado ? 'Valor combinado' : 'Valor proposto'}: R$ {Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {aceitouValorPedido
+                          ? `💰 Seu valor proposto (R$ ${propostoFmt}) foi aceito`
+                          : `💰 ${propostoEhCombinado ? 'Valor combinado' : 'Valor proposto'}: R$ ${propostoFmt}`}
                       </Text>
                     )}
                     {item.valor_contraproposta != null && (
