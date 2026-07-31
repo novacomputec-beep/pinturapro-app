@@ -583,7 +583,7 @@ const DonoReparoTabNavigator = () => {
     {/* `title` muda SÓ o rótulo visível; o name segue 'Novo Reparo' porque é a chave de
         rota usada por navigate() e pelo mapa de ícones do TabIcone (route.name). */}
     <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} options={{ title: 'Novo Serviço' }} />
-    <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} />
+    <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} options={{ title: 'Meus Serviços' }} />
     <DonoReparoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoReparoNavigator} />
     <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoReparoTab.Navigator>
