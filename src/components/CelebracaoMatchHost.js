@@ -144,8 +144,9 @@ const detectar = async (usuario) => {
     }
     // Recusa — ÚLTIMO do ramo. Vem do HISTÓRICO, não de `ativos`: é para lá que o interesse
     // recusado vai. Marca d'água normal (sem semMarca): avisa UMA vez e não insiste — repetir
-    // "não foi dessa vez" a cada foco seria crueldade. Sem `navegar`: não há para onde levar
-    // quem ficou de fora, então o CTA apenas fecha.
+    // "não foi dessa vez" a cada foco seria crueldade. O CTA leva ao feed de disponíveis
+    // ('Reparos' é a aba do TabsPrestadorNavigator, AppNavigator.js:549): cumpre o "algo
+    // melhor surgirá" levando a pessoa ao próximo serviço, em vez de só fechar o modal.
     const rec = (resp.historico || []).find(x =>
       (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
     )
@@ -154,7 +155,8 @@ const detectar = async (usuario) => {
       chave: `recusa:${rec.id}`, emoji: '😔',
       titulo: 'Não foi dessa vez',
       subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
-      ctaTexto: 'Entendi',
+      ctaTexto: 'Ver outros reparos',
+      navegar: () => navigationRef.current?.navigate('Reparos'),
     }
   }
   // pintor/construtor — o dono aceitou sua candidatura
@@ -193,6 +195,9 @@ const detectar = async (usuario) => {
     }
     // Recusa — ÚLTIMO do ramo, espelhando o reparador. Aqui a lista é a mesma dos demais
     // (`candidaturas` já traz as recusadas), então não há coleção separada a consultar.
+    // O CTA leva ao feed de disponíveis: 'Obras' é a aba do TabsPintorNavigator
+    // (AppNavigator.js:526), o navegador montado para pintor E para assinante — os mesmos
+    // dois papéis que caem neste ramo (ehPintor, :25).
     const rec = (resp.candidaturas || []).find(x =>
       (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
     )
@@ -201,7 +206,8 @@ const detectar = async (usuario) => {
       chave: `recusa:${rec.id}`, emoji: '😔',
       titulo: 'Não foi dessa vez',
       subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
-      ctaTexto: 'Entendi',
+      ctaTexto: 'Ver outras obras',
+      navegar: () => navigationRef.current?.navigate('Obras'),
     }
   }
   return null
