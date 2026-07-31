@@ -64,8 +64,13 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
     texto = `🔴 Faltam ${m}min — URGENTE!`
   } else if (dias >= 1) {
     texto = `⏰ Faltam ${dias} ${dias === 1 ? 'dia' : 'dias'}, ${h}h${mm}min — Ainda tem tempo, aproveite!`
-  } else {
+  } else if (h >= 1) {
     texto = `⏰ Faltam ${h}h${mm}min — aproveite!`
+  } else {
+    // Faixa de 10 a 59 min (abaixo disso o ramo urgente já cuidou): sem o teste de hora
+    // caía no ramo acima e saía "0h25min", com um zero que não informa nada. Mesma
+    // granularidade dos outros dois feeds (FeedObrasScreen, FeedReparosScreen).
+    texto = `⏰ Faltam ${m}min — aproveite!`
   }
 
   return (
