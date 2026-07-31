@@ -169,6 +169,17 @@ export default function CadastroScreen({ navigation }) {
   const montadoRef = useRef(true)
 
   useEffect(() => {
+    // Warm-up ao ABRIR a tela. NÃO é cold start do servidor: o Serverless está
+    // desligado e a API fica de pé. O que morre é a CONEXÃO — um socket TCP ocioso
+    // é derrubado pelo SO/pela rede sem avisar o cliente, e o pool do axios segue
+    // achando que ele serve. Não importa se ficou ocioso com o app em 2º plano ou
+    // parado em 1º plano numa tela sem tráfego: a PRIMEIRA requisição depois disso
+    // é entregue no socket morto e morre calada até o timeout de 30 s.
+    // Aqui o intervalo é enorme — entre abrir o cadastro e tocar em "Criar conta"
+    // vão vários passos de formulário. Este ping descartável reutiliza o socket
+    // podre e leva o erro no lugar do POST /auth/cadastro, forçando o pool a abrir
+    // conexão nova. Falhar aqui é o caso de sucesso: por isso console.log, sem
+    // retry e sem await. Explicação canônica no WarmupController (App.js).
     api.get('/health').catch(err => console.log('[CadastroScreen] falha no warmup /health | code:', err.code, '| msg:', err.mensagem))
     // Janela de lançamento (grátis) — COSMÉTICO e fire-and-forget: nunca bloqueia/atrasa
     // o render. Endpoint público (pré-login, sem token). Qualquer erro/timeout mantém o

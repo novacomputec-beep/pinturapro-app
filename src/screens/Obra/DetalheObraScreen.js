@@ -1027,9 +1027,14 @@ export default function DetalheObraScreen({ route, navigation }) {
                               style={{ flex: 1, backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 10, alignItems: 'center' }}
                               // Warm-up ao ABRIR o campo: entre carregar a tela e tocar em
                               // "Enviar" o usuário lê a proposta e digita um valor, minutos
-                              // sem tráfego nenhum. Se a conexão ociosa já morreu, quem paga
-                              // é este ping descartável — não a contraproposta do usuário.
-                              // Mesmo padrão do warm-up do CadastroScreen: sem await, erro engolido.
+                              // sem tráfego nenhum. Basta isso: o socket TCP ocioso é
+                              // derrubado pelo SO/pela rede — dá no mesmo ter ficado parado
+                              // em 1º plano aqui ou o app ter ido para o 2º plano — e o pool
+                              // do axios não percebe. Quem reutiliza o socket morto e trava
+                              // até o timeout de 30 s é este ping descartável, não a
+                              // contraproposta do usuário. NÃO é cold start do servidor.
+                              // Sem await, erro engolido: falhar aqui é o caso de sucesso.
+                              // Explicação canônica no WarmupController (App.js).
                               onPress={() => { api.get('/health').catch(() => {}); setContrapropostaCandidaturaId(item.id) }}
                             >
                               <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contraproposta</Text>
