@@ -12,12 +12,14 @@ import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
-// não some da tela: ela MENTE. 'recusada' — a grafia do endpoint legado, ver STATUS_GRUPO
-// em ContratosScreen.js:24 — caía exatamente nisso, e quem tinha sido recusado lia que
-// ainda estava aguardando. Mapeada para o mesmo texto de 'recusado'.
+// não some da tela: ela MENTE. As duas grafias do endpoint legado ('aprovada'/'recusada',
+// ver STATUS_GRUPO em ContratosScreen.js:24) caíam exatamente nisso — quem tinha sido
+// recusado, e quem tinha sido APROVADO, liam os dois que ainda estavam aguardando.
+// Cada uma aponta para o mesmo texto da grafia atual equivalente.
 const STATUS_INFO = {
   pendente:            { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
   aceito:              { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
+  aprovada:            { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
   recusado:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
   recusada:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
   contraproposta_dono: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
