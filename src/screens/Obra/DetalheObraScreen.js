@@ -627,6 +627,15 @@ export default function DetalheObraScreen({ route, navigation }) {
   // presente, então só falta exigir o id do usuário logado antes de comparar em String.
   const souPintorDoMatch = temMatch && usuario?.id != null &&
     String(obra.match_usuario_id) === String(usuario.id)
+  // Profissional FORA da disputa: ou foi recusado, ou o dono já escolheu outro. Para ele
+  // o prazo desta obra deixou de ser um prazo — não é notícia dele, e ver o relógio correr
+  // sugere que ainda há algo a fazer. Os dois vocabulários de recusa do backend estão
+  // cobertos (ver a tabela STATUS_GRUPO em ContratosScreen.js:24).
+  // O DONO nunca entra aqui: o prazo é da obra dele, ele vê a contagem em qualquer caso.
+  // Quem ainda não se candidatou também fica de fora do flag — para esse a contagem é
+  // justamente o sinal de urgência que o faz decidir.
+  const minhaRecusada = minhaCandidatura?.status === 'recusado' || minhaCandidatura?.status === 'recusada'
+  const foraDaDisputa = !isDono && (minhaRecusada || (temMatch && !souPintorDoMatch))
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const pintorMatch = temMatch
@@ -751,7 +760,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                   : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 1440 ? '📋 Mês que vem'
                   : '⏳ Mais de um mês'}
               </Text>
-              {obra.expira_em
+              {/* Contagem pré-match: some para quem está fora da disputa (recusado ou
+                  dono já escolheu outro). Cai no texto neutro em vez de deixar buraco no
+                  banner — a urgência da obra continua sendo informação pública. */}
+              {obra.expira_em && !foraDaDisputa
                 ? <ContadorExpiracaoObra expiraEm={obra.expira_em} />
                 : <Text style={estilos.urgenciaHoras}>Prazo de execução informado</Text>
               }
@@ -836,8 +848,13 @@ export default function DetalheObraScreen({ route, navigation }) {
           ) : null}
 
           {/* Paridade com DetalheReparo: a contagem NÃO deve renderizar quando encerrada
-              (evita, inclusive, o onExpirar disparar /expirar-match numa obra concluída). */}
-          {temMatch && obra.expira_em && !encerrada && (
+              (evita, inclusive, o onExpirar disparar /expirar-match numa obra concluída).
+              (souPintorDoMatch || isDono): a contagem é das DUAS partes do match. Todo bloco
+              da era pós-match ao redor já checa quem é quem; este não checava, então um
+              candidato recusado via o relógio do vencedor — e, pior, ao zerar o onExpirar
+              disparava POST /obras/:id/expirar-match do aparelho DELE, seguido do alerta
+              "o profissional não chegou a tempo" como se fosse participante. */}
+          {(souPintorDoMatch || isDono) && temMatch && obra.expira_em && !encerrada && (
             <RelogioRegressivo
               expiraEm={obra.expira_em}
               onExpirar={handleExpirarMatch}

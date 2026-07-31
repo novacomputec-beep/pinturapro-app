@@ -712,6 +712,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // presente, então só falta exigir o id do usuário logado antes de comparar em String.
   const souPrestadorDoMatch = temMatch && usuario?.id != null &&
     String(reparo.match_usuario_id) === String(usuario.id)
+  // Profissional FORA da disputa: ou foi recusado, ou o dono já escolheu outro. Para ele
+  // o prazo deste reparo deixou de ser um prazo — não é notícia dele, e ver o relógio
+  // correr sugere que ainda há algo a fazer. Espelha DetalheObraScreen; 'recusada' entra
+  // junto por simetria com o vocabulário legado das candidaturas (ContratosScreen.js:24).
+  // O DONO nunca entra aqui: o prazo é do reparo dele, ele vê a contagem em qualquer caso.
+  // Quem ainda não demonstrou interesse também fica de fora do flag — para esse a contagem
+  // é justamente o sinal de urgência que o faz decidir.
+  const meuInteresseRecusado = meuInteresse?.status === 'recusado' || meuInteresse?.status === 'recusada'
+  const foraDaDisputa = !isDono && (meuInteresseRecusado || (temMatch && !souPrestadorDoMatch))
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const prestadorMatch = temMatch
@@ -855,7 +864,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   : reparo.prazo_atendimento_horas <= 24 ? '📅 Amanhã'
                   : '📆 Esta semana'}
               </Text>
-              {reparo.expira_em
+              {/* Contagem pré-match: some para quem está fora da disputa (recusado ou
+                  dono já escolheu outro). Cai no texto neutro em vez de deixar buraco no
+                  banner — a urgência do reparo continua sendo informação pública. */}
+              {reparo.expira_em && !foraDaDisputa
                 ? <ContadorExpiracaoReparo expiraEm={reparo.expira_em} />
                 : <Text style={estilos.urgenciaHoras}>Atender em até {reparo.prazo_atendimento_horas}h</Text>
               }
@@ -946,8 +958,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* B72-06: a contagem (RelogioRegressivo) NÃO deve renderizar quando encerrada */}
-          {temMatch && reparo.expira_em && reparo.status !== 'encerrada' && (
+          {/* B72-06: a contagem (RelogioRegressivo) NÃO deve renderizar quando encerrada.
+              (souPrestadorDoMatch || isDono): a contagem é das DUAS partes do match. Todo
+              bloco da era pós-match ao redor já checa quem é quem; este não checava, então
+              um interessado recusado via o relógio do vencedor — e, pior, ao zerar o
+              onExpirar disparava POST /reparos/:id/expirar-match do aparelho DELE, seguido
+              do alerta "o profissional não chegou a tempo" como se fosse participante. */}
+          {(souPrestadorDoMatch || isDono) && temMatch && reparo.expira_em && reparo.status !== 'encerrada' && (
             <RelogioRegressivo
               expiraEm={reparo.expira_em}
               onExpirar={handleExpirarMatch}
