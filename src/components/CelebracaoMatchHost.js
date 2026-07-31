@@ -113,7 +113,10 @@ const detectar = async (usuario) => {
       reparo_id: cp.reparo_id,
       interesse_id: cp.id,
     }
-    const it = (resp.ativos || []).find(x => x.status === 'aceito' && naoVisto(`interesse:${x.id}`))
+    // As DUAS grafias de aceite (ver STATUS_GRUPO em ContratosScreen.js:24), igual ao ramo
+    // do pintor e ao gate de encerramento logo abaixo: sem 'aprovada' o profissional nunca
+    // era parabenizado pelo serviço que ganhou.
+    const it = (resp.ativos || []).find(x => (x.status === 'aceito' || x.status === 'aprovada') && naoVisto(`interesse:${x.id}`))
     if (it) return {
       chave: `interesse:${it.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu o serviço!',
