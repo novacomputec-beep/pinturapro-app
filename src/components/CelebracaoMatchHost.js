@@ -142,6 +142,20 @@ const detectar = async (usuario) => {
       ctaTexto: 'Confirmar encerramento',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: enc.reparo_id } }, initial: false }),
     }
+    // Recusa — ÚLTIMO do ramo. Vem do HISTÓRICO, não de `ativos`: é para lá que o interesse
+    // recusado vai. Marca d'água normal (sem semMarca): avisa UMA vez e não insiste — repetir
+    // "não foi dessa vez" a cada foco seria crueldade. Sem `navegar`: não há para onde levar
+    // quem ficou de fora, então o CTA apenas fecha.
+    const rec = (resp.historico || []).find(x =>
+      (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
+    )
+    if (rec) return {
+      semConfete: true,
+      chave: `recusa:${rec.id}`, emoji: '😔',
+      titulo: 'Não foi dessa vez',
+      subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
+      ctaTexto: 'Entendi',
+    }
   }
   // pintor/construtor — o dono aceitou sua candidatura
   if (ehPintor) {
@@ -176,6 +190,18 @@ const detectar = async (usuario) => {
       subtitulo: `O dono${enc.titulo ? ` de "${enc.titulo}"` : ' da obra'} marcou o serviço como concluído. A obra só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: enc.obra_id } }, initial: false }),
+    }
+    // Recusa — ÚLTIMO do ramo, espelhando o reparador. Aqui a lista é a mesma dos demais
+    // (`candidaturas` já traz as recusadas), então não há coleção separada a consultar.
+    const rec = (resp.candidaturas || []).find(x =>
+      (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
+    )
+    if (rec) return {
+      semConfete: true,
+      chave: `recusa:${rec.id}`, emoji: '😔',
+      titulo: 'Não foi dessa vez',
+      subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
+      ctaTexto: 'Entendi',
     }
   }
   return null
@@ -257,7 +283,10 @@ export default function CelebracaoMatchHost() {
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <View style={estilos.card}>
-          <Text style={estilos.confete}>🎉   ✨   🎉</Text>
+          {/* O confete era incondicional — em cima do aviso de recusa ele soava como
+              deboche ("🎉 ✨ 🎉" logo acima de "Não foi dessa vez"). Quem não quiser
+              festa marca semConfete. */}
+          {evento.semConfete ? null : <Text style={estilos.confete}>🎉   ✨   🎉</Text>}
           {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
           <Text style={estilos.titulo}>{evento.titulo}</Text>
           <Text style={estilos.subtitulo}>{evento.subtitulo || evento.mensagem}</Text>
