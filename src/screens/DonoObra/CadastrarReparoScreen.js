@@ -41,8 +41,8 @@ const URGENCIAS = [
 // tenta publicar incompleto, rolar até o 1º campo com erro e exibir um alerta claro —
 // antes a única sinalização era o erro inline (fora da tela, junto ao botão de baixo).
 const CAMPOS_OBRIGATORIOS = [
-  { chave: 'titulo',        msg: 'Por favor, informe o título do reparo antes de continuar.' },
   { chave: 'urgencia',      msg: 'Selecione o prazo de atendimento antes de continuar.' },
+  { chave: 'titulo',        msg: 'Por favor, informe o título do reparo antes de continuar.' },
   { chave: 'descricao',     msg: 'Descreva o reparo necessário antes de continuar.' },
   { chave: 'valorEstimado', msg: 'Informe quanto você quer pagar antes de continuar.' },
   { chave: 'cep',           msg: 'Informe um CEP válido antes de continuar.' },
@@ -393,9 +393,6 @@ export default function CadastrarReparoScreen({ navigation }) {
               <Text style={estilos.avisoTexto}>Mostre o problema e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
             </View>
           </View>
-          <View onLayout={registrarY('titulo')}>
-            <Input label="TÍTULO DO REPARO" placeholder="Ex: Torneira da pia da cozinha vazando" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
-          </View>
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
             {CATEGORIAS.map(c => (
@@ -416,8 +413,11 @@ export default function CadastrarReparoScreen({ navigation }) {
               ))}
             </View>
           </View>
+          <View onLayout={registrarY('titulo')}>
+            <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Torneira da pia da cozinha vazando" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
+          </View>
           <View onLayout={registrarY('descricao')}>
-            <Input label="DESCRIÇÃO DO PROBLEMA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
+            <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
           </View>
           <View onLayout={registrarY('valorEstimado')}>
             <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
