@@ -761,9 +761,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                   : '⏳ Mais de um mês'}
               </Text>
               {/* Contagem pré-match: some para quem está fora da disputa (recusado ou
-                  dono já escolheu outro). Cai no texto neutro em vez de deixar buraco no
-                  banner — a urgência da obra continua sendo informação pública. */}
-              {obra.expira_em && !foraDaDisputa
+                  dono já escolheu outro) e em obra encerrada — ali não há mais prazo a
+                  correr para ninguém, nem para o dono, e o contador ficava vivo (ou
+                  cravado em EXPIRADO) numa obra já concluída. Cai no texto neutro em vez
+                  de deixar buraco no banner. */}
+              {obra.expira_em && !foraDaDisputa && !encerrada
                 ? <ContadorExpiracaoObra expiraEm={obra.expira_em} />
                 : <Text style={estilos.urgenciaHoras}>Prazo de execução informado</Text>
               }
@@ -1083,7 +1085,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — profissional a caminho.</Text>
                       </View>
                     )}
-                    {item.status === 'recusado' && (
+                    {/* Badge do DONO para cada candidato: aceita as duas grafias de recusa
+                        (ver STATUS_GRUPO em ContratosScreen.js:24). É AQUI que 'recusada'
+                        de fato aparece — é a grafia do endpoint legado de candidaturas —,
+                        e sem ela a linha de um recusado ficava sem badge nenhum. */}
+                    {(item.status === 'recusado' || item.status === 'recusada') && (
                       <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1a0a0a', borderRadius: raios.medio }}>
                         <Text style={{ fontSize: 12, color: '#f44336' }}>❌ Recusado</Text>
                       </View>
@@ -1182,7 +1188,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                         <Text style={estilos.avisoDeslocamento}>⚠️ Este cronômetro é apenas informativo para seu deslocamento. O prazo estabelecido pelo solicitante continua valendo independentemente.</Text>
                       </>
                     )}
-                    {minhaCandidatura.status === 'recusado' && (
+                    {/* Reusa o MESMO flag do foraDaDisputa: antes este painel testava só
+                        'recusado', então uma candidatura recusada pelo endpoint legado
+                        ('recusada', ver STATUS_GRUPO em ContratosScreen.js:24) caía num
+                        painel vazio — sem aviso nenhum de que estava fora. */}
+                    {minhaRecusada && (
                       <>
                         <Text style={{ color: '#f44336', fontWeight: '600', marginBottom: 6 }}>❌ Não selecionado</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta não foi aceita desta vez.</Text>
