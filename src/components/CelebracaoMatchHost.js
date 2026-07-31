@@ -123,8 +123,12 @@ const detectar = async (usuario) => {
     }
     // Exige o interesse ACEITO: a lista traz também propostas recusadas/pendentes do
     // mesmo reparo, e o pedido de encerramento só diz respeito a quem está no serviço.
+    // As DUAS grafias de aceite (ver STATUS_GRUPO em ContratosScreen.js:24), como o ramo
+    // do pintor logo abaixo já fazia: um aceite gravado como 'aprovada' não pode engolir
+    // o aviso — sem ele o reparo fica parado esperando uma confirmação que o profissional
+    // nunca é convidado a dar.
     const enc = (resp.ativos || []).find(x =>
-      x.status === 'aceito' && x.encerramento_solicitado_por != null &&
+      (x.status === 'aceito' || x.status === 'aprovada') && x.encerramento_solicitado_por != null &&
       String(x.encerramento_solicitado_por) !== String(uid)
     )
     if (enc) return {
