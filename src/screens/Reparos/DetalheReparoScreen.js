@@ -865,9 +865,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   : '📆 Esta semana'}
               </Text>
               {/* Contagem pré-match: some para quem está fora da disputa (recusado ou
-                  dono já escolheu outro). Cai no texto neutro em vez de deixar buraco no
-                  banner — a urgência do reparo continua sendo informação pública. */}
-              {reparo.expira_em && !foraDaDisputa
+                  dono já escolheu outro) e em reparo encerrado — ali não há mais prazo a
+                  correr para ninguém, nem para o dono, e o contador ficava vivo (ou
+                  cravado em EXPIRADO) num reparo já concluído. Cai no texto neutro em vez
+                  de deixar buraco no banner. */}
+              {reparo.expira_em && !foraDaDisputa && !encerrada
                 ? <ContadorExpiracaoReparo expiraEm={reparo.expira_em} />
                 : <Text style={estilos.urgenciaHoras}>Atender em até {reparo.prazo_atendimento_horas}h</Text>
               }
@@ -1205,7 +1207,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — profissional a caminho.</Text>
                       </View>
                     )}
-                    {item.status === 'recusado' && (
+                    {/* Badge do DONO para cada interessado: aceita as duas grafias de recusa
+                        (ver STATUS_GRUPO em ContratosScreen.js:24). Sem 'recusada' a linha
+                        de um recusado ficava sem badge nenhum, e o dono relia a lista sem
+                        saber quem já tinha dispensado. */}
+                    {(item.status === 'recusado' || item.status === 'recusada') && (
                       <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1a0a0a', borderRadius: raios.medio }}>
                         <Text style={{ fontSize: 12, color: '#f44336' }}>❌ Recusado</Text>
                       </View>
@@ -1304,7 +1310,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <Text style={estilos.avisoDeslocamento}>⚠️ Este cronômetro é apenas informativo para seu deslocamento. O prazo estabelecido pelo solicitante continua valendo independentemente.</Text>
                       </>
                     )}
-                    {meuInteresse.status === 'recusado' && (
+                    {/* Reusa o MESMO flag do foraDaDisputa, espelhando DetalheObraScreen:
+                        um painel que some sem aviso é pior que um rótulo a mais, então
+                        'recusada' entra aqui pelo mesmo motivo que entrou no flag. */}
+                    {meuInteresseRecusado && (
                       <>
                         <Text style={{ color: '#f44336', fontWeight: '600', marginBottom: 6 }}>❌ Não selecionado</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta não foi aceita desta vez.</Text>
