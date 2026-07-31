@@ -42,8 +42,8 @@ const URGENCIAS = [
 // antes a única sinalização era o erro inline (fora da tela, junto ao botão de baixo).
 const CAMPOS_OBRIGATORIOS = [
   { chave: 'urgencia',      msg: 'Selecione o prazo de atendimento antes de continuar.' },
-  { chave: 'titulo',        msg: 'Por favor, informe o título do reparo antes de continuar.' },
-  { chave: 'descricao',     msg: 'Descreva o reparo necessário antes de continuar.' },
+  { chave: 'titulo',        msg: 'Por favor, informe o título do serviço antes de continuar.' },
+  { chave: 'descricao',     msg: 'Descreva o serviço necessário antes de continuar.' },
   { chave: 'valorEstimado', msg: 'Informe quanto você quer pagar antes de continuar.' },
   { chave: 'cep',           msg: 'Informe um CEP válido antes de continuar.' },
   { chave: 'logradouro',    msg: 'Informe a rua/avenida do endereço antes de continuar.' },
@@ -216,7 +216,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   const validar = () => {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
-    if (!descricao.trim()) novos.descricao = 'Descreva o reparo necessário'
+    if (!descricao.trim()) novos.descricao = 'Descreva o serviço necessário'
     if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
     if (!uf) novos.uf = 'Selecione o estado'
     if (!cidade) novos.cidade = 'Selecione a cidade'
@@ -265,7 +265,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!montadoRef.current) return
     setCarregando(false)
     if (falhas.length === 0) {
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para profissionais qualificados da sua região!',
+      Alert.alert('✅ Serviço publicado!', 'Seu serviço já está visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
@@ -273,8 +273,8 @@ export default function CadastrarReparoScreen({ navigation }) {
         ? '\n\n📹 Vídeos grandes podem falhar em conexões lentas — tente novamente em Wi-Fi ou grave um vídeo mais curto.'
         : ''
       Alert.alert(
-        '⚠️ Reparo criado',
-        `Seu reparo foi criado, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
+        '⚠️ Serviço criado',
+        `Seu serviço foi criado, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
           { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(reparoId, falhas) } },
           { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Meus Reparos') },
@@ -333,7 +333,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       submetidoRef.current = true
     } catch (e) {
       console.log('[CadastrarReparo] falha ao criar reparo | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
-      const msg = e.mensagem || 'Não foi possível cadastrar o reparo. Tente novamente.'
+      const msg = e.mensagem || 'Não foi possível cadastrar o serviço. Tente novamente.'
       Alert.alert('Erro', msg)
       enviandoRef.current = false
       setCarregando(false)
@@ -343,7 +343,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Reparo publicado!', 'Seu reparo já está visível para profissionais qualificados da sua região!',
+      Alert.alert('✅ Serviço publicado!', 'Seu serviço já está visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
       return
     }
@@ -361,7 +361,7 @@ export default function CadastrarReparoScreen({ navigation }) {
               if (reparoPendente) navigation.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: reparoPendente }, initial: false })
             }}
           >
-            <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – seu reparo recebeu interessado(s) · toque para ver</Text>
+            <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – seu serviço recebeu interessado(s) · toque para ver</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setMostrarBanner(false)}
@@ -384,8 +384,8 @@ export default function CadastrarReparoScreen({ navigation }) {
               <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
             </TouchableOpacity>
           )}
-          <Text style={estilos.titulo}>Cadastrar{'\n'}reparo</Text>
-          <Text style={estilos.subtitulo}>Descreva o reparo e encontre um profissional qualificado</Text>
+          <Text style={estilos.titulo}>Cadastrar{'\n'}serviço</Text>
+          <Text style={estilos.subtitulo}>Descreva o serviço e encontre um profissional qualificado</Text>
           <View style={estilos.avisoBanner}>
             <Text style={estilos.avisoIcone}>🎥</Text>
             <View style={{ flex: 1 }}>
@@ -414,7 +414,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             </View>
           </View>
           <View onLayout={registrarY('titulo')}>
-            <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Torneira da pia da cozinha vazando" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
+            <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Instalar 3 tomadas na sala" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
           </View>
           <View onLayout={registrarY('descricao')}>
             <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
@@ -475,9 +475,9 @@ export default function CadastrarReparoScreen({ navigation }) {
             onReenviar={midia.reenviar}
           />
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
-          <BotaoPrimario titulo="Publicar reparo →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
+          <BotaoPrimario titulo="Publicar serviço →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
           {carregando && <Text style={estilos.avisoUpload}>📤 Enviando fotos, aguarde...</Text>}
-          <Text style={estilos.aviso}>Seu reparo será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
+          <Text style={estilos.aviso}>Seu serviço será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
 
