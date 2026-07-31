@@ -1,12 +1,22 @@
-// Reexecuta uma chamada de rede em caso de erro transitório (cold start /
-// handover de rede), com backoff exponencial e jitter entre as tentativas.
+// Reexecuta uma chamada de rede em caso de erro transitório (socket ocioso
+// derrubado, handover de rede), com backoff exponencial e jitter entre as tentativas.
+//
+// O caso dominante NÃO é cold start do servidor: o Serverless está desligado e a API
+// fica de pé. O que morre é a CONEXÃO — o SO/a rede derrubam um socket TCP ocioso sem
+// avisar o cliente, o pool do axios continua entregando esse socket, e a requisição
+// seguinte se perde nele. Isso chega aqui de DUAS formas, e a diferença é só de
+// timing: ou falha na hora (ERR_NETWORK), ou some sem resposta até estourar o timeout
+// de 30 s (ECONNABORTED). Nos dois casos a requisição NÃO foi processada — é o mesmo
+// evento, e por isso os dois merecem retry nas mesmas chamadas.
 //
 // Por padrão só reexecuta em erro de rede "duro" (ERR_NETWORK / Network Error),
 // onde a requisição provavelmente NÃO chegou ao servidor — seguro de repetir
 // mesmo em chamadas não-idempotentes.
 //
-// Para chamadas IDEMPOTENTES (pré-checagens, GETs), habilite { timeout, servidor }
-// p/ também reexecutar em timeout (ECONNABORTED) e 5xx — comuns em cold start.
+// Para chamadas IDEMPOTENTES (pré-checagens, GETs, mutações que gravam um ESTADO e
+// não criam um recurso novo), habilite { timeout } p/ também cobrir a variante que
+// trava. { servidor } acrescenta 5xx, que é outra história: um 5xx PROVA que a
+// requisição chegou e foi processada, então só vale onde repetir o efeito é inócuo.
 // NÃO habilite isso em POSTs que criam recursos (criar obra/reparo) nem em
 // respostas de negociação: o servidor pode ter processado a 1ª tentativa e o
 // retry duplicaria o efeito.
