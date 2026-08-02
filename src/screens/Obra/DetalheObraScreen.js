@@ -67,6 +67,33 @@ const formatarTempoRestante = ({ d, h, m }) => {
   return 'menos de 1 min'
 }
 
+// Janelas de chegada oferecidas ao profissional depois que sua proposta é aceita. O
+// rótulo aqui é só o que ELE lê; quem converte a janela num instante é o servidor, que
+// devolve chegada_prevista_em. Nada nesta lista vira horário no aparelho.
+const JANELAS_CHEGADA = [
+  { id: 'hoje',         label: '🕐 Ainda hoje' },
+  { id: 'amanha_manha', label: '🌅 Amanhã de manhã' },
+  { id: 'amanha_tarde', label: '🌇 Amanhã à tarde' },
+]
+
+// Chegada prometida, SEMPRE derivada do timestamp que o servidor calculou — nunca do
+// rótulo da janela escolhida. O rótulo é o pedido ("amanhã de manhã"); o timestamp é o
+// compromisso, e é ele que o dono precisa ler. Data ausente/ilegível devolve null e o
+// bloco inteiro some, em vez de imprimir "Invalid Date".
+// Comparação por meia-noite LOCAL, não por diferença de 24h: às 23h de hoje, um horário
+// das 8h de amanhã dista 9h e mesmo assim é "amanhã".
+const formatarChegadaPrevista = (iso) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const hora = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const meiaNoite = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const dias = Math.round((meiaNoite(d) - meiaNoite(new Date())) / 86400000)
+  if (dias === 0) return `hoje às ${hora}`
+  if (dias === 1) return `amanhã às ${hora}`
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} às ${hora}`
+}
+
 const ContadorExpiracaoObra = ({ expiraEm }) => {
   const [restante, setRestante] = useState(null)
   const expiradoRef = useRef(false)
@@ -120,12 +147,16 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
   </View>
 )
 
-// Pós-match: conta até expira_em (o MESMO prazo do contador pré-match), tornando a
+// Pós-match: conta até o alvo que o CHAMADOR escolhe — chegada_prevista_em quando o
+// profissional prometeu um horário, senão expira_em. Sem promessa, o comportamento é o
+// de sempre: expira_em é o deadline (o MESMO prazo do contador pré-match), tornando a
 // contagem contínua através do match — o pintor vê o tempo que RESTAVA no Rol, não uma
 // janela nova de match_feito_em + prazo. Ao chegar a zero dispara onExpirar (POST
 // /obras/:id/expirar-match) no exato momento de expira_em; o job verificarCronometroObras
 // faz o mesmo no servidor — quem disparar primeiro vence, o outro é no-op idempotente.
 // match_feito_em segue usado noutros lugares, mas não para esta contagem.
+// onExpirar é OPCIONAL de propósito: só o alvo expira_em representa o fim do prazo da
+// obra, então só ele pode disparar /expirar-match. Ver a nota no ponto de render.
 const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   const [restante, setRestante] = useState(null)
   const [expirou, setExpirou] = useState(false)
@@ -204,6 +235,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [minutosTempo, setMinutosTempo] = useState('')
   const [modalEstender, setModalEstender] = useState(false)
   const [estendendo, setEstendendo] = useState(false)
+  // Guarda a janela EM VOO (o id, não um boolean): trava as três opções de uma vez e
+  // ainda permite marcar qual delas está sendo enviada.
+  const [enviandoJanela, setEnviandoJanela] = useState(null)
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
 
@@ -290,6 +324,33 @@ export default function DetalheObraScreen({ route, navigation }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
+    }
+  }
+
+  // Janela de chegada: o profissional promete QUANDO chega, antes de partir. Grava um
+  // ESTADO (a mesma janela duas vezes dá o mesmo resultado) e não cria recurso novo, que
+  // é exatamente o caso do { timeout: true } descrito em rede.js:16-19 — o socket ocioso
+  // que trava até o timeout de 30 s é o mesmo evento do ERR_NETWORK e merece o retry.
+  // { servidor } fica FORA: um 5xx prova que a requisição chegou.
+  const handleEscolherJanela = async (janela) => {
+    if (enviandoJanela) return
+    setEnviandoJanela(janela)
+    try {
+      const resp = await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista`, { janela }), { timeout: true })
+      // O horário exibido vem SEMPRE do servidor. Se a resposta não trouxer o campo,
+      // buscar() reidrata a obra — em nenhuma hipótese derivamos um instante do rótulo
+      // escolhido aqui, que é um pedido ("amanhã de manhã"), não um horário.
+      const nova = resp?.chegada_prevista_em || resp?.obra?.chegada_prevista_em
+      if (nova) {
+        if (mountedRef.current) setObra(prev => ({ ...prev, chegada_prevista_em: nova }))
+      } else {
+        await buscar()
+      }
+    } catch (err) {
+      console.log('[DetalheObra] falha ao informar chegada prevista | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível informar sua previsão de chegada.')
+    } finally {
+      if (mountedRef.current) setEnviandoJanela(null)
     }
   }
 
@@ -646,6 +707,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   const pintorMatch = temMatch
     ? candidatos.find(c => c.usuario_id != null && String(c.usuario_id) === String(obra.match_usuario_id))
     : null
+  // Texto único da chegada prometida, lido do timestamp do servidor e reusado pelos dois
+  // lados (dono e pintor). Null quando não há promessa — ou quando a data não deu para
+  // ler —, e aí os blocos que dependem dele não renderizam.
+  const chegadaPrevistaTexto = formatarChegadaPrevista(obra?.chegada_prevista_em)
   const distancia = distanciaItemKm(coords, obra)
 
   const abrirWhatsApp = (telefone) => {
@@ -865,10 +930,17 @@ export default function DetalheObraScreen({ route, navigation }) {
               candidato recusado via o relógio do vencedor — e, pior, ao zerar o onExpirar
               disparava POST /obras/:id/expirar-match do aparelho DELE, seguido do alerta
               "o profissional não chegou a tempo" como se fosse participante. */}
+          {/* Alvo da contagem: a chegada PROMETIDA quando existe, senão o prazo da obra.
+              onExpirar só acompanha o alvo expira_em. Zerar a promessa das 14h não
+              significa que o prazo da obra acabou, e disparar /expirar-match ali
+              devolveria a obra ao Rol no meio da janela ainda válida — o mesmo estrago
+              que o gate de identidade abaixo evita para quem nem é do match. Sem prazo
+              vencido não há match a expirar; com promessa no ar, quem cuida do prazo real
+              é o job verificarCronometroObras. */}
           {(souPintorDoMatch || isDono) && temMatch && obra.expira_em && !encerrada && (
             <RelogioRegressivo
-              expiraEm={obra.expira_em}
-              onExpirar={handleExpirarMatch}
+              expiraEm={obra.chegada_prevista_em || obra.expira_em}
+              onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
             />
           )}
 
@@ -898,6 +970,16 @@ export default function DetalheObraScreen({ route, navigation }) {
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
               />
+              {/* Chegada prometida, para o DONO. Renderiza o horário calculado pelo
+                  servidor (chegada_prevista_em), nunca o rótulo da janela: "amanhã de
+                  manhã" é o que o profissional escolheu, não uma hora com que o dono
+                  possa se organizar. Sem o campo, chegadaPrevistaTexto é null e o bloco
+                  some — nada de placeholder prometendo um horário que não existe. */}
+              {temMatch && chegadaPrevistaTexto && !encerrada && (
+                <View style={estilos.chegadaBox}>
+                  <Text style={estilos.chegadaTexto}>🚚 Chegada prometida: {chegadaPrevistaTexto}</Text>
+                </View>
+              )}
               {temMatch && pintorMatch?.telefone && !encerrada && (
                 <TouchableOpacity
                   style={estilos.btnWhatsApp}
@@ -1212,10 +1294,32 @@ export default function DetalheObraScreen({ route, navigation }) {
                       <>
                         <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>
+                        {/* Janela de chegada, ACIMA do botão de partida: prometer o horário
+                            é o passo anterior a "estou a caminho". Some assim que houver
+                            promessa — trocada pelo horário que o servidor calculou, para o
+                            profissional ver o mesmo compromisso que o dono lê. */}
+                        {chegadaPrevistaTexto ? (
+                          <Text style={estilos.chegadaConfirmada}>✅ Você prometeu chegar {chegadaPrevistaTexto}</Text>
+                        ) : (
+                          <View style={estilos.janelaWrap}>
+                            <Text style={estilos.janelaLabel}>Quando você pretende chegar?</Text>
+                            <View style={estilos.janelaOpcoes}>
+                              {JANELAS_CHEGADA.map(j => (
+                                <TouchableOpacity
+                                  key={j.id}
+                                  style={[estilos.janelaOpcao, enviandoJanela === j.id && estilos.janelaOpcaoAtiva]}
+                                  onPress={() => handleEscolherJanela(j.id)}
+                                  disabled={!!enviandoJanela}
+                                >
+                                  <Text style={estilos.janelaOpcaoTexto}>{enviandoJanela === j.id ? 'Enviando…' : j.label}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          </View>
+                        )}
                         <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
                           <Text style={estilos.btnMatchTexto}>🎨 Estou a caminho! Iniciar contagem →</Text>
                         </TouchableOpacity>
-                        <Text style={estilos.avisoDeslocamento}>⚠️ Este cronômetro é apenas informativo para seu deslocamento. O prazo estabelecido pelo solicitante continua valendo independentemente.</Text>
                       </>
                     )}
                     {/* Reusa o MESMO flag do foraDaDisputa: antes este painel testava só
@@ -1416,5 +1520,16 @@ const estilos = StyleSheet.create({
   btnAceitarValorPropostoTexto: { fontSize: 14, fontWeight: '700', color: cores.primaria },
   btnValorAceito: { backgroundColor: '#1a3a1a', borderWidth: 1.5, borderColor: '#4caf50', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 16 },
   btnValorAceitoTexto: { fontSize: 14, fontWeight: '700', color: '#4caf50' },
-  avisoDeslocamento: { fontSize: 11, color: '#E8833A', textAlign: 'center', marginTop: 8, lineHeight: 16, paddingHorizontal: 8 },
+  // Janela de chegada (pintor, antes de partir). As opções quebram em várias linhas
+  // — os rótulos são longos e três pills numa linha só espremeriam o texto.
+  janelaWrap: { marginBottom: 4 },
+  janelaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
+  janelaOpcoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  janelaOpcao: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8 },
+  janelaOpcaoAtiva: { borderColor: cores.primaria, opacity: 0.6 },
+  janelaOpcaoTexto: { fontSize: 13, fontWeight: '600', color: cores.textoForte },
+  chegadaConfirmada: { fontSize: 13, fontWeight: '600', color: '#4caf50', marginBottom: 4 },
+  // Chegada prometida (dono). Mesma família visual do banner de contrato.
+  chegadaBox: { backgroundColor: '#1a2a3a', borderWidth: 1, borderColor: '#4a90d9', borderRadius: raios.medio, padding: 12, marginBottom: 12 },
+  chegadaTexto: { fontSize: 14, fontWeight: '700', color: '#6ab0f3' },
 })
