@@ -1192,7 +1192,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 >
                   {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
                       para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{reparo.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar prazo do reparo'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{reparo.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar tempo para serviço'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo

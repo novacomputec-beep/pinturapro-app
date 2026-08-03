@@ -1066,7 +1066,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   onPress={() => setModalEstender(true)}
                   disabled={obra.expirada}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : '⏳ Aumentar prazo da obra'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : '⏳ Aumentar tempo para serviço'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo

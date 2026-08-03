@@ -67,7 +67,7 @@ export default function ModalEstenderPrazo({ visivel, unidade = 'horas', onEsten
             disabled={!valido || enviando}
             activeOpacity={0.85}
           >
-            <Text style={estilos.opcaoTexto}>{enviando ? 'Aumentando…' : 'Aumentar prazo'}</Text>
+            <Text style={estilos.opcaoTexto}>{enviando ? 'Aumentando…' : 'Aumentar tempo'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
