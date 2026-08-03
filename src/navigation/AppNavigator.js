@@ -167,6 +167,12 @@ const navegarParaNotificacao = (data) => {
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
+      // Mesmo marco do lado da obra: o dono decide entre aumentar o prazo e esperar, e as
+      // duas coisas estão no detalhe.
+      case 'obra_5min_restantes':
+        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(tabEmAndamento)
+        break
       // Negociação da CHEGADA (janela proposta → aceita/recusada → chegada declarada →
       // confirmada) e o match expirado. Todos vão ao DETALHE da demanda, porque é lá que
       // cada lado age: o dono responde à janela, confirma a chegada ou aumenta o prazo; o
@@ -186,6 +192,15 @@ const navegarParaNotificacao = (data) => {
       // que o profissional não chegou e o toque não abria nada. O detalhe é onde ele
       // aumenta o prazo ou espera um novo interessado.
       case 'match_expirado':
+      // Encerramento em DUAS etapas: quem recebe este aviso é a OUTRA parte, e o botão que
+      // confirma vive no detalhe — é lá que rotuloEncerrar vira "✅ Confirmar encerramento".
+      // Chega aos dois lados e nos dois tipos de demanda, como 'contraproposta_dono'.
+      case 'encerramento_solicitado':
+      // Baixo engajamento: o dono é avisado de que a demanda atraiu pouca gente. O que dá
+      // para fazer a respeito — rever o valor, aumentar o prazo, reler a descrição — está
+      // todo no detalhe; a lista só diria que a demanda continua lá.
+      case 'baixo_engajamento':
+      case 'baixo_engajamento_reparo':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
@@ -196,7 +211,26 @@ const navegarParaNotificacao = (data) => {
       // ressalva de 'obra_encerrada' acima —, então cai na lista em andamento.
       case 'conta_suspensa':
       case 'conta_liberada':
+      // Verificação de documentos e assinatura: mesmo destino e mesma razão — o que se faz
+      // a respeito (reenviar documento, renovar, pagar) está no Perfil, e nenhum destes
+      // avisos traz id de demanda para deep-link.
+      // Ressalva estrutural: o Stack raiz monta UM ramo só (:693). Enquanto a assinatura
+      // não está 'ativa', quem está montado é Verificacao ou Pagamento e as abas NÃO
+      // existem — então 'Perfil' não resolve e o navigate cai no catch, que loga. Não há
+      // perda: nesses estados a tela de bloqueio já é exatamente a que trata o assunto.
+      // Os casos que chegam com as abas montadas ('verificacao_aprovada',
+      // 'assinatura_vence_amanha') acertam o Perfil, que é onde vive o botão de renovar.
+      case 'verificacao_aprovada':
+      case 'verificacao_reprovada':
+      case 'assinatura_expirada':
+      case 'assinatura_vence_amanha':
         navegar((ehPrestador || ehDonoComAba) ? 'Perfil' : tabEmAndamento); break
+      // Boas-vindas não pede resposta: pede começar a usar. O prestador cai no feed de
+      // demandas disponíveis, que é onde ele age; o dono cai na própria lista. (Se o flag
+      // de boas-vindas ainda estiver ligado, quem está montado é BoasVindasPrestador e o
+      // navigate não resolve — mas aí a tela em foco já é a do próprio aviso.)
+      case 'boas_vindas':
+        navegar(usaTabsPintor ? 'Obras' : usaTabsReparador ? 'Reparos' : tabEmAndamento); break
       // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
       // negociações em andamento — vão para a lista correspondente do usuário
       case 'match_obra':
