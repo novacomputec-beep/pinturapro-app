@@ -167,6 +167,36 @@ const navegarParaNotificacao = (data) => {
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
+      // Negociação da CHEGADA (janela proposta → aceita/recusada → chegada declarada →
+      // confirmada) e o match expirado. Todos vão ao DETALHE da demanda, porque é lá que
+      // cada lado age: o dono responde à janela, confirma a chegada ou aumenta o prazo; o
+      // profissional propõe outra janela depois de uma recusa. Cair na lista deixaria a
+      // pessoa a um toque da ação sem dizer QUAL item está esperando por ela — o mesmo
+      // motivo que já tirou 'nova_candidatura' da lista.
+      // Quem escolhe a aba é o par obra/reparo, não o papel: 'Meus Reparos' atende
+      // reparador E dono_reparo, 'Minhas Obras' atende pintor E dono_obra. Mesma forma de
+      // 'contraproposta_dono', que também chega aos dois lados.
+      case 'chegada_prevista':
+      case 'chegada_prevista_pendente':
+      case 'chegada_prevista_aceita':
+      case 'chegada_prevista_recusada':
+      case 'chegada_declarada':
+      case 'chegada_confirmada':
+      // match_expirado passava meses sem rota, caindo no default: o dono era avisado de
+      // que o profissional não chegou e o toque não abria nada. O detalhe é onde ele
+      // aumenta o prazo ou espera um novo interessado.
+      case 'match_expirado':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(tabEmAndamento)
+        break
+      // Estado da CONTA, não de uma demanda: o que se faz a respeito (ler o motivo,
+      // regularizar, conferir a assinatura) vive no Perfil, e nenhum id de obra/reparo
+      // acompanha esses avisos. O fallback do dono sem abas não tem a aba Perfil — mesma
+      // ressalva de 'obra_encerrada' acima —, então cai na lista em andamento.
+      case 'conta_suspensa':
+      case 'conta_liberada':
+        navegar((ehPrestador || ehDonoComAba) ? 'Perfil' : tabEmAndamento); break
       // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
       // negociações em andamento — vão para a lista correspondente do usuário
       case 'match_obra':
