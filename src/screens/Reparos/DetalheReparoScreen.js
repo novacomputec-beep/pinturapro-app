@@ -64,6 +64,14 @@ const formatarChegadaPrevista = (iso) => {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} às ${hora}`
 }
 
+// Texto de exibição de um instante de chegada: o formato amigável quando a data dá para
+// ler, e o valor CRU quando não dá. Antes os blocos eram condicionados ao retorno de
+// formatarChegadaPrevista, que é null em data ilegível — e aí sumia o bloco inteiro,
+// junto com o único controle da tela (o dono ficava sem os botões de aceitar/recusar, e
+// o encerrar continuava travado sem nada explicando por quê). Um texto feio é melhor do
+// que um sumiço: quem lê vê que existe um horário, mesmo que mal formatado.
+const textoChegada = (iso) => (iso ? (formatarChegadaPrevista(iso) || String(iso)) : null)
+
 // Suspensão interrompe a ação, e o motivo é do servidor: mostramos a mensagem DELE, que
 // diz o que houve e o que fazer, em vez do "Erro" genérico — ou, pior, do texto de falha
 // de conexão que a resposta 403 recebia antes da correção em api.js.
@@ -868,21 +876,26 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Texto único da chegada prometida, lido do timestamp do servidor e reusado pelos dois
   // lados (dono e prestador). Null quando não há promessa — ou quando a data não deu para
   // ler —, e aí os blocos que dependem dele não renderizam.
-  const chegadaPrevistaTexto = formatarChegadaPrevista(reparo?.chegada_prevista_em)
+  const chegadaPrevistaTexto = textoChegada(reparo?.chegada_prevista_em)
   // Chegada PROPOSTA e ainda não respondida. Mesmo formatador do combinado, pela mesma
   // razão: o dono decide sobre um horário, não sobre o rótulo "amanhã de manhã".
-  const chegadaPendenteTexto = formatarChegadaPrevista(reparo?.chegada_pendente_em)
+  const chegadaPendenteTexto = textoChegada(reparo?.chegada_pendente_em)
   // Chegada AO LOCAL (etapa seguinte à janela combinada): uma parte declara, o dono
   // confirma. Os três estados abaixo são mutuamente exclusivos e cobrem o caminho todo.
-  const chegadaDeclaradaTexto = formatarChegadaPrevista(reparo?.chegada_declarada_em)
-  const chegadaConfirmadaTexto = formatarChegadaPrevista(reparo?.chegada_confirmada_em)
+  const chegadaDeclaradaTexto = textoChegada(reparo?.chegada_declarada_em)
+  const chegadaConfirmadaTexto = textoChegada(reparo?.chegada_confirmada_em)
   const chegadaConfirmada = !!reparo?.chegada_confirmada_em
   const chegadaAguardaConfirmacao = !!reparo?.chegada_declarada_em && !chegadaConfirmada
   const chegadaNaoDeclarada = !reparo?.chegada_declarada_em && !chegadaConfirmada
-  // Encerrar só exige chegada confirmada onde a chegada foi negociada. Match anterior a
-  // este fluxo não tem chegada_prevista_em e segue encerrável como sempre — sem esta
-  // ressalva, todo match antigo ficaria preso, sem botão que o feche.
-  const podeEncerrar = !reparo?.chegada_prevista_em || chegadaConfirmada
+  // Chegada REGISTRADA: anunciada por QUALQUER uma das partes, confirmada ou não.
+  const chegadaRegistrada = !!reparo?.chegada_declarada_em || chegadaConfirmada
+  // Encerrar exige que a chegada tenha sido registrada, e só onde a chegada foi negociada.
+  // Basta a DECLARAÇÃO, não a confirmação do dono: exigindo a confirmação, um dono que
+  // sumisse deixava o profissional sem saída — serviço feito, chegada declarada e o botão
+  // de encerrar travado para sempre, porque o único caminho para destravá-lo era um toque
+  // que só o outro lado podia dar. Match anterior a este fluxo não tem chegada_prevista_em
+  // e segue encerrável como sempre.
+  const podeEncerrar = !reparo?.chegada_prevista_em || chegadaRegistrada
   const distancia = distanciaItemKm(coords, reparo)
 
   // Valor exibido para o dono_reparo: enquanto não há proposta aceita, mostra o valor
@@ -1206,7 +1219,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   exigir o match aqui esconderia justamente a pergunta cuja resposta
                   destrava o combinado. Reusa a caixa do pedido de tempo — é a mesma
                   situação: o profissional pede, o dono decide. */}
-              {chegadaPendenteTexto && !encerrada && (
+              {reparo.chegada_pendente_em && !encerrada && (
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>🕐 Chegada proposta: {chegadaPendenteTexto}</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>O profissional propôs este horário para chegar ao local.</Text>
@@ -1230,7 +1243,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   partir. Exigindo o match, o dono aceitava o horário e via a caixa
                   pendente sumir sem nada no lugar até a partida — justo o intervalo em
                   que ele precisa lembrar do que combinou. */}
-              {chegadaPrevistaTexto && !encerrada && (
+              {reparo.chegada_prevista_em && !encerrada && (
                 <View style={estilos.chegadaBox}>
                   <Text style={estilos.chegadaTexto}>🚚 Chegada prometida: {chegadaPrevistaTexto}</Text>
                 </View>
@@ -1588,9 +1601,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             é o passo anterior a "estou a caminho". Some assim que houver
                             promessa — trocada pelo horário que o servidor calculou, para o
                             profissional ver o mesmo compromisso que o dono lê. */}
-                        {chegadaPrevistaTexto ? (
+                        {reparo.chegada_prevista_em ? (
                           <Text style={estilos.chegadaConfirmada}>✅ Você prometeu chegar {chegadaPrevistaTexto}</Text>
-                        ) : chegadaPendenteTexto ? (
+                        ) : reparo.chegada_pendente_em ? (
                           /* Proposta no ar: nada de reabrir o seletor por baixo, senão o
                              profissional reenviaria por cima de uma janela que o dono
                              ainda está decidindo. O horário sai do timestamp pendente. */
