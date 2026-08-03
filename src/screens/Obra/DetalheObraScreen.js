@@ -239,6 +239,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // ainda permite marcar qual delas está sendo enviada.
   const [enviandoJanela, setEnviandoJanela] = useState(null)
   const [respondendoChegada, setRespondendoChegada] = useState(false)
+  const [declarandoChegada, setDeclarandoChegada] = useState(false)
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
 
@@ -373,6 +374,29 @@ export default function DetalheObraScreen({ route, navigation }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
     } finally {
       if (mountedRef.current) setRespondendoChegada(false)
+    }
+  }
+
+  // Chegada ao local. UM endpoint para os DOIS lados: quem toca primeiro declara, e o
+  // toque do dono sobre uma declaração existente vale como confirmação. Quem distingue os
+  // papéis é o servidor, pelo usuário autenticado — o app só anuncia o fato.
+  // { timeout: true } aqui, ao contrário de handleResponderChegada: isto não move nada
+  // acumulável, só registra que a chegada aconteceu. Reexecutar grava o mesmo fato, então
+  // a ressalva de rede.js:20-22 (o retry duplicaria o efeito) não se aplica — o caso é o
+  // da mutação de ESTADO de rede.js:16-19. { servidor } fora: um 5xx prova que chegou.
+  const handleChegada = async () => {
+    if (declarandoChegada) return
+    setDeclarandoChegada(true)
+    try {
+      await comRetry(() => api.post(`/obras/${obra.id}/chegada`, {}), { timeout: true })
+      // buscar() porque o mesmo toque produz estados diferentes conforme quem tocou:
+      // declarada, ou declarada + confirmada. Quem sabe qual saiu é o servidor.
+      await buscar()
+    } catch (err) {
+      console.log('[DetalheObra] falha ao registrar chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível registrar a chegada.')
+    } finally {
+      if (mountedRef.current) setDeclarandoChegada(false)
     }
   }
 
@@ -736,6 +760,17 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Chegada PROPOSTA e ainda não respondida. Mesmo formatador do combinado, pela mesma
   // razão: o dono decide sobre um horário, não sobre o rótulo "amanhã de manhã".
   const chegadaPendenteTexto = formatarChegadaPrevista(obra?.chegada_pendente_em)
+  // Chegada AO LOCAL (etapa seguinte à janela combinada): uma parte declara, o dono
+  // confirma. Os três estados abaixo são mutuamente exclusivos e cobrem o caminho todo.
+  const chegadaDeclaradaTexto = formatarChegadaPrevista(obra?.chegada_declarada_em)
+  const chegadaConfirmadaTexto = formatarChegadaPrevista(obra?.chegada_confirmada_em)
+  const chegadaConfirmada = !!obra?.chegada_confirmada_em
+  const chegadaAguardaConfirmacao = !!obra?.chegada_declarada_em && !chegadaConfirmada
+  const chegadaNaoDeclarada = !obra?.chegada_declarada_em && !chegadaConfirmada
+  // Encerrar só exige chegada confirmada onde a chegada foi negociada. Match anterior a
+  // este fluxo não tem chegada_prevista_em e segue encerrável como sempre — sem esta
+  // ressalva, todo match antigo ficaria preso, sem botão que o feche.
+  const podeEncerrar = !obra?.chegada_prevista_em || chegadaConfirmada
   const distancia = distanciaItemKm(coords, obra)
 
   const abrirWhatsApp = (telefone) => {
@@ -962,11 +997,26 @@ export default function DetalheObraScreen({ route, navigation }) {
               que o gate de identidade abaixo evita para quem nem é do match. Sem prazo
               vencido não há match a expirar; com promessa no ar, quem cuida do prazo real
               é o job verificarCronometroObras. */}
-          {(souPintorDoMatch || isDono) && temMatch && obra.expira_em && !encerrada && (
+          {/* !chegadaConfirmada: confirmada a chegada, a contagem sai de cena — ela media o
+              tempo ATÉ chegar, e esse prazo já foi cumprido. Deixá-la correndo ali passaria
+              a cobrar um atraso que não existe mais. */}
+          {(souPintorDoMatch || isDono) && temMatch && obra.expira_em && !chegadaConfirmada && !encerrada && (
             <RelogioRegressivo
               expiraEm={obra.chegada_prevista_em || obra.expira_em}
               onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
             />
+          )}
+
+          {/* No lugar da contagem, o marco de início do serviço — para as DUAS partes do
+              match, mesma regra de identidade da contagem que ele substitui. O horário sai
+              de chegada_confirmada_em; ilegível, o bloco ainda aparece sem a data, porque
+              "em andamento" é a informação principal e não depende dela. */}
+          {(souPintorDoMatch || isDono) && temMatch && chegadaConfirmada && !encerrada && (
+            <View style={estilos.emAndamentoBox}>
+              <Text style={estilos.emAndamentoTexto}>
+                ▶️ Em andamento{chegadaConfirmadaTexto ? ` desde ${chegadaConfirmadaTexto}` : ''}
+              </Text>
+            </View>
           )}
 
           {temMatch && !encerrada && (
@@ -1037,9 +1087,30 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do profissional: {pintorMatch.telefone}</Text>
                 </TouchableOpacity>
               )}
+              {/* Chegada declarada pelo profissional, esperando o dono. O botão chama o
+                  MESMO /chegada: sobre uma declaração existente, o toque do dono é a
+                  confirmação. */}
+              {temMatch && chegadaAguardaConfirmacao && !encerrada && (
+                <View style={estilos.pedidoAlertaBox}>
+                  <Text style={estilos.pedidoAlertaTitulo}>🚶 O profissional declarou que chegou{chegadaDeclaradaTexto ? ` ${chegadaDeclaradaTexto}` : ''}</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>Confirme a chegada para o serviço começar.</Text>
+                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
+                    <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Confirmando…' : '✅ Confirmar chegada'}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {temMatch && chegadaNaoDeclarada && !encerrada && (
+                <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
+                  <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Profissional chegou'}</Text>
+                </TouchableOpacity>
+              )}
+              {/* podeEncerrar: o botão NÃO some quando falta confirmar a chegada — troca de
+                  rótulo e desabilita, dizendo o que falta. Sumir sem aviso é o padrão que
+                  esta tela já rejeita noutros pontos. Match sem chegada_prevista_em (de
+                  antes deste fluxo) não passa por essa exigência. */}
               {temMatch && obra?.status !== 'encerrada' && (
-                <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
-                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar obra')}</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, (euSolicitei || !podeEncerrar) && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei || !podeEncerrar}>
+                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Confirmar conclusão — Encerrar obra') : '🚶 Confirme a chegada para encerrar'}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
@@ -1264,9 +1335,21 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
+              {souPintorDoMatch && chegadaNaoDeclarada && !encerrada && (
+                <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
+                  <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Profissional chegou'}</Text>
+                </TouchableOpacity>
+              )}
+              {souPintorDoMatch && chegadaAguardaConfirmacao && !encerrada && (
+                <View style={estilos.pedidoBox}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
+                </View>
+              )}
+              {/* Mesma regra do botão do dono: rótulo explicando o que falta em vez de
+                  botão ausente, e sem exigência nenhuma em match anterior ao fluxo. */}
               {souPintorDoMatch && obra?.status !== 'encerrada' && (
-                <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
-                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, (euSolicitei || !podeEncerrar) && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei || !podeEncerrar}>
+                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Serviço concluído — Encerrar') : '🚶 Confirme a chegada para encerrar'}</Text>
                 </TouchableOpacity>
               )}
               {souPintorDoMatch && !obra.pedido_tempo_status && !encerrada && (
@@ -1588,4 +1671,7 @@ const estilos = StyleSheet.create({
   // Chegada prometida (dono). Mesma família visual do banner de contrato.
   chegadaBox: { backgroundColor: '#1a2a3a', borderWidth: 1, borderColor: '#4a90d9', borderRadius: raios.medio, padding: 12, marginBottom: 12 },
   chegadaTexto: { fontSize: 14, fontWeight: '700', color: '#6ab0f3' },
+  // Serviço em andamento (as duas partes), no lugar que era da contagem.
+  emAndamentoBox: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.grande, padding: 16, alignItems: 'center', marginBottom: 16 },
+  emAndamentoTexto: { fontSize: 15, fontWeight: '700', color: '#4caf50' },
 })
