@@ -23,10 +23,10 @@ const CATEGORIAS = [
 ]
 
 const PRAZOS = [
-  { id: 24,   label: '📅 Hoje',           desc: 'Execução hoje'        },
-  { id: 168,  label: '📆 Esta semana',    desc: 'Execução esta semana' },
-  { id: 720,  label: '🗓️ Este mês',        desc: 'Execução este mês'    },
-  { id: 1440, label: '📋 Mês que vem',    desc: 'Execução mês que vem' },
+  { id: 24,   label: '📅 Hoje',           desc: 'Início hoje'          },
+  { id: 168,  label: '📆 Esta semana',    desc: 'Início esta semana'   },
+  { id: 720,  label: '🗓️ Este mês',        desc: 'Início este mês'      },
+  { id: 1440, label: '📋 Mês que vem',    desc: 'Início mês que vem'   },
   { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
   { id: 'data', label: '📅 Defina a data inicial', desc: 'Escolha uma data específica' },
 ]
@@ -221,7 +221,7 @@ export default function CadastrarObraScreen({ navigation }) {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva a obra necessária'
-    if (!prazo) novos.prazo = 'Selecione o prazo de execução'
+    if (!prazo) novos.prazo = 'Selecione o prazo para iniciar o serviço'
     else if (prazo === 'data') {
       const fim = fimDoDiaData(dataInicial)
       if (!fim || fim.getTime() <= Date.now()) novos.dataInicial = 'Informe uma data futura válida (dd/mm/aaaa)'
@@ -400,7 +400,7 @@ export default function CadastrarObraScreen({ navigation }) {
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={estilos.labelCategoria}>⏰ PRAZO DE EXECUÇÃO</Text>
+          <Text style={estilos.labelCategoria}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
           {erros.prazo && <Text style={estilos.erroTexto}>{erros.prazo}</Text>}
           <View style={estilos.urgenciasGrid}>
             {PRAZOS.map(p => (

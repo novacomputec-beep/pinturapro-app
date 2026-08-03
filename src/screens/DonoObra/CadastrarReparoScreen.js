@@ -41,7 +41,7 @@ const URGENCIAS = [
 // tenta publicar incompleto, rolar até o 1º campo com erro e exibir um alerta claro —
 // antes a única sinalização era o erro inline (fora da tela, junto ao botão de baixo).
 const CAMPOS_OBRIGATORIOS = [
-  { chave: 'urgencia',      msg: 'Selecione o prazo de atendimento antes de continuar.' },
+  { chave: 'urgencia',      msg: 'Selecione o prazo para iniciar o serviço antes de continuar.' },
   { chave: 'titulo',        msg: 'Por favor, informe o título do serviço antes de continuar.' },
   { chave: 'descricao',     msg: 'Descreva o serviço necessário antes de continuar.' },
   { chave: 'valorEstimado', msg: 'Informe quanto você quer pagar antes de continuar.' },
@@ -217,7 +217,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     const novos = {}
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva o serviço necessário'
-    if (!urgencia) novos.urgencia = 'Selecione o prazo de atendimento'
+    if (!urgencia) novos.urgencia = 'Selecione o prazo para iniciar o serviço'
     if (!uf) novos.uf = 'Selecione o estado'
     if (!cidade) novos.cidade = 'Selecione a cidade'
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
@@ -402,7 +402,7 @@ export default function CadastrarReparoScreen({ navigation }) {
             ))}
           </View>
           <View onLayout={registrarY('urgencia')}>
-            <Text style={estilos.labelCategoria}>⏰ PRAZO DE ATENDIMENTO</Text>
+            <Text style={estilos.labelCategoria}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
             {erros.urgencia && <Text style={estilos.erroTexto}>{erros.urgencia}</Text>}
             <View style={estilos.urgenciasGrid}>
               {URGENCIAS.map(u => (
