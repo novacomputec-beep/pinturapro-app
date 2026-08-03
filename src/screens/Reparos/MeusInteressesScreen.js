@@ -73,7 +73,12 @@ export default function MeusInteressesScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const s = STATUS_INFO[item.status] || STATUS_INFO.pendente
     const eEncerrado = item.reparo_status === 'encerrada'
-    const eExpirado  = !eEncerrado && item.reparo_status === 'aberta' && item.expira_em && new Date(item.expira_em) < new Date()
+    // Expiração vem PRONTA do servidor (relógio do banco), como em MinhasObrasScreen:121.
+    // Comparar expira_em com o relógio do aparelho fazia esta lista discordar do servidor
+    // quando a hora local estava adiantada/atrasada — o mesmo reparo aparecia expirado aqui
+    // e ativo lá. Aqui a linha é o INTERESSE, não o reparo, e os campos do reparo chegam
+    // prefixados (reparo_status, reparo_titulo…), daí reparo_expirada antes do nome simples.
+    const eExpirado  = !eEncerrado && item.reparo_status === 'aberta' && (item.reparo_expirada ?? item.expirada)
     const dist       = distanciaItemKm(coords, item)
     // "Ainda no páreo": só faz sentido enquanto a candidatura não foi decidida (nem
     // aceito nem recusado) e a demanda segue aberta. O estado do match vem da API

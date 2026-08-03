@@ -68,7 +68,12 @@ export default function ContratosScreen({ navigation }) {
     // "Ainda no páreo": só enquanto a candidatura não foi decidida (grupo pendente) e a
     // obra segue aberta. O match vem da API (match_usuario_id); comparo com o meu id
     // (useAuth) para distinguir "ninguém escolhido ainda" de "escolheram outro".
-    const demandaAberta    = item.obra_status !== 'encerrada' && !(item.expira_em && new Date(item.expira_em) < new Date())
+    // Expiração vem PRONTA do servidor (relógio do banco), como em MinhasObrasScreen:121.
+    // Comparar expira_em com o relógio do aparelho fazia esta lista discordar do servidor
+    // quando a hora local estava adiantada/atrasada — a mesma obra dizia "no páreo" aqui e
+    // já expirada lá. Aqui a linha é a CANDIDATURA, não a obra, e os campos da obra chegam
+    // prefixados (obra_status, obra_titulo…), daí obra_expirada antes do nome simples.
+    const demandaAberta    = item.obra_status !== 'encerrada' && !(item.obra_expirada ?? item.expirada)
     const emAnalise        = STATUS_GRUPO.pendente.includes(item.status)
     const semMatch         = item.match_usuario_id == null
     const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
