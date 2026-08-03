@@ -238,6 +238,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Guarda a janela EM VOO (o id, não um boolean): trava as três opções de uma vez e
   // ainda permite marcar qual delas está sendo enviada.
   const [enviandoJanela, setEnviandoJanela] = useState(null)
+  const [respondendoChegada, setRespondendoChegada] = useState(false)
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
 
@@ -351,6 +352,27 @@ export default function DetalheObraScreen({ route, navigation }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível informar sua previsão de chegada.')
     } finally {
       if (mountedRef.current) setEnviandoJanela(null)
+    }
+  }
+
+  // Resposta do DONO à janela proposta. Vai de comRetry SEM { timeout }, ao contrário do
+  // envio da janela: isto é uma RESPOSTA DE NEGOCIAÇÃO, o caso que rede.js:20-22 manda
+  // deixar de fora — o servidor pode ter processado a 1ª tentativa e o retry duplicaria
+  // o efeito. Só o ERR_NETWORK duro, onde a requisição não chegou, é reexecutado.
+  // Mesmo tratamento de handleResponderTempo, a negociação vizinha.
+  const handleResponderChegada = async (aceito) => {
+    if (respondendoChegada) return
+    setRespondendoChegada(true)
+    try {
+      await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista/responder`, { aceito }))
+      // buscar() em vez de remendar o estado local: é o servidor que decide se a
+      // pendente vira combinada ou simplesmente some, e a tela toda depende disso.
+      await buscar()
+    } catch (err) {
+      console.log('[DetalheObra] falha ao responder chegada prevista | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+    } finally {
+      if (mountedRef.current) setRespondendoChegada(false)
     }
   }
 
@@ -711,6 +733,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   // lados (dono e pintor). Null quando não há promessa — ou quando a data não deu para
   // ler —, e aí os blocos que dependem dele não renderizam.
   const chegadaPrevistaTexto = formatarChegadaPrevista(obra?.chegada_prevista_em)
+  // Chegada PROPOSTA e ainda não respondida. Mesmo formatador do combinado, pela mesma
+  // razão: o dono decide sobre um horário, não sobre o rótulo "amanhã de manhã".
+  const chegadaPendenteTexto = formatarChegadaPrevista(obra?.chegada_pendente_em)
   const distancia = distanciaItemKm(coords, obra)
 
   const abrirWhatsApp = (telefone) => {
@@ -970,12 +995,36 @@ export default function DetalheObraScreen({ route, navigation }) {
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
               />
+              {/* Chegada PROPOSTA, aguardando a resposta do dono. Sem temMatch no gate,
+                  de propósito: a janela é proposta ANTES de o profissional partir, e
+                  exigir o match aqui esconderia justamente a pergunta cuja resposta
+                  destrava o combinado. Reusa a caixa do pedido de tempo — é a mesma
+                  situação: o profissional pede, o dono decide. */}
+              {chegadaPendenteTexto && !encerrada && (
+                <View style={estilos.pedidoAlertaBox}>
+                  <Text style={estilos.pedidoAlertaTitulo}>🕐 Chegada proposta: {chegadaPendenteTexto}</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>O profissional propôs este horário para chegar ao local.</Text>
+                  <View style={estilos.pedidoBotoesRow}>
+                    <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderChegada(true)} disabled={respondendoChegada}>
+                      <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderChegada(false)} disabled={respondendoChegada}>
+                      <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
               {/* Chegada prometida, para o DONO. Renderiza o horário calculado pelo
                   servidor (chegada_prevista_em), nunca o rótulo da janela: "amanhã de
                   manhã" é o que o profissional escolheu, não uma hora com que o dono
                   possa se organizar. Sem o campo, chegadaPrevistaTexto é null e o bloco
-                  some — nada de placeholder prometendo um horário que não existe. */}
-              {temMatch && chegadaPrevistaTexto && !encerrada && (
+                  some — nada de placeholder prometendo um horário que não existe.
+                  Sem temMatch no gate, pelo mesmo motivo do bloco pendente acima: o
+                  combinado nasce quando o dono aceita a janela, ANTES de o profissional
+                  partir. Exigindo o match, o dono aceitava o horário e via a caixa
+                  pendente sumir sem nada no lugar até a partida — justo o intervalo em
+                  que ele precisa lembrar do que combinou. */}
+              {chegadaPrevistaTexto && !encerrada && (
                 <View style={estilos.chegadaBox}>
                   <Text style={estilos.chegadaTexto}>🚚 Chegada prometida: {chegadaPrevistaTexto}</Text>
                 </View>
@@ -1300,6 +1349,13 @@ export default function DetalheObraScreen({ route, navigation }) {
                             profissional ver o mesmo compromisso que o dono lê. */}
                         {chegadaPrevistaTexto ? (
                           <Text style={estilos.chegadaConfirmada}>✅ Você prometeu chegar {chegadaPrevistaTexto}</Text>
+                        ) : chegadaPendenteTexto ? (
+                          /* Proposta no ar: nada de reabrir o seletor por baixo, senão o
+                             profissional reenviaria por cima de uma janela que o dono
+                             ainda está decidindo. O horário sai do timestamp pendente. */
+                          <View style={estilos.pedidoBox}>
+                            <Text style={estilos.pedidoTexto}>⏳ Sua chegada para {chegadaPendenteTexto} aguarda a confirmação do solicitante...</Text>
+                          </View>
                         ) : (
                           <View style={estilos.janelaWrap}>
                             <Text style={estilos.janelaLabel}>Quando você pretende chegar?</Text>
