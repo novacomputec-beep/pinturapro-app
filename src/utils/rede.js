@@ -28,7 +28,14 @@
 // backoff exponencial com jitter de ±20%:
 //   - após a 1ª falha: esperaMs base (padrão 1000ms) → 800–1200ms
 //   - após a 2ª falha: esperaMs * 2 base (2000ms)     → 1600–2400ms
-// Se as 3 tentativas falharem, lança o último erro.
+// EXCEÇÃO: erro de rede na 1ª falha espera ESPERA_SOCKET_MORTO em vez do backoff (ver
+// o comentário no ponto de uso). Se as 3 tentativas falharem, lança o último erro.
+
+// Pausa curta antes do 1º retry de erro de REDE. Não é backoff — é o tempo de o socket
+// morto sair do pool. Curta o bastante para o usuário não perceber, e é a única espera
+// deste caminho: a 2ª falha já cai no backoff normal.
+const ESPERA_SOCKET_MORTO = 600
+
 export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs = 1000 } = {}) => {
   const maxTentativas = 3
   let ultimoErro
@@ -52,12 +59,18 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
       // Não-reexecutável, ou já foi a última tentativa → propaga o erro.
       if (!reexecutavel || tentativa === maxTentativas - 1) throw err
 
-      // Erro de REDE na 1ª tentativa: repete NA HORA, sem espera. O caso típico é um
-      // socket de keep-alive reaproveitado depois de um tempo ocioso e já fechado do
-      // outro lado: ele falha em milissegundos, e esperar ~1s não muda nada — só
-      // segura o usuário olhando o spinner. A repetição imediata abre conexão nova.
+      // Erro de REDE na 1ª tentativa: pausa CURTA, não o backoff cheio. O caso típico é
+      // um socket de keep-alive reaproveitado depois de um tempo ocioso e já fechado do
+      // outro lado. Antes daqui se repetia NA HORA, apostando que a repetição abriria
+      // conexão nova — mas quem decide isso é o pool da plataforma, não este código: no
+      // mesmo tick o socket morto ainda pode estar lá, e o retry falha pelo mesmo motivo,
+      // gastando uma das três tentativas à toa. ~600ms dão margem para ele ser descartado
+      // sem que o usuário sinta a diferença de um retry imediato.
       // Da 2ª em diante, e para timeout/5xx, o backoff exponencial continua valendo.
-      if (isNetwork && tentativa === 0) continue
+      if (isNetwork && tentativa === 0) {
+        await new Promise(r => setTimeout(r, ESPERA_SOCKET_MORTO))
+        continue
+      }
 
       // Backoff exponencial: esperaMs, esperaMs*2, ... com jitter de ±20%.
       const base = esperaMs * Math.pow(2, tentativa)
