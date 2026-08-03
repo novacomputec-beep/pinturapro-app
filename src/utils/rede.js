@@ -70,3 +70,15 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
   // garantia de lançar o último erro caso a lógica acima mude.
   throw ultimoErro
 }
+
+// Suspensões, classificadas pelo par (status, codigo) e NUNCA pelo texto da mensagem —
+// mesma disciplina do `codigo` descrito em api.js. Moram aqui, junto do resto da leitura
+// de erro, para que os dois códigos tenham UM lugar só quando o backend mexer neles.
+//
+// CONTA_SUSPENSA (403): quem age está suspenso. Vale para QUALQUER ação dele.
+// PROFISSIONAL_SUSPENSO (409): quem age está bem, mas o profissional do outro lado foi
+// suspenso — só aparece para o dono, ao tentar aceitar uma proposta.
+//
+// Nenhum dos dois é reexecutável: são 4xx, que comRetry já não repete em hipótese alguma.
+export const ehContaSuspensa = (err) => err?.status === 403 && err?.codigo === 'CONTA_SUSPENSA'
+export const ehProfissionalSuspenso = (err) => err?.status === 409 && err?.codigo === 'PROFISSIONAL_SUSPENSO'
