@@ -13,7 +13,7 @@ import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
-import { comRetry } from '../../utils/rede'
+import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full } from '../../utils/imagemOtimizada'
@@ -62,6 +62,22 @@ const formatarChegadaPrevista = (iso) => {
   if (dias === 0) return `hoje às ${hora}`
   if (dias === 1) return `amanhã às ${hora}`
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} às ${hora}`
+}
+
+// Suspensão interrompe a ação, e o motivo é do servidor: mostramos a mensagem DELE, que
+// diz o que houve e o que fazer, em vez do "Erro" genérico — ou, pior, do texto de falha
+// de conexão que a resposta 403 recebia antes da correção em api.js.
+// Devolve true quando já alertou; ao chamador basta sair do catch.
+const alertouSuspensao = (err) => {
+  if (ehContaSuspensa(err)) {
+    Alert.alert('Conta suspensa', err.mensagem || 'Sua conta está suspensa e esta ação não está disponível.')
+    return true
+  }
+  if (ehProfissionalSuspenso(err)) {
+    Alert.alert('Profissional suspenso', err.mensagem || 'Este profissional está suspenso e a proposta não pode ser aceita.')
+    return true
+  }
+  return false
 }
 
 const ContadorExpiracaoReparo = ({ expiraEm }) => {
@@ -345,6 +361,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       console.log('[DetalheReparo] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Suspenso: sai antes da reconsulta — não há interesse novo a descobrir, e o
+      // motivo real precisa aparecer no lugar do "não foi possível registrar".
+      if (alertouSuspensao(err)) return
       // A 1ª tentativa pode ter sido aceita no servidor mas a resposta se perdeu (troca
       // de rede), ou o retry recebeu 409 "já demonstrou interesse". Reconsulta: se o
       // interesse já existir para este usuário, trata como sucesso em vez de erro confuso.
@@ -383,6 +402,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       }
     } catch (err) {
       console.log('[DetalheReparo] falha ao informar chegada prevista | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (alertouSuspensao(err)) return
       Alert.alert('Erro', err.mensagem || 'Não foi possível informar sua previsão de chegada.')
     } finally {
       if (mountedRef.current) setEnviandoJanela(null)
@@ -427,6 +447,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await buscar()
     } catch (err) {
       console.log('[DetalheReparo] falha ao registrar chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (alertouSuspensao(err)) return
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar a chegada.')
     } finally {
       if (mountedRef.current) setDeclarandoChegada(false)
@@ -453,6 +474,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
           aplicarSucesso(resposta.match_feito_em)
         } catch (err) {
           console.log('[DetalheReparo] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+          // Antes da reconsulta: suspenso, o match não saiu, e insistir só trocaria o
+          // motivo verdadeiro por um "não foi possível confirmar".
+          if (alertouSuspensao(err)) return
           // A 1ª tentativa pode ter dado certo no servidor mas a resposta se perdeu
           // (troca de rede), ou o retry recebeu 409 "já tem prestador". Reconsulta:
           // se o match já for deste prestador, trata como sucesso em vez de erro confuso.
@@ -594,6 +618,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         concluirComSucesso()
       } catch (err) {
         console.log('[DetalheReparo] falha ao encerrar (prestador) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        if (alertouSuspensao(err)) return
         // A 1ª tentativa pode ter sido aceita no servidor mas a resposta se perdeu (troca de
         // rede). Reconsulta: se o reparo já estiver encerrado, trata como sucesso — mesmo
         // padrão de handleMatch/handleInteresse.
@@ -685,6 +710,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
       console.log('[DetalheReparo] falha ao responder interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // É AQUI que o dono recebe o 409 PROFISSIONAL_SUSPENSO ao tentar aceitar: o aceite
+      // não vale, e o motivo é o profissional, não a conexão de quem está aceitando.
+      if (alertouSuspensao(err)) return
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
@@ -720,6 +748,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       )
     } catch (err) {
       console.log('[DetalheReparo] falha ao prestador responder contraproposta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (alertouSuspensao(err)) return
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
