@@ -181,7 +181,7 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
           <View style={estilos.textoCol}>
             <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
             <Text style={estilos.cardLocal} numberOfLines={1}>
-              📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
+              📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}{item.uf ? `, ${item.uf}` : ''}
               {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
             </Text>
             <View style={estilos.cardRodape}>
