@@ -170,7 +170,7 @@ export default function EditarPerfilScreen({ navigation }) {
 
           <Input label="NOME COMPLETO" placeholder="Seu nome" value={nome} onChangeText={setNome} />
           <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
-          <Input label="CIDADE" placeholder="Ex: Uberlândia, MG" value={cidade} onChangeText={setCidade} />
+          <Input label="CIDADE" placeholder="Ex: Uberlândia" value={cidade} onChangeText={setCidade} />
 
           <View style={estilos.infoBox}>
             <Text style={estilos.infoTexto}>📧 {usuario?.email}</Text>

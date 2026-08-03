@@ -135,7 +135,7 @@ const CardObra = ({ obra, onPress, onExpirar }) => {
       <View style={estilos.cardCorpo}>
         <Text style={estilos.cardTitulo} numberOfLines={2}>{obra.titulo}</Text>
         <Text style={estilos.cardLocalTexto}>
-          📍 {obra.cidade}, MG{obra.metragem ? ` · ${obra.metragem}m²` : ''}
+          📍 {obra.cidade}{obra.uf ? `, ${obra.uf}` : ''}{obra.metragem ? ` · ${obra.metragem}m²` : ''}
         </Text>
         <View style={estilos.cardRodape}>
           <Text style={estilos.cardCandidaturas}>

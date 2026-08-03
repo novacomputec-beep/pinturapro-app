@@ -179,6 +179,15 @@ export default function PerfilScreen({ navigation }) {
 
   const dados = dadosCompletos || usuario
 
+  // "Cidade, UF" a partir do que o perfil realmente traz. Antes a UF era um 'MG' fixo no
+  // JSX, que mentia para quem mora em qualquer outro estado — e o cadastro sempre enviou
+  // a UF de verdade (CadastroScreen.js:797), então o dado já estava aqui, só não era lido.
+  // Sem UF, cai para a cidade sozinha: o filter(Boolean) tira também a vírgula, porque
+  // "Uberlândia," pendurada num campo é pior do que só o nome da cidade.
+  const cidadeComUf = dados?.cidade
+    ? [dados.cidade, dados.uf].filter(Boolean).join(', ')
+    : null
+
   if (carregando) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
@@ -246,8 +255,8 @@ export default function PerfilScreen({ navigation }) {
           </TouchableOpacity>
           <Text style={estilos.nomeTexto}>{dados?.nome}</Text>
           <Text style={estilos.emailTexto}>{dados?.email}</Text>
-          {dados?.cidade && (
-            <Text style={estilos.cidadeTexto}>📍 {dados.cidade}, MG</Text>
+          {cidadeComUf && (
+            <Text style={estilos.cidadeTexto}>📍 {cidadeComUf}</Text>
           )}
         </View>
 
@@ -298,7 +307,7 @@ export default function PerfilScreen({ navigation }) {
           <Text style={estilos.secaoTitulo}>{ehPrestador ? 'Dados profissionais' : 'Dados pessoais'}</Text>
           <Separador estilo={{ marginBottom: 12 }} />
           <LinhaPerfil label="Telefone" valor={dados?.telefone ? mascararTelefone(dados.telefone) : null} />
-          <LinhaPerfil label="Cidade" valor={dados?.cidade ? `${dados.cidade}, MG` : null} />
+          <LinhaPerfil label="Cidade" valor={cidadeComUf} />
           {/* Campos só de prestador — donos (role 'dono_obra') não têm e não devem vê-los. */}
           {ehPrestador && (
             <>
