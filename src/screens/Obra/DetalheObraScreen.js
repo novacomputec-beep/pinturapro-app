@@ -403,7 +403,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (enviandoJanela) return
     setEnviandoJanela(janela)
     try {
-      const resp = await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista`, { janela }), { timeout: true })
+      const resp = await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista`, { janela }), { timeout: true, persistir: true })
       // O horário exibido vem SEMPRE do servidor. Se a resposta não trouxer o campo,
       // buscar() reidrata a obra — em nenhuma hipótese derivamos um instante do rótulo
       // escolhido aqui, que é um pedido ("amanhã de manhã"), não um horário.
@@ -454,7 +454,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (declarandoChegada) return
     setDeclarandoChegada(true)
     try {
-      await comRetry(() => api.post(`/obras/${obra.id}/chegada`, {}), { timeout: true })
+      await comRetry(() => api.post(`/obras/${obra.id}/chegada`, {}), { timeout: true, persistir: true })
       // buscar() porque o mesmo toque produz estados diferentes conforme quem tocou:
       // declarada, ou declarada + confirmada. Quem sabe qual saiu é o servidor.
       await buscar()
@@ -477,7 +477,11 @@ export default function DetalheObraScreen({ route, navigation }) {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Confirmar', onPress: async () => {
         try {
-          const resposta = await comRetry(() => api.post(`/obras/${obra.id}/match`, {}))
+          // { persistir } sem { timeout }: só o ERR_NETWORK duro insiste por 45 s. A
+          // variante que trava fica de fora porque o match não é idempotente de fato —
+          // repetido sobre um match já gravado, o servidor responde 409, que é 4xx e
+          // nunca reexecuta. Quem transforma esse 409 em sucesso é a reconsulta abaixo.
+          const resposta = await comRetry(() => api.post(`/obras/${obra.id}/match`, {}), { persistir: true })
           aplicarSucesso(resposta.match_feito_em)
         } catch (err) {
           console.log('[DetalheObra] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -586,7 +590,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           // 30 s, e aqui isso é caro: o fluxo segue para finalizarPosEncerrar() e a
           // pessoa sai da tela achando que bloqueou. { servidor } fica fora — 5xx
           // significa que a requisição chegou.
-          try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: pintorId }), { timeout: true }) }
+          try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: pintorId }), { timeout: true, persistir: true }) }
           catch (err) {
             console.log('[DetalheObra] falha ao bloquear pintor | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             // Antes falhava calado: quem tocou "Bloquear" saía da tela achando que tinha

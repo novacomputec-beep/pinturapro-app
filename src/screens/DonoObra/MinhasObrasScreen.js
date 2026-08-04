@@ -99,11 +99,11 @@ export default function MinhasObrasScreen({ navigation, route }) {
             // mesmo evento — a requisição não foi processada nos dois casos. { servidor }
             // fica FORA: um 5xx prova que a requisição chegou e pode ter excluído.
             if (tipo === 'obra') {
-              await comRetry(() => api.delete(`/obras/dono/${item.id}`), { timeout: true })
+              await comRetry(() => api.delete(`/obras/dono/${item.id}`), { timeout: true, persistir: true })
               setObras(prev => prev.filter(o => o.id !== item.id))
               setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
             } else {
-              await comRetry(() => api.delete(`/reparos/dono/${item.id}`), { timeout: true })
+              await comRetry(() => api.delete(`/reparos/dono/${item.id}`), { timeout: true, persistir: true })
               setReparos(prev => prev.filter(r => r.id !== item.id))
               setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
             }
