@@ -10,10 +10,13 @@ import { carregarVistas, marcarVista } from '../utils/celebracao'
 // primeiro evento ainda não visto (marca d'água local) ou null. Cada papel celebra
 // o momento certo do funil: donos ao receber proposta; prestadores ao serem aceitos.
 //
-// O encerramento pendente entra por último em cada papel, de propósito: ele não usa
-// marca d'água (repete até ser resolvido) e, na frente dos demais, esconderia todo o
-// resto enquanto durasse. Atrás, os eventos de uma vez só disparam, ficam marcados e
-// saem do caminho — na verificação seguinte o encerramento aparece.
+// Os eventos SEM marca d'água (chegada a confirmar, encerramento pendente) entram por
+// último em cada papel, de propósito: repetem até serem resolvidos e, na frente dos
+// demais, esconderiam todo o resto enquanto durassem. Atrás, os eventos de uma vez só
+// disparam, ficam marcados e saem do caminho — na verificação seguinte eles aparecem.
+// Entre os dois, a chegada vem antes: é a etapa anterior do serviço, e desde que
+// encerrar exige a chegada confirmada, um pedido de encerramento pressupõe que ela já
+// aconteceu — na prática os dois não competem.
 const detectar = async (usuario) => {
   const uid = usuario.id
   const vistas = await carregarVistas(uid)
@@ -53,6 +56,24 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
+    // Chegada declarada e ainda não confirmada. semMarca pelo mesmo motivo do
+    // encerramento: não é notícia para comemorar uma vez, é uma ação que falta — e desde
+    // que encerrar passou a exigir a chegada CONFIRMADA (DetalheReparoScreen.js), é este
+    // toque que destrava o fim do serviço. Sem o aviso, o profissional fica esperando um
+    // gesto que o dono não sabe que precisa dar.
+    // status !== 'encerrada' para não cobrar confirmação de serviço já fechado: reparo de
+    // antes do fluxo de chegada podia encerrar com a declaração pendente para sempre.
+    const cheg = (resp.reparos || []).find(x =>
+      x.chegada_declarada_em != null && x.chegada_confirmada_em == null && x.status !== 'encerrada'
+    )
+    if (cheg) return {
+      semMarca: true,
+      chave: `chegada:${cheg.id}`, emoji: '🚶',
+      titulo: 'Confirme a chegada',
+      subtitulo: `O profissional de "${cheg.titulo}" aguarda a sua confirmação de que ele chegou ao local do serviço.`,
+      ctaTexto: 'Confirmar chegada',
+      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: cheg }, initial: false }),
+    }
     const enc = (resp.reparos || []).find(x =>
       x.encerramento_solicitado_por != null && String(x.encerramento_solicitado_por) !== String(uid)
     )
@@ -87,6 +108,20 @@ const detectar = async (usuario) => {
       subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
+    }
+    // Espelha o ramo do dono_reparo acima: chegada declarada e não confirmada é a ação
+    // que destrava o encerramento, e sem aviso o profissional espera um toque que o dono
+    // não sabe que precisa dar.
+    const cheg = (resp.obras || []).find(x =>
+      x.chegada_declarada_em != null && x.chegada_confirmada_em == null && x.status !== 'encerrada'
+    )
+    if (cheg) return {
+      semMarca: true,
+      chave: `chegada:${cheg.id}`, emoji: '🚶',
+      titulo: 'Confirme a chegada',
+      subtitulo: `O profissional de "${cheg.titulo}" aguarda a sua confirmação de que ele chegou ao local do serviço.`,
+      ctaTexto: 'Confirmar chegada',
+      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: cheg }, initial: false }),
     }
     const enc = (resp.obras || []).find(x =>
       x.encerramento_solicitado_por != null && String(x.encerramento_solicitado_por) !== String(uid)
