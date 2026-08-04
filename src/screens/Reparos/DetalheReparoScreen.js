@@ -372,6 +372,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const buscar = async () => {
     try {
       const resposta = await comRetry(() => api.get(`/reparos/${reparoInicial.id}`))
+      // Corpo VAZIO chega como string, não como objeto: é o caso do 304 Not Modified, que
+      // agora entra pelo ramo de SUCESSO (api.js). Não significa "reparo inexistente" e
+      // sim "nada mudou" — sem esta guarda, resposta.reparo era undefined, o estado ia
+      // junto e a tela caía no "Reparo não encontrado" por cima de dados corretos.
+      // O teste é pelo TIPO, não por resposta.reparo: um 200 legítimo que traga
+      // { reparo: null } continua limpando o estado, como sempre limpou.
+      if (!resposta || typeof resposta !== 'object') return
       if (mountedRef.current) {
         setReparo(resposta.reparo)
         setMidias(resposta.midias || [])
@@ -458,8 +465,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
       // e só a resposta se perdido. Reconsulta antes de acusar erro — se a janela apareceu
       // agora (prevista OU pendente, conforme o servidor exija ou não o aceite do dono),
       // a promessa está feita e alertar seria mentir sobre o que está no servidor.
+      // A reconsulta vai de comRetry, e não de uma tentativa única: quando ela roda, o
+      // comRetry do POST já insistiu por ~45 s ({ persistir }) e desistiu, ou seja, a
+      // rede está falhando há bastante tempo. Um GET solitário nesse instante quase
+      // sempre falha também, e aí a recuperação nunca acontece — justamente no cenário
+      // que ela existe para cobrir. { timeout } porque GET é idempotente; { persistir }
+      // fica FORA de propósito: dobrar a janela para 90 s antes de dar qualquer resposta
+      // é pior para quem está olhando a tela do que um alerta honesto.
       try {
-        const atual = await api.get(`/reparos/${reparo.id}`)
+        const atual = await comRetry(() => api.get(`/reparos/${reparo.id}`), { timeout: true })
         const r = atual?.reparo
         const gravou = (!previstaAntes && r?.chegada_prevista_em) || (!pendenteAntes && r?.chegada_pendente_em)
         if (gravou) { await buscar(); return }
@@ -516,13 +530,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
       console.log('[DetalheReparo] falha ao registrar chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (alertouSuspensao(err)) return
       // Mesmo padrão de handleInteresse/handleMatch: reconsulta antes de acusar erro. Se
-      // a chegada avançou (declarada agora, ou confirmada agora), o toque valeu e o
-      // alerta seria um erro sobre algo que deu certo.
+      // a chegada avançou, o toque valeu e o alerta seria um erro sobre algo que deu certo.
+      // Mesma razão do comRetry usado na janela de chegada: a rede vem falhando há ~45 s.
+      //
+      // O QUE CONTA COMO PROVA é o que ESTE toque produziu, e o endpoint é o mesmo para os
+      // dois lados — então não basta ver que a chegada andou: durante os ~45 s em que este
+      // toque falhava, a OUTRA parte pode ter agido, e ler isso como sucesso próprio seria
+      // dizer que o usuário fez algo que ele não fez.
+      // chegada_declarada_por resolve o lado da declaração: dá para saber de quem ela é.
+      // Confirmar é ação do DONO (o toque dele sobre uma declaração existente é o que
+      // confirma), então só para ele um chegada_confirmada_em novo prova o próprio toque.
       try {
-        const atual = await api.get(`/reparos/${reparo.id}`)
+        const atual = await comRetry(() => api.get(`/reparos/${reparo.id}`), { timeout: true })
         const r = atual?.reparo
-        const avancou = (!declaradaAntes && r?.chegada_declarada_em) || (!confirmadaAntes && r?.chegada_confirmada_em)
-        if (avancou) { await buscar(); return }
+        // String() nos dois lados: o id vem número ou string conforme o endpoint, mesma
+        // disciplina do isDono (:345) e do prestadorMatch. Os != null vêm ANTES porque
+        // String(undefined) === String(undefined) daria "igual" — dois ids ausentes não
+        // podem casar e transformar a declaração de terceiro em sucesso deste usuário.
+        const declaracaoMinha = r?.chegada_declarada_por != null && usuario?.id != null &&
+          String(r.chegada_declarada_por) === String(usuario.id)
+        const declareiAgora = !declaradaAntes && !!r?.chegada_declarada_em && declaracaoMinha
+        const confirmeiAgora = isDono && !confirmadaAntes && !!r?.chegada_confirmada_em
+        if (declareiAgora || confirmeiAgora) { await buscar(); return }
       } catch (e2) { console.log('[DetalheReparo] reconsulta pós-chegada falhou | code:', e2.code) }
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar a chegada.')
     } finally {
