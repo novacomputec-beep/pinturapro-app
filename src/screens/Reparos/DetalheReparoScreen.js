@@ -1488,9 +1488,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         </Text>
                       </View>
                     )}
+                    {/* "A caminho" só vale ATÉ a chegada ser confirmada; depois disso o
+                        profissional não está mais indo, está trabalhando. Mesmo fato que o
+                        bloco "▶️ Em andamento" do topo já anuncia — esta linha é a versão
+                        dele no card do interessado. */}
                     {foiAceito && ehMatch && (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>✅ Proposta aceita — profissional a caminho.</Text>
+                        <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>
+                          {chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
+                        </Text>
                       </View>
                     )}
                     {/* Badge do DONO para cada interessado: aceita as duas grafias de recusa
@@ -1511,9 +1517,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
+              {/* Rótulo na 1ª pessoa: aqui quem toca é o próprio profissional anunciando a
+                  própria chegada. O botão do DONO (mesmo endpoint, logo acima na seção dele)
+                  segue em 3ª pessoa — "Profissional chegou" —, porque lá o toque fala de
+                  outra pessoa e vale como confirmação, não como declaração. */}
               {souPrestadorDoMatch && chegadaNaoDeclarada && !encerrada && (
                 <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
-                  <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Profissional chegou'}</Text>
+                  <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Cheguei no local do serviço'}</Text>
                 </TouchableOpacity>
               )}
               {souPrestadorDoMatch && chegadaAguardaConfirmacao && !encerrada && (
@@ -1528,7 +1538,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnEncerrarTexto}>{!podeEncerrar ? '🚶 Confirme a chegada para encerrar' : encerrando ? 'Encerrando…' : rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
                 </TouchableOpacity>
               )}
-              {souPrestadorDoMatch && !reparo.pedido_tempo_status && !encerrada && (
+              {/* !chegadaConfirmada: pedir mais tempo é sobre o prazo ATÉ chegar, e esse
+                  prazo acabou quando o dono confirmou a chegada. Mesma razão pela qual a
+                  contagem regressiva sai de cena nesse momento (:1165). */}
+              {souPrestadorDoMatch && !reparo.pedido_tempo_status && !chegadaConfirmada && !encerrada && (
                 <TouchableOpacity style={estilos.btnPedirTempo} onPress={handlePedirTempo}>
                   <Text style={estilos.btnPedirTempoTexto}>⚠️ Preciso de mais tempo para chegar</Text>
                 </TouchableOpacity>
