@@ -490,7 +490,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
           // se o match já for deste prestador, trata como sucesso em vez de erro confuso.
           try {
             const atual = await api.get(`/reparos/${reparo.id}`)
-            if (atual?.reparo?.match_usuario_id === usuario.id) { aplicarSucesso(atual.reparo.match_feito_em); return }
+            // Comparação em String como em prestadorMatch/souPrestadorDoMatch (:860, :873): o
+            // id vem número ou string conforme o endpoint, e com === o match que DEU certo era
+            // lido como de outro prestador — a reconsulta não salvava nada e o alerta de erro
+            // subia mesmo assim. Os != null vêm antes porque dois ids ausentes casariam.
+            const matchId = atual?.reparo?.match_usuario_id
+            if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(atual.reparo.match_feito_em); return }
           } catch (e2) { console.log('[DetalheReparo] reconsulta pós-match falhou | code:', e2.code) }
           Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
         }

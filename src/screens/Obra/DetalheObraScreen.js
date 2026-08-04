@@ -452,7 +452,12 @@ export default function DetalheObraScreen({ route, navigation }) {
           try {
             const atual = await obrasService.detalhe(obra.id)
             const obraAtual = atual?.obra || atual
-            if (obraAtual?.match_usuario_id === usuario.id) { aplicarSucesso(obraAtual.match_feito_em); return }
+            // Comparação em String como em pintorMatch/souPintorDoMatch (:778, :791): o id vem
+            // número ou string conforme o endpoint, e com === o match que DEU certo era lido
+            // como de outro pintor — a reconsulta não salvava nada e o alerta de erro subia
+            // mesmo assim. Os != null vêm antes porque dois ids ausentes casariam.
+            const matchId = obraAtual?.match_usuario_id
+            if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(obraAtual.match_feito_em); return }
           } catch (e2) { console.log('[DetalheObra] reconsulta pós-match falhou | code:', e2.code) }
           Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
         }
