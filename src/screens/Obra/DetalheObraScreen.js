@@ -852,15 +852,18 @@ export default function DetalheObraScreen({ route, navigation }) {
   const chegadaConfirmada = !!obra?.chegada_confirmada_em
   const chegadaAguardaConfirmacao = !!obra?.chegada_declarada_em && !chegadaConfirmada
   const chegadaNaoDeclarada = !obra?.chegada_declarada_em && !chegadaConfirmada
-  // Chegada REGISTRADA: anunciada por QUALQUER uma das partes, confirmada ou não.
-  const chegadaRegistrada = !!obra?.chegada_declarada_em || chegadaConfirmada
-  // Encerrar exige que a chegada tenha sido registrada, e só onde a chegada foi negociada.
-  // Basta a DECLARAÇÃO, não a confirmação do dono: exigindo a confirmação, um dono que
-  // sumisse deixava o profissional sem saída — serviço feito, chegada declarada e o botão
-  // de encerrar travado para sempre, porque o único caminho para destravá-lo era um toque
-  // que só o outro lado podia dar. Match anterior a este fluxo não tem chegada_prevista_em
-  // e segue encerrável como sempre.
-  const podeEncerrar = !obra?.chegada_prevista_em || chegadaRegistrada
+  // Encerrar exige a chegada CONFIRMADA pelos dois lados, e só onde a chegada foi
+  // negociada. A declaração de uma parte não basta: ela é a palavra de quem chegou, e
+  // encerrar é o passo que fecha o dinheiro do serviço — as duas pontas precisam ter
+  // dito que o profissional estava lá.
+  // O CUSTO, explícito: um dono que suma depois da declaração deixa o profissional sem
+  // saída — serviço feito, chegada declarada e o botão travado, porque o único toque que
+  // destrava é do outro lado. Foi por isso que esta regra já esteve em chegadaRegistrada.
+  // Voltando à confirmação, o destravamento precisa vir de fora do app (confirmação
+  // automática pelo servidor após um prazo, ou suporte), não daqui.
+  // Match anterior a este fluxo não tem chegada_prevista_em e segue encerrável como
+  // sempre — contrato velho não pode ficar preso a uma etapa que não existia.
+  const podeEncerrar = !obra?.chegada_prevista_em || chegadaConfirmada
   const distancia = distanciaItemKm(coords, obra)
 
   const abrirWhatsApp = (telefone) => {
@@ -1193,7 +1196,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   antes deste fluxo) não passa por essa exigência. */}
               {temMatch && obra?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, (euSolicitei || !podeEncerrar) && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei || !podeEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Confirmar conclusão — Encerrar obra') : '🚶 Confirme a chegada para encerrar'}</Text>
+                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Confirmar conclusão — Encerrar obra') : chegadaAguardaConfirmacao ? '🚶 Confirme a chegada para encerrar' : '🚶 Aguardando o registro da chegada'}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && obra.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
@@ -1442,7 +1445,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   botão ausente, e sem exigência nenhuma em match anterior ao fluxo. */}
               {souPintorDoMatch && obra?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, (euSolicitei || !podeEncerrar) && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei || !podeEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Serviço concluído — Encerrar') : '🚶 Confirme a chegada para encerrar'}</Text>
+                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Serviço concluído — Encerrar') : chegadaAguardaConfirmacao ? '⏳ Aguardando o solicitante confirmar a chegada' : '🚶 Registre sua chegada para encerrar'}</Text>
                 </TouchableOpacity>
               )}
               {/* !chegadaConfirmada: pedir mais tempo é sobre o prazo ATÉ chegar, e esse
