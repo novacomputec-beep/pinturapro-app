@@ -25,6 +25,9 @@ const CATEGORIAS = [
   { id: 'aula_particular', label: '📚 Aula Particular'  },
   { id: 'cuidador',        label: '🤝 Cuidador'        },
   { id: 'jardineiro',      label: '🌳 Jardineiro'      },
+  { id: 'manicure',        label: '💅 Manicure/Pedicure' },
+  { id: 'cabelo',          label: '✂️ Cabelo/Penteados'  },
+  { id: 'massagem',        label: '💆 Massagens'       },
   { id: 'outros',       label: '🔨 Outros'        },
 ]
 
@@ -527,11 +530,16 @@ const estilos = StyleSheet.create({
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  // Três por linha e fonte menor, na mesma medida das pills de CATEGORIA (31% de
+  // largura, paddingVertical 7, rótulo em 12): as seis opções passam de 3 linhas para 2
+  // e devolvem a altura que a nova linha de categorias consumiu. O raio continua o de
+  // card, não o de pill — são dois textos empilhados, e o formato arredondado de pill
+  // só assenta em rótulo de uma linha.
   urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  urgenciaCard: { width: '48%', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
+  urgenciaCard: { width: '31%', alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 8, paddingVertical: 7 },
   urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
-  urgenciaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
-  urgenciaDesc: { fontSize: 11, color: cores.textoFraco, textAlign: 'center' },
+  urgenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
+  urgenciaDesc: { fontSize: 10, color: cores.textoFraco, textAlign: 'center' },
   cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
   dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: -2 },

@@ -42,6 +42,9 @@ const CATEGORIAS = [
   { id: 'aula_particular', label: '📚 Aula Particular'  },
   { id: 'cuidador',        label: '🤝 Cuidador'        },
   { id: 'jardineiro',      label: '🌳 Jardineiro'      },
+  { id: 'manicure',        label: '💅 Manicure/Pedicure' },
+  { id: 'cabelo',          label: '✂️ Cabelo/Penteados'  },
+  { id: 'massagem',        label: '💆 Massagens'       },
   { id: 'outros',       label: '🔨 Outros'      },
 ]
 

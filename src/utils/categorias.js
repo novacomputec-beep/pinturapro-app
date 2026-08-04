@@ -17,6 +17,7 @@ const EMOJIS_REPARO = {
   hidraulica: '🚿', eletrica: '⚡', marcenaria: '🪚', alvenaria: '🧱',
   climatizacao: '❄️', chaveiro: '🔑', faxina: '🧹', outros: '🔨',
   eletronica: '📱', aula_particular: '📚', cuidador: '🤝', jardineiro: '🌳',
+  manicure: '💅', cabelo: '✂️', massagem: '💆',
 }
 
 const EMOJIS_OBRA = {
