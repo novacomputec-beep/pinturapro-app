@@ -435,6 +435,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // { servidor } fica FORA: um 5xx prova que a requisição chegou.
   const handleEscolherJanela = async (janela) => {
     if (enviandoJanela) return
+    // Estado ANTES do envio, para a reconsulta do catch saber o que é novidade. Sem esta
+    // foto, "existe uma janela" não distingue a que acabou de ser gravada de uma que já
+    // estava lá antes do toque.
+    const previstaAntes = reparo?.chegada_prevista_em
+    const pendenteAntes = reparo?.chegada_pendente_em
     setEnviandoJanela(janela)
     try {
       const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/chegada-prevista`, { janela }), { timeout: true, persistir: true })
@@ -449,6 +454,16 @@ export default function DetalheReparoScreen({ route, navigation }) {
     } catch (err) {
       console.log('[DetalheReparo] falha ao informar chegada prevista | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (alertouSuspensao(err)) return
+      // Mesmo padrão de handleInteresse/handleMatch: a 1ª tentativa pode ter sido gravada
+      // e só a resposta se perdido. Reconsulta antes de acusar erro — se a janela apareceu
+      // agora (prevista OU pendente, conforme o servidor exija ou não o aceite do dono),
+      // a promessa está feita e alertar seria mentir sobre o que está no servidor.
+      try {
+        const atual = await api.get(`/reparos/${reparo.id}`)
+        const r = atual?.reparo
+        const gravou = (!previstaAntes && r?.chegada_prevista_em) || (!pendenteAntes && r?.chegada_pendente_em)
+        if (gravou) { await buscar(); return }
+      } catch (e2) { console.log('[DetalheReparo] reconsulta pós-chegada-prevista falhou | code:', e2.code) }
       Alert.alert('Erro', err.mensagem || 'Não foi possível informar sua previsão de chegada.')
     } finally {
       if (mountedRef.current) setEnviandoJanela(null)
@@ -485,6 +500,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // da mutação de ESTADO de rede.js:16-19. { servidor } fora: um 5xx prova que chegou.
   const handleChegada = async () => {
     if (declarandoChegada) return
+    // Foto do estado ANTES do toque. O mesmo endpoint declara OU confirma conforme quem
+    // tocou, então "houve chegada" não basta como prova: o que interessa é se ESTE toque
+    // ADIANTOU alguma coisa. Comparar com o antes cobre os dois papéis sem precisar
+    // adivinhar qual dos dois o servidor executou.
+    const declaradaAntes = reparo?.chegada_declarada_em
+    const confirmadaAntes = reparo?.chegada_confirmada_em
     setDeclarandoChegada(true)
     try {
       await comRetry(() => api.post(`/reparos/${reparo.id}/chegada`, {}), { timeout: true, persistir: true })
@@ -494,6 +515,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
     } catch (err) {
       console.log('[DetalheReparo] falha ao registrar chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (alertouSuspensao(err)) return
+      // Mesmo padrão de handleInteresse/handleMatch: reconsulta antes de acusar erro. Se
+      // a chegada avançou (declarada agora, ou confirmada agora), o toque valeu e o
+      // alerta seria um erro sobre algo que deu certo.
+      try {
+        const atual = await api.get(`/reparos/${reparo.id}`)
+        const r = atual?.reparo
+        const avancou = (!declaradaAntes && r?.chegada_declarada_em) || (!confirmadaAntes && r?.chegada_confirmada_em)
+        if (avancou) { await buscar(); return }
+      } catch (e2) { console.log('[DetalheReparo] reconsulta pós-chegada falhou | code:', e2.code) }
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar a chegada.')
     } finally {
       if (mountedRef.current) setDeclarandoChegada(false)
