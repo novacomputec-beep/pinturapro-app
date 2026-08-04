@@ -14,6 +14,7 @@ import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
+import { emojiReparo } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
@@ -43,12 +44,6 @@ const CATEGORIAS = [
   { id: 'jardineiro',      label: '🌳 Jardineiro'      },
   { id: 'outros',       label: '🔨 Outros'      },
 ]
-
-const CATEGORIA_EMOJIS = {
-  hidraulica: '🚿', eletrica: '⚡', marcenaria: '🪚', alvenaria: '🧱',
-  climatizacao: '❄️', chaveiro: '🔑', faxina: '🧹', outros: '🔨',
-  eletronica: '📱', aula_particular: '📚', cuidador: '🤝', jardineiro: '🌳',
-}
 
 const getUrgenciaInfo = (horas) => {
   if (!horas) return null
@@ -124,7 +119,7 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 // Defined outside to prevent re-creation on every parent render (which resets timer state)
 const CardReparo = ({ item, onPress, onExpirar, coords }) => {
   const urgencia = getUrgenciaInfo(item.prazo_atendimento_horas)
-  const emoji = CATEGORIA_EMOJIS[item.categoria] || '🔨'
+  const emoji = emojiReparo(item.categoria)
   const dist = distanciaItemKm(coords, item)
   // Rede de segurança do thumbnail: a capa pode não renderizar (URL quebrada,
   // mídia já removida, transformação recusada pelo Cloudinary). Sem isto o <Image>

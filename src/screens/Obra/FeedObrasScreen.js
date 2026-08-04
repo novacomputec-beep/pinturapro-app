@@ -13,6 +13,7 @@ import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
+import { emojiObra } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
@@ -36,17 +37,6 @@ const CATEGORIAS = [
   { id: 'rural',         label: '🌾 Rural'        },
   { id: 'outros',        label: '🔨 Outros'       },
 ]
-
-// Emoji por categoria, usado no thumbnail quando a obra não tem mídia. Não são
-// emojis novos: são os MESMOS já exibidos nos labels de CATEGORIAS aqui e em
-// CadastrarObraScreen — extraídos para que o thumbnail bata com o chip de filtro
-// que a pessoa acabou de tocar. Espelha CATEGORIA_EMOJIS do FeedReparos.
-// O fallback 🏗️ cobre categoria desconhecida (o banco pode ter valor legado que
-// não está nesta lista) sem se disfarçar de "outros", que é 🔨 legítimo.
-const CATEGORIA_EMOJIS = {
-  residencial: '🏠', comercial: '🏢', institucional: '🏛️',
-  galpao: '🏭', rural: '🌾', outros: '🔨',
-}
 
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
@@ -116,7 +106,7 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 
 const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const dist = distanciaItemKm(coords, item)
-  const emoji = CATEGORIA_EMOJIS[item.categoria] || '🏗️'
+  const emoji = emojiObra(item.categoria)
   // Rede de segurança do thumbnail: a capa pode não renderizar (URL quebrada,
   // mídia já removida, transformação recusada pelo Cloudinary). Sem isto o <Image>
   // deixaria um quadrado preto; assim cai no emoji da categoria.
