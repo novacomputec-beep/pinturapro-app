@@ -16,7 +16,7 @@ import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
-import { avatar, media, full } from '../../utils/imagemOtimizada'
+import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra } from '../../utils/categorias'
 
@@ -925,7 +925,10 @@ export default function DetalheObraScreen({ route, navigation }) {
           </TouchableOpacity>
           {videoFullscreen && (
             <Video
-              source={{ uri: videoFullscreen }}
+              /* videoOtimizado, e não a URL crua: este player é o único lugar que baixa
+                 o vídeo inteiro. O estado guarda a URL ORIGINAL de propósito — a
+                 transformação é de entrega, aplicada na leitura, e nada a persiste. */
+              source={{ uri: videoOtimizado(videoFullscreen) }}
               style={{ width: '100%', height: '50%' }}
               useNativeControls
               resizeMode={ResizeMode.CONTAIN}
