@@ -934,18 +934,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const chegadaConfirmada = !!reparo?.chegada_confirmada_em
   const chegadaAguardaConfirmacao = !!reparo?.chegada_declarada_em && !chegadaConfirmada
   const chegadaNaoDeclarada = !reparo?.chegada_declarada_em && !chegadaConfirmada
-  // Encerrar exige a chegada CONFIRMADA pelos dois lados, e só onde a chegada foi
-  // negociada. A declaração de uma parte não basta: ela é a palavra de quem chegou, e
-  // encerrar é o passo que fecha o dinheiro do serviço — as duas pontas precisam ter
-  // dito que o profissional estava lá.
-  // O CUSTO, explícito: um dono que suma depois da declaração deixa o profissional sem
-  // saída — serviço feito, chegada declarada e o botão travado, porque o único toque que
-  // destrava é do outro lado. Foi por isso que esta regra já esteve em chegadaRegistrada.
-  // Voltando à confirmação, o destravamento precisa vir de fora do app (confirmação
-  // automática pelo servidor após um prazo, ou suporte), não daqui.
-  // Match anterior a este fluxo não tem chegada_prevista_em e segue encerrável como
-  // sempre — contrato velho não pode ficar preso a uma etapa que não existia.
-  const podeEncerrar = !reparo?.chegada_prevista_em || chegadaConfirmada
+  // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
+  // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
+  // que só a outra parte podia dar, sem nenhuma saída dentro do app.
+  // No lugar do bloqueio vai um AVISO ao lado do botão: encerrar antes de as duas partes
+  // confirmarem a chegada é desaconselhável, mas a decisão é de quem está no serviço.
+  // Só onde a chegada foi negociada (chegada_prevista_em): match anterior a este fluxo
+  // não tem etapa de chegada nenhuma, e avisar sobre ela seria falar de algo que não
+  // existe naquele contrato.
+  const avisarChegadaNaoConfirmada = !!reparo?.chegada_prevista_em && !chegadaConfirmada
   const distancia = distanciaItemKm(coords, reparo)
 
   // Valor exibido para o dono_reparo: enquanto não há proposta aceita, mostra o valor
@@ -1316,13 +1313,16 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Profissional chegou'}</Text>
                 </TouchableOpacity>
               )}
-              {/* podeEncerrar: o botão NÃO some quando falta confirmar a chegada — troca de
-                  rótulo e desabilita, dizendo o que falta. Sumir sem aviso é o padrão que
-                  esta tela já rejeita noutros pontos. Match sem chegada_prevista_em (de
-                  antes deste fluxo) não passa por essa exigência. */}
+              {/* Aviso, não trava: informa a ordem recomendada e deixa o botão livre.
+                  Vem ANTES do botão para ser lido antes do toque, não depois. */}
+              {temMatch && avisarChegadaNaoConfirmada && !encerrada && (
+                <View style={estilos.avisoChegadaBox}>
+                  <Text style={estilos.avisoChegadaTexto}>⚠️ O serviço só deve ser encerrado depois que as duas partes confirmarem que o profissional chegou ao local.</Text>
+                </View>
+              )}
               {temMatch && reparo?.status !== 'encerrada' && (
-                <TouchableOpacity style={[estilos.btnEncerrar, (euSolicitei || !podeEncerrar) && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei || !podeEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>{podeEncerrar ? rotuloEncerrar('✅ Confirmar conclusão — Encerrar reparo') : chegadaAguardaConfirmacao ? '🚶 Confirme a chegada para encerrar' : '🚶 Aguardando o registro da chegada'}</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
+                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar reparo')}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
@@ -1569,11 +1569,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
                 </View>
               )}
-              {/* Mesma regra do botão do dono: rótulo explicando o que falta em vez de
-                  botão ausente, e sem exigência nenhuma em match anterior ao fluxo. */}
+              {/* Mesmo aviso do lado do dono, pelo mesmo motivo e no mesmo lugar. */}
+              {souPrestadorDoMatch && avisarChegadaNaoConfirmada && !encerrada && (
+                <View style={estilos.avisoChegadaBox}>
+                  <Text style={estilos.avisoChegadaTexto}>⚠️ O serviço só deve ser encerrado depois que as duas partes confirmarem que o profissional chegou ao local.</Text>
+                </View>
+              )}
               {souPrestadorDoMatch && reparo?.status !== 'encerrada' && (
-                <TouchableOpacity style={[estilos.btnEncerrar, (encerrando || euSolicitei || !podeEncerrar) && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando || euSolicitei || !podeEncerrar}>
-                  <Text style={estilos.btnEncerrarTexto}>{!podeEncerrar ? (chegadaAguardaConfirmacao ? '⏳ Aguardando o solicitante confirmar a chegada' : '🚶 Registre sua chegada para encerrar') : encerrando ? 'Encerrando…' : rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
+                <TouchableOpacity style={[estilos.btnEncerrar, (encerrando || euSolicitei) && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando || euSolicitei}>
+                  <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
                 </TouchableOpacity>
               )}
               {/* !chegadaConfirmada: pedir mais tempo é sobre o prazo ATÉ chegar, e esse
@@ -1880,6 +1884,11 @@ const estilos = StyleSheet.create({
   btnPerguntarTempoTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   pedidoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
   pedidoTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
+  // Aviso (não bloqueio) acima do botão de encerrar. Mesma paleta âmbar do pedidoAlertaBox
+  // — é a cor que esta tela já usa para "leia antes de agir" —, em caixa mais discreta:
+  // não pede um toque, só informa a ordem recomendada.
+  avisoChegadaBox: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 12, marginTop: 12 },
+  avisoChegadaTexto: { fontSize: 12, color: '#E8833A', textAlign: 'center', lineHeight: 18 },
   pedidoAlertaBox: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.grande, padding: 16, marginTop: 10 },
   pedidoAlertaTitulo: { fontSize: 14, fontWeight: '700', color: '#E8833A', marginBottom: 4 },
   pedidoAlertaMotivo: { fontSize: 12, color: cores.textoMedio, marginBottom: 4 },

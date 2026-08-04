@@ -14,9 +14,11 @@ import { carregarVistas, marcarVista } from '../utils/celebracao'
 // último em cada papel, de propósito: repetem até serem resolvidos e, na frente dos
 // demais, esconderiam todo o resto enquanto durassem. Atrás, os eventos de uma vez só
 // disparam, ficam marcados e saem do caminho — na verificação seguinte eles aparecem.
-// Entre os dois, a chegada vem antes: é a etapa anterior do serviço, e desde que
-// encerrar exige a chegada confirmada, um pedido de encerramento pressupõe que ela já
-// aconteceu — na prática os dois não competem.
+// Entre os dois, a chegada vem antes por ser a etapa anterior do serviço. Os dois PODEM
+// estar pendentes ao mesmo tempo: encerrar não depende da chegada confirmada (o detalhe
+// só avisa, não trava), então dá para pedir o encerramento com a chegada ainda em
+// aberto. Nesse caso o dono confirma a chegada primeiro e, na verificação seguinte, o
+// encerramento aparece.
 const detectar = async (usuario) => {
   const uid = usuario.id
   const vistas = await carregarVistas(uid)
@@ -57,10 +59,10 @@ const detectar = async (usuario) => {
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
     // Chegada declarada e ainda não confirmada. semMarca pelo mesmo motivo do
-    // encerramento: não é notícia para comemorar uma vez, é uma ação que falta — e desde
-    // que encerrar passou a exigir a chegada CONFIRMADA (DetalheReparoScreen.js), é este
-    // toque que destrava o fim do serviço. Sem o aviso, o profissional fica esperando um
-    // gesto que o dono não sabe que precisa dar.
+    // encerramento: não é notícia para comemorar uma vez, é uma ação que falta. Ela NÃO
+    // destrava nada — encerrar continua livre, e o detalhe apenas aconselha confirmar a
+    // chegada antes. O valor do aviso é outro: o profissional declarou que chegou e está
+    // esperando resposta, e sem isto o dono não fica sabendo que há algo a responder.
     // status !== 'encerrada' para não cobrar confirmação de serviço já fechado: reparo de
     // antes do fluxo de chegada podia encerrar com a declaração pendente para sempre.
     const cheg = (resp.reparos || []).find(x =>
@@ -109,9 +111,9 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
-    // Espelha o ramo do dono_reparo acima: chegada declarada e não confirmada é a ação
-    // que destrava o encerramento, e sem aviso o profissional espera um toque que o dono
-    // não sabe que precisa dar.
+    // Espelha o ramo do dono_reparo acima: o profissional declarou que chegou e espera
+    // resposta. Não destrava o encerramento (que segue livre) — serve para o dono saber
+    // que há algo a responder.
     const cheg = (resp.obras || []).find(x =>
       x.chegada_declarada_em != null && x.chegada_confirmada_em == null && x.status !== 'encerrada'
     )
