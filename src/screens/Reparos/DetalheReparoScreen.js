@@ -17,6 +17,44 @@ import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../../utils/r
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full } from '../../utils/imagemOtimizada'
+import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
+import { emojiReparo } from '../../utils/categorias'
+
+// Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
+// CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
+// quebrado não pode derrubar os vizinhos, e um useState por tile é impossível dentro
+// do .map da tela.
+const TileMidia = ({ midia, emoji, onPress }) => {
+  // Rede de segurança do thumbnail, igual à dos cards do feed: a mídia pode não
+  // renderizar (URL quebrada, arquivo já removido, transformação recusada pelo
+  // Cloudinary). Sem isto o <Image> deixava um retângulo preto; assim cai no emoji
+  // da categoria, que é o mesmo placeholder que o feed mostra para o mesmo item.
+  const [falhou, setFalhou] = useState(false)
+  const ehVideo = midia.tipo === 'video'
+  // O <Image> do RN não decodifica vídeo: passar o .mp4 cru aqui (o que esta tela
+  // fazia) só podia dar tile preto, porque media() devolve a URL INTACTA quando não
+  // encontra /image/upload/ — ela existe justamente supondo que o vídeo já virou
+  // frame antes. thumbnailDeCapa é quem faz essa conversão, no recorte do tile.
+  const uri = ehVideo ? thumbnailDeCapa(midia.url, FRAME_TILE_DETALHE) : media(midia.url)
+  return (
+    <TouchableOpacity style={estilos.midiaItem} onPress={onPress} activeOpacity={0.7}>
+      {uri && !falhou ? (
+        <Image source={{ uri }} style={estilos.midiaImagem} resizeMode="cover" onError={() => setFalhou(true)} />
+      ) : (
+        <View style={[estilos.midiaImagem, estilos.midiaVazia]}>
+          <Text style={estilos.midiaVaziaIcone}>{emoji}</Text>
+        </View>
+      )}
+      {/* O ▶ fica mesmo sobre o placeholder: o item continua sendo um vídeo e o toque
+          continua abrindo o player, que lê a URL original e independe deste frame. */}
+      {ehVideo && (
+        <View style={estilos.videoOverlay}>
+          <Text style={{ fontSize: 32, color: 'white' }}>▶</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  )
+}
 
 // Trunca para as unidades mais significativas, com granularidade decrescente:
 //   ≥ 1 dia  → "19 dias 7h 25m"
@@ -1116,19 +1154,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
               <Text style={estilos.secaoTitulo}>Fotos e vídeos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
                 {midias.map((midia, i) => (
-                  <TouchableOpacity
+                  <TileMidia
                     key={i}
-                    style={estilos.midiaItem}
+                    midia={midia}
+                    emoji={emojiReparo(reparo.categoria)}
                     onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
-                    activeOpacity={0.7}
-                  >
-                    <Image source={{ uri: media(midia.url) }} style={estilos.midiaImagem} resizeMode="cover" />
-                    {midia.tipo === 'video' && (
-                      <View style={estilos.videoOverlay}>
-                        <Text style={{ fontSize: 32, color: 'white' }}>▶</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                  />
                 ))}
               </ScrollView>
             </>
@@ -1777,6 +1808,10 @@ const estilos = StyleSheet.create({
   descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
   midiaItem: { width: 160, height: 120, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
   midiaImagem: { width: '100%', height: '100%' },
+  // Placeholder do tile que não renderizou. Mesmo cinza do thumbVazia dos feeds; o
+  // ícone é maior porque o tile é 160x120dp, contra os 64dp do thumb de lá.
+  midiaVazia: { backgroundColor: '#2E2E2E', alignItems: 'center', justifyContent: 'center' },
+  midiaVaziaIcone: { fontSize: 40 },
   videoOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   avisoMidiaRemovida: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 20 },
   avisoMidiaRemovidaIcone: { fontSize: 20 },
