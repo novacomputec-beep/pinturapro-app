@@ -57,10 +57,10 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       // espera para um bloqueio que nunca saiu. Sendo o mesmo evento, os dois merecem
       // retry aqui. { servidor } fica FORA: um 5xx prova que a requisição chegou.
       if (jaBloqueado) {
-        await comRetry(() => api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`), { timeout: true })
+        await comRetry(() => api.delete(`/usuarios/desbloquear-prestador/${prestadorId}`), { timeout: true, persistir: true })
         setBloqueados(prev => { const novo = new Set(prev); novo.delete(prestadorId); return novo })
       } else {
-        await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }), { timeout: true })
+        await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }), { timeout: true, persistir: true })
         setBloqueados(prev => new Set(prev).add(prestadorId))
       }
     } catch (err) {

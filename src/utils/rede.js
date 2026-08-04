@@ -30,11 +30,32 @@
 //   - após a 2ª falha: esperaMs * 2 base (2000ms)     → 1600–2400ms
 // EXCEÇÃO: erro de rede na 1ª falha espera ESPERA_SOCKET_MORTO em vez do backoff (ver
 // o comentário no ponto de uso). Se as 3 tentativas falharem, lança o último erro.
+//
+// { persistir } troca o teto de 3 TENTATIVAS por um teto de TEMPO (JANELA_PERSISTIR):
+// insiste calado enquanto o erro for reexecutável e a janela não tiver fechado. Existe
+// porque três tentativas em ~3 s não cobrem uma oscilação de rede real — elevador,
+// garagem, handover de torre —, e o usuário recebia "não foi possível" por uma falha
+// que teria passado sozinha meio minuto depois. Só faz sentido onde repetir é inócuo
+// (as MESMAS chamadas que já podem usar { timeout }); num POST que cria recurso, mais
+// tentativas significam mais chances de duplicar. Não muda o que é reexecutável: 4xx
+// continua definitivo, e timeout/5xx só entram se as flags deles estiverem ligadas.
 
 // Pausa curta antes do 1º retry de erro de REDE. Não é backoff — é o tempo de o socket
 // morto sair do pool. Curta o bastante para o usuário não perceber, e é a única espera
 // deste caminho: a 2ª falha já cai no backoff normal.
 const ESPERA_SOCKET_MORTO = 600
+
+// Teto da espera entre tentativas no modo { persistir }. Sem ele o backoff dobra até
+// 16 s e a janela toda caberia em ~4 tentativas; com o teto são ~12, que é o ponto:
+// muitas chances de pegar o instante em que a rede volta.
+const ESPERA_MAX = 5000
+
+// Janela do { persistir }. ~45 s é o tempo que se aceita esperar por uma ação que já
+// foi confirmada na tela (o spinner do botão continua rodando) sem que a pessoa
+// conclua que travou. O corte é medido ANTES de decidir por outra tentativa, então uma
+// tentativa que estoure o timeout de 30 s pode ultrapassar a janela — o limite é de
+// quando PARAR de tentar, não do tempo total decorrido.
+const JANELA_PERSISTIR = 45000
 
 // ─── Aquecimento de conexão ──────────────────────────────────
 // O retry acima conserta o socket morto DEPOIS que ele estraga a ação do usuário: a
@@ -88,11 +109,12 @@ export const aquecerSeOcioso = async () => {
   await aquecimentoEmVoo
 }
 
-export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs = 1000 } = {}) => {
+export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs = 1000, persistir = false } = {}) => {
   const maxTentativas = 3
+  const inicio = Date.now()
   let ultimoErro
 
-  for (let tentativa = 0; tentativa < maxTentativas; tentativa++) {
+  for (let tentativa = 0; ; tentativa++) {
     try {
       return await fn()
     } catch (err) {
@@ -108,8 +130,16 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
       const isServidor = !isClientError && servidor && err.status >= 500
       const reexecutavel = isNetwork || isTimeout || isServidor
 
-      // Não-reexecutável, ou já foi a última tentativa → propaga o erro.
-      if (!reexecutavel || tentativa === maxTentativas - 1) throw err
+      // Não-reexecutável → propaga na hora, em qualquer modo.
+      if (!reexecutavel) throw err
+
+      // Fim da linha: 3 tentativas no modo normal, janela de tempo no { persistir }.
+      // O tempo é medido do início da PRIMEIRA tentativa, então esperas e tentativas
+      // já gastas contam — a janela é o orçamento total, não o de cada rodada.
+      const acabou = persistir
+        ? Date.now() - inicio >= JANELA_PERSISTIR
+        : tentativa === maxTentativas - 1
+      if (acabou) throw err
 
       // Erro de REDE na 1ª tentativa: pausa CURTA, não o backoff cheio. O caso típico é
       // um socket de keep-alive reaproveitado depois de um tempo ocioso e já fechado do
@@ -124,15 +154,20 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
         continue
       }
 
-      // Backoff exponencial: esperaMs, esperaMs*2, ... com jitter de ±20%.
-      const base = esperaMs * Math.pow(2, tentativa)
+      // Backoff exponencial: esperaMs, esperaMs*2, ... com jitter de ±20%. No modo
+      // { persistir } o dobro para em ESPERA_MAX, senão a janela inteira seria gasta
+      // esperando em vez de tentando.
+      const base = persistir
+        ? Math.min(esperaMs * Math.pow(2, tentativa), ESPERA_MAX)
+        : esperaMs * Math.pow(2, tentativa)
       const espera = base * (0.8 + Math.random() * 0.4)
       await new Promise(r => setTimeout(r, espera))
     }
   }
 
-  // Inalcançável na prática (o laço sempre retorna ou lança), mas mantém a
-  // garantia de lançar o último erro caso a lógica acima mude.
+  // Inalcançável: o laço só termina por return ou throw. Mantido para a garantia de
+  // lançar o último erro caso a condição de parada acima mude.
+  // eslint-disable-next-line no-unreachable
   throw ultimoErro
 }
 

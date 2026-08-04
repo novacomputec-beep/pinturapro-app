@@ -162,7 +162,7 @@ export default function PerfilScreen({ navigation }) {
       // ocioso morto trava 30 s e o modal devolve "não foi possível excluir" para uma
       // conta que estava intacta — a pessoa tenta de novo achando que falhou.
       // { servidor } fica FORA: um 5xx prova que a requisição chegou.
-      await comRetry(() => api.delete('/conta/excluir', { data: { senha } }), { timeout: true })
+      await comRetry(() => api.delete('/conta/excluir', { data: { senha } }), { timeout: true, persistir: true })
     } catch (err) {
       console.log('[Perfil] falha ao excluir conta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       const msg =
