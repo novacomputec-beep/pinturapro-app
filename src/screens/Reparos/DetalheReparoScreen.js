@@ -939,10 +939,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
   // No lugar do bloqueio vai um AVISO ao lado do botão: encerrar antes de as duas partes
   // confirmarem a chegada é desaconselhável, mas a decisão é de quem está no serviço.
-  // Só onde a chegada foi negociada (chegada_prevista_em): match anterior a este fluxo
-  // não tem etapa de chegada nenhuma, e avisar sobre ela seria falar de algo que não
-  // existe naquele contrato.
-  const avisarChegadaNaoConfirmada = !!reparo?.chegada_prevista_em && !chegadaConfirmada
+  // Vale para TODO match sem chegada confirmada, inclusive os que nunca prometeram uma
+  // janela (sem chegada_prevista_em). A ressalva que existia aqui vinha da época do
+  // BLOQUEIO, quando poupar o contrato antigo era o que impedia de deixá-lo sem saída;
+  // um aviso não tranca nada, e a recomendação — confirmem a chegada antes de fechar —
+  // é igualmente verdadeira num contrato que pulou a etapa de promessa.
+  const avisarChegadaNaoConfirmada = !chegadaConfirmada
   const distancia = distanciaItemKm(coords, reparo)
 
   // Valor exibido para o dono_reparo: enquanto não há proposta aceita, mostra o valor
