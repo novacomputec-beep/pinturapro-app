@@ -1,6 +1,6 @@
 import axios from 'axios'
 import * as SecureStore from 'expo-secure-store'
-import { comRetry } from '../utils/rede'
+import { comRetry, registrarSucesso, configurarAquecimento, aquecerSeOcioso } from '../utils/rede'
 
 const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 
@@ -10,8 +10,28 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
+// Timeout curto e próprio do aquecimento. O default de 30 s da instância não serve aqui:
+// o socket morto que este GET existe para descobrir é justamente o que trava até o
+// timeout, e herdando 30 s o aquecimento seguraria a ação do usuário por meio minuto —
+// pior do que o problema que resolve. Passado esse prazo, desiste e segue para a chamada
+// real, que ainda tem o retry do comRetry como rede de segurança.
+const TIMEOUT_AQUECIMENTO = 4000
+
+// Config do GET de aquecimento. A flag `aquecimento` é o que impede a recursão: o próprio
+// /health passa pelo interceptor de request abaixo, e sem ela pediria um aquecimento, que
+// pediria outro, indefinidamente. A marca vai na CONFIG, e não numa comparação de URL,
+// porque é a intenção da chamada que importa: mudar a rota de /health para outra coisa
+// não pode reintroduzir a recursão, e uma chamada legítima a essa mesma rota (um health
+// check de verdade, um dia) continua sendo aquecida como qualquer outra.
+const aquecimentoConfig = { timeout: TIMEOUT_AQUECIMENTO, aquecimento: true }
+
 // Interceptor: injeta o token JWT em toda requisição autenticada
 api.interceptors.request.use(async (config) => {
+  // Aquecimento ANTES do envio, cobrindo toda chamada da instância — inclusive as que não
+  // passam por comRetry. Espera de propósito: a graça é o socket morto estourar aqui, num
+  // pedido descartável, e não na ação do usuário. Nada aqui rejeita (ver rede.js), então
+  // um aquecimento falho não derruba a requisição de verdade.
+  if (!config.aquecimento) await aquecerSeOcioso()
   try {
     const token = await SecureStore.getItemAsync('token')
     if (token) config.headers.Authorization = `Bearer ${token}`
@@ -23,7 +43,15 @@ api.interceptors.request.use(async (config) => {
 
 // Interceptor: trata erros globalmente
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    // Marca o instante da última resposta BEM-SUCEDIDA: é o único momento em que se sabe
+    // que havia uma conexão viva com o servidor. É essa marca que o interceptor de request
+    // acima lê para decidir se aquece a conexão (ver rede.js). Fica no caminho de sucesso
+    // de propósito — um erro de rede não prova conexão nenhuma, e um erro do servidor,
+    // que prova, não é o caso que o aquecimento tenta evitar.
+    registrarSucesso()
+    return response.data
+  },
   (error) => {
     console.log('Erro API:', error.response?.status, error.response?.data, '| network:', error.message, '| code:', error.code)
     // HOUVE resposta do servidor? Então quem fala é ele, mesmo que a mensagem venha
@@ -42,6 +70,11 @@ api.interceptors.response.use(
     return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo })
   }
 )
+
+// Vai pela MESMA instância (mesma baseURL, mesmo host) porque é esse o pool de conexões
+// que precisa ser exercitado — um axios avulso poderia abrir outro socket e não provar
+// nada sobre o que a chamada real vai usar.
+configurarAquecimento(() => api.get('/health', aquecimentoConfig))
 
 // Upload foto de perfil
 api.uploadFotoPerfil = async (formData) => {
