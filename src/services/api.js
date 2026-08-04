@@ -4,10 +4,22 @@ import { comRetry, registrarSucesso, configurarAquecimento, aquecerSeOcioso } fr
 
 const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 
+// 304 entra junto com a faixa 2xx. O default do axios é `status >= 200 && status < 300`,
+// que joga o Not Modified no ramo de ERRO — e o código que ele carrega ali é lixo: o
+// settle.js do axios escolhe a constante por `Math.floor(status / 100) - 4`, que para 304
+// dá índice -1 e devolve `undefined`. O resultado chegava ao usuário como "Não foi
+// possível concluir (erro 304)", e nenhuma regra do comRetry reconhecia esse erro (não é
+// 4xx, nem rede, nem timeout, nem 5xx), então nem retry havia.
+// Um 304 é uma resposta de SUCESSO: o servidor confirma que o recurso não mudou. Pode vir
+// de um proxy/CDN à frente da API ou de qualquer requisição condicional, e nenhum dos dois
+// é erro de aplicação. ATENÇÃO ao corpo: um 304 legítimo vem VAZIO, então o interceptor de
+// sucesso devolve `undefined` como `response.data` — quem chama precisa tolerar isso, que
+// é justamente o que os chamadores já fazem com `resp?.campo` e o fallback do buscar().
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' }
+  headers: { 'Content-Type': 'application/json' },
+  validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
 })
 
 // Timeout curto e próprio do aquecimento. O default de 30 s da instância não serve aqui:
