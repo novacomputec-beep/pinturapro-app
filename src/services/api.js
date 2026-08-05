@@ -15,10 +15,20 @@ const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 // é erro de aplicação. ATENÇÃO ao corpo: um 304 legítimo vem VAZIO, então o interceptor de
 // sucesso devolve `undefined` como `response.data` — quem chama precisa tolerar isso, que
 // é justamente o que os chamadores já fazem com `resp?.campo` e o fallback do buscar().
+// Connection: close — cada requisição pede uma conexão NOVA em vez de reaproveitar uma
+// do pool. Ataca na origem o problema descrito em rede.js:4-10: o socket de keep-alive
+// ocioso que o SO/a rede derrubam sem avisar o cliente, que o pool continua entregando e
+// no qual a requisição seguinte se perde (o ERR_NETWORK que motivou o retry e o
+// aquecimento). Sem reaproveitamento, não há socket velho para morrer.
+//
+// Vale só para ESTA instância. Os uploads que não passam por ela seguem com keep-alive,
+// de propósito: uploadFotoPerfil (:94) e uploadMidiaPublica (:108) usam axios avulso, e
+// midia.js, EditarPerfilScreen e CadastroScreen sobem por XHR direto — arquivos grandes
+// são exatamente o caso em que reaproveitar a conexão compensa.
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', Connection: 'close' },
   validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
 })
 
