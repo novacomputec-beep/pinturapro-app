@@ -9,7 +9,7 @@ import { BotaoPrimario, Input } from '../../components'
 import { useAuth } from '../../contexts/AuthContext'
 import { authService } from '../../services/api'
 import api from '../../services/api'
-import { comRetry } from '../../utils/rede'
+import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
 import { cores, espacos, raios } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
@@ -58,6 +58,23 @@ export default function EditarPerfilScreen({ navigation }) {
   const [uploadandoFoto, setUploadandoFoto] = useState(false)
   const [fotoUrl, setFotoUrl] = useState(usuario?.foto_url || null)
 
+  // Recarga desta tela: relê o perfil no servidor e repõe os campos e o contexto. É o
+  // "estado real" que substitui o alerta quando a falha foi de rede pura.
+  // PROPAGA a falha de propósito (sem try/catch aqui): é assim que
+  // recarregarSeFalhaDeRede sabe distinguir "recarreguei" de "nem isso consegui" e
+  // devolver o alerta quando a rede continua fora.
+  // Corpo vazio (304) não zera nada — mesma guarda dos buscar() das telas de detalhe.
+  const recarregarPerfil = async () => {
+    const resposta = await comRetry(() => authService.perfil(), { timeout: true })
+    const u = resposta?.usuario
+    if (!u) return
+    setNome(u.nome || '')
+    setTelefone(mascararTelefone(u.telefone || ''))
+    setCidade(u.cidade || '')
+    setFotoUrl(u.foto_url || null)
+    setUsuario(prev => ({ ...prev, ...u }))
+  }
+
   const processarFoto = async (uri) => {
     setUploadandoFoto(true)
     try {
@@ -77,6 +94,11 @@ export default function EditarPerfilScreen({ navigation }) {
       Alert.alert('Sucesso', 'Foto atualizada!')
     } catch (err) {
       console.log('[EditarPerfil] falha ao enviar foto | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Rede pura → recarrega em vez de alertar. Vale só para o PATCH de metadados: o
+      // upload direto ao Cloudinary acima rejeita com Error simples, sem `code`, e por
+      // isso nunca é confundido com falha de rede do cliente da API — é exatamente o
+      // caso que o casamento por ausência de status confundiria.
+      if (await recarregarSeFalhaDeRede(err, recarregarPerfil)) return
       Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a foto.')
     } finally {
       setUploadandoFoto(false)
@@ -130,6 +152,11 @@ export default function EditarPerfilScreen({ navigation }) {
       ])
     } catch (err) {
       console.log('[EditarPerfil] falha ao salvar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Rede pura → recarrega em vez de alertar. Os campos voltam a mostrar o que está
+      // gravado no servidor: se o PUT não chegou, reaparece o valor antigo; se chegou e
+      // só a resposta se perdeu, reaparece o novo. A tela não fica afirmando um fracasso
+      // que pode não ter acontecido.
+      if (await recarregarSeFalhaDeRede(err, recarregarPerfil)) return
       Alert.alert('Erro', err.mensagem || 'Não foi possível atualizar o perfil.')
     } finally {
       setCarregando(false)
