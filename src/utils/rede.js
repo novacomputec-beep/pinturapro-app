@@ -182,3 +182,49 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
 // Nenhum dos dois é reexecutável: são 4xx, que comRetry já não repete em hipótese alguma.
 export const ehContaSuspensa = (err) => err?.status === 403 && err?.codigo === 'CONTA_SUSPENSA'
 export const ehProfissionalSuspenso = (err) => err?.status === 409 && err?.codigo === 'PROFISSIONAL_SUSPENSO'
+
+// ─── Falha de rede PURA ──────────────────────────────────────
+// ERR_NETWORK é o ÚNICO carimbo aceito. Ele nasce em um lugar só — o onerror do adapter
+// XHR do axios — e significa exatamente uma coisa: a requisição saiu e NÃO voltou
+// resposta nenhuma. Só isso autoriza trocar o alerta por uma recarga.
+//
+// O que fica deliberadamente DE FORA, e por quê:
+//   • status ausente. É tentador ("não houve resposta"), e é errado: status também falta
+//     no cancelamento, no timeout e em TODO erro que nunca passou pelo cliente HTTP — o
+//     fetch do CEP, o Promise.race que rejeita com Error, a recusa do ImagePicker, o
+//     upload direto ao Cloudinary. Casar por ausência de status recarregaria a tela num
+//     CEP inválido ou num seletor de fotos cancelado.
+//   • ERR_CANCELED. Quem cancelou foi o próprio app (troca de filtro, saída da tela);
+//     recarregar seria brigar com a navegação que provocou o cancelamento.
+//   • ECONNABORTED (timeout de 30 s). Ali a requisição pode ter sido processada, e a
+//     espera longa já foi sinal suficiente para quem estava olhando.
+//
+// O texto 'Network Error' (err.message) também não entra: o interceptor de api.js
+// descarta `message` e preserva só `code`, então quem chega aqui já vem sem ele. O
+// comRetry testa os dois porque roda ANTES do interceptor, sobre o AxiosError cru.
+export const ehFalhaDeRede = (err) => err?.code === 'ERR_NETWORK'
+
+// Recarrega em vez de alertar quando a falha é de rede pura. A tela passa a mostrar o
+// que o SERVIDOR tem, e isso é honesto nos DOIS desfechos possíveis de um ERR_NETWORK:
+// se a requisição não chegou, aparece o estado inalterado; se chegou e só a resposta se
+// perdeu, aparece o estado já alterado. Em ambos o usuário vê a verdade, em vez de um
+// alerta que pode estar mentindo sobre o que aconteceu no servidor.
+//
+// Devolve true quando recarregou — o chamador NÃO deve alertar. Devolve false quando a
+// falha não era de rede OU quando a própria recarga falhou: sumir com o erro e ainda
+// não conseguir mostrar o estado real deixaria a pessoa sem informação nenhuma, então
+// nesse caso o alerta volta a ser a resposta certa.
+//
+// ATENÇÃO ao passar `recarregar`: ela precisa PROPAGAR a falha. Uma função que engole o
+// próprio erro (o padrão dos buscar() das telas, que só fazem console.log) sempre parece
+// ter dado certo, e aí o alerta é suprimido mesmo com a rede ainda fora.
+export const recarregarSeFalhaDeRede = async (err, recarregar) => {
+  if (!ehFalhaDeRede(err)) return false
+  try {
+    await recarregar()
+    return true
+  } catch (e) {
+    console.log('[rede] recarga pós-falha de rede também falhou | code:', e?.code)
+    return false
+  }
+}
