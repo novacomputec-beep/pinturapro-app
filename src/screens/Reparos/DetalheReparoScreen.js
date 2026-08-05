@@ -13,7 +13,7 @@ import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
-import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../../utils/rede'
+import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
@@ -369,22 +369,33 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }, [reparoInicial?.id])
   )
 
+  // Núcleo da recarga: relê o reparo e repõe o estado, PROPAGANDO a falha. É disso que
+  // recarregarSeFalhaDeRede precisa para distinguir "recarreguei" de "nem isso consegui"
+  // (ver rede.js) — mesmo molde do recarregarPerfil em EditarPerfilScreen.
+  const recarregarReparo = async () => {
+    const resposta = await comRetry(() => api.get(`/reparos/${reparoInicial.id}`))
+    // Corpo VAZIO chega como string, não como objeto: é o caso do 304 Not Modified, que
+    // agora entra pelo ramo de SUCESSO (api.js). Não significa "reparo inexistente" e
+    // sim "nada mudou" — sem esta guarda, resposta.reparo era undefined, o estado ia
+    // junto e a tela caía no "Reparo não encontrado" por cima de dados corretos.
+    // O teste é pelo TIPO, não por resposta.reparo: um 200 legítimo que traga
+    // { reparo: null } continua limpando o estado, como sempre limpou.
+    if (!resposta || typeof resposta !== 'object') return
+    if (mountedRef.current) {
+      setReparo(resposta.reparo)
+      setMidias(resposta.midias || [])
+      setMeuInteresse(resposta.meu_interesse)
+      setInteressados(resposta.interessados || [])
+    }
+  }
+
+  // Recarga SILENCIOSA: a do mount, a do foco e a que segue uma mutação bem-sucedida.
+  // Engole a falha de propósito — um refetch que não deu certo não deve virar alerta —,
+  // e é justamente por engolir que ela NÃO serve para recarregarSeFalhaDeRede. Todos os
+  // chamadores antigos continuam usando esta, com o mesmo comportamento de sempre.
   const buscar = async () => {
     try {
-      const resposta = await comRetry(() => api.get(`/reparos/${reparoInicial.id}`))
-      // Corpo VAZIO chega como string, não como objeto: é o caso do 304 Not Modified, que
-      // agora entra pelo ramo de SUCESSO (api.js). Não significa "reparo inexistente" e
-      // sim "nada mudou" — sem esta guarda, resposta.reparo era undefined, o estado ia
-      // junto e a tela caía no "Reparo não encontrado" por cima de dados corretos.
-      // O teste é pelo TIPO, não por resposta.reparo: um 200 legítimo que traga
-      // { reparo: null } continua limpando o estado, como sempre limpou.
-      if (!resposta || typeof resposta !== 'object') return
-      if (mountedRef.current) {
-        setReparo(resposta.reparo)
-        setMidias(resposta.midias || [])
-        setMeuInteresse(resposta.meu_interesse)
-        setInteressados(resposta.interessados || [])
-      }
+      await recarregarReparo()
     } catch (err) {
       console.log('Erro ao buscar reparo:', err)
     } finally {
@@ -499,6 +510,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await buscar()
     } catch (err) {
       console.log('[DetalheReparo] falha ao responder chegada prevista | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Rede pura → recarrega em vez de alertar: a tela mostra a janela como o servidor a
+      // tem (respondida ou não), que é o que a pessoa precisa saber. Qualquer erro COM
+      // resposta do servidor continua no alerta.
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
       Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
     } finally {
       if (mountedRef.current) setRespondendoChegada(false)
@@ -684,6 +699,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
             console.log('[DetalheReparo] falha ao bloquear prestador | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             // Antes falhava calado: quem tocou "Bloquear" saía da tela achando que tinha
             // bloqueado. O alerta sobe antes do goBack e sobrevive à navegação.
+            // SEM recarregarSeFalhaDeRede, de propósito: o bloqueio não aparece nesta tela
+            // (vive na lista de bloqueados) e o fluxo segue para finalizarPosEncerrar(),
+            // que sai daqui. Recarregar não mostraria nada sobre a ação e a falha de rede
+            // voltaria a ser silenciosa — exatamente o bug que o alerta acima corrigiu.
             Alert.alert('Erro', err.mensagem || 'Não foi possível bloquear o profissional.')
           }
           finalizarPosEncerrar()
@@ -697,6 +716,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'reparo', contrato_id: reparo.id, estrelas }))
     } catch (err) {
       console.log('[DetalheReparo] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // SEM recarregarSeFalhaDeRede, mesma razão do bloqueio logo acima: a avaliação não
+      // é exibida nesta tela e o fluxo segue para oferecerBloqueioEncerrar(), então a
+      // recarga não diria nada sobre a nota enviada — só apagaria o aviso.
       Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
     }
     // Avaliação enviada (ou falha tratada) → oferece bloqueio e conclui. Opcional em ambos.
@@ -892,7 +914,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await comRetry(() => api.post(`/reparos/${reparo.id}/pedir-tempo`, { motivo }))
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
       Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
-    } catch (err) { console.log('[DetalheReparo] falha ao pedir tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.') }
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao pedir tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Rede pura → recarrega: pedido_tempo_status é justamente o que a tela mostra, então
+      // o estado do servidor responde sozinho se o pedido saiu ou não.
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.')
+    }
   }
 
   const handleperguntarTempo = async () => {
@@ -900,7 +928,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await comRetry(() => api.post(`/reparos/${reparo.id}/perguntar-tempo`, {}))
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
       Alert.alert('✅ Profissional notificado!', 'Ele vai informar quantos minutos precisa.')
-    } catch (err) { console.log('[DetalheReparo] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
+    }
   }
 
   const handleInformarTempo = () => setModalTempo(true)
@@ -914,7 +946,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await comRetry(() => api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min }))
       setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
       Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
-    } catch (err) { console.log('[DetalheReparo] falha ao informar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.') }
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao informar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
+    }
   }
 
   const handleResponderTempo = (aceito) => {
@@ -934,7 +970,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
               Alert.alert('❌ Recusado', 'O reparo voltou para disponível.')
               navigation.goBack()
             }
-          } catch (err) { console.log('[DetalheReparo] falha ao responder tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem); Alert.alert('Erro', err.mensagem || 'Não foi possível responder.') }
+          } catch (err) {
+            console.log('[DetalheReparo] falha ao responder tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+            // Recarrega em vez de alertar: aceitar/recusar mexe em match_feito_em e no
+            // pedido_tempo_status, ambos na tela. Note que o goBack() do ramo "recusar"
+            // só acontece no sucesso — numa falha de rede a pessoa continua aqui, vendo
+            // o estado real.
+            if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+            Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
+          }
         }}
       ]
     )
