@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
-import { comRetry } from '../../utils/rede'
+import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { cores, espacos, raios } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
@@ -38,29 +38,45 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [itemPendente, setItemPendente] = useState(null)
   const [coords] = useCoordsUsuario()
 
+  // Núcleo da recarga: relê as duas listas e repõe o estado, PROPAGANDO a falha. É disso
+  // que recarregarSeFalhaDeRede precisa para distinguir "recarreguei" de "nem isso
+  // consegui" (ver rede.js) — mesmo molde do recarregarPerfil em EditarPerfilScreen.
+  const recarregarDados = async () => {
+    const [obrasResp, reparosResp] = await Promise.all([
+      comRetry(() => api.get('/obras/minhas')),
+      comRetry(() => api.get('/reparos/minhas')),
+    ])
+    // Corpo VAZIO (304) chega como string: `''.obras || []` esvaziaria as listas e a tela
+    // ficaria "sem nada" por cima de dados corretos. Mesma guarda por TIPO das telas de
+    // detalhe. Basta uma das duas respostas vir vazia para não mexer em nada — as listas
+    // são repostas juntas, e repor metade deixaria a tela num estado que não existe.
+    if (!obrasResp || typeof obrasResp !== 'object') return
+    if (!reparosResp || typeof reparosResp !== 'object') return
+    setObras(obrasResp.obras || [])
+    // Itens encerrados saem do Histórico e passam a viver na aba "Contratos Finalizados";
+    // o Histórico fica apenas com expirados/cancelados/não concluídos.
+    setObrasHistorico((obrasResp.historico || []).filter(o => o.status !== 'encerrada'))
+    setReparos(reparosResp.reparos || [])
+    setReparosHistorico((reparosResp.historico || []).filter(r => r.status !== 'encerrada'))
+
+    // Banner verde "Parabéns" — exibido uma única vez por sessão de login quando
+    // há ao menos uma obra/reparo com candidatura/interesse ainda sem resposta.
+    const obraPend   = (obrasResp.obras     || []).find(o => Number(o.candidaturas_pendentes) > 0)
+    const reparoPend = (reparosResp.reparos || []).find(r => Number(r.interesses_pendentes) > 0)
+    const pend = obraPend ? { tipo: 'obra', item: obraPend } : reparoPend ? { tipo: 'reparo', item: reparoPend } : null
+    if (pend && !bannerInteressadosJaExibido()) {
+      marcarBannerInteressadosExibido()
+      setItemPendente(pend)
+      setMostrarBanner(true)
+    }
+  }
+
+  // Recarga SILENCIOSA: a do foco e a do pull-to-refresh. Engole a falha de propósito, e
+  // é por engolir que ela NÃO serve para recarregarSeFalhaDeRede. Os chamadores antigos
+  // seguem usando esta, com o mesmo comportamento de sempre.
   const buscarDados = async () => {
     try {
-      const [obrasResp, reparosResp] = await Promise.all([
-        comRetry(() => api.get('/obras/minhas')),
-        comRetry(() => api.get('/reparos/minhas')),
-      ])
-      setObras(obrasResp.obras || [])
-      // Itens encerrados saem do Histórico e passam a viver na aba "Contratos Finalizados";
-      // o Histórico fica apenas com expirados/cancelados/não concluídos.
-      setObrasHistorico((obrasResp.historico || []).filter(o => o.status !== 'encerrada'))
-      setReparos(reparosResp.reparos || [])
-      setReparosHistorico((reparosResp.historico || []).filter(r => r.status !== 'encerrada'))
-
-      // Banner verde "Parabéns" — exibido uma única vez por sessão de login quando
-      // há ao menos uma obra/reparo com candidatura/interesse ainda sem resposta.
-      const obraPend   = (obrasResp.obras     || []).find(o => Number(o.candidaturas_pendentes) > 0)
-      const reparoPend = (reparosResp.reparos || []).find(r => Number(r.interesses_pendentes) > 0)
-      const pend = obraPend ? { tipo: 'obra', item: obraPend } : reparoPend ? { tipo: 'reparo', item: reparoPend } : null
-      if (pend && !bannerInteressadosJaExibido()) {
-        marcarBannerInteressadosExibido()
-        setItemPendente(pend)
-        setMostrarBanner(true)
-      }
+      await recarregarDados()
     } catch (err) {
       console.log('Erro ao buscar dados:', err)
     } finally {
@@ -109,6 +125,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
             }
           } catch (err) {
             console.log('[MinhasObras] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+            // Rede pura → recarrega em vez de alertar. A lista É o resultado da ação: se
+            // o DELETE não chegou, o item reaparece; se chegou e só a resposta se perdeu,
+            // ele some. Nos dois casos a tela responde sozinha se a exclusão valeu.
+            if (await recarregarSeFalhaDeRede(err, recarregarDados)) return
             Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
           }
         }
