@@ -15,12 +15,18 @@ export const carregarVistas = async (uid) => {
   }
 }
 
-export const marcarVista = async (uid, item) => {
+// Marca vários itens numa única leitura+escrita. Um evento pode representar mais de
+// uma novidade (ex.: as recusas acumuladas viram um só aviso), e nesse caso TODAS as
+// chaves precisam cair juntas: marcar uma por vez deixaria o resto sem marca se a
+// escrita seguinte falhasse, e o aviso repetiria pelas que sobraram.
+export const marcarVistas = async (uid, itens) => {
   try {
     const vistas = await carregarVistas(uid)
-    vistas.add(item)
+    itens.forEach(i => vistas.add(i))
     await AsyncStorage.setItem(chave(uid), JSON.stringify([...vistas]))
   } catch {
     // falha de storage não deve quebrar o fluxo — no pior caso a celebração repete
   }
 }
+
+export const marcarVista = (uid, item) => marcarVistas(uid, [item])
