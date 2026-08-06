@@ -39,9 +39,9 @@ const gravarEstadoSoftAsk = async (estado) => {
 // Copy por vertical — obra e reparo mantêm nomenclatura distinta neste projeto.
 const VARIANTES = {
   dono_obra:   { corpo: 'Avisamos na hora em que um profissional demonstrar interesse na sua obra.' },
-  dono_reparo: { corpo: 'Avisamos na hora em que um profissional demonstrar interesse no seu reparo.' },
+  dono_reparo: { corpo: 'Avisamos na hora em que um profissional demonstrar interesse no seu serviço.' },
   pintor:      { corpo: 'Avisamos assim que surgir uma nova obra perto de você.' },
-  reparador:   { corpo: 'Avisamos assim que surgir um novo reparo perto de você.' },
+  reparador:   { corpo: 'Avisamos assim que surgir um novo serviço perto de você.' },
 }
 
 const SoftAskNotificacao = () => {

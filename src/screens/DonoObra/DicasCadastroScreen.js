@@ -26,7 +26,7 @@ const dicasPintura = [
 export default function DicasCadastroScreen({ route, navigation }) {
   const { tipo } = route.params // 'reparo' ou 'pintura'
   const dicas = tipo === 'reparo' ? dicasReparo : dicasPintura
-  const titulo = tipo === 'reparo' ? 'Dicas para seu\nreparo' : 'Dicas para sua\nobra de pintura'
+  const titulo = tipo === 'reparo' ? 'Dicas para seu\nserviço' : 'Dicas para sua\nobra de pintura'
   const subtitulo = tipo === 'reparo'
     ? 'Siga essas dicas para encontrar o profissional ideal mais rápido!'
     : 'Siga essas dicas para atrair os melhores profissionais!'

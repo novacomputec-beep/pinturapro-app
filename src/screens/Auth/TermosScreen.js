@@ -10,7 +10,7 @@ const SECOES = [
   },
   {
     titulo: '2. Descrição do Serviço',
-    texto: 'O PinturaPro é uma plataforma que conecta donos de obra/reparo com prestadores de serviço profissionais. Não somos parte nas negociações entre usuários.'
+    texto: 'O PinturaPro é uma plataforma que conecta donos de obras e serviços a profissionais prestadores. Não somos parte nas negociações entre usuários.'
   },
   {
     titulo: '3. Cadastro e Conta',

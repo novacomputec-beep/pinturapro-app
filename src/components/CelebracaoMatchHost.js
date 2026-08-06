@@ -43,7 +43,7 @@ const detectar = async (usuario) => {
     )
     if (r) return {
       chave: `interesse:${r.interesse_pendente_recente_id}`, emoji: '🔔',
-      titulo: 'Seu reparo recebeu uma proposta!',
+      titulo: 'Seu serviço recebeu uma proposta!',
       subtitulo: `"${r.titulo}" tem profissional(is) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: r }, initial: false }),
@@ -53,7 +53,7 @@ const detectar = async (usuario) => {
     )
     if (matched) return {
       chave: `reparo_match:${matched.id}`, emoji: '🎉',
-      titulo: 'Seu reparo vai ser realizado!',
+      titulo: 'Seu serviço vai ser realizado!',
       subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
@@ -83,7 +83,7 @@ const detectar = async (usuario) => {
       semMarca: true,
       chave: `encerramento:${enc.id}`, emoji: '🤝',
       titulo: 'Confirme o encerramento',
-      subtitulo: `O profissional marcou "${enc.titulo}" como concluído. O reparo só encerra quando você confirmar.`,
+      subtitulo: `O profissional marcou "${enc.titulo}" como concluído. O serviço só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: enc }, initial: false }),
     }
@@ -175,7 +175,7 @@ const detectar = async (usuario) => {
       semMarca: true,
       chave: `encerramento:${enc.reparo_id}`, emoji: '🤝',
       titulo: 'Confirme o encerramento',
-      subtitulo: `O solicitante marcou "${enc.titulo}" como concluído. O reparo só encerra quando você confirmar.`,
+      subtitulo: `O solicitante marcou "${enc.titulo}" como concluído. O serviço só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: enc.reparo_id } }, initial: false }),
     }

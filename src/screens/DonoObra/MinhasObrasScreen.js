@@ -100,7 +100,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const deletarItem = async (item, tipo) => {
     const jaPublicado = item.status === 'aberta' || item.status_aprovacao === 'aprovada'
     const aviso = jaPublicado
-      ? `⚠️ ATENÇÃO: ${tipo === 'obra' ? 'Esta obra' : 'Este reparo'} já foi publicado e profissionais podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
+      ? `⚠️ ATENÇÃO: ${tipo === 'obra' ? 'Esta obra' : 'Este serviço'} já foi publicado e profissionais podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
       : `Deseja excluir "${item.titulo}"?`
 
     Alert.alert('Excluir', aviso, [
@@ -172,8 +172,8 @@ export default function MinhasObrasScreen({ navigation, route }) {
           <View style={[estilos.tagHistorico, eEncerrado ? estilos.tagEncerrado : estilos.tagExpirado]}>
             <Text style={[estilos.tagHistoricoTexto, { color: eEncerrado ? '#4caf50' : '#f44336' }]}>
               {eEncerrado
-                ? (tipo === 'obra' ? '🔒 Obra encerrada' : '🔒 Reparo encerrado')
-                : (tipo === 'obra' ? '⏰ OBRA EXPIRADA' : '⏰ REPARO EXPIRADO')}
+                ? (tipo === 'obra' ? '🔒 Obra encerrada' : '🔒 Serviço encerrado')
+                : (tipo === 'obra' ? '⏰ OBRA EXPIRADA' : '⏰ SERVIÇO EXPIRADO')}
             </Text>
           </View>
         )}
@@ -249,7 +249,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
           <Text style={estilos.titulo}>
             {soAba === 'reparos' ? 'Meus ' : 'Minhas '}
-            <Text style={{ color: cores.primaria }}>{soAba === 'reparos' ? 'Reparos' : 'Obras'}</Text>
+            <Text style={{ color: cores.primaria }}>{soAba === 'reparos' ? 'Serviços' : 'Obras'}</Text>
           </Text>
         </View>
         <TouchableOpacity style={estilos.btnSair} onPress={() => Alert.alert('Sair', 'Deseja sair da conta?', [
@@ -274,7 +274,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
             onPress={() => navigation.navigate('CadastrarReparo')}
             activeOpacity={0.85}
           >
-            <Text style={[estilos.btnNovoTexto, { color: cores.textoForte }]}>🔧 Novo reparo</Text>
+            <Text style={[estilos.btnNovoTexto, { color: cores.textoForte }]}>🔧 Novo serviço</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -326,13 +326,13 @@ export default function MinhasObrasScreen({ navigation, route }) {
           <Text style={estilos.vazioIcone}>{aba === 'obras' ? '🏗️' : '🔧'}</Text>
           <Text style={estilos.vazioTitulo}>
             {secao === 'ativos'
-              ? (aba === 'obras' ? 'Nenhuma obra ativa' : 'Nenhum reparo ativo')
+              ? (aba === 'obras' ? 'Nenhuma obra ativa' : 'Nenhum serviço ativo')
               : 'Nenhum histórico ainda'}
           </Text>
           <Text style={estilos.vazioSub}>
             {secao === 'ativos'
-              ? (aba === 'obras' ? 'Cadastre sua primeira obra de pintura!' : 'Cadastre seu primeiro reparo!')
-              : (aba === 'obras' ? 'Obras encerradas e expiradas aparecerão aqui.' : 'Reparos encerrados e expirados aparecerão aqui.')}
+              ? (aba === 'obras' ? 'Cadastre sua primeira obra de pintura!' : 'Cadastre seu primeiro serviço!')
+              : (aba === 'obras' ? 'Obras encerradas e expiradas aparecerão aqui.' : 'Serviços encerrados e expirados aparecerão aqui.')}
           </Text>
         </View>
       ) : (

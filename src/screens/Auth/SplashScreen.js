@@ -59,7 +59,7 @@ export default function SplashScreen({ navigation }) {
         <Text style={estilos.logoNome}>
           Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
         </Text>
-        <Text style={estilos.logoTagline}>Obras e reparos para profissionais qualificados e com idoneidade checada!</Text>
+        <Text style={estilos.logoTagline}>Obras e serviços para profissionais qualificados e com idoneidade checada!</Text>
       </View>
 
       {/* Arte central */}

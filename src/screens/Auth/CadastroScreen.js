@@ -931,7 +931,7 @@ export default function CadastroScreen({ navigation }) {
             <Text style={estilos.tipoIcone}>🔧</Text>
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou prestador de serviços domésticos</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar reparos e serviços gerais na minha região</Text>
+              <Text style={estilos.tipoDesc}>Quero encontrar serviços gerais na minha região</Text>
               {lancamentoGratis ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 49,90/mês</Text>
@@ -957,8 +957,8 @@ export default function CadastroScreen({ navigation }) {
           <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_reparo')} activeOpacity={0.8}>
             <Text style={estilos.tipoIcone}>🛠️</Text>
             <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Preciso de Reparos domésticos</Text>
-              <Text style={estilos.tipoDesc}>Tenho um reparo doméstico a ser feito e gostaria de encontrar profissionais capacitados na minha região</Text>
+              <Text style={estilos.tipoNome}>Preciso de Serviços domésticos</Text>
+              <Text style={estilos.tipoDesc}>Tenho um serviço doméstico a ser feito e gostaria de encontrar profissionais capacitados na minha região</Text>
               <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
