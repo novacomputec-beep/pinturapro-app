@@ -589,14 +589,16 @@ const TabsPintorNavigator = () => {
   >
     <Tab.Screen name="Obras"                 component={FeedStackNavigator} options={{ title: 'Obras disponíveis' }} />
     <Tab.Screen name="Minhas Obras"          component={MinhasObrasInteresseNavigator} />
-    <Tab.Screen name="Contratos Finalizados" component={ContratosFinObraNavigator} />
+    <Tab.Screen name="Contratos Finalizados" component={ContratosFinObraNavigator} options={{ title: 'Finalizados' }} />
     <Tab.Screen name="Mensagens"             component={MensagensScreen} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </Tab.Navigator>
   )
 }
 
-// Tabs do Prestador (Reparos, Meus Reparos, Contratos Finalizados, Mensagens, Perfil)
+// Tabs do Prestador (Reparos, Meus Reparos, Contratos Finalizados, Perfil) — sem Mensagens:
+// a tela é obra-only (candidaturas + /mensagens/obra/:id) e a aba só existe nos navegadores
+// de pintura (TabsPintorNavigator, DonoObraTabNavigator).
 const TabsPrestadorNavigator = () => {
   const tabBarStyle = useTabBarStyle()
   return (
@@ -612,7 +614,7 @@ const TabsPrestadorNavigator = () => {
   >
     <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Serviços disponíveis' }} />
     <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
-    <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} />
+    <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} options={{ title: 'Finalizados' }} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
   )
@@ -648,7 +650,7 @@ const DonoReparoTabNavigator = () => {
         rota usada por navigate() e pelo mapa de ícones do TabIcone (route.name). */}
     <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} options={{ title: 'Novo Serviço' }} />
     <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} options={{ title: 'Meus Serviços' }} />
-    <DonoReparoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoReparoNavigator} />
+    <DonoReparoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoReparoNavigator} options={{ title: 'Finalizados' }} />
     <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoReparoTab.Navigator>
   )
@@ -677,7 +679,7 @@ const DonoObraTabNavigator = () => {
   <DonoObraTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarStyle, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
     <DonoObraTab.Screen name="Nova Obra"      component={NovaObraTabStack} />
     <DonoObraTab.Screen name="Minhas Obras"   component={MinhasObrasTabStack} />
-    <DonoObraTab.Screen name="Contratos Finalizados" component={ContratosFinDonoObraNavigator} />
+    <DonoObraTab.Screen name="Contratos Finalizados" component={ContratosFinDonoObraNavigator} options={{ title: 'Finalizados' }} />
     <DonoObraTab.Screen name="Mensagens"      component={MensagensScreen} />
     <DonoObraTab.Screen name="Perfil"         component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
   </DonoObraTab.Navigator>
