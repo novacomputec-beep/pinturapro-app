@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
-import { carregarVistas, marcarVista } from '../utils/celebracao'
+import { carregarVistas, marcarVistas } from '../utils/celebracao'
 
 // Detecta o match a comemorar para o usuário atual, conforme o papel. Retorna o
 // primeiro evento ainda não visto (marca d'água local) ou null. Cada papel celebra
@@ -184,14 +184,19 @@ const detectar = async (usuario) => {
     // "não foi dessa vez" a cada foco seria crueldade. O CTA leva ao feed de disponíveis
     // ('Reparos' é a aba do TabsPrestadorNavigator, AppNavigator.js:549): cumpre o "algo
     // melhor surgirá" levando a pessoa ao próximo serviço, em vez de só fechar o modal.
-    const rec = (resp.historico || []).find(x =>
+    // Recolhe TODAS as recusas ainda não vistas num aviso só. Com `.find()` cada verificação
+    // levava uma recusa e marcava uma chave, então quem voltasse depois de várias derrotas
+    // levava "não foi dessa vez" na cara uma vez por abertura do app até a fila esvaziar.
+    const recs = (resp.historico || []).filter(x =>
       (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
     )
-    if (rec) return {
+    if (recs.length) return {
       semConfete: true,
-      chave: `recusa:${rec.id}`, emoji: '😔',
+      chaves: recs.map(x => `recusa:${x.id}`), emoji: '😔',
       titulo: 'Não foi dessa vez',
-      subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
+      subtitulo: recs.length === 1
+        ? 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏'
+        : `Infelizmente ${recs.length} serviços foram dados a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
       ctaTexto: 'Ver outros serviços',
       navegar: () => navigationRef.current?.navigate('Reparos'),
     }
@@ -235,14 +240,19 @@ const detectar = async (usuario) => {
     // O CTA leva ao feed de disponíveis: 'Obras' é a aba do TabsPintorNavigator
     // (AppNavigator.js:526), o navegador montado para pintor E para assinante — os mesmos
     // dois papéis que caem neste ramo (ehPintor, :25).
-    const rec = (resp.candidaturas || []).find(x =>
+    // Recolhe TODAS as recusas ainda não vistas num aviso só, como no ramo do reparador.
+    // A forma plural fala em OBRAS (e concorda no feminino: "foram dadas"), acompanhando
+    // o CTA "Ver outras obras" logo abaixo.
+    const recs = (resp.candidaturas || []).filter(x =>
       (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
     )
-    if (rec) return {
+    if (recs.length) return {
       semConfete: true,
-      chave: `recusa:${rec.id}`, emoji: '😔',
+      chaves: recs.map(x => `recusa:${x.id}`), emoji: '😔',
       titulo: 'Não foi dessa vez',
-      subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
+      subtitulo: recs.length === 1
+        ? 'Infelizmente a obra foi dada a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏'
+        : `Infelizmente ${recs.length} obras foram dadas a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
       ctaTexto: 'Ver outras obras',
       navegar: () => navigationRef.current?.navigate('Obras'),
     }
@@ -276,8 +286,10 @@ export default function CelebracaoMatchHost() {
       // Exceto os eventos `semMarca` (encerramento pendente): não são notícia a comemorar
       // uma vez, e sim uma ação que falta. Ficam fora da marca d'água e reaparecem a cada
       // verificação até a outra parte deixar de estar esperando.
+      // `chaves` (plural) para o evento que resume várias novidades numa só: todas caem
+      // juntas, senão as não marcadas voltariam como um segundo aviso logo em seguida.
       if (ev) {
-        if (!ev.semMarca) await marcarVista(usuario.id, ev.chave)
+        if (!ev.semMarca) await marcarVistas(usuario.id, ev.chaves || [ev.chave])
         setEvento(ev)
       }
     } catch (e) {
