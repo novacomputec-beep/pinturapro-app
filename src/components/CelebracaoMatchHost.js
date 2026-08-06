@@ -192,7 +192,7 @@ const detectar = async (usuario) => {
       chave: `recusa:${rec.id}`, emoji: '😔',
       titulo: 'Não foi dessa vez',
       subtitulo: 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏',
-      ctaTexto: 'Ver outros reparos',
+      ctaTexto: 'Ver outros serviços',
       navegar: () => navigationRef.current?.navigate('Reparos'),
     }
   }

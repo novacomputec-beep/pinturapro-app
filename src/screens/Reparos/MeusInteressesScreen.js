@@ -152,7 +152,7 @@ export default function MeusInteressesScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
-        <Text style={estilos.titulo}>Meus Reparos</Text>
+        <Text style={estilos.titulo}>Meus Serviços</Text>
         <Text style={estilos.subtitulo}>{dados.length} registro{dados.length !== 1 ? 's' : ''}</Text>
       </View>
 
@@ -183,7 +183,7 @@ export default function MeusInteressesScreen({ navigation }) {
           </Text>
           <Text style={estilos.vazioSub}>
             {secao === 'ativos'
-              ? 'Explore os reparos disponíveis e demonstre interesse para aparecer aqui.'
+              ? 'Explore os serviços disponíveis e demonstre interesse para aparecer aqui.'
               : 'Reparos encerrados e expirados aparecerão aqui.'}
           </Text>
         </View>

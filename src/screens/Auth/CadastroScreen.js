@@ -1094,7 +1094,7 @@ export default function CadastroScreen({ navigation }) {
           {passo === 3 && isPrestador && (
             <View>
               <Text style={estilos.planoSubtitulo}>
-                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os reparos disponíveis' : 'as obras disponíveis'}:
+                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os serviços disponíveis' : 'as obras disponíveis'}:
               </Text>
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
                 <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>
