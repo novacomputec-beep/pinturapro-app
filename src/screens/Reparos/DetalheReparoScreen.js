@@ -1241,10 +1241,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
               ) : null}
             </View>
           ) : null}
-          <Text style={estilos.local}>
-            📍 {reparo.cidade}{reparo.bairro ? `, ${reparo.bairro}` : ''}
-            {distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
-          </Text>
+          {/* Para o DONO a linha de cidade/bairro só sobra quando NÃO há endereço completo:
+              tendo endereço, ela seria uma versão mais pobre da linha logo abaixo. E a
+              distância nunca entra — ela mede o GPS de quem olha até o serviço, então no
+              dono seria a distância dele até a própria demanda, número que não informa
+              nada a quem publicou. A visão do profissional segue exatamente como estava. */}
+          {!(isDono && reparo.endereco_reparo) && (
+            <Text style={estilos.local}>
+              📍 {reparo.cidade}{reparo.bairro ? `, ${reparo.bairro}` : ''}
+              {!isDono && distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
+            </Text>
+          )}
           {isDono && reparo.endereco_reparo ? (
             <>
               <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
@@ -1913,7 +1920,10 @@ const estilos = StyleSheet.create({
   categoriaTexto: { fontSize: 11, color: cores.primaria, textTransform: 'capitalize' },
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 28, marginBottom: 6 },
   local: { fontSize: 13, color: cores.textoFraco, marginBottom: 16 },
-  enderecoLinha: { fontSize: 12, color: cores.textoFraco, marginTop: -10, marginBottom: 16, lineHeight: 17 },
+  // Sem marginTop negativo: ele existia para encostar na linha de cidade/bairro, que o
+  // dono deixou de ver quando há endereço completo — e é exatamente aí que esta linha
+  // aparece. Sem a linha acima, o negativo puxava o endereço para cima do título.
+  enderecoLinha: { fontSize: 12, color: cores.textoFraco, marginBottom: 16, lineHeight: 17 },
   enderecoMatchBox: { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 12, marginBottom: 12 },
   enderecoMatchLabel: { fontSize: 12, fontWeight: '700', color: cores.primaria, marginBottom: 4 },
   enderecoMatchTexto: { fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
