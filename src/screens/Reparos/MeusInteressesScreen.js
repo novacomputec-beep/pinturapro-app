@@ -101,7 +101,7 @@ export default function MeusInteressesScreen({ navigation }) {
         {(eEncerrado || eExpirado) && (
           <View style={[estilos.tagReparo, eExpirado && estilos.tagExpirado]}>
             <Text style={[estilos.tagReparoTexto, eExpirado && estilos.tagExpiradoTexto]}>
-              {eEncerrado ? '🔒 Reparo encerrado' : '⏰ Prazo expirado'}
+              {eEncerrado ? '🔒 Serviço encerrado' : '⏰ Prazo expirado'}
             </Text>
           </View>
         )}
@@ -118,7 +118,7 @@ export default function MeusInteressesScreen({ navigation }) {
         </Text>
         <View style={estilos.valoresRow}>
           <View>
-            <Text style={estilos.valorLabel}>Valor do reparo</Text>
+            <Text style={estilos.valorLabel}>Valor do serviço</Text>
             <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
           </View>
           {item.valor_proposto != null && (
@@ -184,7 +184,7 @@ export default function MeusInteressesScreen({ navigation }) {
           <Text style={estilos.vazioSub}>
             {secao === 'ativos'
               ? 'Explore os serviços disponíveis e demonstre interesse para aparecer aqui.'
-              : 'Reparos encerrados e expirados aparecerão aqui.'}
+              : 'Serviços encerrados e expirados aparecerão aqui.'}
           </Text>
         </View>
       ) : (

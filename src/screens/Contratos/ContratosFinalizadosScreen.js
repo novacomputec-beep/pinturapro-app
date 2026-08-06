@@ -230,7 +230,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Contratos Finalizados</Text>
         <Text style={estilos.subtitulo}>
-          {contratos.length} {ehObra ? 'obra' : 'reparo'}{contratos.length !== 1 ? 's' : ''} concluído{contratos.length !== 1 ? 's' : ''}
+          {contratos.length} {ehObra ? 'obra' : 'serviço'}{contratos.length !== 1 ? 's' : ''} concluído{contratos.length !== 1 ? 's' : ''}
         </Text>
       </View>
 
@@ -242,10 +242,10 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
             {ehDono
               ? (ehObra
                   ? 'Obras concluídas em que você contratou um profissional aparecerão aqui.'
-                  : 'Reparos concluídos em que você contratou um profissional aparecerão aqui.')
+                  : 'Serviços concluídos em que você contratou um profissional aparecerão aqui.')
               : (ehObra
                   ? 'Obras concluídas em que você foi o profissional contratado aparecerão aqui.'
-                  : 'Reparos concluídos em que você foi o profissional contratado aparecerão aqui.')}
+                  : 'Serviços concluídos em que você foi o profissional contratado aparecerão aqui.')}
           </Text>
         </View>
       ) : (

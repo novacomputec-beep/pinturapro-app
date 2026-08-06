@@ -260,7 +260,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
           contradiz o rótulo — e mesmo um "0m" só repetiria o que ESGOTADO já diz. */}
       {!expirou && <Text style={[estilos.relogioTempo, urgente && { color: '#f44336' }]}>{tempo}</Text>}
       {!expirou && <Text style={estilos.relogioSub}>O profissional deve chegar dentro deste prazo</Text>}
-      {expirou && <Text style={estilos.relogioSub}>O reparo voltou para disponível</Text>}
+      {expirou && <Text style={estilos.relogioSub}>O serviço voltou para disponível</Text>}
     </View>
   )
 }
@@ -632,7 +632,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     // reidrata encerramento_solicitado_por/_em, que trocam o rótulo do botão.
     const aguardarOutraParte = () => {
       buscar()
-      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. O reparo será concluído quando a outra parte confirmar.')
+      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. O serviço será concluído quando a outra parte confirmar.')
     }
     const executar = async () => {
       try {
@@ -662,7 +662,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         }
       }
     }
-    Alert.alert('✅ Encerrar reparo?', 'Confirme que o serviço foi concluído.', [
+    Alert.alert('✅ Encerrar serviço?', 'Confirme que o serviço foi concluído.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Encerrar', onPress: executar },
     ])
@@ -735,7 +735,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     // onde o reparo encerrado passa a aparecer — sem precisar reiniciar o app.
     const concluirComSucesso = () => {
       if (mountedRef.current) setReparo(prev => ({ ...prev, status: 'encerrada', status_aprovacao: 'encerrada' }))
-      Alert.alert('✅ Serviço encerrado!', 'O reparo foi concluído com sucesso e movido para Contratos Finalizados.', [
+      Alert.alert('✅ Serviço encerrado!', 'O serviço foi concluído com sucesso e movido para Contratos Finalizados.', [
         { text: 'OK', onPress: () => navigation.navigate('Contratos Finalizados') },
       ])
     }
@@ -743,7 +743,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     // Contratos Finalizados — o reparo ainda não está lá.
     const aguardarOutraParte = () => {
       buscar()
-      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. O reparo será concluído quando o solicitante confirmar.')
+      Alert.alert('⏳ Aguardando a outra parte', 'Seu pedido de encerramento foi registrado. O serviço será concluído quando o solicitante confirmar.')
     }
     const executar = async () => {
       if (encerrando) return
@@ -786,7 +786,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     try {
       await comRetry(() => api.post(`/reparos/${reparo.id}/expirar-match`, {}))
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
-      Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. O reparo está disponível novamente.')
+      Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. O serviço está disponível novamente.')
     } catch (err) { console.log('Erro ao expirar match:', err) }
   }
 
@@ -808,13 +808,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (err.status === 422) {
         setModalEstender(false)
-        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este reparo já está no prazo máximo permitido.')
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este serviço já está no prazo máximo permitido.')
       } else if (err.status === 409) {
         setModalEstender(false)
-        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este reparo não está mais disponível para aumento de prazo.')
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este serviço não está mais disponível para aumento de prazo.')
       } else if (err.status === 404) {
         setModalEstender(false)
-        Alert.alert('Não encontrado', err.mensagem || 'Reparo não encontrado.')
+        Alert.alert('Não encontrado', err.mensagem || 'Serviço não encontrado.')
       } else if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível aumentar o prazo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
           { text: 'Tentar novamente', onPress: () => handleEstender(horas) },
@@ -956,7 +956,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const handleResponderTempo = (aceito) => {
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O profissional precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.` : 'O reparo voltará para disponível e o profissional será bloqueado.',
+      aceito ? `O profissional precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.` : 'O serviço voltará para disponível e o profissional será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
@@ -967,7 +967,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
             } else {
               setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
-              Alert.alert('❌ Recusado', 'O reparo voltou para disponível.')
+              Alert.alert('❌ Recusado', 'O serviço voltou para disponível.')
               navigation.goBack()
             }
           } catch (err) {
@@ -1098,7 +1098,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: cores.textoFraco }}>Reparo não encontrado</Text>
+          <Text style={{ color: cores.textoFraco }}>Serviço não encontrado</Text>
         </View>
       </SafeAreaView>
     )
@@ -1110,7 +1110,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
         </TouchableOpacity>
-        <Text style={estilos.topbarTitulo}>{isDono ? 'Meu reparo' : 'Detalhe do reparo'}</Text>
+        <Text style={estilos.topbarTitulo}>{isDono ? 'Meu serviço' : 'Detalhe do serviço'}</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -1437,7 +1437,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               )}
               {temMatch && reparo?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
-                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar reparo')}</Text>
+                  <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar serviço')}</Text>
                 </TouchableOpacity>
               )}
               {temMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
@@ -1847,13 +1847,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
                           onChangeText={v => setValorProposto(mascararValor(v))}
                         />
                         <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
-                          ⚠️ Se você propuser outro valor, o reparo ainda ficará disponível para outros profissionais até que o solicitante aceite. Pense bem!
+                          ⚠️ Se você propuser outro valor, o serviço ainda ficará disponível para outros profissionais até que o solicitante aceite. Pense bem!
                         </Text>
                       </View>
                     )}
                     <PerguntaOpcoes label="⏱ Há quanto tempo realiza este tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
                     <PerguntaOpcoes label="⚠️ Já enfrentou problemas com este tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
-                    <PerguntaOpcoes label="📋 Possui referências neste tipo de reparo?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
+                    <PerguntaOpcoes label="📋 Possui referências neste tipo de serviço?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
                     <PerguntaOpcoes label="🔧 Possui todas as ferramentas necessárias?" opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']} valor={possuiFerramentas} onChange={setPossuiFerramentas} />
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
@@ -1870,7 +1870,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   </View>
                 ) : (
                   <>
-                    <BotaoPrimario titulo="Tenho interesse neste reparo →" onPress={() => setMostrarForm(true)} />
+                    <BotaoPrimario titulo="Tenho interesse neste serviço →" onPress={() => setMostrarForm(true)} />
                     <Text style={estilos.aviso}>Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.</Text>
                   </>
                 )

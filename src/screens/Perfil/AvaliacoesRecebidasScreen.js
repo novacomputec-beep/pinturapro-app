@@ -87,7 +87,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
         <Estrelas nota={Number(item.nota) || 0} />
         {item.contrato_tipo ? (
           <View style={estilos.tag}>
-            <Text style={estilos.tagTexto}>{item.contrato_tipo === 'obra' ? 'Obra' : 'Reparo'}</Text>
+            <Text style={estilos.tagTexto}>{item.contrato_tipo === 'obra' ? 'Obra' : 'Serviço'}</Text>
           </View>
         ) : null}
       </View>

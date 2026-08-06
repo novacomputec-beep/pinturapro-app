@@ -421,7 +421,7 @@ export default function FeedReparosScreen({ navigation }) {
       if (err.code === 'ERR_CANCELED') return
       console.log('[FeedReparos] falha ao buscar reparos | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (!timedOut && mountedRef.current && abortRef.current === controller) {
-        setErro(err.mensagem || 'Erro ao buscar reparos')
+        setErro(err.mensagem || 'Erro ao buscar serviços')
       }
     } finally {
       clearTimeout(timer)
@@ -455,7 +455,7 @@ export default function FeedReparosScreen({ navigation }) {
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🔧</Text>
           <Text style={estilos.titulo}>
-            Reparos <Text style={{ color: cores.primaria }}>disponíveis</Text>
+            Serviços <Text style={{ color: cores.primaria }}>disponíveis</Text>
           </Text>
         </View>
         <TouchableOpacity style={estilos.avatar} onPress={() => navigation.navigate('Perfil')}>
@@ -607,8 +607,8 @@ export default function FeedReparosScreen({ navigation }) {
           ) : (
             <View style={estilos.vazio}>
               <Text style={estilos.vazioIcone}>🔧</Text>
-              <Text style={estilos.vazioTitulo}>Nenhum reparo disponível</Text>
-              <Text style={estilos.vazioSub}>Novos reparos aparecem aqui quando forem publicados.</Text>
+              <Text style={estilos.vazioTitulo}>Nenhum serviço disponível</Text>
+              <Text style={estilos.vazioSub}>Novos serviços aparecem aqui quando forem publicados.</Text>
             </View>
           )
         }
