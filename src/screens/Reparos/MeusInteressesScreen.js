@@ -109,7 +109,19 @@ export default function MeusInteressesScreen({ navigation }) {
       // por ele colocava uma recusa em "Ativos" e um aceite em "Histórico".
       // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; encerrados pelo dono
       // saem daqui na hora (vão para "Contratos Finalizados") sem precisar relogar.
+      // Dedupe por id, ficando com a PRIMEIRA ocorrência (ordem: ativos antes de
+      // histórico). Enquanto eram duas listas separadas, uma linha repetida nos dois
+      // arrays passava despercebida; concatenadas, ela vira chave duplicada no
+      // keyExtractor. Os dois arrays deveriam ser partição disjunta da mesma consulta —
+      // isto é cinto de segurança, não correção de um caso conhecido.
+      const vistos = new Set()
       const todas = [...(data.ativos || []), ...(data.historico || [])]
+        .filter(item => {
+          const k = String(item.id)
+          if (vistos.has(k)) return false
+          vistos.add(k)
+          return true
+        })
       setLinhas(todas.filter(item => item.reparo_status !== 'encerrada'))
     } catch (err) {
       console.log('Erro ao buscar interesses:', err)
