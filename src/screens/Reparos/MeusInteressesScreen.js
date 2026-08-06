@@ -16,6 +16,9 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 // ver STATUS_GRUPO em ContratosScreen.js:24) caíam exatamente nisso — quem tinha sido
 // recusado, e quem tinha sido APROVADO, liam os dois que ainda estavam aguardando.
 // Cada uma aponta para o mesmo texto da grafia atual equivalente.
+// 'expirado' entrou pelo mesmo motivo: sem a chave, a proposta que venceu sem resposta
+// exibia "Aguardando resposta" — a mentira mais cara da lista, porque é exatamente a
+// linha em que já não há nada a aguardar. Cores iguais às da tag ⏰ do card (:223-224).
 const STATUS_INFO = {
   pendente:            { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
   aceito:              { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
@@ -23,6 +26,7 @@ const STATUS_INFO = {
   recusado:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
   recusada:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
   contraproposta_dono: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
+  expirado:            { texto: '⏰ Expirado',         cor: '#f44336', bg: '#3a1a1a' },
 }
 
 const formatarValor = (v) =>
@@ -30,11 +34,23 @@ const formatarValor = (v) =>
     ? 'A combinar'
     : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
+// Ciclos do REPARO que já não voltam atrás. 'cancelada' é o que a moderação grava ao
+// recusar a demanda; 'expirada' é o vencimento já materializado no próprio status. Nenhum
+// dos dois é filtrado na entrada (só 'encerrada' é, :93), então sem esta lista a linha
+// passava como viva: caía em "Pendentes", não exibia tag nenhuma e ainda anunciava
+// "Você segue no páreo" para um reparo que não existe mais.
+const REPARO_INATIVO = ['cancelada', 'expirada']
+
 // Expiração vem PRONTA do servidor (relógio do banco) — ver o comentário em renderItem.
 // UM só predicado para o balde e para a tag do card: se divergirem, uma linha cai em
 // "Expirados" sem exibir "⏰ Prazo expirado", ou o contrário.
+// Três caminhos até "expirado", porque a informação chega de três formas: no status da
+// PROPOSTA ('expirado'), no status do REPARO (cancelada/expirada) ou na flag calculada
+// pelo servidor sobre um reparo ainda 'aberta'.
 const eExpirado = (item) =>
-  item.reparo_status === 'aberta' && !!(item.reparo_expirada ?? item.expirada)
+  item.status === 'expirado' ||
+  REPARO_INATIVO.includes(item.reparo_status) ||
+  (item.reparo_status === 'aberta' && !!(item.reparo_expirada ?? item.expirada))
 
 // As duas grafias de cada desfecho, iguais às de STATUS_GRUPO em ContratosScreen.js:24.
 const GRUPO_STATUS = {
@@ -47,12 +63,16 @@ const GRUPO_STATUS = {
 // Uma proposta aceita não vira "expirada" porque o anúncio venceu — o serviço é seu — e
 // uma recusa continua sendo recusa. "Expirado" é a proposta que MORREU SEM RESPOSTA, que
 // é a única em que o vencimento do prazo conta como desfecho.
-// Status desconhecido devolve null e a linha aparece só em "Todos": nunca num balde
-// errado. É a disciplina que falta no fallback de STATUS_INFO acima, que MENTE.
+// O teste de expiração vem ANTES do de pendente e vale para qualquer status que sobre:
+// 'expirado' não está em GRUPO_STATUS.pendente, e dentro daquele ramo nunca seria
+// alcançado — a linha cujo status é literalmente "expirado" ficava fora de "Expirados".
+// Status desconhecido segue devolvendo null (só "Todos") quando o reparo está vivo; num
+// reparo inativo ele cai em "Expirados", que é o que a demanda morta diz sobre a linha.
 const balde = (item) =>
   GRUPO_STATUS.aprovada.includes(item.status) ? 'aprovada'
     : GRUPO_STATUS.recusada.includes(item.status) ? 'recusada'
-    : GRUPO_STATUS.pendente.includes(item.status) ? (eExpirado(item) ? 'expirada' : 'pendente')
+    : eExpirado(item) ? 'expirada'
+    : GRUPO_STATUS.pendente.includes(item.status) ? 'pendente'
     : null
 
 const FILTROS = [
