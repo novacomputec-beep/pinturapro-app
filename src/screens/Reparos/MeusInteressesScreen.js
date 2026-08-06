@@ -30,10 +30,51 @@ const formatarValor = (v) =>
     ? 'A combinar'
     : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
+// Expiração vem PRONTA do servidor (relógio do banco) — ver o comentário em renderItem.
+// UM só predicado para o balde e para a tag do card: se divergirem, uma linha cai em
+// "Expirados" sem exibir "⏰ Prazo expirado", ou o contrário.
+const eExpirado = (item) =>
+  item.reparo_status === 'aberta' && !!(item.reparo_expirada ?? item.expirada)
+
+// As duas grafias de cada desfecho, iguais às de STATUS_GRUPO em ContratosScreen.js:24.
+const GRUPO_STATUS = {
+  aprovada: ['aceito', 'aprovada'],
+  recusada: ['recusado', 'recusada'],
+  pendente: ['pendente', 'contraproposta_dono'],
+}
+
+// Precedência: desfecho DECIDIDO primeiro, expiração só para quem ficou sem resposta.
+// Uma proposta aceita não vira "expirada" porque o anúncio venceu — o serviço é seu — e
+// uma recusa continua sendo recusa. "Expirado" é a proposta que MORREU SEM RESPOSTA, que
+// é a única em que o vencimento do prazo conta como desfecho.
+// Status desconhecido devolve null e a linha aparece só em "Todos": nunca num balde
+// errado. É a disciplina que falta no fallback de STATUS_INFO acima, que MENTE.
+const balde = (item) =>
+  GRUPO_STATUS.aprovada.includes(item.status) ? 'aprovada'
+    : GRUPO_STATUS.recusada.includes(item.status) ? 'recusada'
+    : GRUPO_STATUS.pendente.includes(item.status) ? (eExpirado(item) ? 'expirada' : 'pendente')
+    : null
+
+const FILTROS = [
+  { id: 'todos',    label: 'Todos'     },
+  { id: 'pendente', label: 'Pendentes' },
+  { id: 'aprovada', label: 'Aprovados' },
+  { id: 'recusada', label: 'Recusados' },
+  { id: 'expirada', label: 'Expirados' },
+]
+
+// Vazio por filtro: "Nenhum histórico ainda" não diz nada a quem filtrou por Recusados.
+const VAZIO = {
+  todos:    { titulo: 'Nenhum serviço ainda',      sub: 'Explore os serviços disponíveis e demonstre interesse para aparecer aqui.' },
+  pendente: { titulo: 'Nenhuma proposta pendente', sub: 'Propostas aguardando a resposta do solicitante aparecerão aqui.' },
+  aprovada: { titulo: 'Nenhuma proposta aceita',   sub: 'Quando um solicitante aceitar sua proposta, o serviço aparecerá aqui.' },
+  recusada: { titulo: 'Nenhuma recusa',            sub: 'Propostas que não foram escolhidas aparecerão aqui.' },
+  expirada: { titulo: 'Nenhum serviço expirado',   sub: 'Propostas que ficaram sem resposta até o prazo vencer aparecerão aqui.' },
+}
+
 export default function MeusInteressesScreen({ navigation }) {
-  const [ativos, setAtivos]       = useState([])
-  const [historico, setHistorico] = useState([])
-  const [secao, setSecao]         = useState('ativos')
+  const [linhas, setLinhas]       = useState([])
+  const [filtro, setFiltro]       = useState('todos')
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [coords]                  = useCoordsUsuario()
@@ -42,11 +83,14 @@ export default function MeusInteressesScreen({ navigation }) {
   const buscar = async () => {
     try {
       const data = await comRetry(() => api.get('/reparos/meus-interesses'))
-      // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; reparos encerrados pelo
-      // dono saem de "Ativos" na hora (vão para "Contratos Finalizados") sem precisar relogar.
-      setAtivos((data.ativos || []).filter(item => item.reparo_status !== 'encerrada'))
-      // Reparos encerrados aparecem em "Contratos Finalizados"; aqui só o histórico restante (ex: expirados)
-      setHistorico((data.historico || []).filter(item => item.reparo_status !== 'encerrada'))
+      // Os dois arrays viram UMA lista: o balde sai de status + expiração da própria
+      // proposta, não de qual coleção o servidor escolheu. O split `ativos`/`historico`
+      // segue o ciclo do REPARO (encerrado/vencido), não o da proposta, então classificar
+      // por ele colocava uma recusa em "Ativos" e um aceite em "Histórico".
+      // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; encerrados pelo dono
+      // saem daqui na hora (vão para "Contratos Finalizados") sem precisar relogar.
+      const todas = [...(data.ativos || []), ...(data.historico || [])]
+      setLinhas(todas.filter(item => item.reparo_status !== 'encerrada'))
     } catch (err) {
       console.log('Erro ao buscar interesses:', err)
       Alert.alert('Erro', 'Não foi possível carregar seus serviços.')
@@ -60,7 +104,7 @@ export default function MeusInteressesScreen({ navigation }) {
 
   const onRefresh = () => { setAtualizando(true); buscar() }
 
-  const dados = secao === 'ativos' ? ativos : historico
+  const dados = filtro === 'todos' ? linhas : linhas.filter(i => balde(i) === filtro)
 
   if (carregando) {
     return (
@@ -78,13 +122,13 @@ export default function MeusInteressesScreen({ navigation }) {
     // quando a hora local estava adiantada/atrasada — o mesmo reparo aparecia expirado aqui
     // e ativo lá. Aqui a linha é o INTERESSE, não o reparo, e os campos do reparo chegam
     // prefixados (reparo_status, reparo_titulo…), daí reparo_expirada antes do nome simples.
-    const eExpirado  = !eEncerrado && item.reparo_status === 'aberta' && (item.reparo_expirada ?? item.expirada)
+    const expirado   = !eEncerrado && eExpirado(item)
     const dist       = distanciaItemKm(coords, item)
     // "Ainda no páreo": só faz sentido enquanto a candidatura não foi decidida (nem
     // aceito nem recusado) e a demanda segue aberta. O estado do match vem da API
     // (match_usuario_id); comparo com o meu id (useAuth) para distinguir "ninguém
     // escolhido ainda" de "escolheram outro".
-    const demandaAberta    = !eEncerrado && !eExpirado
+    const demandaAberta    = !eEncerrado && !expirado
     const emAnalise        = item.status === 'pendente' || item.status === 'contraproposta_dono'
     const semMatch         = item.match_usuario_id == null
     const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
@@ -94,13 +138,13 @@ export default function MeusInteressesScreen({ navigation }) {
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
           <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-          <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || eExpirado) && estilos.statusBadgeInativo]}>
+          <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || expirado) && estilos.statusBadgeInativo]}>
             <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
           </View>
         </View>
-        {(eEncerrado || eExpirado) && (
-          <View style={[estilos.tagReparo, eExpirado && estilos.tagExpirado]}>
-            <Text style={[estilos.tagReparoTexto, eExpirado && estilos.tagExpiradoTexto]}>
+        {(eEncerrado || expirado) && (
+          <View style={[estilos.tagReparo, expirado && estilos.tagExpirado]}>
+            <Text style={[estilos.tagReparoTexto, expirado && estilos.tagExpiradoTexto]}>
               {eEncerrado ? '🔒 Serviço encerrado' : '⏰ Prazo expirado'}
             </Text>
           </View>
@@ -156,36 +200,29 @@ export default function MeusInteressesScreen({ navigation }) {
         <Text style={estilos.subtitulo}>{dados.length} registro{dados.length !== 1 ? 's' : ''}</Text>
       </View>
 
-      <View style={estilos.abas}>
-        <TouchableOpacity
-          style={[estilos.abaBtn, secao === 'ativos' && estilos.abaBtnAtivo]}
-          onPress={() => setSecao('ativos')}
-        >
-          <Text style={[estilos.abaTexto, secao === 'ativos' && estilos.abaTextoAtivo]}>
-            Ativos ({ativos.length})
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[estilos.abaBtn, secao === 'historico' && estilos.abaBtnAtivo]}
-          onPress={() => setSecao('historico')}
-        >
-          <Text style={[estilos.abaTexto, secao === 'historico' && estilos.abaTextoAtivo]}>
-            Histórico ({historico.length})
-          </Text>
-        </TouchableOpacity>
+      {/* flexWrap porque os cinco rótulos não cabem numa linha: ~41 caracteres a 12pt com
+          paddingHorizontal 14 passam de 440dp, contra 320dp úteis num aparelho de 360dp.
+          Quebram para uma segunda linha em vez de encolher a fonte — mesmo padrão de
+          ContratosScreen.js:219, de onde vem toda a estilização das pílulas. */}
+      <View style={estilos.filtrosRow}>
+        {FILTROS.map((f) => (
+          <TouchableOpacity
+            key={f.id}
+            style={[estilos.filtroPill, filtro === f.id && estilos.filtroPillAtivo]}
+            onPress={() => setFiltro(f.id)}
+          >
+            <Text style={[estilos.filtroPillTexto, filtro === f.id && estilos.filtroPillTextoAtivo]}>
+              {f.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {dados.length === 0 ? (
         <View style={estilos.vazio}>
           <Text style={estilos.vazioIcone}>📋</Text>
-          <Text style={estilos.vazioTitulo}>
-            {secao === 'ativos' ? 'Nenhum interesse ativo' : 'Nenhum histórico ainda'}
-          </Text>
-          <Text style={estilos.vazioSub}>
-            {secao === 'ativos'
-              ? 'Explore os serviços disponíveis e demonstre interesse para aparecer aqui.'
-              : 'Serviços encerrados e expirados aparecerão aqui.'}
-          </Text>
+          <Text style={estilos.vazioTitulo}>{(VAZIO[filtro] || VAZIO.todos).titulo}</Text>
+          <Text style={estilos.vazioSub}>{(VAZIO[filtro] || VAZIO.todos).sub}</Text>
         </View>
       ) : (
         <FlatList
@@ -207,11 +244,13 @@ const estilos = StyleSheet.create({
   header:           { paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
   titulo:           { fontSize: 24, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   subtitulo:        { fontSize: 13, color: cores.textoFraco, marginTop: 2 },
-  abas:             { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 12 },
-  abaBtn:           { flex: 1, padding: 10, borderRadius: raios.medio, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center' },
-  abaBtnAtivo:      { backgroundColor: cores.primariaSuave, borderColor: cores.primaria },
-  abaTexto:         { fontSize: 13, color: cores.textoMedio },
-  abaTextoAtivo:    { color: cores.primaria, fontWeight: '600' },
+  // Pílulas idênticas às de ContratosScreen.js:219-223 (as duas telas são a mesma lista,
+  // uma por vertical), com o marginBottom 12 que as abas daqui já usavam.
+  filtrosRow:       { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  filtroPill:       { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 6 },
+  filtroPillAtivo:  { backgroundColor: cores.primaria, borderColor: cores.primaria },
+  filtroPillTexto:  { fontSize: 12, color: cores.textoMedio },
+  filtroPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   lista:            { paddingHorizontal: espacos.tela, paddingBottom: 32, paddingTop: 8 },
   card:             { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
   cardHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
