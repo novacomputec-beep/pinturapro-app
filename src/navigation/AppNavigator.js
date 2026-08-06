@@ -610,8 +610,8 @@ const TabsPrestadorNavigator = () => {
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Reparos disponíveis' }} />
-    <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Reparos' }} />
+    <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Serviços disponíveis' }} />
+    <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
     <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} />
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
