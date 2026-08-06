@@ -723,6 +723,15 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef}>
+      {/* ANTES do Stack.Navigator de propósito: o softAskRef só é preenchido no useEffect
+          deste componente, e o React roda os efeitos na ordem da árvore (filhos primeiro,
+          irmãos na ordem em que aparecem). Montado depois do navegador, o ref ainda era
+          null quando o useFocusEffect da tela inicial rodava — a chamada com `?.` virava
+          um no-op silencioso e o soft-ask nunca aparecia na primeira abertura, só depois
+          de trocar de aba e voltar. Não muda empilhamento: este componente devolve `null`
+          ou um <Modal>, que o RN apresenta em janela nativa própria, acima de toda a
+          hierarquia de views independentemente da posição na árvore. */}
+      {usuario && <SoftAskNotificacao />}
       <Stack.Navigator screenOptions={{ headerShown: false, statusBarTranslucent: false, statusBarColor: '#0A0A0A', statusBarStyle: 'light' }}>
         {usuario ? (
           usuario.role === 'dono_obra' ? (
@@ -770,7 +779,6 @@ export default function AppNavigator() {
         )}
       </Stack.Navigator>
       {usuario && <CelebracaoMatchHost />}
-      {usuario && <SoftAskNotificacao />}
     </NavigationContainer>
   )
 }
