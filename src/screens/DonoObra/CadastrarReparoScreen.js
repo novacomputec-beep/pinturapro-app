@@ -37,7 +37,7 @@ const URGENCIAS = [
   { id: 4,   label: '🟡 4 horas',     desc: 'Urgente'         },
   { id: 8,   label: '🟢 8 horas',     desc: 'Hoje'            },
   { id: 24,  label: '📅 Amanhã',      desc: 'Sem pressa'      },
-  { id: 72,  label: '📆 Esta semana', desc: 'Flexível'        },
+  { id: 168, label: '📆 Esta semana', desc: 'Flexível'        },
 ]
 
 // Campos obrigatórios em ordem visual (de cima p/ baixo). Usado para, quando o usuário
