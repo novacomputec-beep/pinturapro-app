@@ -1216,7 +1216,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
               abaixo. Manter o banner vermelho no topo era pressa duplicada e contraditória
               (um prazo de disputa correndo ao lado do prazo real). Dono e demais
               profissionais seguem vendo. */}
-          {!encerrada && !souPrestadorDoMatch && reparo.prazo_atendimento_horas && (
+          {/* !(isDono && temMatch): fechado o match, o prazo do ANÚNCIO parou de valer
+              também para o dono — o que corre agora é o cronômetro da chegada, logo
+              abaixo. Deixar a tarja vermelha no topo era cobrar pressa por um prazo que
+              já cumpriu sua função (atrair profissional) e que ninguém mais persegue. */}
+          {!encerrada && !souPrestadorDoMatch && !(isDono && temMatch) && reparo.prazo_atendimento_horas && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
                 {reparo.prazo_atendimento_horas <= 1 ? '🔴 Urgente agora!'
@@ -1533,6 +1537,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   const expTexto = formatarExperiencia(item.anos_experiencia)
                   const equipeN = Number(item.tamanho_equipe)
                   const linhaQualif = [expTexto, equipeN > 1 ? `equipe de ${equipeN}` : null].filter(Boolean).join(' · ')
+                  // Recusado vira LINHA, não card. O card inteiro — avatar, cidade,
+                  // valores, questionário, badge — existe para o dono DECIDIR, e sobre
+                  // este ele já decidiu. O que resta valendo é reconhecer quem é, caso
+                  // mude de ideia: nome e as credenciais que resumem o profissional.
+                  // Aceita as duas grafias de recusa (ver STATUS_GRUPO em
+                  // ContratosScreen.js:24) — só 'recusado' deixaria metade das linhas
+                  // como card, que é o bug que este mesmo par já corrigiu no badge.
+                  if (item.status === 'recusado' || item.status === 'recusada') {
+                    const nota = item.avaliacoes_total > 0
+                      ? `⭐ ${Number(item.avaliacoes_media).toFixed(1)} (${item.avaliacoes_total})`
+                      : '🆕 Novo'
+                    return (
+                      <View key={item.id} style={estilos.recusadoLinha}>
+                        {/* ✗ no nome: a borda vermelha sozinha deixaria o estado por conta
+                            da cor, invisível para quem não a distingue. */}
+                        <Text style={estilos.recusadoNome} numberOfLines={1}>✗ {item.nome}</Text>
+                        <Text style={estilos.recusadoMeta} numberOfLines={1}>
+                          {[nota, linhaQualif].filter(Boolean).join(' · ')}
+                        </Text>
+                      </View>
+                    )
+                  }
                   const espTexto = especialidadesTexto(item.especialidades)
                   // Fechado o match, o valor do prestador escolhido não é mais proposta: vira o
                   // combinado, mesma troca de rótulo do topo da tela. QUAL linha carrega esse
@@ -1692,15 +1718,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>
                           {chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
                         </Text>
-                      </View>
-                    )}
-                    {/* Badge do DONO para cada interessado: aceita as duas grafias de recusa
-                        (ver STATUS_GRUPO em ContratosScreen.js:24). Sem 'recusada' a linha
-                        de um recusado ficava sem badge nenhum, e o dono relia a lista sem
-                        saber quem já tinha dispensado. */}
-                    {(item.status === 'recusado' || item.status === 'recusada') && (
-                      <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1a0a0a', borderRadius: raios.medio }}>
-                        <Text style={{ fontSize: 12, color: '#f44336' }}>❌ Recusado</Text>
                       </View>
                     )}
                   </View>
@@ -1994,6 +2011,11 @@ const estilos = StyleSheet.create({
   relogioBarra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 16, marginBottom: 16 },
   relogioExpirado: { borderColor: '#666' },
   relogioBarraLabel: { fontSize: 14, fontWeight: '600', color: cores.textoMedio },
+  // Barra vermelha à esquerda no lugar do badge "❌ Recusado" que a linha substituiu:
+  // marca o estado sem gastar uma terceira linha de texto.
+  recusadoLinha: { borderLeftWidth: 2, borderLeftColor: cores.perigo, paddingLeft: 10, paddingVertical: 8, marginBottom: 8, opacity: 0.75 },
+  recusadoNome: { fontSize: 13, fontWeight: '600', color: cores.textoMedio },
+  recusadoMeta: { fontSize: 11, color: cores.textoFraco, marginTop: 2 },
   relogioTempo: { fontSize: 16, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 1 },
   finalizadoBanner: { backgroundColor: '#1a3a1a', borderWidth: 1.5, borderColor: '#4caf50', borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
   finalizadoBannerTexto: { fontSize: 16, fontWeight: '700', color: '#4caf50', textAlign: 'center', letterSpacing: 0.5 },

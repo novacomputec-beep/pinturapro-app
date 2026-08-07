@@ -1093,7 +1093,9 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* !souPintorDoMatch: para quem JÁ ganhou a obra o prazo do anúncio não é mais
               informação — o que vale para ele é o cronômetro da chegada, logo abaixo.
               Dono e demais profissionais seguem vendo. */}
-          {!encerrada && !souPintorDoMatch && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
+          {/* !(isDono && temMatch): fechado o match, o prazo do ANÚNCIO parou de valer
+              também para o dono — o que corre agora é o cronômetro da chegada. */}
+          {!encerrada && !souPintorDoMatch && !(isDono && temMatch) && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
                 {(obra.horas_para_expirar || obra.prazo_execucao_horas) <= 24 ? '📅 Hoje'
@@ -1389,6 +1391,27 @@ export default function DetalheObraScreen({ route, navigation }) {
                   const expTexto = formatarExperiencia(item.anos_experiencia)
                   const equipeN = Number(item.tamanho_equipe)
                   const linhaQualif = [expTexto, equipeN > 1 ? `equipe de ${equipeN}` : null].filter(Boolean).join(' · ')
+                  // Recusado vira LINHA, não card. O card inteiro — avatar, cidade,
+                  // valores, questionário, badge — existe para o dono DECIDIR, e sobre
+                  // este ele já decidiu. Resta reconhecer quem é, caso mude de ideia.
+                  // Aceita as duas grafias de recusa (ver STATUS_GRUPO em
+                  // ContratosScreen.js:24); 'recusada' é a do endpoint legado e de fato
+                  // aparece aqui, então só 'recusado' deixaria metade das linhas como card.
+                  if (item.status === 'recusado' || item.status === 'recusada') {
+                    const nota = item.avaliacoes_total > 0
+                      ? `⭐ ${Number(item.avaliacoes_media).toFixed(1)} (${item.avaliacoes_total})`
+                      : '🆕 Novo'
+                    return (
+                      <View key={item.id} style={estilos.recusadoLinha}>
+                        {/* ✗ no nome: a borda vermelha sozinha deixaria o estado por conta
+                            da cor, invisível para quem não a distingue. */}
+                        <Text style={estilos.recusadoNome} numberOfLines={1}>✗ {item.nome}</Text>
+                        <Text style={estilos.recusadoMeta} numberOfLines={1}>
+                          {[nota, linhaQualif].filter(Boolean).join(' · ')}
+                        </Text>
+                      </View>
+                    )
+                  }
                   const espTexto = especialidadesTexto(item.especialidades)
                   // Fechado o match, o valor do pintor escolhido não é mais proposta: vira o
                   // combinado, mesma troca de rótulo do topo da tela. QUAL linha carrega esse
@@ -1546,15 +1569,6 @@ export default function DetalheObraScreen({ route, navigation }) {
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>
                           {chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
                         </Text>
-                      </View>
-                    )}
-                    {/* Badge do DONO para cada candidato: aceita as duas grafias de recusa
-                        (ver STATUS_GRUPO em ContratosScreen.js:24). É AQUI que 'recusada'
-                        de fato aparece — é a grafia do endpoint legado de candidaturas —,
-                        e sem ela a linha de um recusado ficava sem badge nenhum. */}
-                    {(item.status === 'recusado' || item.status === 'recusada') && (
-                      <View style={{ marginTop: 8, padding: 8, backgroundColor: '#1a0a0a', borderRadius: raios.medio }}>
-                        <Text style={{ fontSize: 12, color: '#f44336' }}>❌ Recusado</Text>
                       </View>
                     )}
                   </View>
@@ -1849,6 +1863,11 @@ const estilos = StyleSheet.create({
   relogioBarra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 16, marginBottom: 16 },
   relogioExpirado: { borderColor: '#666' },
   relogioBarraLabel: { fontSize: 14, fontWeight: '600', color: cores.textoMedio },
+  // Barra vermelha à esquerda no lugar do badge "❌ Recusado" que a linha substituiu:
+  // marca o estado sem gastar uma terceira linha de texto.
+  recusadoLinha: { borderLeftWidth: 2, borderLeftColor: cores.perigo, paddingLeft: 10, paddingVertical: 8, marginBottom: 8, opacity: 0.75 },
+  recusadoNome: { fontSize: 13, fontWeight: '600', color: cores.textoMedio },
+  recusadoMeta: { fontSize: 11, color: cores.textoFraco, marginTop: 2 },
   relogioTempo: { fontSize: 16, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 1 },
   btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
   btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
