@@ -256,13 +256,16 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   const urgente = !!restante && restante.d === 0 && restante.h === 0
   const tempo = restante ? formatarTempoRestante(restante) : ''
   return (
-    <View style={[estilos.relogioBox, expirou && estilos.relogioExpirado]}>
-      <Text style={estilos.relogioLabel}>{expirou ? '⏰ TEMPO ESGOTADO' : '⏱ TEMPO RESTANTE'}</Text>
+    /* Barra de UMA linha, com a forma e a altura do botão primário (mesmo raio, mesmo
+       padding) mas em contorno, não preenchida: é informação, não ação. O rótulo acima e
+       a explicação abaixo saíram — "Prazo para chegar" à esquerda já diz as duas coisas. */
+    <View style={[estilos.relogioBarra, expirou && estilos.relogioExpirado]}>
+      <Text style={[estilos.relogioBarraLabel, expirou && { color: cores.textoFraco }]}>
+        {expirou ? '⏰ Tempo esgotado' : 'Prazo para chegar'}
+      </Text>
       {/* Esgotado NÃO mostra tempo: zerado, o formatador devolve "menos de 1 min", que
           contradiz o rótulo — e mesmo um "0m" só repetiria o que ESGOTADO já diz. */}
       {!expirou && <Text style={[estilos.relogioTempo, urgente && { color: '#f44336' }]}>{tempo}</Text>}
-      {!expirou && <Text style={estilos.relogioSub}>O profissional deve chegar dentro deste prazo</Text>}
-      {expirou && <Text style={estilos.relogioSub}>A obra voltou para disponível</Text>}
     </View>
   )
 }
@@ -1169,7 +1172,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           {souPintorDoMatch && (
             <TouchableOpacity style={estilos.togglePedido} onPress={() => setMostrarPedido(v => !v)} activeOpacity={0.8}>
               <Text style={estilos.togglePedidoTexto}>
-                {mostrarPedido ? '▲ Ocultar detalhes do pedido' : '▼ Ver detalhes do pedido'}
+                {mostrarPedido ? '▲ Ocultar detalhes da obra' : '▼ Ver detalhes da obra'}
               </Text>
             </TouchableOpacity>
           )}
@@ -1841,11 +1844,12 @@ const estilos = StyleSheet.create({
   avisoMidiaRemovida: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 20 },
   avisoMidiaRemovidaIcone: { fontSize: 20 },
   avisoMidiaRemovidaTexto: { flex: 1, fontSize: 12, color: cores.textoFraco, lineHeight: 18 },
-  relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 14, alignItems: 'center', marginBottom: 16 },
-  relogioExpirado: { backgroundColor: '#2a2a2a', borderColor: '#666' },
-  relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
-  relogioTempo: { fontSize: 34, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 2 },
-  relogioSub: { fontSize: 11, color: cores.textoFraco, marginTop: 6, textAlign: 'center' },
+  // Mesmo raio e mesmo padding do botão primário desta tela, para as duas barras terem a
+  // MESMA altura; a diferença é o preenchimento — contorno aqui, sólido lá.
+  relogioBarra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 16, marginBottom: 16 },
+  relogioExpirado: { borderColor: '#666' },
+  relogioBarraLabel: { fontSize: 14, fontWeight: '600', color: cores.textoMedio },
+  relogioTempo: { fontSize: 16, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 1 },
   btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
   btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   btnWhatsApp: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#25D366', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 8 },
