@@ -161,6 +161,30 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
     }
+    // Serviço CONCLUÍDO — a entrega, que era o único momento do funil sem aviso nenhum.
+    // Vem do HISTÓRICO, não de `ativos`: 'encerrada' é justamente o que move a linha para
+    // lá, e é também o que a tira de "Meus Serviços". Sem isto o profissional descobria o
+    // fim pela ausência — a linha sumia de uma lista e reaparecia noutra, calada.
+    // Prefixo próprio: `encerramento:` já é do PEDIDO pendente, momento diferente (lá
+    // falta uma ação dele; aqui não falta nada). Reusar a chave faria um silenciar o outro.
+    // ANTES do encerramento semMarca logo abaixo, seguindo a regra do cabeçalho (:13):
+    // evento de uma vez só na frente, dispara, fica marcado e sai do caminho.
+    // Recolhe TODOS de uma vez (chaves no plural, como as recusas): a marca d'água nasce
+    // vazia, então na primeira abertura depois do lançamento o histórico inteiro conta
+    // como novidade. Um por verificação daria uma fila de "Parabéns!" por contrato antigo.
+    const fins = (resp.historico || []).filter(x =>
+      (x.status === 'aceito' || x.status === 'aprovada') && x.reparo_status === 'encerrada' &&
+      naoVisto(`concluido:${x.id}`)
+    )
+    if (fins.length) return {
+      chaves: fins.map(x => `concluido:${x.id}`), emoji: '🏁',
+      titulo: 'Parabéns!',
+      subtitulo: fins.length === 1
+        ? 'O solicitante confirmou o encerramento do serviço. Se algo não correu bem, você pode denunciar em Contratos Finalizados.'
+        : `Os solicitantes confirmaram o encerramento de ${fins.length} serviços. Se algo não correu bem, você pode denunciar em Contratos Finalizados.`,
+      ctaTexto: fins.length === 1 ? 'Ver contrato' : 'Ver contratos',
+      navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
+    }
     // Exige o interesse ACEITO: a lista traz também propostas recusadas/pendentes do
     // mesmo reparo, e o pedido de encerramento só diz respeito a quem está no serviço.
     // As DUAS grafias de aceite (ver STATUS_GRUPO em ContratosScreen.js:24), como o ramo
@@ -221,6 +245,24 @@ const detectar = async (usuario) => {
       subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora!`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
+    }
+    // Obra CONCLUÍDA — espelha o ramo do reparador, mesma posição (antes do semMarca) e
+    // mesmo prefixo de marca d'água. A diferença é a COLEÇÃO: /candidaturas/minhas devolve
+    // uma lista só, sem o par ativos/histórico do meus-interesses, então o encerramento se
+    // reconhece pelo obra_status da própria linha — o mesmo campo que ContratosScreen.js:60
+    // usa para tirar a obra encerrada da lista em andamento.
+    const fins = (resp.candidaturas || []).filter(x =>
+      (x.status === 'aceito' || x.status === 'aprovada') && x.obra_status === 'encerrada' &&
+      naoVisto(`concluido:${x.id}`)
+    )
+    if (fins.length) return {
+      chaves: fins.map(x => `concluido:${x.id}`), emoji: '🏁',
+      titulo: 'Parabéns!',
+      subtitulo: fins.length === 1
+        ? 'O dono confirmou o encerramento da obra. Se algo não correu bem, você pode denunciar em Contratos Finalizados.'
+        : `Os donos confirmaram o encerramento de ${fins.length} obras. Se algo não correu bem, você pode denunciar em Contratos Finalizados.`,
+      ctaTexto: fins.length === 1 ? 'Ver contrato' : 'Ver contratos',
+      navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
     }
     // Mesmo motivo do reparador: só a candidatura aceita está no serviço.
     const enc = (resp.candidaturas || []).find(x =>
