@@ -12,6 +12,7 @@ import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao from '../components/SoftAskNotificacao'
+import RetomadaMatchHost from '../components/RetomadaMatchHost'
 import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
 
 // Auth
@@ -781,6 +782,11 @@ export default function AppNavigator() {
         )}
       </Stack.Navigator>
       {usuario && <CelebracaoMatchHost />}
+      {/* Devolve null: só observa o login/abertura e, se houver um serviço em andamento,
+          navega uma vez. Fica depois do navegador porque precisa dele montado para que o
+          navigationRef resolva — ao contrário do soft-ask acima, que precisa do efeito
+          rodando ANTES do primeiro foco. */}
+      {usuario && <RetomadaMatchHost />}
     </NavigationContainer>
   )
 }
