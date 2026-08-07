@@ -117,12 +117,16 @@ const navegarParaNotificacao = (data) => {
       case 'obra_encerrada':
       case 'reparo_encerrado':
         navegar((ehPrestador || ehDonoComAba) ? 'Contratos Finalizados' : tabEmAndamento); break
-      // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe
+      // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe.
+      // 'match_obra'/'match_reparo' são o MESMO fato com outro nome (o par fechou) e por
+      // isso compartilham o destino: um id só, da vertical certa, sem probe cruzado.
       case 'candidatura_aceita':
+      case 'match_obra':
         if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'interesse_aceito':
+      case 'match_reparo':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
@@ -202,6 +206,20 @@ const navegarParaNotificacao = (data) => {
       // todo no detalhe; a lista só diria que a demanda continua lá.
       case 'baixo_engajamento':
       case 'baixo_engajamento_reparo':
+      // Negociação de TEMPO (pedir mais minutos, perguntar quantos, aceitar, recusar) e a
+      // contraproposta de valor. Estavam na lista, que é o pior destino possível para eles:
+      // cada um destes avisos existe porque FALTA uma resposta, e os botões que respondem
+      // ("✅ Aceito"/"❌ Não aceito", "Informar tempo", aceitar/recusar a contra-oferta)
+      // vivem TODOS no detalhe. Cair na lista deixava a pessoa a um toque da ação sem dizer
+      // qual demanda a espera — o mesmo motivo que já tirou 'nova_candidatura' de lá.
+      // Entram no probe reparo_id → obra_id porque chegam nas duas verticais e aos dois
+      // lados: quem pede tempo é o profissional, quem responde é o dono.
+      case 'pedido_tempo':
+      case 'perguntar_tempo':
+      case 'aprovar_tempo':
+      case 'tempo_aceito':
+      case 'tempo_recusado':
+      case 'contra_oferta':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
@@ -232,19 +250,13 @@ const navegarParaNotificacao = (data) => {
       // navigate não resolve — mas aí a tela em foco já é a do próprio aviso.)
       case 'boas_vindas':
         navegar(usaTabsPintor ? 'Obras' : usaTabsReparador ? 'Reparos' : tabEmAndamento); break
-      // Demais eventos (candidaturas, interesses, contrapropostas, tempo, match):
-      // negociações em andamento — vão para a lista correspondente do usuário
-      case 'match_obra':
-      case 'match_reparo':
-      case 'pedido_tempo':
-      case 'aprovar_tempo':
+      // Desfechos que NÃO pedem ação: a proposta foi recusada, ou aprovada pelo endpoint
+      // legado. Não há botão a apertar no detalhe, e abrir a demanda de quem acabou de ser
+      // recusado é insistir onde já não há o que fazer — a lista mostra o novo estado e
+      // deixa a pessoa seguir para a próxima.
       case 'interesse_recusado':
-      case 'contra_oferta':
-      case 'perguntar_tempo':
-      case 'tempo_aceito':
-      case 'tempo_recusado':
-      case 'candidatura_aprovada':
       case 'candidatura_recusada':
+      case 'candidatura_aprovada':
         navegar(tabEmAndamento); break
       // Tipo desconhecido: não navega, mas DEIXA RASTRO. 'reparo_proximo' e 'obra_proxima'
       // passaram meses sem rota nenhuma e ninguém percebeu, porque cair fora do switch era
