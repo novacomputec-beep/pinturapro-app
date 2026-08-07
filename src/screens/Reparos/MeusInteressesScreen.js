@@ -147,7 +147,6 @@ export default function MeusInteressesScreen({ navigation }) {
   }
 
   const renderItem = ({ item }) => {
-    const s = STATUS_INFO[item.status] || STATUS_INFO.pendente
     const eEncerrado = item.reparo_status === 'encerrada'
     // Expiração vem PRONTA do servidor (relógio do banco), como em MinhasObrasScreen:121.
     // Comparar expira_em com o relógio do aparelho fazia esta lista discordar do servidor
@@ -165,6 +164,14 @@ export default function MeusInteressesScreen({ navigation }) {
     const semMatch         = item.match_usuario_id == null
     const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
     const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
+    // O prazo venceu e a proposta nunca foi respondida: o status CONTINUA 'pendente' no
+    // servidor, então o mapa devolveria "Aguardando resposta" — a espera que já acabou.
+    // Aqui o desfecho não é o status da proposta, é o do reparo: mesma tarja do expirado
+    // com o texto que descreve o que houve. Vale só enquanto indeciso; aceito e recusado
+    // têm desfecho próprio e mantêm o badge deles mesmo com o anúncio vencido.
+    const s = (expirado && emAnalise)
+      ? { ...STATUS_INFO.expirado, texto: 'Sem resposta' }
+      : (STATUS_INFO[item.status] || STATUS_INFO.pendente)
 
     return (
       <View style={estilos.card}>
@@ -278,7 +285,10 @@ const estilos = StyleSheet.create({
   subtitulo:        { fontSize: 13, color: cores.textoFraco, marginTop: 2 },
   // Pílulas idênticas às de ContratosScreen.js:219-223 (as duas telas são a mesma lista,
   // uma por vertical), com o marginBottom 12 que as abas daqui já usavam.
-  filtrosRow:       { flexDirection: 'row', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 12, flexWrap: 'wrap' },
+  // space-between: primeira pílula encostada à esquerda e última à direita EM CADA linha.
+  // O gap 8 vira mínimo, não medida fixa — numa linha com poucas pílulas a sobra toda é
+  // distribuída entre elas.
+  filtrosRow:       { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: espacos.tela, gap: 8, marginBottom: 12, flexWrap: 'wrap' },
   filtroPill:       { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 6 },
   filtroPillAtivo:  { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillTexto:  { fontSize: 12, color: cores.textoMedio },
