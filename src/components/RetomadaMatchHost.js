@@ -1,22 +1,32 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
+import { AppState } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { navigationRef } from '../navigation/navigationRef'
 
-// Redirecionamento de UMA vez por abertura/login: quem tem serviço em andamento (match
-// fechado e ainda não encerrado) abre o app NELE, e não na aba inicial — que para o dono
-// é um formulário em branco ("Novo Reparo"/"Nova Obra") e para o prestador é o feed das
-// demandas dos outros. Com mais de um em andamento não dá para escolher pela pessoa:
-// leva à lista, onde ela escolhe.
+// Redirecionamento para o serviço em andamento: quem tem match fechado e ainda não
+// encerrado abre o app NELE, e não na aba inicial — que para o dono é um formulário em
+// branco ("Novo Reparo"/"Nova Obra") e para o prestador é o feed das demandas dos outros.
+// Com mais de um em andamento não dá para escolher pela pessoa: leva à lista.
 //
-// NÃO reage ao foreground — de propósito não existe listener de AppState aqui. Voltar ao
-// app depois de atender uma ligação não pode sequestrar a tela em que a pessoa estava.
-// Dispara só quando usuario.id MUDA: cold start com sessão salva, ou login.
+// Roda em DOIS momentos: no login/abertura (uma vez por usuário) e a cada volta do 2º
+// plano. O foreground importa porque é a transição típica de quem está trabalhando —
+// atendeu uma ligação, olhou o mapa, voltou —, e é justamente aí que a pessoa quer o
+// serviço na frente. Para não sequestrar a tela, três desistências:
+//   1. notificação: se o app veio de um toque, aquele destino é mais específico e já está
+//      a caminho (AppNavigator.js:711);
+//   2. já está no detalhe DESTA demanda: não há para onde levar;
+//   3. está num cadastro: interromper um formulário perde o que foi digitado.
 //
-// E cede a vez à notificação: se o app foi aberto por um toque, aquele destino é mais
-// específico do que "seu serviço em andamento" e já está a caminho — a checagem que
-// desiste está no início do efeito, antes do fetch.
+// Separado do CelebracaoMatchHost embora leia os mesmos dados, porque as decisões são
+// diferentes: lá é "comemorar uma vez" (com marca d'água em disco); aqui é "onde a pessoa
+// deveria estar agora". Compartilhar o fetch amarraria o roteamento à marca d'água da
+// celebração — um match já comemorado deixaria de redirecionar.
+
+// Nome da tela de pouso de cada papel (`telaInicial` no perfil abaixo): a raiz da PRIMEIRA
+// aba do navegador dele, que é onde o app cai sem intervenção. É o único lugar de onde o
+// retorno do 2º plano redireciona — ver a regra em checar().
 //
 // Separado do CelebracaoMatchHost embora leia os mesmos dados, porque as decisões são
 // diferentes: lá é "comemorar uma vez" (com marca d'água em disco); aqui é "onde a pessoa
@@ -37,6 +47,7 @@ const perfilDe = (u) => {
     emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
     idDemanda: (x) => x.id,
     tab: 'Meus Reparos', detalhe: 'DetalheReparo', param: 'reparo',
+    telaInicial: 'CadastrarReparoMain',
   }
   if (u.role === 'dono_obra' && u.tipo_dono === 'pintura') return {
     url: '/obras/minhas',
@@ -44,6 +55,7 @@ const perfilDe = (u) => {
     emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
     idDemanda: (x) => x.id,
     tab: 'Minhas Obras', detalhe: 'DetalheObra', param: 'obra',
+    telaInicial: 'CadastrarObraMain',
   }
   if (u.role === 'prestador' && u.tipo_prestador !== 'pintor') return {
     url: '/reparos/meus-interesses',
@@ -53,6 +65,7 @@ const perfilDe = (u) => {
     emAndamento: (x) => ACEITO.includes(x.status) && x.reparo_status !== 'encerrada',
     idDemanda: (x) => x.reparo_id,
     tab: 'Meus Reparos', detalhe: 'DetalheReparo', param: 'reparo',
+    telaInicial: 'FeedReparosMain',
   }
   if ((u.role === 'prestador' && u.tipo_prestador === 'pintor') || u.role === 'assinante') return {
     url: '/candidaturas/minhas',
@@ -60,6 +73,7 @@ const perfilDe = (u) => {
     emAndamento: (x) => ACEITO.includes(x.status) && x.obra_status !== 'encerrada',
     idDemanda: (x) => x.obra_id,
     tab: 'Minhas Obras', detalhe: 'DetalheObra', param: 'obra',
+    telaInicial: 'FeedMain',
   }
   return null
 }
@@ -78,52 +92,86 @@ export default function RetomadaMatchHost() {
   // Guarda por usuário, não booleano de módulo: logar em outra conta na mesma sessão é
   // uma nova abertura do ponto de vista de quem entrou.
   const jaRodouRef = useRef(null)
+  // Uma checagem por vez: dois foregrounds seguidos (ou foreground logo após o login)
+  // disparariam dois fetches e dois navigate concorrentes.
+  const rodandoRef = useRef(false)
 
-  useEffect(() => {
-    const uid = usuario?.id
-    if (uid == null) return
-    if (jaRodouRef.current === String(uid)) return
-    // Marca ANTES de qualquer saída: uma tentativa por usuário por execução, mesmo quando
-    // desistimos aqui. Sem isto, uma mudança posterior de assinatura/boas-vindas
-    // dispararia o redirecionamento no meio do uso.
-    jaRodouRef.current = String(uid)
-
+  const checar = useCallback(async (deForeground) => {
+    if (rodandoRef.current) return
+    if (usuario?.id == null) return
     if (!tabsMontadas(usuario, assinatura, mostrarBoasVindas)) return
     const cfg = perfilDe(usuario)
     if (!cfg) return
 
-    ;(async () => {
-      try {
-        // App aberto por TOQUE em notificação: aquele destino ganha, sempre. Ele é mais
-        // específico ("este reparo, agora") e o roteador já o está executando com 500ms
-        // de atraso (AppNavigator.js:711) — sem esta saída, quem venceria a corrida
-        // dependeria da latência do fetch abaixo. Sair ANTES do api.get também poupa a
-        // requisição que seria descartada.
-        // Se a consulta em si falhar, cai no catch e NÃO redireciona: entre atropelar a
-        // notificação e não retomar nada, não retomar é o lado seguro.
-        const respostaNotificacao = await Notifications.getLastNotificationResponseAsync()
-        if (respostaNotificacao) return
+    // Do 2º plano só redireciona quem está na TELA DE POUSO — a que o app abre sozinho e
+    // que este componente existe para substituir. Em qualquer outra (detalhe, lista,
+    // mensagens, perfil, um cadastro pela metade) a pessoa escolheu estar ali, e voltar de
+    // uma ligação não pode desfazer essa escolha.
+    // ANTES do fetch, de propósito: fora da tela de pouso não há decisão a tomar, então
+    // não se gasta requisição — e o foreground é frequente.
+    // Isto substitui as duas desistências anteriores (detalhe da demanda / tela de
+    // cadastro) porque é mais estrito que as duas juntas: nenhum detalhe é tela de pouso,
+    // e o único cadastro que é — a raiz da aba do dono — é justamente o caso que o
+    // redirecionamento precisa atender, e que a regra de cadastro bloqueava por engano.
+    if (deForeground && navigationRef.current?.getCurrentRoute?.()?.name !== cfg.telaInicial) return
 
-        const resp = await api.get(cfg.url)
-        const abertos = cfg.linhas(resp).filter(cfg.emAndamento)
-        if (abertos.length === 0) return
+    rodandoRef.current = true
+    try {
+      // App aberto por TOQUE em notificação: aquele destino ganha, sempre. Ele é mais
+      // específico ("este reparo, agora") e o roteador já o está executando com 500ms
+      // de atraso (AppNavigator.js:711) — sem esta saída, quem venceria a corrida
+      // dependeria da latência do fetch abaixo. Sair ANTES do api.get também poupa a
+      // requisição que seria descartada.
+      // Se a consulta em si falhar, cai no catch e NÃO redireciona: entre atropelar a
+      // notificação e não retomar nada, não retomar é o lado seguro.
+      const respostaNotificacao = await Notifications.getLastNotificationResponseAsync()
+      if (respostaNotificacao) return
 
-        const nav = navigationRef.current
-        if (!nav) return
+      const resp = await api.get(cfg.url)
+      const abertos = cfg.linhas(resp).filter(cfg.emAndamento)
+      if (abertos.length === 0) return
 
-        if (abertos.length > 1) { nav.navigate(cfg.tab); return }
+      const nav = navigationRef.current
+      if (!nav) return
 
-        const id = cfg.idDemanda(abertos[0])
-        // Sem id não dá para abrir o detalhe; a lista ainda é melhor que a aba inicial.
-        if (id == null) { nav.navigate(cfg.tab); return }
-        nav.navigate(cfg.tab, { screen: cfg.detalhe, params: { [cfg.param]: { id } }, initial: false })
-      } catch (err) {
-        // Silencioso: isto é uma comodidade, não um fluxo. Falhando, a pessoa fica na aba
-        // inicial de sempre — que é exatamente o comportamento anterior a este componente.
-        console.log('[RetomadaMatch] falha ao checar serviços em andamento | code:', err.code)
-      }
-    })()
-  }, [usuario?.id, assinatura?.status, mostrarBoasVindas])
+      // Reconfere a tela de pouso DEPOIS do fetch: entre a requisição e a navegação a
+      // pessoa pode ter saído dali sozinha, e a decisão vale para onde ela está agora.
+      if (deForeground && nav.getCurrentRoute?.()?.name !== cfg.telaInicial) return
+
+      if (abertos.length > 1) { nav.navigate(cfg.tab); return }
+
+      const id = cfg.idDemanda(abertos[0])
+      // Sem id não dá para abrir o detalhe; a lista ainda é melhor que a aba inicial.
+      if (id == null) { nav.navigate(cfg.tab); return }
+      nav.navigate(cfg.tab, { screen: cfg.detalhe, params: { [cfg.param]: { id } }, initial: false })
+    } catch (err) {
+      // Silencioso: isto é uma comodidade, não um fluxo. Falhando, a pessoa fica onde
+      // estava — que é exatamente o comportamento anterior a este componente.
+      console.log('[RetomadaMatch] falha ao checar serviços em andamento | code:', err.code)
+    } finally {
+      rodandoRef.current = false
+    }
+  }, [usuario, assinatura, mostrarBoasVindas])
+
+  // Login / abertura — uma vez por usuário.
+  useEffect(() => {
+    const uid = usuario?.id
+    if (uid == null) return
+    if (jaRodouRef.current === String(uid)) return
+    // Marca ANTES de chamar: uma tentativa por usuário nesta execução, mesmo que a
+    // checagem desista lá dentro. Sem isto, uma mudança posterior de assinatura ou de
+    // boas-vindas re-dispararia este caminho no meio do uso.
+    jaRodouRef.current = String(uid)
+    checar()
+  }, [usuario?.id, checar])
+
+  // Volta do 2º plano. Sem guarda de "uma vez": aqui a repetição é o ponto — o estado do
+  // serviço muda enquanto o app está fora. Quem evita o incômodo são as desistências
+  // dentro de checar(), não um contador.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (estado) => { if (estado === 'active') checar(true) })
+    return () => sub.remove()
+  }, [checar])
 
   return null
 }
