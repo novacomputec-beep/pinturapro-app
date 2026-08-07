@@ -46,6 +46,12 @@ export default function SplashScreen({ navigation }) {
     })()
   }, [])
 
+  // Os dois números são UM estado, não dois: cada um caía no próprio fallback, então uma
+  // resposta parcial exibia um valor real ("R$ 84.000") sobre um rótulo sem número
+  // ("vagas ativas agora"), ou o contrário — "—" sobre "12 vagas ativas agora", que
+  // anuncia vagas e esconde quanto elas somam. Falta um, caem os dois.
+  const temStats = stats.total_valor_obras != null && stats.total_obras_ativas != null
+
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
 
@@ -59,7 +65,8 @@ export default function SplashScreen({ navigation }) {
         <Text style={estilos.logoNome}>
           Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
         </Text>
-        <Text style={estilos.logoTagline}>Obras e serviços para profissionais qualificados e com idoneidade checada!</Text>
+        <Text style={estilos.logoSub}>ArrumaPro</Text>
+        <Text style={estilos.logoTagline}>Obras e serviços gerais com profissionais qualificados e idoneidade checada.</Text>
       </View>
 
       {/* Arte central */}
@@ -83,14 +90,14 @@ export default function SplashScreen({ navigation }) {
           </View>
           <View style={estilos.artValor}>
             <Text style={estilos.artValorTexto}>
-              {stats.total_valor_obras != null
+              {temStats
                 ? `R$ ${Number(stats.total_valor_obras).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
                 : '—'}
             </Text>
             <Text style={estilos.artValorLabel}>
-              {stats.total_obras_ativas != null
+              {temStats
                 ? `${stats.total_obras_ativas} vagas ativas agora`
-                : 'empreitada disponível'}
+                : 'vagas ativas agora'}
             </Text>
           </View>
         </TouchableOpacity>
@@ -109,21 +116,28 @@ export default function SplashScreen({ navigation }) {
         >
           <Text style={estilos.donoTitulo}>Precisa de um profissional?</Text>
           <Text style={estilos.donoTexto}>
-            Lâmpada queimada, vaso entupido, uma faxina, um cuidador — ou uma obra maior. Cadastre sua necessidade grátis e receba profissionais aprovados da sua região.
+            Da lâmpada queimada à reforma inteira — e também manicure, cabeleireiro, cuidador, professor particular. Publique o que você precisa, de graça, e receba propostas de profissionais aprovados da sua região.
           </Text>
         </TouchableOpacity>
+        {/* Criar conta em primeiro e em laranja: esta tela é pré-login, então quem chega
+            aqui é majoritariamente quem AINDA não tem conta. Dar o botão de destaque ao
+            "Entrar" pedia a ação que só o usuário recorrente precisa, e ele já sabe o
+            caminho. Mesmo par de destinos, invertida a ênfase. */}
         <BotaoPrimario
-          titulo="Entrar na plataforma"
-          onPress={() => navigation.navigate('Login')}
+          titulo="Criar minha conta"
+          onPress={() => navigation.navigate('Cadastro')}
           estilo={{ marginBottom: 10 }}
         />
         <BotaoSecundario
-          titulo="Criar minha conta"
-          onPress={() => navigation.navigate('Cadastro')}
+          titulo="Entrar na plataforma"
+          onPress={() => navigation.navigate('Login')}
           estilo={{ marginBottom: 20 }}
         />
-        <Text style={estilos.termos}>
-          Ao continuar, você concorda com os{' '}
+        {/* Frase e links em blocos separados: no <Text> único os links ficavam no meio do
+            parágrafo, e quebravam onde a largura mandasse. Em duas linhas o aviso se lê
+            de uma vez e os dois alvos de toque ficam lado a lado, previsíveis. */}
+        <Text style={estilos.termos}>Ao continuar, você concorda com os</Text>
+        <Text style={estilos.termosLinks}>
           <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Termos')}>Termos de uso</Text>
           {' '}e{' '}
           <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Privacidade')}>Política de privacidade</Text>
@@ -156,10 +170,23 @@ const estilos = StyleSheet.create({
     letterSpacing: -0.5,
     marginBottom: 6,
   },
+  // Segunda marca, abaixo do wordmark: menor e em tom secundário para não disputar com
+  // ele. textoMedio, não textoMutado — #333 sobre #0A0A0A fica praticamente invisível.
+  logoSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: cores.textoMedio,
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  // textAlign próprio: o alignItems do logoArea centra o BLOCO, não o texto, então a
+  // tagline quebrada em duas linhas saía alinhada à esquerda dentro de um bloco centrado.
   logoTagline: {
     fontSize: 13,
-    color: cores.textoFraco,
+    color: cores.textoForte,
     letterSpacing: 0.3,
+    textAlign: 'center',
+    lineHeight: 19,
   },
   artArea: {
     flex: 1,
@@ -226,7 +253,15 @@ const estilos = StyleSheet.create({
   termos: {
     textAlign: 'center',
     fontSize: 11,
-    color: cores.textoMutado,
+    color: cores.textoMedio,
+    lineHeight: 18,
+  },
+  // Mesma métrica da linha de cima; a cor vale para o "e" entre os dois links, que herda
+  // deste bloco (os links trazem a própria cor inline).
+  termosLinks: {
+    textAlign: 'center',
+    fontSize: 11,
+    color: cores.textoMedio,
     lineHeight: 18,
   },
 })
