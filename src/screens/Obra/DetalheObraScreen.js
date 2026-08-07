@@ -291,6 +291,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [contrapropostaCandidaturaId, setContrapropostaCandidaturaId] = useState(null)
   const [valorContraproposta, setValorContraproposta] = useState('')
   const [mostrarContraPintor, setMostrarContraPintor] = useState(false)
+  // Fechado por padrão: depois do match o profissional já leu o pedido (foi com base nele
+  // que se candidatou). O que ele precisa desta tela agora é endereço, cronômetro e os
+  // botões — descrição e mídia viram consulta, não leitura obrigatória.
+  const [mostrarPedido, setMostrarPedido] = useState(false)
   const [valorContraPintor, setValorContraPintor] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
@@ -1083,7 +1087,10 @@ export default function DetalheObraScreen({ route, navigation }) {
               resta — não muda com a aproximação e não sabia nada do encerramento. Numa obra
               concluída ele seguia no topo anunciando urgência. Some o banner inteiro: sem
               prazo a correr, nem o rótulo nem o texto de prazo têm o que dizer. */}
-          {!encerrada && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
+          {/* !souPintorDoMatch: para quem JÁ ganhou a obra o prazo do anúncio não é mais
+              informação — o que vale para ele é o cronômetro da chegada, logo abaixo.
+              Dono e demais profissionais seguem vendo. */}
+          {!encerrada && !souPintorDoMatch && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
             <View style={estilos.urgenciaBanner}>
               <Text style={estilos.urgenciaTexto}>
                 {(obra.horas_para_expirar || obra.prazo_execucao_horas) <= 24 ? '📅 Hoje'
@@ -1138,7 +1145,10 @@ export default function DetalheObraScreen({ route, navigation }) {
               distância nunca entra — ela mede o GPS de quem olha até a obra, então no dono
               seria a distância dele até a própria demanda, número que não informa nada a
               quem publicou. A visão do profissional segue exatamente como estava. */}
-          {!(isDono && obra.endereco_obra) && (
+          {/* Também some para o profissional do MATCH quando há endereço completo: a caixa
+              acima já traz rua, número, bairro e cidade, e a distância deixa de importar
+              depois que a obra é dele. */}
+          {!((isDono || souPintorDoMatch) && obra.endereco_obra) && (
             <Text style={estilos.local}>
               📍 {obra.cidade}{obra.bairro ? `, ${obra.bairro}` : ''}
               {!isDono && distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
@@ -1153,14 +1163,25 @@ export default function DetalheObraScreen({ route, navigation }) {
             </>
           ) : null}
 
-          {obra.descricao && (
+          {/* Pós-match a descrição e a mídia empurram o cronômetro e os botões para fora da
+              primeira tela. Viram um acordeão fechado: seguem a um toque, sem custar a
+              dobra. Só para o profissional do match — dono e demais veem tudo aberto. */}
+          {souPintorDoMatch && (
+            <TouchableOpacity style={estilos.togglePedido} onPress={() => setMostrarPedido(v => !v)} activeOpacity={0.8}>
+              <Text style={estilos.togglePedidoTexto}>
+                {mostrarPedido ? '▲ Ocultar detalhes do pedido' : '▼ Ver detalhes do pedido'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {(!souPintorDoMatch || mostrarPedido) && obra.descricao && (
             <>
               <Text style={estilos.secaoTitulo}>Descrição</Text>
               <Text style={estilos.descricao}>{obra.descricao}</Text>
             </>
           )}
 
-          {midias.length > 0 ? (
+          {(!souPintorDoMatch || mostrarPedido) && (midias.length > 0 ? (
             <>
               <Text style={estilos.secaoTitulo}>Fotos e vídeos</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
@@ -1179,7 +1200,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               <Text style={estilos.avisoMidiaRemovidaIcone}>📷</Text>
               <Text style={estilos.avisoMidiaRemovidaTexto}>Mídia removida automaticamente após 7 dias da conclusão do serviço</Text>
             </View>
-          ) : null}
+          ) : null)}
 
           {/* Paridade com DetalheReparo: a contagem NÃO deve renderizar quando encerrada
               (evita, inclusive, o onExpirar disparar /expirar-match numa obra concluída).
@@ -1221,7 +1242,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>
-                Um contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.{'\n\n'}Bom trabalho para vocês! 🤝
+                Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.
               </Text>
             </View>
           )}
@@ -1306,7 +1327,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   Vem ANTES do botão para ser lido antes do toque, não depois. */}
               {temMatch && avisarChegadaNaoConfirmada && !encerrada && (
                 <View style={estilos.avisoChegadaBox}>
-                  <Text style={estilos.avisoChegadaTexto}>⚠️ O serviço só deve ser encerrado depois que as duas partes confirmarem que o profissional chegou ao local.</Text>
+                  <Text style={estilos.avisoChegadaTexto}>⚠️ Encerre após ambos confirmarem a chegada.</Text>
                 </View>
               )}
               {temMatch && obra?.status !== 'encerrada' && (
@@ -1559,7 +1580,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               {/* Mesmo aviso do lado do dono, pelo mesmo motivo e no mesmo lugar. */}
               {souPintorDoMatch && avisarChegadaNaoConfirmada && !encerrada && (
                 <View style={estilos.avisoChegadaBox}>
-                  <Text style={estilos.avisoChegadaTexto}>⚠️ O serviço só deve ser encerrado depois que as duas partes confirmarem que o profissional chegou ao local.</Text>
+                  <Text style={estilos.avisoChegadaTexto}>⚠️ Encerre após ambos confirmarem a chegada.</Text>
                 </View>
               )}
               {souPintorDoMatch && obra?.status !== 'encerrada' && (
@@ -1807,8 +1828,10 @@ const estilos = StyleSheet.create({
   pontoReferenciaLinha: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginTop: -10, marginBottom: 16 },
   localDistancia: { color: cores.primaria, fontWeight: '600' },
   secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
+  togglePedido: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginBottom: 16 },
+  togglePedidoTexto: { fontSize: 13, fontWeight: '600', color: cores.textoMedio },
   descricao: { fontSize: 13, color: cores.textoMedio, lineHeight: 22, marginBottom: 20 },
-  midiaItem: { width: 160, height: 120, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
+  midiaItem: { width: 110, height: 82, marginRight: 10, borderRadius: 10, overflow: 'hidden' },
   midiaImagem: { width: '100%', height: '100%' },
   // Placeholder do tile que não renderizou. Mesmo cinza do thumbVazia dos feeds; o
   // ícone é maior porque o tile é 160x120dp, contra os 64dp do thumb de lá.
@@ -1818,10 +1841,10 @@ const estilos = StyleSheet.create({
   avisoMidiaRemovida: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 20 },
   avisoMidiaRemovidaIcone: { fontSize: 20 },
   avisoMidiaRemovidaTexto: { flex: 1, fontSize: 12, color: cores.textoFraco, lineHeight: 18 },
-  relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
+  relogioBox: { backgroundColor: '#1a1a2a', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, padding: 14, alignItems: 'center', marginBottom: 16 },
   relogioExpirado: { backgroundColor: '#2a2a2a', borderColor: '#666' },
   relogioLabel: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
-  relogioTempo: { fontSize: 52, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 2 },
+  relogioTempo: { fontSize: 34, fontWeight: '700', color: cores.primaria, fontVariant: ['tabular-nums'], letterSpacing: 2 },
   relogioSub: { fontSize: 11, color: cores.textoFraco, marginTop: 6, textAlign: 'center' },
   btnMatch: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 12 },
   btnMatchTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
