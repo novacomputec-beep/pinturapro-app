@@ -185,6 +185,18 @@ const formatarExperiencia = (v) => {
   return EXPERIENCIA_LABELS[s] || s.replace(/_/g, ' ')    // bucket conhecido, ou fallback limpo
 }
 
+// Prazo de atendimento legível. Até 24h a hora é a unidade que o dono escolheu no
+// cadastro (1, 2, 4, 8, 24) e se lê literal; acima disso não — "Atender em até 168h"
+// obriga a dividir de cabeça para descobrir que é uma semana. Arredonda porque o valor
+// vem do servidor e não precisa ser múltiplo de 24 (um reparo antigo traz 72 = 3 dias).
+// Valor ausente ou não numérico volta no formato antigo, para não inventar um prazo.
+const textoPrazoAtendimento = (horas) => {
+  const h = Number(horas)
+  if (!Number.isFinite(h) || h <= 24) return `${horas}h`
+  const dias = Math.round(h / 24)
+  return `${dias} ${dias === 1 ? 'dia' : 'dias'}`
+}
+
 // especialidades pode vir como array (cadastro) ou CSV; normaliza para "a, b, c".
 const especialidadesTexto = (esp) => {
   const arr = Array.isArray(esp) ? esp : (typeof esp === 'string' ? esp.split(',') : [])
@@ -1207,7 +1219,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   de deixar buraco no banner. */}
               {reparo.expira_em && !foraDaDisputa && !encerrada
                 ? <ContadorExpiracaoReparo expiraEm={reparo.expira_em} />
-                : <Text style={estilos.urgenciaHoras}>Atender em até {reparo.prazo_atendimento_horas}h</Text>
+                : <Text style={estilos.urgenciaHoras}>Atender em até {textoPrazoAtendimento(reparo.prazo_atendimento_horas)}</Text>
               }
             </View>
           )}
