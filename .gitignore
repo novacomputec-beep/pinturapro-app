@@ -7,6 +7,13 @@ build/
 .env.local
 ios/
 
+# Cópia local da API. Já esteve no índice como gitlink (mode 160000) SEM .gitmodules:
+# ninguém conseguia cloná-la, e um clone limpo ficava com o diretório vazio. Pior, ela
+# parecia uma fonte de verdade e não era — estava 159 commits atrás do próprio origin,
+# e a API de produção sobe pela Railway, não daqui. O app fala com ela só por HTTP
+# (src/services/api.js:5), então nada sob src/ importa deste caminho.
+pinturapro-api/
+
 # Credenciais FCM (fornecidas via EAS file secret, nao versionadas).
 # A regra é sem barra, então casa com google-services.json em QUALQUER nível — e o
 # EAS filtra o upload pelo .gitignore SEM consultar o índice do git (eas-cli:
