@@ -1061,14 +1061,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
-  // No lugar do bloqueio vai um AVISO ao lado do botão: encerrar antes de as duas partes
-  // confirmarem a chegada é desaconselhável, mas a decisão é de quem está no serviço.
-  // Vale para TODO match sem chegada confirmada, inclusive os que nunca prometeram uma
-  // janela (sem chegada_prevista_em). A ressalva que existia aqui vinha da época do
-  // BLOQUEIO, quando poupar o contrato antigo era o que impedia de deixá-lo sem saída;
-  // um aviso não tranca nada, e a recomendação — confirmem a chegada antes de fechar —
-  // é igualmente verdadeira num contrato que pulou a etapa de promessa.
-  const avisarChegadaNaoConfirmada = !chegadaConfirmada
+  // O aviso que ficava ao lado do botão saiu daqui: virou uma frase no modal de match,
+  // dito UMA vez às duas partes no momento em que o combinado nasce, em vez de uma tarja
+  // âmbar permanente sobre o botão. Encerrar segue livre — nunca houve bloqueio, e o
+  // servidor já resolve a ordem devolvendo `encerramento: 'pendente'` quando falta a
+  // confirmação da outra parte.
   const distancia = distanciaItemKm(coords, reparo)
 
   // Valor exibido para o dono_reparo: enquanto não há proposta aceita, mostra o valor
@@ -1474,13 +1471,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Profissional chegou'}</Text>
                 </TouchableOpacity>
               )}
-              {/* Aviso, não trava: informa a ordem recomendada e deixa o botão livre.
-                  Vem ANTES do botão para ser lido antes do toque, não depois. */}
-              {temMatch && avisarChegadaNaoConfirmada && !encerrada && (
-                <View style={estilos.avisoChegadaBox}>
-                  <Text style={estilos.avisoChegadaTexto}>⚠️ Encerre após ambos confirmarem a chegada.</Text>
-                </View>
-              )}
               {temMatch && reparo?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
                   <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar serviço')}</Text>
@@ -1741,12 +1731,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
               {souPrestadorDoMatch && chegadaAguardaConfirmacao && !encerrada && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
-                </View>
-              )}
-              {/* Mesmo aviso do lado do dono, pelo mesmo motivo e no mesmo lugar. */}
-              {souPrestadorDoMatch && avisarChegadaNaoConfirmada && !encerrada && (
-                <View style={estilos.avisoChegadaBox}>
-                  <Text style={estilos.avisoChegadaTexto}>⚠️ Encerre após ambos confirmarem a chegada.</Text>
                 </View>
               )}
               {souPrestadorDoMatch && reparo?.status !== 'encerrada' && (
@@ -2072,8 +2056,6 @@ const estilos = StyleSheet.create({
   // Aviso (não bloqueio) acima do botão de encerrar. Mesma paleta âmbar do pedidoAlertaBox
   // — é a cor que esta tela já usa para "leia antes de agir" —, em caixa mais discreta:
   // não pede um toque, só informa a ordem recomendada.
-  avisoChegadaBox: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 12, marginTop: 12 },
-  avisoChegadaTexto: { fontSize: 12, color: '#E8833A', textAlign: 'center', lineHeight: 18 },
   pedidoAlertaBox: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.grande, padding: 16, marginTop: 10 },
   pedidoAlertaTitulo: { fontSize: 14, fontWeight: '700', color: '#E8833A', marginBottom: 4 },
   pedidoAlertaMotivo: { fontSize: 12, color: cores.textoMedio, marginBottom: 4 },
