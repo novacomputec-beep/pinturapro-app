@@ -54,7 +54,10 @@ const detectar = async (usuario) => {
     if (matched) return {
       chave: `reparo_match:${matched.id}`, emoji: '🎉',
       titulo: 'Seu serviço vai ser realizado!',
-      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
+      // A regra do encerramento vem junto: era uma tarja âmbar permanente ao lado do botão
+      // nas duas telas de detalhe. Dita UMA vez, no momento em que o combinado nasce e às
+      // duas partes, informa o mesmo sem ocupar a tela pelo resto do serviço.
+      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
@@ -107,7 +110,7 @@ const detectar = async (usuario) => {
     if (matched) return {
       chave: `obra_match:${matched.id}`, emoji: '🎉',
       titulo: 'Sua obra vai ser realizada!',
-      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora!`,
+      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
@@ -157,7 +160,7 @@ const detectar = async (usuario) => {
     if (it) return {
       chave: `interesse:${it.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu o serviço!',
-      subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Combine os detalhes agora!`,
+      subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
     }
@@ -242,7 +245,7 @@ const detectar = async (usuario) => {
     if (c) return {
       chave: `candidatura:${c.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu a obra!',
-      subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora!`,
+      subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
     }
