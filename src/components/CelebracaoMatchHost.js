@@ -61,6 +61,27 @@ const detectar = async (usuario) => {
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
+    // Serviço CONCLUÍDO — espelha o aviso que o profissional já recebe. Fecha o lado do
+    // dono na única transição que não avisava nada: quando quem confirma por último é a
+    // OUTRA parte, o encerramento acontece com o dono fora do app e a demanda apenas some
+    // de "Meus Serviços" e reaparece em Contratos Finalizados, calada.
+    // E o aviso não é só notícia: as duas ações do dono depois do serviço — avaliar e
+    // bloquear — só existem naquele card, e quem não estava presente no encerramento nunca
+    // era apontado para lá.
+    // Recolhe TODOS de uma vez (chaves no plural): a marca d'água nasce vazia, então na
+    // primeira abertura depois do lançamento o histórico inteiro conta como novidade.
+    const fins = (resp.reparos || []).filter(x =>
+      x.status === 'encerrada' && x.match_feito_em && naoVisto(`concluido:${x.id}`)
+    )
+    if (fins.length) return {
+      chaves: fins.map(x => `concluido:${x.id}`), emoji: '🏁',
+      titulo: fins.length === 1 ? 'Serviço concluído!' : 'Serviços concluídos!',
+      subtitulo: fins.length === 1
+        ? 'O serviço foi concluído pelas duas partes. Em Contratos Finalizados você pode avaliar o profissional e, se quiser, bloqueá-lo para futuros serviços.'
+        : `${fins.length} serviços foram concluídos pelas duas partes. Em Contratos Finalizados você pode avaliar os profissionais e, se quiser, bloqueá-los para futuros serviços.`,
+      ctaTexto: fins.length === 1 ? 'Avaliar profissional' : 'Avaliar profissionais',
+      navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
+    }
     // Chegada declarada e ainda não confirmada. semMarca pelo mesmo motivo do
     // encerramento: não é notícia para comemorar uma vez, é uma ação que falta. Ela NÃO
     // destrava nada — encerrar continua livre, e o detalhe apenas aconselha confirmar a
@@ -113,6 +134,22 @@ const detectar = async (usuario) => {
       subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
+    }
+    // Obra CONCLUÍDA — espelha o ramo do dono_reparo, mesma posição (depois do match,
+    // antes dos semMarca) e mesmo prefixo de marca d'água. Fecha a transição que não
+    // avisava nada quando quem confirma por último é a outra parte, e aponta para o único
+    // lugar onde o dono avalia e bloqueia: o card em Contratos Finalizados.
+    const fins = (resp.obras || []).filter(x =>
+      x.status === 'encerrada' && x.match_feito_em && naoVisto(`concluido:${x.id}`)
+    )
+    if (fins.length) return {
+      chaves: fins.map(x => `concluido:${x.id}`), emoji: '🏁',
+      titulo: fins.length === 1 ? 'Obra concluída!' : 'Obras concluídas!',
+      subtitulo: fins.length === 1
+        ? 'A obra foi concluída pelas duas partes. Em Contratos Finalizados você pode avaliar o profissional e, se quiser, bloqueá-lo para futuras obras.'
+        : `${fins.length} obras foram concluídas pelas duas partes. Em Contratos Finalizados você pode avaliar os profissionais e, se quiser, bloqueá-los para futuras obras.`,
+      ctaTexto: fins.length === 1 ? 'Avaliar profissional' : 'Avaliar profissionais',
+      navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
     }
     // Espelha o ramo do dono_reparo acima: o profissional declarou que chegou e espera
     // resposta. Não destrava o encerramento (que segue livre) — serve para o dono saber
