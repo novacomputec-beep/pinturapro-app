@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarData = (d) =>
   d ? new Date(d).toLocaleDateString('pt-BR') : '—'
@@ -139,7 +139,7 @@ const estilos = StyleSheet.create({
   resumoRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
   mediaNum:     { fontSize: 22, fontWeight: '800', color: '#E8833A' },
   resumoTotal:  { fontSize: 13, color: cores.textoFraco },
-  lista:        { paddingBottom: 32, paddingTop: 4 },
+  lista:        { paddingBottom: 32 + alturas.barraServico, paddingTop: 4 },
   card:         { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
   cardHeader:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   tag:          { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: cores.fundoElevado },

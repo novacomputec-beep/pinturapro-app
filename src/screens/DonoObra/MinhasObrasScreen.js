@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
 import { softAskRef } from '../../components/SoftAskNotificacao'
@@ -372,7 +372,7 @@ const estilos = StyleSheet.create({
   abaSecaoBtnAtivo:     { backgroundColor: '#1a1a2a', borderColor: '#444' },
   abaSecaoTexto:        { fontSize: 12, color: cores.textoMutado },
   abaSecaoTextoAtivo:   { color: cores.textoMedio, fontWeight: '600' },
-  lista:                { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 12 },
+  lista:                { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico, gap: 12 },
   vazio:                { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   vazioIcone:           { fontSize: 48, marginBottom: 16 },
   vazioTitulo:          { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },

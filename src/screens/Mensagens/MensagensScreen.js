@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api, { candidaturasService, mensagensService } from '../../services/api'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleString('pt-BR', {
@@ -233,7 +233,7 @@ const estilos = StyleSheet.create({
   obraPillTextoAtivo: { color: cores.primaria, fontWeight: '500' },
   obraAtualBanner: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 10, marginBottom: 12 },
   obraAtualTexto: { fontSize: 12, color: cores.textoFraco },
-  msgLista: { paddingHorizontal: espacos.tela, paddingBottom: 12 },
+  msgLista: { paddingHorizontal: espacos.tela, paddingBottom: 12 + alturas.barraServico },
   msgCard: { marginBottom: 16 },
   perguntaWrap: { marginBottom: 8, alignItems: 'flex-end' },
   perguntaBubble: { backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: raios.grande, borderBottomRightRadius: 4, padding: 12, maxWidth: '85%' },

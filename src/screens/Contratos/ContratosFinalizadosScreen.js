@@ -9,7 +9,7 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import ModalDenuncia from '../../components/ModalDenuncia'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
@@ -282,7 +282,7 @@ const estilos = StyleSheet.create({
   header:             { paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
   titulo:             { fontSize: 24, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   subtitulo:          { fontSize: 13, color: cores.textoFraco, marginTop: 2 },
-  lista:              { paddingHorizontal: espacos.tela, paddingBottom: 32, paddingTop: 8 },
+  lista:              { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico, paddingTop: 8 },
   card:               { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
   cardHeader:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   cardTitulo:         { fontSize: 14, fontWeight: '600', color: cores.textoForte, flex: 1, marginRight: 8, lineHeight: 20 },

@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { candidaturasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BadgeStatus, Card, Separador, STATUS_BADGE } from '../../components'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleDateString('pt-BR') : '—'
@@ -269,7 +269,7 @@ const estilos = StyleSheet.create({
   filtroPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillTexto: { fontSize: 12, color: cores.textoMedio },
   filtroPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32 },
+  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico },
   card: { padding: 16 },
   cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dataTexto: { fontSize: 11, color: cores.textoMutado },

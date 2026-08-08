@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo } from '../../utils/categorias'
@@ -642,7 +642,7 @@ const estilos = StyleSheet.create({
   filtroTexto: { fontSize: 12, color: cores.textoMedio },
   filtroTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   filtroTextoDistAtivo: { color: '#8888dd', fontWeight: '600', fontSize: 12 },
-  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32, gap: 16 },
+  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico, gap: 16 },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },
   vazio: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40 },

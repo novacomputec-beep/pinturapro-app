@@ -7,7 +7,7 @@ import { obrasService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { useLocalizacao } from '../../hooks/useLocalizacao'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaKm, distanciaItemKm, formatarDistancia } from '../../utils/distancia'
 import { useFocusEffect } from '@react-navigation/native'
 
@@ -362,7 +362,7 @@ const estilos = StyleSheet.create({
   gpsAviso: { backgroundColor: '#3a1a1a', borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
   gpsAvisoTexto: { fontSize: 11, color: '#f44336' },
   contadorTexto: { fontSize: 12, color: cores.textoFraco, paddingHorizontal: espacos.tela, marginBottom: 10 },
-  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32 },
+  lista: { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico },
   erroBox: { alignItems: 'center', padding: 20 },
   erroTexto: { color: cores.perigo, fontSize: 13, textAlign: 'center' },
   vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
