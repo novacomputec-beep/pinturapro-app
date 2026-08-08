@@ -13,11 +13,14 @@ import { navigationRef } from '../navigation/navigationRef'
 // Roda em DOIS momentos: no login/abertura (uma vez por usuário) e a cada volta do 2º
 // plano. O foreground importa porque é a transição típica de quem está trabalhando —
 // atendeu uma ligação, olhou o mapa, voltou —, e é justamente aí que a pessoa quer o
-// serviço na frente. Para não sequestrar a tela, três desistências:
-//   1. notificação, só no arranque frio: se o app SUBIU de um toque, aquele destino é mais
-//      específico e já está a caminho (AppNavigator.js:723);
-//   2. já está no detalhe DESTA demanda: não há para onde levar;
-//   3. está num cadastro: interromper um formulário perde o que foi digitado.
+// serviço na frente. Para não sequestrar a tela, duas desistências:
+//   1. não está na tela de pouso, voltando do 2º plano: em qualquer outra tela (detalhe,
+//      lista, mensagens, perfil, um cadastro pela metade) a pessoa escolheu estar ali, e
+//      voltar de uma ligação não desfaz essa escolha. Só no foreground — no login não há
+//      escolha anterior a preservar —, e conferida duas vezes, antes e depois do fetch;
+//   2. notificação, só no arranque frio: se o app SUBIU de um toque, aquele destino é mais
+//      específico e já está a caminho (AppNavigator.js:723). Nos outros disparos não se
+//      pergunta: a resposta seria aquele mesmo toque, já navegado, pelo resto do processo.
 //
 // Separado do CelebracaoMatchHost embora leia os mesmos dados, porque as decisões são
 // diferentes: lá é "comemorar uma vez" (com marca d'água em disco); aqui é "onde a pessoa
@@ -27,11 +30,6 @@ import { navigationRef } from '../navigation/navigationRef'
 // Nome da tela de pouso de cada papel (`telaInicial` no perfil abaixo): a raiz da PRIMEIRA
 // aba do navegador dele, que é onde o app cai sem intervenção. É o único lugar de onde o
 // retorno do 2º plano redireciona — ver a regra em checar().
-//
-// Separado do CelebracaoMatchHost embora leia os mesmos dados, porque as decisões são
-// diferentes: lá é "comemorar uma vez" (com marca d'água em disco); aqui é "onde a pessoa
-// deveria estar agora". Compartilhar o fetch amarraria o roteamento à marca d'água da
-// celebração — um match já comemorado deixaria de redirecionar.
 
 // As duas grafias de aceite (ver STATUS_GRUPO em ContratosScreen.js:24). Sem 'aprovada'
 // o profissional que fechou pelo endpoint legado nunca seria retomado.
