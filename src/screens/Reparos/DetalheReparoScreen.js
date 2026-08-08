@@ -811,6 +811,41 @@ export default function DetalheReparoScreen({ route, navigation }) {
     } catch (err) { console.log('Erro ao expirar match:', err) }
   }
 
+  // "O profissional não chegou": o dono contesta a declaração de chegada da outra parte.
+  // Chama o MESMO /expirar-match do relógio acima — o efeito desejado é idêntico, desfazer o
+  // match e devolver o serviço ao Rol —, mas por decisão de uma pessoa e não por prazo
+  // vencido, e por isso passa por confirmação: tira o profissional do serviço e o app não
+  // tem como refazer o match depois.
+  // O erro NÃO é engolido como no onExpirar automático: lá ninguém tocou em nada e um alerta
+  // seria ruído; aqui houve um toque, e um toque sem resposta faz a pessoa tocar de novo.
+  // buscar() em vez do setReparo otimista do onExpirar: quem pediu está olhando a tela, e o
+  // servidor é quem diz em que estado o reparo ficou.
+  const handleNaoChegou = async () => {
+    const executar = async () => {
+      try {
+        await comRetry(() => api.post(`/reparos/${reparo.id}/expirar-match`, {}))
+        await buscar()
+        Alert.alert('Serviço reaberto', 'O match foi desfeito e o serviço voltou a ficar disponível para outros profissionais.')
+      } catch (err) {
+        console.log('[DetalheReparo] falha ao expirar match por não chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        Alert.alert('Erro', err.mensagem || 'Não foi possível liberar o serviço. Tente novamente.')
+      }
+    }
+    // O texto diz as três coisas que a pessoa precisa saber ANTES de tocar: o que a ação faz
+    // (desfaz o match), onde o serviço vai parar (de volta ao Rol, aberto a outros) e quando
+    // usá-la (só se ele realmente não apareceu). Sem a terceira, "não chegou" vira o botão de
+    // quem está impaciente com um profissional a caminho — e o estrago cai sobre alguém que
+    // não fez nada errado.
+    Alert.alert(
+      '🚫 O profissional não chegou?',
+      'Isto desfaz o match: o profissional sai deste serviço e ele volta para a lista de disponíveis, aberto a outros profissionais. Use apenas se ele realmente não apareceu no local — a ação não pode ser desfeita pelo app.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', style: 'destructive', onPress: executar },
+      ]
+    )
+  }
+
   // Aumentar prazo (dono do reparo). Espelha o padrão de handleResponderInteresse:
   // comRetry + flag de loading + buscar() para refresh + ramo ERR_NETWORK. Após sucesso,
   // buscar() (refresh de mutação já usado por esta tela, NÃO um refetch de mount) reidrata
@@ -1066,6 +1101,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const chegadaConfirmada = !!reparo?.chegada_confirmada_em
   const chegadaAguardaConfirmacao = !!reparo?.chegada_declarada_em && !chegadaConfirmada
   const chegadaNaoDeclarada = !reparo?.chegada_declarada_em && !chegadaConfirmada
+  // Declaração de chegada feita pela OUTRA parte — quem pode contestá-la é quem não a fez.
+  // Mesma disciplina de String dos demais flags de identidade (souPrestadorDoMatch, :1031):
+  // os != null vêm ANTES porque String(undefined) === String(undefined) daria "igual", e dois
+  // ids ausentes fariam a declaração de terceiro passar por própria.
+  // Sem chegada_declarada_por na resposta o flag fica false e o botão não aparece — lado
+  // seguro, porque contestar desfaz o match e devolve o serviço ao Rol.
+  const chegadaDeclaradaPorOutro = !!reparo?.chegada_declarada_em &&
+    reparo?.chegada_declarada_por != null && usuario?.id != null &&
+    String(reparo.chegada_declarada_por) !== String(usuario.id)
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
@@ -1473,6 +1517,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Confirmando…' : '✅ Confirmar chegada'}</Text>
                   </TouchableOpacity>
                 </View>
+              )}
+              {/* A outra resposta à mesma declaração, logo abaixo do "Confirmar chegada":
+                  quem declarou foi o profissional, e o dono diz que não foi o que aconteceu.
+                  As duas saídas ficam juntas de propósito — separadas, a de contestar viraria
+                  um caminho escondido para quem está esperando alguém que não veio. */}
+              {chegadaDeclaradaPorOutro && !encerrada && (
+                <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
+                  <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
+                </TouchableOpacity>
               )}
               {temMatch && chegadaNaoDeclarada && !encerrada && (
                 <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
@@ -2071,6 +2124,10 @@ const estilos = StyleSheet.create({
   btnInformarTempoTexto: { fontSize: 13, fontWeight: '600', color: cores.primaria },
   btnPerguntarTempo: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
   btnPerguntarTempoTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  // Contorno, não preenchido: fica ao lado do "Confirmar chegada" sólido e não pode competir
+  // com ele — desfazer o match é a saída de exceção, não o caminho esperado.
+  btnNaoChegou: { backgroundColor: 'transparent', borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 10 },
+  btnNaoChegouTexto: { fontSize: 13, fontWeight: '700', color: cores.perigo },
   pedidoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
   pedidoTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
   // Aviso (não bloqueio) acima do botão de encerrar. Mesma paleta âmbar do pedidoAlertaBox
