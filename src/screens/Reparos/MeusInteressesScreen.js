@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { comRetry } from '../../utils/rede'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
@@ -305,7 +305,7 @@ const estilos = StyleSheet.create({
   filtroPillAtivo:  { backgroundColor: cores.primaria, borderColor: cores.primaria },
   filtroPillTexto:  { fontSize: 12, color: cores.textoMedio },
   filtroPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  lista:            { paddingHorizontal: espacos.tela, paddingBottom: 32, paddingTop: 8 },
+  lista:            { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico, paddingTop: 8 },
   card:             { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
   cardHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   cardTitulo:       { fontSize: 14, fontWeight: '600', color: cores.textoForte, flex: 1, marginRight: 8, lineHeight: 20 },

@@ -11,7 +11,7 @@ import { authService } from '../../services/api'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
 
 // Sobe a foto direto ao Cloudinary com retry resiliente e SILENCIOSO.
@@ -218,7 +218,7 @@ export default function EditarPerfilScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico },
   btnVoltar: { marginTop: 60, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 24 },

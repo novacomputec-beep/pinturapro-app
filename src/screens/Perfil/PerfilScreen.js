@@ -13,7 +13,7 @@ import { mascararTelefone } from '../../utils/telefone'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
@@ -420,7 +420,7 @@ const estilos = StyleSheet.create({
   itemAcaoDireita: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemAcaoEstado: { fontSize: 12, fontWeight: '600', color: cores.textoFraco },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
-  logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico },
   // O respiro de 16 passou para o crédito, que agora abre o bloco; a versão fica logo
   // abaixo dele, com o espaçamento de linha em vez do de bloco.
   creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
