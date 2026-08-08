@@ -709,6 +709,37 @@ export default function DetalheObraScreen({ route, navigation }) {
     } catch (err) { console.log('Erro ao expirar match:', err) }
   }
 
+  // "O profissional não chegou": o dono contesta a declaração de chegada da outra parte.
+  // Espelha DetalheReparoScreen — mesmo endpoint do relógio acima (/expirar-match), mas por
+  // decisão de uma pessoa e não por prazo vencido, e por isso passa por confirmação: tira o
+  // profissional da obra e o app não tem como refazer o match depois.
+  // O erro NÃO é engolido como no onExpirar automático: lá ninguém tocou em nada; aqui houve
+  // um toque, e um toque sem resposta faz a pessoa tocar de novo.
+  const handleNaoChegou = async () => {
+    const executar = async () => {
+      try {
+        await comRetry(() => api.post(`/obras/${obra.id}/expirar-match`, {}))
+        await buscar()
+        Alert.alert('Obra reaberta', 'O match foi desfeito e a obra voltou a ficar disponível para outros profissionais.')
+      } catch (err) {
+        console.log('[DetalheObra] falha ao expirar match por não chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        Alert.alert('Erro', err.mensagem || 'Não foi possível liberar a obra. Tente novamente.')
+      }
+    }
+    // Espelha DetalheReparoScreen: o texto diz o que a ação faz (desfaz o match), onde a obra
+    // vai parar (de volta ao feed, aberta a outros) e quando usá-la (só se ele realmente não
+    // apareceu). Sem a terceira, "não chegou" vira o botão de quem está impaciente com um
+    // profissional a caminho — e o estrago cai sobre alguém que não fez nada errado.
+    Alert.alert(
+      '🚫 O profissional não chegou?',
+      'Isto desfaz o match: o profissional sai desta obra e ela volta para a lista de disponíveis, aberta a outros profissionais. Use apenas se ele realmente não apareceu no local — a ação não pode ser desfeita pelo app.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Confirmar', style: 'destructive', onPress: executar },
+      ]
+    )
+  }
+
   // Aumentar prazo (dono da obra). Espelha o padrão de handleResponderCandidatura:
   // comRetry + flag de loading + ramo ERR_NETWORK. Esta tela mantém a obra no estado
   // vinda da navegação; após sucesso, atualiza APENAS expira_em a partir da resposta do
@@ -970,6 +1001,15 @@ export default function DetalheObraScreen({ route, navigation }) {
   const chegadaConfirmada = !!obra?.chegada_confirmada_em
   const chegadaAguardaConfirmacao = !!obra?.chegada_declarada_em && !chegadaConfirmada
   const chegadaNaoDeclarada = !obra?.chegada_declarada_em && !chegadaConfirmada
+  // Declaração de chegada feita pela OUTRA parte — quem pode contestá-la é quem não a fez.
+  // Mesma disciplina de String dos demais flags de identidade (souPintorDoMatch): os != null
+  // vêm ANTES porque String(undefined) === String(undefined) daria "igual", e dois ids
+  // ausentes fariam a declaração de terceiro passar por própria.
+  // Sem chegada_declarada_por na resposta o flag fica false e o botão não aparece — lado
+  // seguro, porque contestar desfaz o match e devolve a obra ao feed.
+  const chegadaDeclaradaPorOutro = !!obra?.chegada_declarada_em &&
+    obra?.chegada_declarada_por != null && usuario?.id != null &&
+    String(obra.chegada_declarada_por) !== String(usuario.id)
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
@@ -1327,6 +1367,15 @@ export default function DetalheObraScreen({ route, navigation }) {
                     <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Confirmando…' : '✅ Confirmar chegada'}</Text>
                   </TouchableOpacity>
                 </View>
+              )}
+              {/* A outra resposta à mesma declaração, logo abaixo do "Confirmar chegada":
+                  quem declarou foi o profissional, e o dono diz que não foi o que aconteceu.
+                  As duas saídas ficam juntas de propósito — separadas, a de contestar viraria
+                  um caminho escondido para quem está esperando alguém que não veio. */}
+              {chegadaDeclaradaPorOutro && !encerrada && (
+                <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
+                  <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
+                </TouchableOpacity>
               )}
               {temMatch && chegadaNaoDeclarada && !encerrada && (
                 <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
@@ -1916,6 +1965,10 @@ const estilos = StyleSheet.create({
   btnInformarTempoTexto: { fontSize: 13, fontWeight: '600', color: cores.primaria },
   btnPerguntarTempo: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
   btnPerguntarTempoTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
+  // Contorno, não preenchido: fica ao lado do "Confirmar chegada" sólido e não pode competir
+  // com ele — desfazer o match é a saída de exceção, não o caminho esperado.
+  btnNaoChegou: { backgroundColor: 'transparent', borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 10 },
+  btnNaoChegouTexto: { fontSize: 13, fontWeight: '700', color: cores.perigo },
   pedidoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginTop: 10 },
   pedidoTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
   // Aviso (não bloqueio) acima do botão de encerrar. Mesma paleta âmbar do pedidoAlertaBox
