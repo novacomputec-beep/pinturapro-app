@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './src/contexts/AuthContext'
 import AppNavigator from './src/navigation/AppNavigator'
 import GlobalVencimentoBanner from './src/components/GlobalVencimentoBanner'
 import BannerNotificacaoBloqueada from './src/components/BannerNotificacaoBloqueada'
+import BarraServicoEmAndamento from './src/components/BarraServicoEmAndamento'
 import { iniciarRastreamento, pararRastreamento } from './src/services/locationService'
 import api from './src/services/api'
 
@@ -65,6 +66,10 @@ export default function App() {
         <WarmupController />
         <BannerNotificacaoBloqueada />
         <GlobalVencimentoBanner />
+        {/* Ancorada ao RODAPÉ, ao contrário dos dois acima: não disputa espaço com eles.
+            Fica antes do AppNavigator como os banners — o zIndex 9999 dela já a põe sobre a
+            árvore de telas, que não declara zIndex nenhum. */}
+        <BarraServicoEmAndamento />
         <AppNavigator />
       </AuthProvider>
     </SafeAreaProvider>
