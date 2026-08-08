@@ -54,6 +54,23 @@ export const espacos = {
   tela: 20,
 }
 
+// Altura BASE da barra de abas — o inset inferior do aparelho é somado a ela em
+// AppNavigator.js:584. Mora aqui, e não lá, porque deixou de ser medida só do navegador:
+// um overlay ancorado ao rodapé precisa do mesmo número para parar EM CIMA da barra, e
+// importá-lo do AppNavigator acoplaria o overlay à árvore de telas — o acoplamento que a
+// extração do navigationRef existe para evitar.
+export const alturas = {
+  tabBar: 72,
+  // Reserva para a BarraServicoEmAndamento, que flutua sobre o rodapé sem empurrar nada.
+  // A barra não tem altura fixa (o conteúdo manda), então este é o pior caso medido: a
+  // pílula "Abrir →" com 6 de padding em cima e embaixo sobre 12px de texto (~26) mais os
+  // 10+10 da barra dá ~46, arredondado para 48.
+  // Quem rola até o fim precisa alcançar o BOTÃO, não só enxergá-lo: sem esta folga o
+  // "Encerrar serviço" ficava atrás da barra, e a única saída era não ter serviço em
+  // andamento — exatamente quando o botão é necessário.
+  barraServico: 48,
+}
+
 export const sombra = {
   shadowColor: '#000',
   shadowOffset: { width: 0, height: 2 },

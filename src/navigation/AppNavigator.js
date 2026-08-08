@@ -7,7 +7,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
-import { cores, raios } from '../utils/tema'
+import { cores, raios, alturas } from '../utils/tema'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
@@ -580,7 +580,7 @@ const useTabBarStyle = () => {
     backgroundColor: cores.fundo,
     borderTopWidth: 0.5,
     borderTopColor: cores.bordaFraca,
-    height: 72 + bottom,
+    height: alturas.tabBar + bottom,
     paddingBottom: 14 + bottom,
     paddingTop: 8,
   }

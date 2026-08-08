@@ -14,7 +14,7 @@ import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
@@ -1863,7 +1863,9 @@ const estilos = StyleSheet.create({
   corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
   // Folga extra no fim da rolagem para o teclado não cobrir o último campo
   // (contraproposta) — o padding horizontal/topo continua vindo de `corpo`.
-  scroll: { flexGrow: 1, paddingBottom: 40 },
+  // +barraServico: espelha DetalheReparoScreen — a barra do rodapé flutua sobre esta tela e
+  // cobriria o último botão da rolagem, que aqui é sempre um botão de ação.
+  scroll: { flexGrow: 1, paddingBottom: 40 + alturas.barraServico },
   urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria + '44', borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
   urgenciaTexto: { fontSize: 14, fontWeight: '700', color: cores.primaria },
   urgenciaHoras: { fontSize: 12, color: cores.primaria },

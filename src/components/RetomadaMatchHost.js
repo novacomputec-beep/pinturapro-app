@@ -37,7 +37,11 @@ const ACEITO = ['aceito', 'aprovada']
 
 // Um perfil por papel: de onde ler, o que conta como "em andamento", qual id abrir e para
 // onde navegar. Os pares aba/tela são os mesmos que o roteador de notificações usa.
-const perfilDe = (u) => {
+// Exportado (como o celebracaoRef sai do CelebracaoMatchHost) porque a BarraServicoEmAndamento
+// responde à MESMA pergunta — quais serviços estão de pé e para onde levam. Duas cópias
+// divergiriam no dia seguinte: a barra apontaria para um lugar e a retomada da abertura para
+// outro, com o mesmo usuário e os mesmos dados.
+export const perfilDe = (u) => {
   if (u.role === 'dono_obra' && u.tipo_dono === 'reparo') return {
     url: '/reparos/minhas',
     linhas: (r) => r.reparos || [],
@@ -80,7 +84,10 @@ const perfilDe = (u) => {
 // 'ativa' quem está montado é Verificacao/Pagamento, com boas-vindas pendentes é a tela
 // de boas-vindas, e o dono sem tipo_dono cai num stack de nomes diferentes. Em qualquer
 // desses casos os nomes de aba abaixo não resolvem — melhor não tentar navegar.
-const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
+// Exportado pelo mesmo motivo do perfilDe: a barra do rodapé navega para as mesmas abas e
+// se ancora na altura delas, então sem tabs montadas ela não tem para onde levar nem em cima
+// de que se apoiar.
+export const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
   if (u.role === 'dono_obra') return u.tipo_dono === 'reparo' || u.tipo_dono === 'pintura'
   return assinatura?.status === 'ativa' && !mostrarBoasVindas
 }
