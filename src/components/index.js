@@ -50,21 +50,27 @@ export const Input = ({ label, erro, estilo, estiloInput, ...props }) => (
 )
 
 // ─── BADGE DE STATUS ─────────────────────────────────────────
+// Rótulo e cores de cada status. Exportado porque o texto não é só do badge: a célula
+// "Situação" de ContratosScreen.js:164 mostra o MESMO estado e, enquanto lia item.status
+// cru, o card dizia as duas coisas com nomes diferentes — "Contraproposta" no badge e
+// "contraproposta_dono" na célula, a chave do banco vazando para a tela.
+// Fora do componente para não recriar o objeto a cada render de cada card da lista.
+export const STATUS_BADGE = {
+  aberta:     { cor: cores.sucesso,    fundo: cores.sucessoSuave,  texto: 'Aberta'     },
+  em_analise: { cor: cores.primaria,   fundo: cores.primariaSuave, texto: 'Em análise' },
+  encerrada:  { cor: cores.textoFraco, fundo: cores.fundoElevado,  texto: 'Encerrada'  },
+  pendente:   { cor: cores.primaria,   fundo: cores.primariaSuave, texto: 'Pendente'   },
+  aprovada:   { cor: cores.sucesso,    fundo: cores.sucessoSuave,  texto: 'Aprovada'   },
+  ativa:      { cor: cores.sucesso,    fundo: cores.sucessoSuave,  texto: 'Ativa'      },
+  recusada:   { cor: cores.perigo,     fundo: cores.perigoSuave,   texto: 'Recusada'   },
+  // Vocabulário do fluxo aceitar/recusar via DetalheObra (espelha aprovada/recusada)
+  aceito:              { cor: cores.sucesso,  fundo: cores.sucessoSuave,  texto: 'Aceita'         },
+  recusado:            { cor: cores.perigo,   fundo: cores.perigoSuave,   texto: 'Recusada'       },
+  contraproposta_dono: { cor: cores.primaria, fundo: cores.primariaSuave, texto: 'Contraproposta' },
+}
+
 export const BadgeStatus = ({ status }) => {
-  const configs = {
-    aberta:     { cor: cores.sucesso,   fundo: cores.sucessoSuave,  texto: 'Aberta'      },
-    em_analise: { cor: cores.primaria,  fundo: cores.primariaSuave, texto: 'Em análise'  },
-    encerrada:  { cor: cores.textoFraco, fundo: cores.fundoElevado, texto: 'Encerrada'   },
-    pendente:   { cor: cores.primaria,  fundo: cores.primariaSuave, texto: 'Pendente'    },
-    aprovada:   { cor: cores.sucesso,   fundo: cores.sucessoSuave,  texto: 'Aprovada'    },
-    ativa:      { cor: cores.sucesso,   fundo: cores.sucessoSuave,  texto: 'Ativa'       },
-    recusada:   { cor: cores.perigo,    fundo: cores.perigoSuave,   texto: 'Recusada'    },
-    // Vocabulário do fluxo aceitar/recusar via DetalheObra (espelha aprovada/recusada)
-    aceito:              { cor: cores.sucesso,  fundo: cores.sucessoSuave,  texto: 'Aceita'         },
-    recusado:            { cor: cores.perigo,   fundo: cores.perigoSuave,   texto: 'Recusada'       },
-    contraproposta_dono: { cor: cores.primaria, fundo: cores.primariaSuave, texto: 'Contraproposta' },
-  }
-  const cfg = configs[status] || configs.encerrada
+  const cfg = STATUS_BADGE[status] || STATUS_BADGE.encerrada
   return (
     <View style={[estilos.badge, { backgroundColor: cfg.fundo, borderColor: cfg.cor + '66' }]}>
       <View style={[estilos.badgeDot, { backgroundColor: cfg.cor }]} />

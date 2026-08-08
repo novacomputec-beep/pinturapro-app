@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { candidaturasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
-import { BadgeStatus, Card, Separador } from '../../components'
+import { BadgeStatus, Card, Separador, STATUS_BADGE } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
 
 const formatarData = (data) =>
@@ -161,10 +161,22 @@ export default function ContratosScreen({ navigation }) {
             </View>
             <View style={estilos.infoItem}>
               <Text style={estilos.infoLabel}>Situação</Text>
-              {/* Sai da MESMA decisão do badge. O status cru dizia "pendente" a três
-                  centímetros de "Sem resposta" e da tarja de obra fechada — o card dava
-                  duas respostas opostas e a errada era a que tinha o rótulo "Situação". */}
-              <Text style={estilos.infoValor}>{semResposta ? 'Sem resposta' : item.status}</Text>
+              {/* Mesma decisão E mesmo rótulo do badge: primeiro o override de "Sem
+                  resposta" (o cru dizia "pendente" a três centímetros dele e da tarja de
+                  obra fechada), depois o texto de STATUS_BADGE — sem ele a célula escrevia
+                  a chave do banco, "contraproposta_dono", ao lado do badge que dizia
+                  "Contraproposta".
+                  O cru fica como ÚLTIMO recurso, para status que o mapa ainda não conhece:
+                  o badge nesse caso cai em 'encerrada' e diz "Encerrada", que aqui seria uma
+                  invenção — a chave nova é feia, mas é verdade, e some quando o mapa
+                  aprender a chave. */}
+              {/* textTransform 'none' contra o 'capitalize' de infoValor: aquele existe para
+                  o valor cru (a célula Categoria ainda depende dele, "pintura interna" →
+                  "Pintura Interna"), mas o rótulo aqui já vem escrito como deve aparecer, e
+                  a regra por PALAVRA o deformava — "Sem Resposta", "Em Análise". */}
+              <Text style={[estilos.infoValor, { textTransform: 'none' }]}>
+                {semResposta ? 'Sem resposta' : (STATUS_BADGE[item.status]?.texto || item.status)}
+              </Text>
             </View>
           </View>
 
