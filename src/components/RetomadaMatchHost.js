@@ -14,8 +14,8 @@ import { navigationRef } from '../navigation/navigationRef'
 // plano. O foreground importa porque é a transição típica de quem está trabalhando —
 // atendeu uma ligação, olhou o mapa, voltou —, e é justamente aí que a pessoa quer o
 // serviço na frente. Para não sequestrar a tela, três desistências:
-//   1. notificação: se o app veio de um toque, aquele destino é mais específico e já está
-//      a caminho (AppNavigator.js:711);
+//   1. notificação, só no arranque frio: se o app SUBIU de um toque, aquele destino é mais
+//      específico e já está a caminho (AppNavigator.js:723);
 //   2. já está no detalhe DESTA demanda: não há para onde levar;
 //   3. está num cadastro: interromper um formulário perde o que foi digitado.
 //
@@ -87,6 +87,13 @@ const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
   return assinatura?.status === 'ativa' && !mostrarBoasVindas
 }
 
+// Arranque frio: o app SUBIU agora. Vale por processo — e não por montagem do componente
+// nem por usuário —, porque é exatamente esse o alcance de getLastNotificationResponseAsync:
+// ela responde "este processo foi aberto por um toque?", e a resposta não muda mais depois.
+// Só a primeira passagem pelo caminho de login/abertura pode ter vindo desse toque; um
+// logout/login seguinte acontece com o app já aberto na mão da pessoa.
+let arranqueFrio = true
+
 export default function RetomadaMatchHost() {
   const { usuario, assinatura, mostrarBoasVindas } = useAuth()
   // Guarda por usuário, não booleano de módulo: logar em outra conta na mesma sessão é
@@ -96,7 +103,7 @@ export default function RetomadaMatchHost() {
   // disparariam dois fetches e dois navigate concorrentes.
   const rodandoRef = useRef(false)
 
-  const checar = useCallback(async (deForeground) => {
+  const checar = useCallback(async (deForeground, deArranqueFrio) => {
     if (rodandoRef.current) return
     if (usuario?.id == null) return
     if (!tabsMontadas(usuario, assinatura, mostrarBoasVindas)) return
@@ -117,15 +124,23 @@ export default function RetomadaMatchHost() {
 
     rodandoRef.current = true
     try {
-      // App aberto por TOQUE em notificação: aquele destino ganha, sempre. Ele é mais
-      // específico ("este reparo, agora") e o roteador já o está executando com 500ms
-      // de atraso (AppNavigator.js:711) — sem esta saída, quem venceria a corrida
-      // dependeria da latência do fetch abaixo. Sair ANTES do api.get também poupa a
-      // requisição que seria descartada.
+      // App aberto por TOQUE em notificação: aquele destino ganha. Ele é mais específico
+      // ("este reparo, agora") e o roteador já o está executando com 500ms de atraso
+      // (AppNavigator.js:723) — sem esta saída, quem venceria a corrida dependeria da
+      // latência do fetch abaixo. Sair ANTES do api.get também poupa a requisição que
+      // seria descartada.
       // Se a consulta em si falhar, cai no catch e NÃO redireciona: entre atropelar a
       // notificação e não retomar nada, não retomar é o lado seguro.
-      const respostaNotificacao = await Notifications.getLastNotificationResponseAsync()
-      if (respostaNotificacao) return
+      //
+      // SÓ no arranque frio, porque a pergunta que essa API responde é sobre o processo,
+      // não sobre este momento: ela devolve o último toque enquanto o processo viver. Um
+      // toque em notificação de manhã calaria a retomada em todo foreground e em todo
+      // login do resto do dia — um destino que já foi navegado há horas, bloqueando um
+      // redirecionamento que não disputa nada com ele.
+      if (deArranqueFrio) {
+        const respostaNotificacao = await Notifications.getLastNotificationResponseAsync()
+        if (respostaNotificacao) return
+      }
 
       const resp = await api.get(cfg.url)
       const abertos = cfg.linhas(resp).filter(cfg.emAndamento)
@@ -162,7 +177,14 @@ export default function RetomadaMatchHost() {
     // checagem desista lá dentro. Sem isto, uma mudança posterior de assinatura ou de
     // boas-vindas re-dispararia este caminho no meio do uso.
     jaRodouRef.current = String(uid)
-    checar()
+    // A primeira passagem é a abertura do app; da segunda em diante o que mudou foi o
+    // usuário — alguém saiu e entrou noutra conta com o app na mão, e essa entrada merece
+    // a mesma retomada de sempre, sem o toque de notificação que abriu o processo mandar
+    // nela. Baixa a marca antes de chamar, para que a desistência lá dentro não a deixe
+    // pendurada e o próximo login herde o arranque frio.
+    const primeiraAbertura = arranqueFrio
+    arranqueFrio = false
+    checar(false, primeiraAbertura)
   }, [usuario?.id, checar])
 
   // Volta do 2º plano. Sem guarda de "uma vez": aqui a repetição é o ponto — o estado do
