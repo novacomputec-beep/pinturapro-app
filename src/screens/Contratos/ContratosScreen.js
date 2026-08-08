@@ -77,11 +77,20 @@ export default function ContratosScreen({ navigation }) {
     // quando a hora local estava adiantada/atrasada — a mesma obra dizia "no páreo" aqui e
     // já expirada lá. Aqui a linha é a CANDIDATURA, não a obra, e os campos da obra chegam
     // prefixados (obra_status, obra_titulo…), daí obra_expirada antes do nome simples.
-    const demandaAberta    = item.obra_status !== 'encerrada' && !(item.obra_expirada ?? item.expirada)
+    const eEncerrada       = item.obra_status === 'encerrada'
+    const expirada         = !eEncerrada && !!(item.obra_expirada ?? item.expirada)
+    const demandaAberta    = !eEncerrada && !expirada
     const emAnalise        = STATUS_GRUPO.pendente.includes(item.status)
     const semMatch         = item.match_usuario_id == null
     const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
     const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
+    // A candidatura nunca foi respondida e já não será: a obra fechou com outra pessoa ou o
+    // prazo venceu. O status CONTINUA 'pendente' no servidor, e BadgeStatus só olha o status
+    // — diria "Pendente" para uma disputa que terminou. Override local igual ao de
+    // MeusInteressesScreen.js:184, porque aqui o desfecho é o da OBRA, não o da candidatura.
+    // Vale só enquanto indeciso: aceita e recusada têm desfecho próprio e mantêm o badge
+    // delas mesmo com a obra fechada.
+    const semResposta      = emAnalise && !demandaAberta
 
     const abrirDetalhe = () => navigation?.navigate('DetalheObra', {
       obra: {
@@ -98,7 +107,14 @@ export default function ContratosScreen({ navigation }) {
       <TouchableOpacity activeOpacity={0.85} onPress={abrirDetalhe}>
         <Card estilo={estilos.card}>
           <View style={estilos.cardTopo}>
-            <BadgeStatus status={item.status} />
+            {semResposta ? (
+              <View style={estilos.badgeSemResposta}>
+                <View style={estilos.badgeSemRespostaDot} />
+                <Text style={estilos.badgeSemRespostaTexto}>Sem resposta</Text>
+              </View>
+            ) : (
+              <BadgeStatus status={item.status} />
+            )}
             <Text style={estilos.dataTexto}>{formatarData(item.criado_em)}</Text>
           </View>
 
@@ -110,6 +126,19 @@ export default function ContratosScreen({ navigation }) {
           <Text style={estilos.obraLocal}>
             📍 {item.obra_cidade || item.cidade || '—'}{item.obra_uf || item.uf ? `, ${item.obra_uf || item.uf}` : ''}
           </Text>
+
+          {/* Algo no card precisa dizer que a OBRA acabou: "Sem resposta" fala da
+              candidatura, e a recusada não ganha badge nenhum sobre a demanda. Sem a tarja,
+              a linha de uma obra fechada é indistinguível de uma em disputa. Mesma tarja de
+              MeusInteressesScreen.js:197 — o componente Tag não serve porque o estilo dele
+              não tem alignSelf e a tarja esticaria na largura do card. */}
+          {!demandaAberta && (
+            <View style={[estilos.tagObra, expirada && estilos.tagExpirada]}>
+              <Text style={[estilos.tagObraTexto, expirada && estilos.tagExpiradaTexto]}>
+                {eEncerrada ? '🔒 Obra encerrada' : '⏰ Prazo expirado'}
+              </Text>
+            </View>
+          )}
 
           {mostrarParaeo && (
             <Text style={[estilos.avisoParaeo, { color: semMatch ? cores.sucesso : cores.textoFraco }]}>
@@ -132,7 +161,10 @@ export default function ContratosScreen({ navigation }) {
             </View>
             <View style={estilos.infoItem}>
               <Text style={estilos.infoLabel}>Situação</Text>
-              <Text style={estilos.infoValor}>{item.status}</Text>
+              {/* Sai da MESMA decisão do badge. O status cru dizia "pendente" a três
+                  centímetros de "Sem resposta" e da tarja de obra fechada — o card dava
+                  duas respostas opostas e a errada era a que tinha o rótulo "Situação". */}
+              <Text style={estilos.infoValor}>{semResposta ? 'Sem resposta' : item.status}</Text>
             </View>
           </View>
 
@@ -229,8 +261,23 @@ const estilos = StyleSheet.create({
   card: { padding: 16 },
   cardTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dataTexto: { fontSize: 11, color: cores.textoMutado },
+  // Mesma geometria do BadgeStatus (components/index.js:154) — pílula, ponto de 5 e texto
+  // de 11 —, porque este badge fica no lugar dele: divergir faria o card da disputa
+  // encerrada parecer de outra lista. Nas cores segue 'recusada', o desfecho mais próximo.
+  badgeSemResposta: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: cores.perigoSuave, borderWidth: 0.5, borderColor: cores.perigo + '66', borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 4 },
+  badgeSemRespostaDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: cores.perigo },
+  badgeSemRespostaTexto: { fontSize: 11, fontWeight: '500', color: cores.perigo },
   obraTitulo: { fontSize: 15, fontWeight: '600', color: cores.textoForte, lineHeight: 22, marginBottom: 4 },
   obraLocal: { fontSize: 12, color: cores.textoFraco, marginBottom: 14 },
+  // Espelha tagReparo/tagExpirado de MeusInteressesScreen.js:314, em tokens do tema em vez
+  // dos hex de lá. marginBottom 14 é o mesmo respiro que obraLocal já usa acima da tarja.
+  tagObra: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 14 },
+  // textoMedio, não textoFraco: #444 sobre o #1A1A1A da tarja dá ~1.6:1, ilegível para a
+  // única linha que diz que a obra acabou. #888 sobe para ~4.9:1. Igual em
+  // MeusInteressesScreen.js:315.
+  tagObraTexto: { fontSize: 10, color: cores.textoMedio, fontWeight: '500' },
+  tagExpirada: { backgroundColor: cores.perigoSuave, borderColor: cores.perigo + '55' },
+  tagExpiradaTexto: { fontSize: 11, color: cores.perigo, fontWeight: '700' },
   avisoParaeo: { fontSize: 12, lineHeight: 16, marginBottom: 14 },
   infoRow: { flexDirection: 'row', gap: 8 },
   infoItem: { flex: 1, backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, alignItems: 'center' },

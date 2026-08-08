@@ -312,7 +312,9 @@ const estilos = StyleSheet.create({
   statusBadge:      { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   statusTexto:      { fontSize: 11, fontWeight: '700' },
   tagReparo:        { backgroundColor: '#1e1e1e', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 6, borderWidth: 0.5, borderColor: '#333' },
-  tagReparoTexto:   { fontSize: 10, color: cores.textoFraco, fontWeight: '500' },
+  // textoMedio, não textoFraco: #444 sobre o #1e1e1e da tarja dá ~1.6:1, ilegível para a
+  // única linha que diz que o serviço acabou. #888 sobe para ~4.7:1.
+  tagReparoTexto:   { fontSize: 10, color: cores.textoMedio, fontWeight: '500' },
   tagExpirado:      { backgroundColor: '#3a1a1a', borderColor: '#f4433655' },
   tagExpiradoTexto: { fontSize: 11, color: '#f44336', fontWeight: '700' },
   statusBadgeInativo: { opacity: 0.5 },
