@@ -56,11 +56,15 @@ export default function ContratosScreen({ navigation }) {
 
   // Guarda defensiva contra shape inesperado (evita crash de render)
   const lista = Array.isArray(candidaturas) ? candidaturas : []
-  // Obras encerradas aparecem em "Contratos Finalizados"; aqui só negociações em andamento
-  const emAndamento = lista.filter(c => c.obra_status !== 'encerrada')
+  // Sai daqui SÓ quem ficou com a obra: essa candidatura virou contrato e continua em
+  // "Contratos Finalizados", então mantê-la aqui a mostraria em dois lugares ao mesmo tempo.
+  // A recusada fica. Filtrar pelo ciclo da OBRA levava as duas juntas e tirava a recusa de
+  // todos os filtros de uma vez, inclusive "Recusados" — mesma correção de
+  // MeusInteressesScreen.js:84, que é esta lista na vertical de reparos.
+  const visiveis = lista.filter(c => !(c.obra_status === 'encerrada' && STATUS_GRUPO.aprovada.includes(c.status)))
   const dadosFiltrados = filtro === 'todos'
-    ? emAndamento
-    : emAndamento.filter(c => (STATUS_GRUPO[filtro] || [filtro]).includes(c.status))
+    ? visiveis
+    : visiveis.filter(c => (STATUS_GRUPO[filtro] || [filtro]).includes(c.status))
 
   const renderItem = ({ item }) => {
     const temContrato = STATUS_GRUPO.aprovada.includes(item.status)

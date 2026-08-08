@@ -36,9 +36,9 @@ const formatarValor = (v) =>
 
 // Ciclos do REPARO que já não voltam atrás. 'cancelada' é o que a moderação grava ao
 // recusar a demanda; 'expirada' é o vencimento já materializado no próprio status. Nenhum
-// dos dois é filtrado na entrada (só 'encerrada' é, :93), então sem esta lista a linha
-// passava como viva: caía em "Pendentes", não exibia tag nenhuma e ainda anunciava
-// "Você segue no páreo" para um reparo que não existe mais.
+// dos dois é filtrado na entrada (de lá só sai o aceite num reparo 'encerrada', :84), então
+// sem esta lista a linha passava como viva: caía em "Pendentes", não exibia tag nenhuma e
+// ainda anunciava "Você segue no páreo" para um reparo que não existe mais.
 const REPARO_INATIVO = ['cancelada', 'expirada']
 
 // Expiração vem PRONTA do servidor (relógio do banco) — ver o comentário em renderItem.
@@ -75,6 +75,15 @@ const balde = (item) =>
     : GRUPO_STATUS.pendente.includes(item.status) ? 'pendente'
     : null
 
+// Quem sai da lista quando o reparo encerra: SÓ quem ficou com o serviço. Essa linha
+// continua a vida em "Contratos Finalizados" — com avaliação, denúncia e contato do dono —,
+// e mantê-la aqui a mostraria em dois lugares ao mesmo tempo.
+// A recusa e a proposta que venceu sem resposta NÃO têm essa segunda casa. Filtrar pelo
+// ciclo do REPARO levava as duas junto e apagava a linha de todos os baldes de uma vez,
+// inclusive "Recusados" — que passava a dizer "Nenhuma recusa" a quem tinha sido recusado.
+const migrouParaFinalizados = (item) =>
+  item.reparo_status === 'encerrada' && GRUPO_STATUS.aprovada.includes(item.status)
+
 const FILTROS = [
   { id: 'todos',    label: 'Todos'     },
   { id: 'pendente', label: 'Pendentes' },
@@ -107,8 +116,8 @@ export default function MeusInteressesScreen({ navigation }) {
       // proposta, não de qual coleção o servidor escolheu. O split `ativos`/`historico`
       // segue o ciclo do REPARO (encerrado/vencido), não o da proposta, então classificar
       // por ele colocava uma recusa em "Ativos" e um aceite em "Histórico".
-      // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; encerrados pelo dono
-      // saem daqui na hora (vão para "Contratos Finalizados") sem precisar relogar.
+      // B72-05: ao focar a aba (useFocusEffect) refazemos a busca; o serviço que você
+      // fechou sai daqui na hora (vai para "Contratos Finalizados") sem precisar relogar.
       // Dedupe por id, ficando com a PRIMEIRA ocorrência (ordem: ativos antes de
       // histórico). Enquanto eram duas listas separadas, uma linha repetida nos dois
       // arrays passava despercebida; concatenadas, ela vira chave duplicada no
@@ -122,7 +131,7 @@ export default function MeusInteressesScreen({ navigation }) {
           vistos.add(k)
           return true
         })
-      setLinhas(todas.filter(item => item.reparo_status !== 'encerrada'))
+      setLinhas(todas.filter(item => !migrouParaFinalizados(item)))
     } catch (err) {
       console.log('Erro ao buscar interesses:', err)
       Alert.alert('Erro', 'Não foi possível carregar seus serviços.')
@@ -164,12 +173,15 @@ export default function MeusInteressesScreen({ navigation }) {
     const semMatch         = item.match_usuario_id == null
     const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
     const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
-    // O prazo venceu e a proposta nunca foi respondida: o status CONTINUA 'pendente' no
-    // servidor, então o mapa devolveria "Aguardando resposta" — a espera que já acabou.
-    // Aqui o desfecho não é o status da proposta, é o do reparo: mesma tarja do expirado
-    // com o texto que descreve o que houve. Vale só enquanto indeciso; aceito e recusado
-    // têm desfecho próprio e mantêm o badge deles mesmo com o anúncio vencido.
-    const s = (expirado && emAnalise)
+    // A proposta nunca foi respondida e já não será. Duas maneiras de a espera acabar sem
+    // resposta: o prazo venceu, ou o dono encerrou o reparo com outra pessoa — e o segundo
+    // é o caso comum, porque quem perde a disputa raramente é recusado um a um. Nos dois o
+    // status CONTINUA 'pendente' no servidor, então o mapa devolveria "Aguardando resposta"
+    // ao lado da tarja que diz que acabou. Aqui o desfecho não é o status da proposta, é o
+    // da demanda: mesma tarja do expirado com o texto que descreve o que houve.
+    // Vale só enquanto indeciso; aceito e recusado têm desfecho próprio e mantêm o badge
+    // deles mesmo com o anúncio vencido ou o serviço fechado.
+    const s = ((expirado || eEncerrado) && emAnalise)
       ? { ...STATUS_INFO.expirado, texto: 'Sem resposta' }
       : (STATUS_INFO[item.status] || STATUS_INFO.pendente)
 
