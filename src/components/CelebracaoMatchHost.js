@@ -6,6 +6,14 @@ import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
 
+// Título entre aspas da PRIMEIRA linha de um aviso agrupado, ou null quando ela não traz
+// título — o ramo do pintor já convivia com isso, ver os guardas em :298 e :329. Só o
+// primeiro de propósito: a contagem faz o resto do trabalho, e enfileirar todos os títulos
+// estouraria o card (380px de largura, subtítulo de 14px).
+// A concordância fica em quem chama, que é onde o substantivo está: "o serviço X" (m.) no
+// ramo do reparador, "a obra X" (f.) no do pintor.
+const nomeDe = (linhas) => (linhas[0]?.titulo ? `"${linhas[0].titulo}"` : null)
+
 // Detecta o match a comemorar para o usuário atual, conforme o papel. Retorna o
 // primeiro evento ainda não visto (marca d'água local) ou null. Cada papel celebra
 // o momento certo do funil: donos ao receber proposta; prestadores ao serem aceitos.
@@ -254,13 +262,18 @@ const detectar = async (usuario) => {
     const recs = (resp.historico || []).filter(x =>
       (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
     )
+    // Nomeia a demanda: sem isto o aviso dizia que uma proposta foi recusada mas não QUAL,
+    // e este modal é o único lugar em que a recusa aparece — a linha recusada não é
+    // destacada em "Meus Serviços", ela só passa a exibir "✗ Recusado" entre as outras.
+    // Sem título disponível volta ao texto anterior, genérico mas correto.
+    const nomeRec = nomeDe(recs)
     if (recs.length) return {
       semConfete: true,
       chaves: recs.map(x => `recusa:${x.id}`), emoji: '😔',
       titulo: 'Não foi dessa vez',
       subtitulo: recs.length === 1
-        ? 'Infelizmente o serviço foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏'
-        : `Infelizmente ${recs.length} serviços foram dados a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
+        ? `Infelizmente o serviço${nomeRec ? ` ${nomeRec}` : ''} foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏`
+        : `Infelizmente ${nomeRec ? `${nomeRec} e outros ${recs.length - 1}` : `${recs.length}`} serviços foram dados a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
       ctaTexto: 'Ver outros serviços',
       navegar: () => navigationRef.current?.navigate('Reparos'),
     }
@@ -328,13 +341,17 @@ const detectar = async (usuario) => {
     const recs = (resp.candidaturas || []).filter(x =>
       (x.status === 'recusado' || x.status === 'recusada') && naoVisto(`recusa:${x.id}`)
     )
+    // Mesmo motivo do ramo do reparador (:265): o aviso é o único lugar em que a recusa
+    // aparece, e sem o nome não dizia de qual obra falava. "outras" no feminino, seguindo a
+    // concordância que este ramo já mantém ("foram dadas", "Ver outras obras").
+    const nomeRec = nomeDe(recs)
     if (recs.length) return {
       semConfete: true,
       chaves: recs.map(x => `recusa:${x.id}`), emoji: '😔',
       titulo: 'Não foi dessa vez',
       subtitulo: recs.length === 1
-        ? 'Infelizmente a obra foi dada a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏'
-        : `Infelizmente ${recs.length} obras foram dadas a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
+        ? `Infelizmente a obra${nomeRec ? ` ${nomeRec}` : ''} foi dada a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏`
+        : `Infelizmente ${nomeRec ? `${nomeRec} e outras ${recs.length - 1}` : `${recs.length}`} obras foram dadas a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
       ctaTexto: 'Ver outras obras',
       navegar: () => navigationRef.current?.navigate('Obras'),
     }
