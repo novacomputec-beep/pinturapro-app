@@ -943,6 +943,14 @@ export default function DetalheObraScreen({ route, navigation }) {
   // justamente o sinal de urgência que o faz decidir.
   const minhaRecusada = minhaCandidatura?.status === 'recusado' || minhaCandidatura?.status === 'recusada'
   const foraDaDisputa = !isDono && (minhaRecusada || (temMatch && !souPintorDoMatch))
+  // As duas grafias do aceite (ver STATUS_GRUPO em ContratosScreen.js:24), derivadas uma vez
+  // porque agora dois blocos dependem do mesmo teste: o que oferece a ida ao local e o que
+  // explica por que ela não está sendo oferecida. Espelha DetalheReparoScreen:1045.
+  const minhaAceita = minhaCandidatura?.status === 'aceito' || minhaCandidatura?.status === 'aprovada'
+  // Prazo vencido vem PRONTO do servidor (relógio do banco), o mesmo campo que o botão de
+  // estender já usa (:1262). Não se compara expira_em com o relógio do aparelho: a hora
+  // local adiantada faria esta tela discordar do servidor sobre o que ainda está de pé.
+  const expirada = !!obra?.expirada
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const pintorMatch = temMatch
@@ -1662,7 +1670,18 @@ export default function DetalheObraScreen({ route, navigation }) {
                         )}
                       </>
                     )}
-                    {(minhaCandidatura.status === 'aceito' || minhaCandidatura.status === 'aprovada') && (
+                    {/* Prazo vencido: nada de oferecer a ida ao local. Espelha
+                        DetalheReparoScreen — o bloco abaixo promete "você foi selecionado" e
+                        arma a contagem regressiva de uma obra cujo anúncio já venceu. O aviso
+                        que substitui diz o que houve e para onde ir (só o dono estende o
+                        prazo, :1262). */}
+                    {minhaAceita && expirada && (
+                      <>
+                        <Text style={{ color: '#f44336', fontWeight: '600', marginBottom: 6 }}>⏰ Prazo vencido</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta foi aceita, mas o prazo desta obra venceu antes da sua ida ao local. Fale com o solicitante: ele pode aumentar o tempo do serviço para vocês seguirem.</Text>
+                      </>
+                    )}
+                    {minhaAceita && !expirada && (
                       <>
                         <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>

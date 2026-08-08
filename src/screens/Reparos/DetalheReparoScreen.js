@@ -1039,6 +1039,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // é justamente o sinal de urgência que o faz decidir.
   const meuInteresseRecusado = meuInteresse?.status === 'recusado' || meuInteresse?.status === 'recusada'
   const foraDaDisputa = !isDono && (meuInteresseRecusado || (temMatch && !souPrestadorDoMatch))
+  // As duas grafias do aceite (ver STATUS_GRUPO em ContratosScreen.js:24), derivadas uma vez
+  // porque agora dois blocos dependem do mesmo teste: o que oferece a ida ao local e o que
+  // explica por que ela não está sendo oferecida.
+  const meuInteresseAceito = meuInteresse?.status === 'aceito' || meuInteresse?.status === 'aprovada'
+  // Prazo vencido vem PRONTO do servidor (relógio do banco), o mesmo campo que o botão de
+  // estender já usa (:1406). Não se compara expira_em com o relógio do aparelho: a hora
+  // local adiantada faria esta tela discordar do servidor sobre o que ainda está de pé.
+  const expirada = !!reparo?.expirada
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const prestadorMatch = temMatch
@@ -1811,7 +1819,19 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         )}
                       </>
                     )}
-                    {(meuInteresse.status === 'aceito' || meuInteresse.status === 'aprovada') && (
+                    {/* Prazo vencido: nada de oferecer a ida ao local. O bloco abaixo promete
+                        "você foi selecionado" e arma a contagem regressiva de um serviço cujo
+                        anúncio já venceu — a janela de chegada e o "estou a caminho" partem de
+                        um combinado que não está mais de pé. O aviso que substitui não deixa a
+                        pessoa no vazio: diz o que houve e para onde ir (só o dono estende o
+                        prazo, :1406). */}
+                    {meuInteresseAceito && expirada && (
+                      <>
+                        <Text style={{ color: '#f44336', fontWeight: '600', marginBottom: 6 }}>⏰ Prazo vencido</Text>
+                        <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta foi aceita, mas o prazo deste serviço venceu antes da sua ida ao local. Fale com o solicitante: ele pode aumentar o tempo do serviço para vocês seguirem.</Text>
+                      </>
+                    )}
+                    {meuInteresseAceito && !expirada && (
                       <>
                         <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>
