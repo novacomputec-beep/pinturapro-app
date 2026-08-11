@@ -110,7 +110,9 @@ const BarraServicoEmAndamento = () => {
   // titulo (ver os guardas em DetalheObraScreen) —, e aí o rótulo genérico ainda cumpre o
   // papel da barra, que é levar de volta.
   const rotulo = um
-    ? (abertos[0].titulo || (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
+    ? (abertos[0].titulo
+        ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${abertos[0].titulo}`
+        : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
     : `${abertos.length} ${ehObra ? 'obras' : 'serviços'} em andamento`
 
   // Uma leva ao detalhe; várias à lista, porque com mais de um combinado de pé não dá para
