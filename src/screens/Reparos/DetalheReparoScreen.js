@@ -431,7 +431,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     try {
       const mensagem = [
         `⏱ Experiência: ${tempoExperiencia}`,
-        `⚠️ Já enfrentou problemas: ${jaEnfrentouProblemas || 'Não informado'}`,
+        `⚠️ Já enfrentou problemas com esse tipo de serviço: ${jaEnfrentouProblemas || 'Não informado'}`,
         `💡 Sugestão durabilidade: ${sugestaoDurabilidade || 'Não informado'}`,
         `📋 Possui referências: ${possuiReferencias || 'Não informado'}`,
         `🔧 Possui ferramentas: ${possuiFerramentas}`,
@@ -1968,7 +1968,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       </View>
                     )}
                     <PerguntaOpcoes label="⏱ Há quanto tempo realiza este tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
-                    <PerguntaOpcoes label="⚠️ Já enfrentou problemas com este tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
+                    <PerguntaOpcoes label="⚠️ Já enfrentou problemas com esse tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
                     <PerguntaOpcoes label="📋 Possui referências neste tipo de serviço?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
                     <PerguntaOpcoes label="🔧 Possui todas as ferramentas necessárias?" opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']} valor={possuiFerramentas} onChange={setPossuiFerramentas} />
                     <View style={estilos.perguntaWrap}>
