@@ -425,7 +425,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const handleInteresse = async () => {
-    if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza este tipo de serviço.'); return }
+    if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza esse tipo de serviço.'); return }
     if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui as ferramentas necessárias.'); return }
     setEnviando(true)
     try {
@@ -1967,9 +1967,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         </Text>
                       </View>
                     )}
-                    <PerguntaOpcoes label="⏱ Há quanto tempo realiza este tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
+                    <PerguntaOpcoes label="⏱ Há quanto tempo realiza esse tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
                     <PerguntaOpcoes label="⚠️ Já enfrentou problemas com esse tipo de serviço?" opcoes={['Nunca', 'Raramente', 'Algumas vezes']} valor={jaEnfrentouProblemas} onChange={setJaEnfrentouProblemas} />
-                    <PerguntaOpcoes label="📋 Possui referências neste tipo de serviço?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
+                    <PerguntaOpcoes label="📋 Possui referências nesse tipo de serviço?" opcoes={['Sim', 'Não', 'Tenho fotos de serviços']} valor={possuiReferencias} onChange={setPossuiReferencias} />
                     <PerguntaOpcoes label="🔧 Possui todas as ferramentas necessárias?" opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']} valor={possuiFerramentas} onChange={setPossuiFerramentas} />
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
