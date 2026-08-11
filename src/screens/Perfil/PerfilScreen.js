@@ -55,6 +55,10 @@ export default function PerfilScreen({ navigation }) {
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
   const [mostrarExcluir, setMostrarExcluir] = useState(false)
   const [permNotif, setPermNotif] = useState(null)
+  // Resultado do ÚLTIMO registrarPushToken disparado por esta tela (null = ainda não
+  // houve toque nesta montagem). Só o toque no item alimenta isto: os registros de
+  // boot/login não passam por aqui e continuam invisíveis.
+  const [resultadoPush, setResultadoPush] = useState(null)
 
   const handleRenovarAssinatura = async () => {
     setRenovandoAssinatura(true)
@@ -138,7 +142,14 @@ export default function PerfilScreen({ navigation }) {
     // Ainda dá para pedir: garantirPermissaoConcedida é o ÚNICO ponto que dispara o diálogo
     // do SO, e registrarPushToken só faz sentido depois do "sim" — mesma dupla do soft-ask.
     const concedida = await garantirPermissaoConcedida()
-    if (concedida) registrarPushToken()
+    if (concedida) {
+      // .catch defensivo: hoje registrarPushToken não rejeita (configurarCanalAndroid
+      // engole as próprias falhas), mas o await em :169 é o único sem try/catch — se um
+      // dia rejeitar, vira uma linha de erro aqui em vez de unhandled rejection.
+      const resultado = await registrarPushToken()
+        .catch(err => ({ ok: false, motivo: 'erro_token', detalhe: err?.message }))
+      setResultadoPush(resultado || null)
+    }
     verificarPermissaoNotif()
   }
 
@@ -222,6 +233,19 @@ export default function PerfilScreen({ navigation }) {
     : permNotif.granted ? cores.sucesso
     : permNotif.canAskAgain === false ? cores.perigo
     : cores.textoFraco
+  // Desfecho do registro do token, distinto da permissão acima: dá para ter permissão
+  // concedida e mesmo assim nenhum token no servidor (Expo fora do ar, POST falhando).
+  // O token aparece só como prefixo — é credencial do aparelho, não vai inteiro na tela.
+  const textoResultadoPush = !resultadoPush
+    ? ''
+    : resultadoPush.ok ? `Registrado: ${String(resultadoPush.token || '').slice(0, 24)}…`
+    : resultadoPush.motivo === 'negada' ? 'Permissão negada — token não gerado'
+    : resultadoPush.motivo === 'bloqueada' ? 'Bloqueada nas configurações do aparelho'
+    : resultadoPush.motivo === 'erro_consulta' ? 'Falha ao consultar a permissão'
+    : resultadoPush.motivo === 'erro_token' ? 'Falha ao gerar o token no Expo'
+    : resultadoPush.motivo === 'erro_envio'
+      ? `Falha ao enviar ao servidor${resultadoPush.status ? ` (${resultadoPush.status})` : ''}`
+      : ''
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
@@ -333,6 +357,9 @@ export default function PerfilScreen({ navigation }) {
             estadoCor={estadoNotifCor}
             onPress={handleAtivarNotificacoes}
           />
+          {/* Irmão do ItemAcao, não filho: o ItemAcao é uma linha horizontal usada por
+              outros sete itens desta tela e não tem lugar para uma segunda linha. */}
+          {!!textoResultadoPush && <Text style={estilos.notifResultado}>{textoResultadoPush}</Text>}
           <Separador />
           {ehPrestador && (
             <>
@@ -420,6 +447,7 @@ const estilos = StyleSheet.create({
   itemAcaoDireita: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemAcaoEstado: { fontSize: 12, fontWeight: '600', color: cores.textoFraco },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
+  notifResultado: { fontSize: 12, color: cores.textoFraco, paddingHorizontal: 16, paddingBottom: 12, marginTop: -6 },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico },
   // O respiro de 16 passou para o crédito, que agora abre o bloco; a versão fica logo
   // abaixo dele, com o espaçamento de linha em vez do de bloco.

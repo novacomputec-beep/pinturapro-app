@@ -181,12 +181,12 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('[Push] falha ao consultar permissão de notificação | msg:', err?.message, err)
       reportarStatusPush('erro_registro')
-      return
+      return { ok: false, motivo: 'erro_consulta', detalhe: err?.message }
     }
     if (status !== 'granted') {
       console.error('[Push] permissão de notificação NÃO concedida | status:', status, '— token não será gerado')
       reportarStatusPush(canAskAgain === false ? 'bloqueada' : 'negada')
-      return
+      return { ok: false, motivo: canAskAgain === false ? 'bloqueada' : 'negada' }
     }
     reportarStatusPush('concedida')
 
@@ -202,15 +202,17 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.error('[Push] getExpoPushTokenAsync FALHOU | projectId:', projectId, '| msg:', err?.message, err)
       reportarStatusPush('erro_registro')
-      return
+      return { ok: false, motivo: 'erro_token', detalhe: err?.message }
     }
 
     try {
       await api.post('/auth/push-token', { token: pushToken })
       console.log('[Push] token registrado com sucesso | projectId:', projectId, '| token:', pushToken)
+      return { ok: true, token: pushToken }
     } catch (err) {
       console.error('[Push] POST /auth/push-token FALHOU | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message, err)
       reportarStatusPush('erro_registro')
+      return { ok: false, motivo: 'erro_envio', detalhe: err?.mensagem || err?.message, status: err?.status }
     }
   }
 
