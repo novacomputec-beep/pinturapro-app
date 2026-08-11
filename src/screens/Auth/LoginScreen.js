@@ -88,6 +88,9 @@ export default function LoginScreen({ navigation }) {
 
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
+            <Text style={estilos.logoNome}>
+              Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+            </Text>
           </View>
 
           <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
@@ -159,8 +162,10 @@ const estilos = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
   voltarBtn: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   voltarIcone: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
-  logoWrap: { alignItems: 'center', marginBottom: 24 },
-  logo: { width: 200, height: 100 },
+  logoWrap: { alignItems: 'center', marginBottom: 4 },
+  logo: { width: 170, height: 64 },
+  // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
+  logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 36 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
   form: { flex: 1 },
