@@ -1199,7 +1199,7 @@ export default function CadastroScreen({ navigation }) {
                 </View>
               </View>
 
-              <Text style={[estilos.labelSecao, { marginTop: 16 }]}>SELFIE COM DOCUMENTO *</Text>
+              <Text style={[estilos.fotoLabel, { marginTop: 16 }]}>Selfie com documento *</Text>
               <Text style={estilos.labelSecaoDesc}>Segure seu documento ao lado do rosto</Text>
               <UploadFoto
                 label="Tirar selfie com documento"
@@ -1296,7 +1296,7 @@ const estilos = StyleSheet.create({
   referenciaBox: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 14, marginBottom: 10 },
   referenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
   fotosRow: { flexDirection: 'row', gap: 12 },
-  fotoLabel: { fontSize: 11, color: cores.textoFraco, marginBottom: 6 },
+  fotoLabel: { fontSize: 13, color: cores.textoForte, marginBottom: 6 },
   fotoStatus: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
   uploadFotoBtn: { backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, overflow: 'hidden', height: 100 },
   uploadFotoVazio: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
