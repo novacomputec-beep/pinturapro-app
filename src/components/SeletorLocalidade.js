@@ -144,6 +144,7 @@ export default function SeletorLocalidade({
                   </TouchableOpacity>
                 )
               }}
+              keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
               initialNumToRender={25}
               maxToRenderPerBatch={30}
