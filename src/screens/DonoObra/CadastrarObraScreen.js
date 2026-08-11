@@ -268,12 +268,20 @@ export default function CadastrarObraScreen({ navigation }) {
   // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes).
   // O upload/registro em si vive no hook compartilhado (useUploadMidiaDemanda);
   // aqui ficam apenas os alertas e a navegação, específicos da obra.
-  const finalizarPublicacao = async (obraId, lista) => {
+  const finalizarPublicacao = async (obraId, lista, statusAprovacao) => {
     const falhas = await midia.publicarMidias(obraId, lista)
     if (!montadoRef.current) return
     setCarregando(false)
+    // Só a igualdade explícita com 'aprovada' anuncia publicação: qualquer outro valor
+    // (pendente, ausente, resposta antiga sem o campo) cai no texto de análise, que é a
+    // alegação mais fraca — anunciar "já está visível" para uma obra que não está seria pior.
+    const jaAprovada = statusAprovacao === 'aprovada'
     if (falhas.length === 0) {
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
+      Alert.alert(
+        jaAprovada ? '✅ Obra publicada!' : '✅ Obra enviada para análise!',
+        jaAprovada
+          ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
+          : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
@@ -283,11 +291,14 @@ export default function CadastrarObraScreen({ navigation }) {
       // A aprovação é dita AQUI também: este ramo substitui o alerta de sucesso, e sem
       // repetir o aviso o dono que tropeça numa mídia nunca fica sabendo que a obra
       // ainda passa por análise.
+      const fraseAprovacao = jaAprovada
+        ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
+        : 'Sua obra foi recebida e passará por uma breve aprovação.'
       Alert.alert(
-        '⚠️ Obra enviada para análise (mídias pendentes)',
-        `Sua obra foi recebida e passará por uma breve aprovação. Mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
+        jaAprovada ? '⚠️ Obra publicada (mídias pendentes)' : '⚠️ Obra enviada para análise (mídias pendentes)',
+        `${fraseAprovacao} Mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
-          { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(obraId, falhas) } },
+          { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(obraId, falhas, statusAprovacao) } },
           { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Minhas Obras') },
         ],
         { cancelable: false }
@@ -337,15 +348,23 @@ export default function CadastrarObraScreen({ navigation }) {
       setCarregando(false)
       return
     }
+    // Estado real de aprovação vindo da criação: decide se o alerta anuncia publicação ou
+    // análise. Lido uma vez aqui e repassado, para os dois desfechos abaixo dizerem o mesmo.
+    const statusAprovacao = obra?.status_aprovacao
+    const jaAprovada = statusAprovacao === 'aprovada'
     // Fase de mídia: cada item é isolado; falhas não cancelam as demais e podem ser reenviadas
     if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Obra enviada para análise!', 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
+      Alert.alert(
+        jaAprovada ? '✅ Obra publicada!' : '✅ Obra enviada para análise!',
+        jaAprovada
+          ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
+          : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
         [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
       return
     }
-    await finalizarPublicacao(obra.id)
+    await finalizarPublicacao(obra.id, undefined, statusAprovacao)
   }
 
   return (
