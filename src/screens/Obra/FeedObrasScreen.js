@@ -484,7 +484,7 @@ export default function FeedObrasScreen({ navigation }) {
                   <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
 
                   <Text style={estilos.modalLabel}>Estado</Text>
-                  <ScrollView style={ufSelecionada ? estilos.listaScrollEstadoColapsado : estilos.listaScroll} nestedScrollEnabled>
+                  <ScrollView style={ufSelecionada ? estilos.listaScrollEstadoColapsado : estilos.listaScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                     {estados.map(e => (
                       <TouchableOpacity key={e.sigla} style={[estilos.itemLista, ufSelecionada === e.sigla && estilos.itemListaAtivo]} onPress={() => { setUfSelecionada(e.sigla) }}>
                         <Text style={[estilos.itemListaTxt, ufSelecionada === e.sigla && estilos.itemListaTxtAtivo]}>{e.nome} ({e.sigla})</Text>
@@ -503,7 +503,7 @@ export default function FeedObrasScreen({ navigation }) {
                         onChangeText={setBuscaCidade}
                         autoCapitalize="words"
                       />
-                      <ScrollView style={estilos.listaScrollCidade} nestedScrollEnabled>
+                      <ScrollView style={estilos.listaScrollCidade} nestedScrollEnabled keyboardShouldPersistTaps="handled">
                         {cidades.length === 0
                           ? <Text style={estilos.txtCarregando}>Carregando cidades...</Text>
                           : cidades.filter(c => c.nome.toLowerCase().includes(buscaCidade.toLowerCase())).length === 0
