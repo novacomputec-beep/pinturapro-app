@@ -91,6 +91,7 @@ export default function LoginScreen({ navigation }) {
             <Text style={estilos.logoNome}>
               Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
             </Text>
+            <Text style={estilos.logoSub}>ArrumaPro</Text>
           </View>
 
           <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
@@ -159,16 +160,18 @@ export default function LoginScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 40 },
   voltarBtn: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   voltarIcone: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
   logoWrap: { alignItems: 'center', marginBottom: 4 },
   logo: { width: 170, height: 64 },
   // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
+  // Mesmos valores do logoSub da SplashScreen, para as duas telas baterem.
+  logoSub: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, letterSpacing: 0.5, marginBottom: 10 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 36 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
-  form: { flex: 1 },
+  form: {},
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
   esqueciBtn: { alignSelf: 'flex-end', marginBottom: 20, marginTop: -4 },
@@ -176,7 +179,7 @@ const estilos = StyleSheet.create({
   ouDivisor: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
   ouLinha: { flex: 1, height: 0.5, backgroundColor: cores.bordaFraca },
   ouTexto: { fontSize: 11, color: cores.textoMutado },
-  creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 24 },
+  creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 32 },
   btnDepois: { padding: 14, alignItems: 'center' },
   btnDepoisTexto: { fontSize: 14, color: cores.textoFraco },
 })
