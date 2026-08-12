@@ -495,7 +495,7 @@ export default function CadastrarObraScreen({ navigation }) {
               apagados, e era lido depois de publicar — quando já não informa decisão nenhuma. */}
           <Text style={estilos.avisoUpload}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, profissionais qualificados da sua região serão notificados.</Text>
           <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
-          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando fotos, aguarde...</Text>}
+          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando mídias, aguarde...</Text>}
         </ScrollView>
       </KeyboardAvoidingView>
 
