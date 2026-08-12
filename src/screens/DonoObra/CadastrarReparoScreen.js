@@ -479,7 +479,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           />
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           <BotaoPrimario titulo="Publicar serviço →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
-          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando mídias, aguarde...</Text>}
+          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando mídias, aguarde... Seu serviço já está publicado; o envio das mídias pode levar alguns minutos em conexões lentas.</Text>}
           <Text style={estilos.aviso}>Seu serviço será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
         </ScrollView>
       </KeyboardAvoidingView>

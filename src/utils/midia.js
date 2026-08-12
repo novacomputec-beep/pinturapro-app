@@ -176,11 +176,11 @@ const CONFIG_MIDIA = {
 }
 
 // ── Caminho ANTIGO (direto ao Cloudinary) — MOVIDO VERBATIM das telas ────────
-// Retry resiliente e SILENCIOSO: até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com
+// Retry resiliente e SILENCIOSO: até 3 tentativas (1 + MAX_UPLOAD_RETRIES) com
 // backoff exponencial + jitter, cobrindo falhas de transporte E respostas de
 // erro HTTP do Cloudinary (4xx/5xx com corpo { error }). Nenhum alerta enquanto
 // restam tentativas; só rejeita após esgotar todas.
-const MAX_UPLOAD_RETRIES = 8
+const MAX_UPLOAD_RETRIES = 2
 const TIMEOUT_FOTO  = 45000    // 45s — fotos são pequenas (quality 0.6)
 const TIMEOUT_VIDEO = 180000   // 180s — vídeos são muito maiores
 const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
