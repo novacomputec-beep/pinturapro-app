@@ -24,6 +24,12 @@
 // Respostas 4xx NUNCA são reexecutadas (nem com timeout/servidor ligados): são
 // definitivas (duplicado/inválido/não autorizado) e repetir não muda o resultado.
 //
+// EXCEÇÃO no 5xx: 503 com codigo SOBRECARGA (o servidor descartando carga por pool
+// saturado) é SEMPRE reexecutável, sem depender de { servidor }. É o único caso em que o
+// servidor promete que a requisição não foi processada e ainda diz quando voltar, via
+// Retry-After — que passa a ditar a espera no lugar do backoff local. Os demais 5xx
+// (500/502/504) seguem exatamente como antes, atrás da flag { servidor }.
+//
 // Tentativas: no máximo 3 (1 original + 2 retries). A espera antes do retry usa
 // backoff exponencial com jitter de ±20%:
 //   - após a 1ª falha: esperaMs base (padrão 1000ms) → 800–1200ms
@@ -49,6 +55,12 @@ const ESPERA_SOCKET_MORTO = 600
 // 16 s e a janela toda caberia em ~4 tentativas; com o teto são ~12, que é o ponto:
 // muitas chances de pegar o instante em que a rede volta.
 const ESPERA_MAX = 5000
+
+// Teto do Retry-After. O valor vem do SERVIDOR, e um número grande (por engano ou por
+// uma sobrecarga longa) prenderia o spinner do usuário pelo tempo que ele mandasse.
+// 30 s cabe dentro da JANELA_PERSISTIR de 45 s, então nem no modo { persistir } uma
+// única espera consome a janela inteira.
+const TETO_RETRY_AFTER = 30000
 
 // Janela do { persistir }. ~45 s é o tempo que se aceita esperar por uma ação que já
 // foi confirmada na tela (o spinner do botão continua rodando) sem que a pessoa
@@ -127,8 +139,15 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
       const isClientError = err.status >= 400 && err.status < 500
       const isNetwork = !isClientError && (err.code === 'ERR_NETWORK' || err.message === 'Network Error')
       const isTimeout = !isClientError && timeout && (err.code === 'ECONNABORTED' || err.message?.toLowerCase().includes('timeout'))
-      const isServidor = !isClientError && servidor && err.status >= 500
-      const reexecutavel = isNetwork || isTimeout || isServidor
+      // 503 + codigo SOBRECARGA é o servidor DESCARTANDO carga: a requisição foi recusada
+      // ANTES de ser processada, e o próprio servidor diz quando voltar (Retry-After). Por
+      // isso não passa pela flag { servidor }: vale para qualquer chamada, inclusive os
+      // POSTs que criam recurso e jamais poderiam repetir um 500 — ali um 500 pode ter
+      // sido processado, um shed não foi. Sai de isServidor para não ser classificado
+      // duas vezes e para não herdar o backoff local quando há Retry-After.
+      const isSobrecarga = err.status === 503 && err.codigo === 'SOBRECARGA'
+      const isServidor = !isClientError && servidor && err.status >= 500 && !isSobrecarga
+      const reexecutavel = isNetwork || isTimeout || isServidor || isSobrecarga
 
       // Não-reexecutável → propaga na hora, em qualquer modo.
       if (!reexecutavel) throw err
@@ -160,7 +179,18 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
       const base = persistir
         ? Math.min(esperaMs * Math.pow(2, tentativa), ESPERA_MAX)
         : esperaMs * Math.pow(2, tentativa)
-      const espera = base * (0.8 + Math.random() * 0.4)
+      // No shed, quem sabe quando a capacidade volta é o servidor: o Retry-After manda, e
+      // o backoff local (que não sabe nada sobre a fila do outro lado) fica de fora.
+      // MAS com o MESMO jitter de ±20% do caminho normal: a API manda 1 s FIXO para todo
+      // mundo que ela descarta, então honrar o valor ao pé da letra faria a frota inteira
+      // voltar no mesmo instante e derrubar o pool de novo — o efeito que o shed existe
+      // para evitar. O jitter entra ANTES do teto, para que o valor final nunca o ultrapasse.
+      // Header ausente, vazio ou não-numérico (inclusive a forma HTTP-date) cai no caminho
+      // de sempre, então um servidor que pare de mandá-lo não muda nada.
+      const raSeg = Number(err.retryAfter)
+      const espera = (isSobrecarga && Number.isFinite(raSeg) && raSeg > 0)
+        ? Math.min(raSeg * 1000 * (0.8 + Math.random() * 0.4), TETO_RETRY_AFTER)
+        : base * (0.8 + Math.random() * 0.4)
       await new Promise(r => setTimeout(r, espera))
     }
   }
