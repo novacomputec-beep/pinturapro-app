@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { candidaturasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BadgeStatus, Card, Separador, STATUS_BADGE } from '../../components'
+import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarData = (data) =>
@@ -31,6 +32,7 @@ export default function ContratosScreen({ navigation }) {
   const [candidaturas, setCandidaturas] = useState([])
   const [carregando, setCarregando] = useState(true)
   const [filtro, setFiltro] = useState('todos')
+  const [erro, setErro] = useState(null)
   const { usuario } = useAuth()
 
   const buscar = async () => {
@@ -38,8 +40,10 @@ export default function ContratosScreen({ navigation }) {
       const dados = await candidaturasService.minhas()
       // O endpoint retorna { candidaturas, page, limit } — extrai o array
       setCandidaturas(Array.isArray(dados?.candidaturas) ? dados.candidaturas : [])
+      setErro(null)
     } catch (err) {
       console.log('Erro ao buscar candidaturas:', err)
+      setErro(err.mensagem || 'Não foi possível carregar suas candidaturas.')
     } finally {
       setCarregando(false)
     }
@@ -234,6 +238,9 @@ export default function ContratosScreen({ navigation }) {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Irmão do ramo vazio, nunca dentro dele: lista vazia POR FALHA mostra os dois. */}
+      <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
 
       {carregando ? (
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />

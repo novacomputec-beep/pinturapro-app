@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
+import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
@@ -274,6 +275,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const { obra: obraInicial } = route.params
   const { usuario } = useAuth()
   const [obra, setObra] = useState(obraInicial)
+  // Falha da RECARGA, não "obra inexistente": a tela segue mostrando o objeto semeado
+  // pelo param da lista, que pode estar desatualizado — é isso que o banner avisa.
+  const [erro, setErro] = useState(null)
   const [avaliarVisivel, setAvaliarVisivel] = useState(false)
   const [midias, setMidias] = useState([])
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
@@ -368,8 +372,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   const buscar = async () => {
     try {
       await recarregarObra()
+      setErro(null)
     } catch (err) {
       console.log('Erro ao buscar obra:', err)
+      setErro('Não foi possível atualizar. Os dados podem estar desatualizados.')
     } finally {
       if (mountedRef.current) setCarregando(false)
     }
@@ -1059,6 +1065,9 @@ export default function DetalheObraScreen({ route, navigation }) {
         <Text style={estilos.topbarTitulo}>{isDono ? 'Minha obra' : 'Detalhe da obra'}</Text>
         <View style={{ width: 36 }} />
       </View>
+
+      {/* Acima do conteúdo SEMEADO, que continua na tela: a recarga é que falhou. */}
+      <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
 
       <Modal visible={!!fotoFullscreen} transparent animationType="fade" onRequestClose={() => setFotoFullscreen(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.97)', alignItems: 'center', justifyContent: 'center' }}>
