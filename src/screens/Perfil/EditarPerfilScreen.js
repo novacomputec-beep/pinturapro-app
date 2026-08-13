@@ -114,7 +114,10 @@ export default function EditarPerfilScreen({ navigation }) {
             const { status } = await ImagePicker.requestCameraPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
             const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 })
-            if (!result.canceled) processarFoto(result.assets[0].uri)
+            // assets?.length como no cadastro (CadastroScreen:394): sem ele, um resultado
+            // sem assets lançava aqui dentro e o catch abaixo culpava a câmera por um erro
+            // que não era dela.
+            if (!result.canceled && result.assets?.length) processarFoto(result.assets[0].uri)
           } catch (err) { console.log('[EditarPerfil] falha ao abrir câmera | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a câmera.') }
         }
       },
@@ -125,7 +128,8 @@ export default function EditarPerfilScreen({ navigation }) {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria.'); return }
             const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 })
-            if (!result.canceled) processarFoto(result.assets[0].uri)
+            // Mesma guarda do ramo da câmera acima, pela mesma razão.
+            if (!result.canceled && result.assets?.length) processarFoto(result.assets[0].uri)
           } catch (err) { console.log('[EditarPerfil] falha ao abrir galeria | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a galeria.') }
         }
       },

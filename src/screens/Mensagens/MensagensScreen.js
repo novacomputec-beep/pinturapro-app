@@ -98,7 +98,11 @@ export default function MensagensScreen() {
     setEnviando(true)
     try {
       const nova = await mensagensService.enviar(obraSelecionada.id, novaDuvida.trim())
-      setMensagens(prev => [...prev, nova])
+      // Sem id a resposta não pode virar item da lista: o keyExtractor receberia undefined
+      // e o React perderia a identidade das linhas. Nesse caso releem-se as mensagens do
+      // servidor, que é quem tem o id — a dúvida recém-enviada aparece do mesmo jeito.
+      if (nova?.id) setMensagens(prev => [...prev, nova])
+      else await buscarMensagens(obraSelecionada.id)
       setNovaDuvida('')
     } catch (err) {
       console.log('[Mensagens] falha ao enviar dúvida | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)

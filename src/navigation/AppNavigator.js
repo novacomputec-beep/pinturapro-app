@@ -724,7 +724,7 @@ export default function AppNavigator() {
       if (resposta?.notification?.request?.content?.data) {
         setTimeout(() => navegarParaNotificacao(resposta.notification.request.content.data), 500)
       }
-    })
+    }).catch(err => console.log('[AppNavigator] falha ao ler a última resposta de notificação | msg:', err?.message))
 
     respostaNotificacaoRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
       navegarParaNotificacao(resposta.notification.request.content.data)
