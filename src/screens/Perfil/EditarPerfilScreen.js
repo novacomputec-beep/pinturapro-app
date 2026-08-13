@@ -15,11 +15,11 @@ import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
 
 // Sobe a foto direto ao Cloudinary com retry resiliente e SILENCIOSO.
-// Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
+// Até 3 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
 // cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
 // Cloudinary (4xx/5xx com corpo { error }). Antes não havia timeout (travava
 // indefinidamente) nem retry suficiente; só rejeita após esgotar todas as tentativas.
-const MAX_UPLOAD_RETRIES = 8
+const MAX_UPLOAD_RETRIES = 2
 const UPLOAD_TIMEOUT = 45000
 const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
 const xhrUpload = (url, form) => new Promise((resolve, reject) => {
