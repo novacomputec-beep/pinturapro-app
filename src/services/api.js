@@ -89,7 +89,12 @@ api.interceptors.response.use(
       : `Erro de conexão (${error.code || error.message})\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.`
     // `codigo` é a chave estável do backend (ex.: 'cpf_duplicado', 'email_duplicado')
     // para classificar sem depender do texto da mensagem.
-    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo })
+    // `retryAfter` vai CRU (o valor do header, sem parse): quem decide o que fazer com ele
+    // é o comRetry, no 503 de sobrecarga. Axios normaliza o nome do header em minúsculas.
+    // Sem este repasse o comRetry não teria como enxergá-lo — ele só vê o objeto montado
+    // aqui, nunca a resposta original.
+    const retryAfter = error.response?.headers?.['retry-after']
+    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo, retryAfter })
   }
 )
 
