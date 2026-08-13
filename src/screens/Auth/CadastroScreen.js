@@ -116,11 +116,11 @@ const UploadFoto = ({ label, valor, uploadando, enviada, erro, onPress, onRetry 
 )
 
 // Sobe a mídia direto ao Cloudinary com retry resiliente e SILENCIOSO.
-// Até 9 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
+// Até 3 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
 // cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
 // Cloudinary (4xx/5xx com corpo { error }) — que antes furavam o retry. Nenhum
 // alerta aparece enquanto restam tentativas; só rejeita após esgotar todas.
-const MAX_UPLOAD_RETRIES = 8
+const MAX_UPLOAD_RETRIES = 2
 const UPLOAD_TIMEOUT = 45000
 
 // Cutover das 3 fotos de verificação para o NOSSO endpoint (POST /upload/midia).
@@ -751,7 +751,7 @@ export default function CadastroScreen({ navigation }) {
             )
           }, 300000)
           // Rede de segurança final (5 min) — não deve disparar no caso comum: o
-          // retry silencioso do xhrUpload (até 9 tentativas/foto) cobre quedas transitórias.
+          // retry silencioso do xhrUpload (até 3 tentativas/foto) cobre quedas transitórias.
           console.log('[cadastro] ▶ iniciando uploads de documentos (300s timeout de segurança ativo)')
           try {
             if (!uploadedDocFrenteUrl) {
