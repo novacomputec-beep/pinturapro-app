@@ -206,7 +206,11 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      await api.post('/auth/push-token', { token: pushToken })
+      // comRetry como as vizinhas (push-status, :127): era a ÚNICA chamada deste fluxo
+      // sem retry, e uma falha transitória de rede derrubava as notificações em silêncio
+      // até o próximo login. Gravar o token é idempotente — o destino é um ESTADO, não um
+      // recurso novo —, então { timeout } também cobre a variante que some sem resposta.
+      await comRetry(() => api.post('/auth/push-token', { token: pushToken }), { timeout: true })
       console.log('[Push] token registrado com sucesso | projectId:', projectId, '| token:', pushToken)
       return { ok: true, token: pushToken }
     } catch (err) {
@@ -251,8 +255,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = await SecureStore.getItemAsync('token')
       if (token) {
-        api.post('/auth/push-token/clear', {}, { headers: { Authorization: `Bearer ${token}` } })
-          .catch(err => console.log('[Push] falha ao limpar push_token no logout | msg:', err?.mensagem || err?.message))
+        // comRetry pela mesma razão do registro acima, e { timeout } pela mesma: limpar é
+        // idempotente. Segue SEM await — o logout local não pode esperar pela rede.
+        comRetry(() => api.post('/auth/push-token/clear', {}, { headers: { Authorization: `Bearer ${token}` } }), { timeout: true })
+          .catch(err => console.error('[Push][logout] push_token NÃO foi limpo no servidor — em aparelho compartilhado o próximo usuário deste aparelho pode receber notificações da conta anterior | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message))
       }
     } catch (err) {
       console.log('[Push] erro ao ler token para limpar push_token no logout | msg:', err?.message)

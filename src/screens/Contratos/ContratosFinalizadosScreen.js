@@ -39,15 +39,27 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const [avaliandoContrato, setAvaliandoContrato] = useState(null)
   const [denunciandoContrato, setDenunciandoContrato] = useState(null)
   const [erro, setErro] = useState(null)
+  // Estado PRÓPRIO, separado do `erro` da lista: são duas cargas independentes, e um
+  // buscar() bem-sucedido não pode apagar o aviso de que os bloqueios não carregaram
+  // (nem o contrário). Por isso são dois banners, cada um com seu retry.
+  const [erroBloqueados, setErroBloqueados] = useState(null)
 
   // Carrega a lista de prestadores bloqueados do dono na montagem (só lado dono).
-  useEffect(() => {
+  const buscarBloqueados = useCallback(() => {
     if (!ehDono) return
     comRetry(() => api.get('/usuarios/prestadores-bloqueados')).then(resp => {
       const ids = new Set((resp.bloqueados || []).map(b => b.prestador_id))
       setBloqueados(ids)
-    }).catch(err => console.log('[ContratosFinalizados] falha ao carregar bloqueados | msg:', err.message))
+      setErroBloqueados(null)
+    }).catch(err => {
+      console.log('[ContratosFinalizados] falha ao carregar bloqueados | msg:', err.message)
+      // A consequência é dita explicitamente: sem esta lista a tela desenha TODOS como
+      // liberados, e um bloqueio que a pessoa já fez pareceria não existir.
+      setErroBloqueados('Não foi possível carregar sua lista de bloqueios — profissionais bloqueados podem aparecer como liberados.')
+    })
   }, [ehDono])
+
+  useEffect(() => { buscarBloqueados() }, [buscarBloqueados])
 
   const toggleBloqueio = async (prestadorId) => {
     const jaBloqueado = bloqueados.has(prestadorId)
@@ -240,6 +252,8 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
       {/* Irmão do ramo vazio, nunca dentro dele: lista vazia POR FALHA mostra os dois. */}
       <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
+      {/* Segundo banner, carga independente: pode aparecer sozinho, com a lista OK. */}
+      <BannerErroCarregamento mensagem={erroBloqueados} onRetry={buscarBloqueados} />
 
       {contratos.length === 0 ? (
         <View style={estilos.vazio}>
