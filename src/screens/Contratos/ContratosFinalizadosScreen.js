@@ -9,6 +9,7 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import ModalDenuncia from '../../components/ModalDenuncia'
+import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarValor = (v) =>
@@ -37,6 +38,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const [bloqueados, setBloqueados] = useState(new Set())
   const [avaliandoContrato, setAvaliandoContrato] = useState(null)
   const [denunciandoContrato, setDenunciandoContrato] = useState(null)
+  const [erro, setErro] = useState(null)
 
   // Carrega a lista de prestadores bloqueados do dono na montagem (só lado dono).
   useEffect(() => {
@@ -112,8 +114,10 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
     try {
       const data = await comRetry(() => api.get(endpoint))
       setContratos(data.contratos || [])
+      setErro(null)
     } catch (err) {
       console.log('[ContratosFinalizados] falha ao carregar | tipo:', tipo, '| status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      setErro(err.mensagem || 'Não foi possível carregar seus contratos finalizados.')
     } finally {
       setCarregando(false)
       setAtualizando(false)
@@ -233,6 +237,9 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           {contratos.length} {ehObra ? 'obra' : 'serviço'}{contratos.length !== 1 ? 's' : ''} concluído{contratos.length !== 1 ? 's' : ''}
         </Text>
       </View>
+
+      {/* Irmão do ramo vazio, nunca dentro dele: lista vazia POR FALHA mostra os dois. */}
+      <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
 
       {contratos.length === 0 ? (
         <View style={estilos.vazio}>

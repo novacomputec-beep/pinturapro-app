@@ -12,6 +12,7 @@ import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -36,6 +37,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [secao, setSecao] = useState('ativos')
   const [mostrarBanner, setMostrarBanner] = useState(false)
   const [itemPendente, setItemPendente] = useState(null)
+  const [erro, setErro] = useState(null)
   const [coords] = useCoordsUsuario()
 
   // Núcleo da recarga: relê as duas listas e repõe o estado, PROPAGANDO a falha. É disso
@@ -77,8 +79,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const buscarDados = async () => {
     try {
       await recarregarDados()
+      setErro(null)
     } catch (err) {
       console.log('Erro ao buscar dados:', err)
+      setErro(err.mensagem || 'Não foi possível carregar suas demandas.')
     } finally {
       setCarregando(false)
       setAtualizando(false)
@@ -318,6 +322,9 @@ export default function MinhasObrasScreen({ navigation, route }) {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Irmão do ramo vazio, nunca dentro dele: lista vazia POR FALHA mostra os dois. */}
+      <BannerErroCarregamento mensagem={erro} onRetry={buscarDados} />
 
       {carregando ? (
         <ActivityIndicator color={cores.primaria} size="large" style={{ flex: 1 }} />

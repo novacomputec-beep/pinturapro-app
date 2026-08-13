@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
+import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 
 const formatarData = (d) =>
@@ -31,6 +32,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
   const [total, setTotal] = useState(0)
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
+  const [erro, setErro] = useState(null)
 
   // Carrega a 1ª página. media/total vêm da resposta (mesma fonte agregada dos cards de
   // prestador), então batem com o número mostrado ao contratante. A API pagina
@@ -41,8 +43,10 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
       setAvaliacoes(Array.isArray(data?.avaliacoes) ? data.avaliacoes : [])
       setMedia(Number(data?.media) || 0)
       setTotal(Number(data?.total) || 0)
+      setErro(null)
     } catch (err) {
       console.log('[AvaliacoesRecebidas] falha ao carregar | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      setErro(err.mensagem || 'Não foi possível carregar suas avaliações.')
     } finally {
       setCarregando(false)
       setAtualizando(false)
@@ -107,6 +111,8 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
       {avaliacoes.length === 0 ? (
         <>
           <Cabecalho />
+          {/* Irmão do ramo vazio, nunca dentro dele: lista vazia POR FALHA mostra os dois. */}
+          <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
           <View style={estilos.vazio}>
             <Text style={estilos.vazioIcone}>⭐</Text>
             <Text style={estilos.vazioTitulo}>Nenhuma avaliação ainda</Text>
@@ -120,7 +126,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
           data={avaliacoes}
           keyExtractor={(item, i) => String(item.id ?? i)}
           renderItem={renderItem}
-          ListHeaderComponent={Cabecalho}
+          ListHeaderComponent={<><Cabecalho /><BannerErroCarregamento mensagem={erro} onRetry={buscar} /></>}
           contentContainerStyle={estilos.lista}
           refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
           showsVerticalScrollIndicator={false}
