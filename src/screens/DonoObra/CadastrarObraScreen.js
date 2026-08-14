@@ -8,7 +8,6 @@ import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useFocusEffect } from '@react-navigation/native'
-import { bannerInteressadosHomeJaExibido, marcarBannerInteressadosHomeExibido } from '../../utils/sessao'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
@@ -82,8 +81,6 @@ export default function CadastrarObraScreen({ navigation }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
-  const [mostrarBanner, setMostrarBanner] = useState(false)
-  const [obraPendente, setObraPendente] = useState(null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -144,27 +141,6 @@ export default function CadastrarObraScreen({ navigation }) {
     montadoRef,
     setMidias: midia.adicionar,
   })
-
-  // Banner "Parabéns" também na aba inicial (Nova Obra) — uma vez por sessão,
-  // com flag própria (independente da aba Minhas Obras).
-  useFocusEffect(useCallback(() => {
-    let ativo = true
-    ;(async () => {
-      if (bannerInteressadosHomeJaExibido()) return
-      try {
-        const resp = await comRetry(() => api.get('/obras/minhas'))
-        const pendente = (resp.obras || []).find(o => Number(o.candidaturas_pendentes) > 0)
-        if (pendente && ativo && !bannerInteressadosHomeJaExibido()) {
-          marcarBannerInteressadosHomeExibido()
-          setObraPendente(pendente)
-          setMostrarBanner(true)
-        }
-      } catch (err) {
-        console.log('[CadastrarObra] falha ao checar pendentes p/ banner | code:', err.code)
-      }
-    })()
-    return () => { ativo = false }
-  }, []))
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
@@ -369,25 +345,6 @@ export default function CadastrarObraScreen({ navigation }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      {mostrarBanner && (
-        <View style={estilos.bannerParabens}>
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            onPress={() => {
-              setMostrarBanner(false)
-              if (obraPendente) navigation.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: obraPendente }, initial: false })
-            }}
-          >
-            <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – sua obra recebeu interessado(s) · toque para ver</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setMostrarBanner(false)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={estilos.bannerParabensFechar}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém
@@ -525,9 +482,6 @@ export default function CadastrarObraScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico, paddingTop: 16 },
-  bannerParabens:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.medio, marginHorizontal: espacos.tela, marginTop: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  bannerParabensTexto:  { flex: 1, color: '#4caf50', fontWeight: '700', fontSize: 13 },
-  bannerParabensFechar: { color: '#4caf50', fontSize: 15, fontWeight: '700', paddingLeft: 12 },
   btnVoltar: { marginTop: 60, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
