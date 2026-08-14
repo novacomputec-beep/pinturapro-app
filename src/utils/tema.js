@@ -13,7 +13,7 @@ export const cores = {
   // Azul da MARCA — o "P" do wordmark ProLar. Separado do `info` abaixo de propósito:
   // aquele é semântico (dica/destaque) e pode mudar sem mexer na marca. É o azul CLARO
   // do logo, não o navy do ícone, que somiria no #0A0A0A do fundo.
-  marcaAzul:     '#2E9BFF',
+  marcaAzul:     '#4FB2FF',
 
   sucesso:       '#5DC98A',  // verde — valores e aprovações
   sucessoSuave:  '#5DC98A22',
