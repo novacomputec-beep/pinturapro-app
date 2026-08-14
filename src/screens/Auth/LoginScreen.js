@@ -62,7 +62,7 @@ export default function LoginScreen({ navigation }) {
             Sua conta foi criada! Para acessar as obras disponíveis, finalize seu pagamento.
           </Text>
           <BotaoPrimario
-            titulo="Pagar agora via Mercado Pago →"
+            titulo="Pagar agora via PagBank →"
             onPress={() => Linking.openURL(linkPagamento)}
             estilo={{ marginBottom: 12, width: '100%' }}
           />
