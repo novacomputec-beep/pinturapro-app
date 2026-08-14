@@ -18,7 +18,7 @@ const SECOES = [
   },
   {
     titulo: '4. Assinatura e Pagamento',
-    texto: 'Prestadores de serviço pagam uma assinatura mensal para acesso à plataforma. O pagamento é processado de forma segura via PagBank.'
+    texto: 'Prestadores de serviço pagam uma assinatura para acesso à plataforma, nos planos mensal ou anual, escolhidos no cadastro. Os valores vigentes de cada plano são exibidos antes da contratação. O pagamento é processado de forma segura via PagBank.'
   },
   {
     titulo: '5. Uso Aceitável',
