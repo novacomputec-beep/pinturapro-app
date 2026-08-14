@@ -63,8 +63,9 @@ export default function SplashScreen({ navigation }) {
           resizeMode="contain"
         />
         <Text style={estilos.logoNome}>
-          Pro<Text style={{ color: cores.primaria }}>Lar</Text>
+          <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
         </Text>
+        <View style={estilos.logoRegua} />
         <Text style={estilos.logoTagline}>Obras e serviços gerais com profissionais qualificados e idoneidade checada.</Text>
       </View>
 
@@ -168,6 +169,18 @@ const estilos = StyleSheet.create({
     color: cores.textoForte,
     letterSpacing: -0.5,
     marginBottom: 6,
+  },
+  // Régua sob o wordmark, como na arte do logo. Largura fixa e curta de propósito: ela
+  // acompanha a PALAVRA, não a tela — esticada de ponta a ponta viraria um divisor de
+  // seção. textoFraco (e 2px) para ficar atrás da marca, nunca competindo com ela.
+  // Mesmos valores nas três telas que desenham o wordmark.
+  logoRegua: {
+    width: 64,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: cores.textoFraco,
+    marginTop: 2,
+    marginBottom: 10,
   },
   // textAlign próprio: o alignItems do logoArea centra o BLOCO, não o texto, então a
   // tagline quebrada em duas linhas saía alinhada à esquerda dentro de um bloco centrado.
