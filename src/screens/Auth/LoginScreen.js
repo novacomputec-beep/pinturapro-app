@@ -163,13 +163,22 @@ const estilos = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 40 },
   voltarBtn: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   voltarIcone: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
-  logoWrap: { alignItems: 'center', marginBottom: 4 },
+  // 22 aqui + os 10 do logoRegua = 32 de respiro entre a régua e o título — o mesmo 32 que
+  // o subtitulo usa para separar o bloco do formulário, e ~0,9 da lineHeight do título de
+  // 28px. Fica NESTE estilo, e não no marginBottom do logoRegua, porque aquele se declara
+  // idêntico ao das outras duas telas: mexer lá tornaria o comentário mentira.
+  logoWrap: { alignItems: 'center', marginBottom: 22 },
   logo: { width: 170, height: 64 },
   // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
   logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.textoFraco, marginTop: 2, marginBottom: 10 },
-  titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 36 },
+  // 20, e não 28: no 28 a saudação empatava com o wordmark (mesmo corpo, mesmo peso) e,
+  // quebrando em duas linhas, pesava MAIS que a marca. 20 é o degrau em negrito que a
+  // própria tela já usa (voltarIcone), então a marca lidera em 1,4x e o título ainda
+  // lidera o subtítulo de 13 em 1,54x. lineHeight acompanha na mesma proporção de antes
+  // (36/28 = 1,286 → 20 x 1,286 ≈ 26), senão as duas linhas se afastariam.
+  titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 26 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
   form: {},
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
