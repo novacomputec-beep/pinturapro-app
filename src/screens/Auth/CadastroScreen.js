@@ -1259,7 +1259,12 @@ const estilos = StyleSheet.create({
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
   logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.textoFraco, marginTop: 2, marginBottom: 10 },
   btnVoltar: { marginTop: 8, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
+  // Mesmos 20/26 do titulo da LoginScreen, pelo mesmo motivo: em 28 a saudação empatava
+  // com o wordmark (mesmo corpo, mesmo peso) e, nos passos que quebram em duas linhas
+  // ("Criar\nsua conta"), pesava mais que a marca. O passo 0 segue com adjustsFontSizeToFit
+  // e minimumFontScale 0.85 (:910) — agora encolhendo a partir de 20, que é o efeito
+  // desejado: o título nunca ultrapassa a marca, nem quando cabe folgado.
+  titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 26, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 12 },
   indicador: { flexDirection: 'row', gap: 6, marginBottom: 12 },
   indicadorDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: cores.fundoElevado },
