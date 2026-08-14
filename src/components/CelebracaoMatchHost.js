@@ -5,6 +5,7 @@ import api from '../services/api'
 import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
+import { comRetry } from '../utils/rede'
 
 // Título entre aspas da PRIMEIRA linha de um aviso agrupado, ou null quando ela não traz
 // título — o ramo do pintor já convivia com isso, ver os guardas em :298 e :329. Só o
@@ -158,6 +159,9 @@ const detectar = async (usuario) => {
       if (naoAvaliado) return {
         semMarca: true,
         dispensavel: `avaliacao_dispensada:reparo:${naoAvaliado.id}`,
+        // Identificam o contrato para o POST de dispensa. Mesmo par (contrato_tipo,
+        // contrato_id) que POST /avaliacoes e POST /denuncias já usam.
+        contratoTipo: 'reparo', contratoId: naoAvaliado.id,
         chave: `avaliar:${naoAvaliado.id}`, emoji: '⭐', semConfete: true,
         titulo: 'Avalie o profissional',
         subtitulo: naoAvaliado.titulo
@@ -239,6 +243,8 @@ const detectar = async (usuario) => {
       if (naoAvaliado) return {
         semMarca: true,
         dispensavel: `avaliacao_dispensada:obra:${naoAvaliado.id}`,
+        // Idem do ramo do dono_reparo acima.
+        contratoTipo: 'obra', contratoId: naoAvaliado.id,
         chave: `avaliar:${naoAvaliado.id}`, emoji: '⭐', semConfete: true,
         titulo: 'Avalie o profissional',
         subtitulo: naoAvaliado.titulo
@@ -491,8 +497,20 @@ export default function CelebracaoMatchHost() {
   // sendo lembrados. É por dispositivo, como o resto do celebracao.js.
   const dispensar = async () => {
     const chave = evento?.dispensavel
+    const tipo = evento?.contratoTipo
+    const id = evento?.contratoId
     setEvento(null)
+    // A marca LOCAL vem primeiro e é a que garante o efeito imediato: o card não volta
+    // nesta tela mesmo que a rede esteja fora.
     if (chave && usuario) await marcarVistas(usuario.id, [chave])
+    // O servidor é a outra metade: sem ele os PUSHES continuam e a dispensa se perde numa
+    // reinstalação (a marca local é por aparelho, ver celebracao.js). Fire-and-forget de
+    // propósito — a dispensa já aconteceu para o usuário e não pode esperar pela rede.
+    // comRetry porque a rota é idempotente: repetir não cria nada, só reafirma o estado.
+    if (tipo && id != null) {
+      comRetry(() => api.post('/avaliacoes/dispensar', { contrato_tipo: tipo, contrato_id: id }), { timeout: true })
+        .catch(err => console.log('[Celebracao] dispensa NÃO registrada no servidor — os avisos podem continuar | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message))
+    }
   }
   const irParaDetalhe = () => {
     const ev = evento
