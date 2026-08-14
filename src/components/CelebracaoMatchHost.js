@@ -14,6 +14,36 @@ import { carregarVistas, marcarVistas } from '../utils/celebracao'
 // ramo do reparador, "a obra X" (f.) no do pintor.
 const nomeDe = (linhas) => (linhas[0]?.titulo ? `"${linhas[0].titulo}"` : null)
 
+// Contrato finalizado do DONO ainda sem avaliação, para o lembrete que reaparece.
+// `ja_avaliei` só existe no payload de contratos finalizados — a lista de demandas não o
+// traz —, então não há como saber sem esta SEGUNDA requisição. Ela roda apenas quando a
+// lista de demandas já provou que existe ao menos uma encerrada: quem nunca concluiu nada
+// não paga requisição nenhuma.
+//
+// Devolve o MAIS RECENTE não avaliado, não o mais antigo: as rotas de contratos vêm
+// ordenadas do mais novo para o mais antigo (com desempate por chave primária e LIMIT
+// 200), e é o serviço recente que a pessoa ainda lembra — avaliação lembrada é avaliação
+// útil. Um por vez, de propósito: o lembrete nomeia uma coisa só e nunca vira uma fila
+// sobre o histórico inteiro.
+//
+// Falha aqui devolve null em vez de propagar: um lembrete que não pôde ser calculado não
+// pode derrubar as celebrações de verdade que vêm antes dele.
+const contratoNaoAvaliado = async (ehObra, naoVisto) => {
+  try {
+    const url = ehObra ? '/obras/meus-contratos-dono' : '/reparos/meus-contratos-dono'
+    const resp = await api.get(url)
+    const tipo = ehObra ? 'obra' : 'reparo'
+    return (resp.contratos || []).find(c =>
+      !c.ja_avaliei &&
+      c.prestador_id != null &&
+      naoVisto(`avaliacao_dispensada:${tipo}:${c.id}`)
+    ) || null
+  } catch (err) {
+    console.log('[Celebracao] falha ao checar contratos não avaliados | code:', err?.code)
+    return null
+  }
+}
+
 // Detecta o match a comemorar para o usuário atual, conforme o papel. Retorna o
 // primeiro evento ainda não visto (marca d'água local) ou null. Cada papel celebra
 // o momento certo do funil: donos ao receber proposta; prestadores ao serem aceitos.
@@ -119,6 +149,24 @@ const detectar = async (usuario) => {
       ctaTexto: 'Confirmar encerramento',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: enc }, initial: false }),
     }
+    // Lembrete de avaliação. semMarca porque é uma AÇÃO QUE FALTA, não notícia: o 🏁 acima
+    // já anunciou a conclusão uma vez e saiu do caminho: quem dispensou com "Ver depois"
+    // nunca mais era lembrado. Fica por último, como os demais semMarca, para não esconder
+    // o que dispara uma vez só. Só custa a requisição extra quando há encerrada na lista.
+    if ((resp.reparos || []).some(x => x.status === 'encerrada' && x.match_feito_em)) {
+      const naoAvaliado = await contratoNaoAvaliado(false, naoVisto)
+      if (naoAvaliado) return {
+        semMarca: true,
+        dispensavel: `avaliacao_dispensada:reparo:${naoAvaliado.id}`,
+        chave: `avaliar:${naoAvaliado.id}`, emoji: '⭐', semConfete: true,
+        titulo: 'Avalie o profissional',
+        subtitulo: naoAvaliado.titulo
+          ? `Como foi o serviço "${naoAvaliado.titulo}"? Sua avaliação ajuda outros solicitantes a escolher.`
+          : 'Como foi o último serviço concluído? Sua avaliação ajuda outros solicitantes a escolher.',
+        ctaTexto: 'Avaliar agora',
+        navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
+      }
+    }
   }
   // dono_obra — um pintor/construtor se candidatou
   if (ehDonoObra) {
@@ -183,6 +231,22 @@ const detectar = async (usuario) => {
       subtitulo: `O profissional marcou "${enc.titulo}" como concluída. A obra só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: enc }, initial: false }),
+    }
+    // Espelha o lembrete de avaliação do ramo do dono_reparo — mesma posição (último dos
+    // semMarca), mesma gate de requisição e mesmo um-por-vez.
+    if ((resp.obras || []).some(x => x.status === 'encerrada' && x.match_feito_em)) {
+      const naoAvaliado = await contratoNaoAvaliado(true, naoVisto)
+      if (naoAvaliado) return {
+        semMarca: true,
+        dispensavel: `avaliacao_dispensada:obra:${naoAvaliado.id}`,
+        chave: `avaliar:${naoAvaliado.id}`, emoji: '⭐', semConfete: true,
+        titulo: 'Avalie o profissional',
+        subtitulo: naoAvaliado.titulo
+          ? `Como foi a obra "${naoAvaliado.titulo}"? Sua avaliação ajuda outros solicitantes a escolher.`
+          : 'Como foi a última obra concluída? Sua avaliação ajuda outros solicitantes a escolher.',
+        ctaTexto: 'Avaliar agora',
+        navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
+      }
     }
   }
   // reparador — o dono aceitou sua proposta
@@ -421,6 +485,15 @@ export default function CelebracaoMatchHost() {
   if (!evento) return null
 
   const fechar = () => setEvento(null)
+  // "Ver depois" precisa continuar significando DEPOIS, senão um lembrete semMarca não
+  // lembra nada. Quem realmente não quer avaliar aquele contrato grava a dispensa na MESMA
+  // marca d'água (outro prefixo de chave), e só aquele contrato some — os outros seguem
+  // sendo lembrados. É por dispositivo, como o resto do celebracao.js.
+  const dispensar = async () => {
+    const chave = evento?.dispensavel
+    setEvento(null)
+    if (chave && usuario) await marcarVistas(usuario.id, [chave])
+  }
   const irParaDetalhe = () => {
     const ev = evento
     setEvento(null)
@@ -450,6 +523,13 @@ export default function CelebracaoMatchHost() {
           <TouchableOpacity style={estilos.depois} onPress={fechar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <Text style={estilos.depoisTexto}>Ver depois</Text>
           </TouchableOpacity>
+          {/* Terceira ação só nos eventos dispensáveis (hoje, o lembrete de avaliação):
+              os demais não têm o que dispensar permanentemente. */}
+          {evento.dispensavel ? (
+            <TouchableOpacity style={estilos.depois} onPress={dispensar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={estilos.dispensarTexto}>Não quero avaliar</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -467,4 +547,6 @@ const estilos = StyleSheet.create({
   ctaTexto:   { color: '#0A0A0A', fontSize: 16, fontWeight: '800' },
   depois:     { paddingVertical: 8 },
   depoisTexto:{ color: cores.textoFraco, fontSize: 13 },
+  // Mais apagada que "Ver depois": é a saída definitiva, não deve competir com o CTA.
+  dispensarTexto:{ color: cores.textoMutado, fontSize: 12 },
 })
