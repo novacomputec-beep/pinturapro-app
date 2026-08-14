@@ -41,8 +41,12 @@ const configurarCanalAndroid = async () => {
     console.log('[Push] canal antigo "default" ausente ou não removido (ok) | msg:', err?.message)
   }
   try {
+    // O id segue 'default_v2' de propósito: canais são imutáveis, então este `name` novo
+    // só aparece em instalação NOVA — quem já tem o app continua vendo o rótulo antigo nas
+    // configurações do Android. Trocar o id para renomear de verdade custaria queimar mais
+    // um id, e o público do lançamento é justamente quem instala agora.
     await Notifications.setNotificationChannelAsync('default_v2', {
-      name: 'PinturaPro',
+      name: 'ProLar',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#E8833A',
