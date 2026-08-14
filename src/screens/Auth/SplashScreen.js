@@ -63,9 +63,8 @@ export default function SplashScreen({ navigation }) {
           resizeMode="contain"
         />
         <Text style={estilos.logoNome}>
-          Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+          Pro<Text style={{ color: cores.primaria }}>Lar</Text>
         </Text>
-        <Text style={estilos.logoSub}>ArrumaPro</Text>
         <Text style={estilos.logoTagline}>Obras e serviços gerais com profissionais qualificados e idoneidade checada.</Text>
       </View>
 
@@ -169,15 +168,6 @@ const estilos = StyleSheet.create({
     color: cores.textoForte,
     letterSpacing: -0.5,
     marginBottom: 6,
-  },
-  // Segunda marca, abaixo do wordmark: menor e em tom secundário para não disputar com
-  // ele. textoMedio, não textoMutado — #333 sobre #0A0A0A fica praticamente invisível.
-  logoSub: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: cores.textoMedio,
-    letterSpacing: 0.5,
-    marginBottom: 10,
   },
   // textAlign próprio: o alignItems do logoArea centra o BLOCO, não o texto, então a
   // tagline quebrada em duas linhas saía alinhada à esquerda dentro de um bloco centrado.

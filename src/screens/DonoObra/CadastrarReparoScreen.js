@@ -221,7 +221,7 @@ export default function CadastrarReparoScreen({ navigation }) {
       // Teto de 4s: publicar NUNCA espera pelo geocode. Estourou ou falhou, segue sem coordenada.
       const resp = await Promise.race([
         fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(consulta)}&format=json&limit=1`,
-          { headers: { 'User-Agent': 'PinturaPro/1.0' } }),
+          { headers: { 'User-Agent': 'ProLar/1.0' } }),
         new Promise((_, reject) => setTimeout(() => reject(new Error('geocode_timeout')), 4000)),
       ])
       const geoData = await resp.json()

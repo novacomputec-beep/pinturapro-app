@@ -89,9 +89,8 @@ export default function LoginScreen({ navigation }) {
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
             <Text style={estilos.logoNome}>
-              Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+              Pro<Text style={{ color: cores.primaria }}>Lar</Text>
             </Text>
-            <Text style={estilos.logoSub}>ArrumaPro</Text>
           </View>
 
           <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
@@ -167,8 +166,6 @@ const estilos = StyleSheet.create({
   logo: { width: 170, height: 64 },
   // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
-  // Mesmos valores do logoSub da SplashScreen, para as duas telas baterem.
-  logoSub: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, letterSpacing: 0.5, marginBottom: 10 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 36 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
   form: {},

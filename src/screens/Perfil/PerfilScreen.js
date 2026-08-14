@@ -24,7 +24,7 @@ import { avatar } from '../../utils/imagemOtimizada'
 const versaoNativa = Application.nativeApplicationVersion
 const buildNativo = Application.nativeBuildVersion
 const textoVersao = [
-  'PinturaPro',
+  'ProLar',
   versaoNativa && `v${versaoNativa}`,
   buildNativo && `(build ${buildNativo})`,
 ].filter(Boolean).join(' ')
@@ -123,7 +123,7 @@ export default function PerfilScreen({ navigation }) {
       console.log('[Perfil] falha ao reconsultar permissão | msg:', err.message)
     }
     if (estado?.granted) {
-      Alert.alert('Notificações ativadas', 'Você já recebe os avisos do PinturaPro neste aparelho.')
+      Alert.alert('Notificações ativadas', 'Você já recebe os avisos do ProLar neste aparelho.')
       return
     }
     // canAskAgain false = bloqueio permanente do SO. O app não consegue mais pedir; só as
@@ -381,7 +381,7 @@ export default function PerfilScreen({ navigation }) {
           <Separador />
           <ItemAcao
             titulo="💬 Suporte"
-            onPress={() => Linking.openURL('mailto:novacomputec@gmail.com?subject=Suporte PinturaPro')}
+            onPress={() => Linking.openURL('mailto:novacomputec@gmail.com?subject=Suporte ProLar')}
           />
           <Separador />
           <ItemAcao

@@ -483,7 +483,7 @@ export default function CadastroScreen({ navigation }) {
       const endereco = [dados.logradouro, dados.bairro, dados.localidade, dados.uf, 'Brasil'].filter(Boolean).join(', ')
       const geoResp = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'PinturaPro/1.0' } }
+        { headers: { 'User-Agent': 'ProLar/1.0' } }
       )
       const geoData = await geoResp.json()
       if (geoData.length > 0 && montadoRef.current) {
@@ -904,7 +904,7 @@ export default function CadastroScreen({ navigation }) {
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
             <Text style={estilos.logoNome}>
-              Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+              Pro<Text style={{ color: cores.primaria }}>Lar</Text>
             </Text>
           </View>
           <Text style={[estilos.titulo, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
@@ -987,7 +987,7 @@ export default function CadastroScreen({ navigation }) {
                 de qual imagem realmente aparece — mesma comparação da linha acima. */}
             {logoSource !== require('../../../assets/icone.png') && (
               <Text style={estilos.logoNome}>
-                Pintura<Text style={{ color: cores.primaria }}>Pro</Text>
+                Pro<Text style={{ color: cores.primaria }}>Lar</Text>
               </Text>
             )}
           </View>
