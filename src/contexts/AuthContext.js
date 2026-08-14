@@ -5,7 +5,6 @@ import { Platform } from 'react-native'
 import Constants from 'expo-constants'
 import { authService } from '../services/api'
 import api from '../services/api'
-import { resetarFlagsSessao } from '../utils/sessao'
 import { comRetry } from '../utils/rede'
 import { limparRascunhoCadastro } from '../utils/rascunhoCadastro'
 
@@ -222,7 +221,6 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, senha) => {
     const resposta = await authService.login(email, senha)
-    resetarFlagsSessao()
     // Defensivo: em aparelho compartilhado, um login (de qualquer usuário) descarta
     // um eventual rascunho de cadastro pré-auth que tenha ficado, para não ressurgir
     // para outra pessoa. Best-effort, não bloqueia o login.
@@ -237,7 +235,6 @@ export const AuthProvider = ({ children }) => {
 
   // Função usada após cadastro — recebe token e dados diretamente
   const loginComToken = async (token, usuarioDados, assinaturaDados) => {
-    resetarFlagsSessao()
     await SecureStore.setItemAsync('token', token)
     setUsuario(usuarioDados)
     setAssinatura(assinaturaDados || null)
@@ -246,7 +243,6 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
-    resetarFlagsSessao()
     // Best-effort e NÃO bloqueante: limpa o push_token no servidor ANTES de
     // destruir o token local, fechando a colisão de token em aparelho compartilhado
     // (RELATORIO.txt #2). O header é fixado explicitamente porque o SecureStore é
@@ -291,7 +287,6 @@ export const AuthProvider = ({ children }) => {
   // em vez do refresh parcial antigo que exigia relogar (B72).
   const revalidarSessao = async () => {
     const { usuario, assinatura } = await comRetry(() => authService.perfil())
-    resetarFlagsSessao()
     setUsuario(usuario)
     setAssinatura(assinatura)
     setMostrarBoasVindas(deveExibirBoasVindas(usuario, assinatura))

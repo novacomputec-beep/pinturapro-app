@@ -47,6 +47,11 @@ export const perfilDe = (u) => {
     linhas: (r) => r.reparos || [],
     // Dono: a demanda é dele. Match fechado e ainda não encerrada.
     emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
+    // Propostas ainda sem resposta do dono. Definido SÓ nos perfis de dono: prestador não
+    // recebe proposta, e omitir (em vez de devolver 0) deixa isso explícito no formato.
+    // O servidor conta 'pendente' e 'contraproposta_dono' — contraproposta dos dois lados
+    // entra, que é o que o dono precisa responder.
+    pendentes: (x) => Number(x.interesses_pendentes) || 0,
     idDemanda: (x) => x.id,
     tab: 'Meus Reparos', detalhe: 'DetalheReparo', param: 'reparo',
     telaInicial: 'CadastrarReparoMain',
@@ -55,6 +60,8 @@ export const perfilDe = (u) => {
     url: '/obras/minhas',
     linhas: (r) => r.obras || [],
     emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
+    // Mesma razão do perfil de reparo acima; aqui o campo é candidaturas_pendentes.
+    pendentes: (x) => Number(x.candidaturas_pendentes) || 0,
     idDemanda: (x) => x.id,
     tab: 'Minhas Obras', detalhe: 'DetalheObra', param: 'obra',
     telaInicial: 'CadastrarObraMain',

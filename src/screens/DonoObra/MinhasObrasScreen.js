@@ -10,7 +10,6 @@ import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
-import { bannerInteressadosJaExibido, marcarBannerInteressadosExibido } from '../../utils/sessao'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 
@@ -35,8 +34,6 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [atualizando, setAtualizando] = useState(false)
   const [aba,   setAba]   = useState(soAba || 'obras')
   const [secao, setSecao] = useState('ativos')
-  const [mostrarBanner, setMostrarBanner] = useState(false)
-  const [itemPendente, setItemPendente] = useState(null)
   const [erro, setErro] = useState(null)
   const [coords] = useCoordsUsuario()
 
@@ -60,17 +57,6 @@ export default function MinhasObrasScreen({ navigation, route }) {
     setObrasHistorico((obrasResp.historico || []).filter(o => o.status !== 'encerrada'))
     setReparos(reparosResp.reparos || [])
     setReparosHistorico((reparosResp.historico || []).filter(r => r.status !== 'encerrada'))
-
-    // Banner verde "Parabéns" — exibido uma única vez por sessão de login quando
-    // há ao menos uma obra/reparo com candidatura/interesse ainda sem resposta.
-    const obraPend   = (obrasResp.obras     || []).find(o => Number(o.candidaturas_pendentes) > 0)
-    const reparoPend = (reparosResp.reparos || []).find(r => Number(r.interesses_pendentes) > 0)
-    const pend = obraPend ? { tipo: 'obra', item: obraPend } : reparoPend ? { tipo: 'reparo', item: reparoPend } : null
-    if (pend && !bannerInteressadosJaExibido()) {
-      marcarBannerInteressadosExibido()
-      setItemPendente(pend)
-      setMostrarBanner(true)
-    }
   }
 
   // Recarga SILENCIOSA: a do foco e a do pull-to-refresh. Engole a falha de propósito, e
@@ -228,26 +214,6 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      {mostrarBanner && (
-        <View style={estilos.bannerParabens}>
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            onPress={() => {
-              setMostrarBanner(false)
-              if (itemPendente?.tipo === 'obra')   navigation.navigate('DetalheObra',   { obra: itemPendente.item })
-              if (itemPendente?.tipo === 'reparo') navigation.navigate('DetalheReparo', { reparo: itemPendente.item })
-            }}
-          >
-            <Text style={estilos.bannerParabensTexto}>🎉 Parabéns – você recebeu interessado(s) · toque para ver</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setMostrarBanner(false)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={estilos.bannerParabensFechar}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      )}
       <View style={estilos.header}>
         <View>
           <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
@@ -358,9 +324,6 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
 const estilos = StyleSheet.create({
   container:            { flex: 1, backgroundColor: cores.fundo },
-  bannerParabens:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.medio, marginHorizontal: espacos.tela, marginTop: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  bannerParabensTexto:  { flex: 1, color: '#4caf50', fontWeight: '700', fontSize: 13 },
-  bannerParabensFechar: { color: '#4caf50', fontSize: 15, fontWeight: '700', paddingLeft: 12 },
   header:               { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
   saudacao:             { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
   titulo:               { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
