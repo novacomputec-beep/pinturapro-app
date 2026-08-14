@@ -26,6 +26,9 @@ const BarraServicoEmAndamento = () => {
   // Começa vazia: durante a consulta a barra não aparece, para nunca anunciar um serviço
   // antes de saber que ele existe. Mesma disciplina do `bloqueada` do banner de notificação.
   const [abertos, setAbertos] = useState([])
+  // Segundo estado da MESMA barra (nunca uma segunda barra): demandas com proposta sem
+  // resposta. Só um dos dois aparece — ver a precedência no render.
+  const [aguardando, setAguardando] = useState([])
   // Rota atual em ESTADO, não lida direto do navigationRef na hora de renderizar: navegar não
   // re-renderiza este componente por si só (ele está fora da árvore de telas), então uma
   // leitura direta congelaria no valor da primeira montagem e a barra nunca sumiria.
@@ -42,16 +45,29 @@ const BarraServicoEmAndamento = () => {
     // apoia na altura delas, então fora desse mundo não teria para onde levar. Limpa o estado
     // em vez de só sair — ao trocar de conta, o serviço da conta anterior não pode ficar na
     // tela da nova.
-    if (!usuario || !tabsMontadas(usuario, assinatura, mostrarBoasVindas)) { setAbertos([]); return }
+    if (!usuario || !tabsMontadas(usuario, assinatura, mostrarBoasVindas)) { setAbertos([]); setAguardando([]); return }
     const cfg = perfilDe(usuario)
-    if (!cfg) { setAbertos([]); return }
+    if (!cfg) { setAbertos([]); setAguardando([]); return }
     const agora = Date.now()
     if (!forcar && agora - ultimaRef.current < 15000) return
     ultimaRef.current = agora
     buscandoRef.current = true
     try {
       const resp = await api.get(cfg.url)
-      setAbertos(cfg.linhas(resp).filter(cfg.emAndamento))
+      const linhas = cfg.linhas(resp)
+      setAbertos(linhas.filter(cfg.emAndamento))
+      // Mesma resposta, sem requisição nova: a contagem de propostas sem resposta já vem
+      // nas linhas do dono (candidaturas_pendentes / interesses_pendentes).
+      // Fora da lista, por ordem: quem já tem match (a barra de "em andamento" ganha e
+      // contá-la aqui inflaria o plural), encerrada e EXPIRADA — o servidor conta por id
+      // da demanda, sem olhar o estado dela, e cobrar resposta sobre algo que o dono não
+      // pode mais responder gasta a credibilidade da própria barra.
+      setAguardando(linhas.filter(x =>
+        (cfg.pendentes?.(x) ?? 0) > 0 &&
+        !cfg.emAndamento(x) &&
+        x.status !== 'encerrada' &&
+        !x.expirada
+      ))
     } catch (err) {
       // Mantém o que já estava na tela: a barra é um atalho, e uma falha de rede não é
       // notícia de que o serviço acabou. Somar a isso um sumiço da barra tiraria o caminho
@@ -87,17 +103,25 @@ const BarraServicoEmAndamento = () => {
     return nav.addListener('state', sincronizar)
   }, [buscar, usuario])
 
-  if (!usuario || abertos.length === 0) return null
+  if (!usuario) return null
   const cfg = perfilDe(usuario)
   if (!cfg) return null
 
-  const um = abertos.length === 1
+  // PRECEDÊNCIA: um serviço em andamento manda na barra. É o compromisso já fechado, com
+  // hora marcada e outra pessoa esperando; uma proposta sem resposta pode esperar o
+  // próximo toque. Enquanto houver `abertos`, tudo abaixo se comporta exatamente como
+  // antes — esta mudança só pode afetar a sessão que hoje não veria barra nenhuma.
+  const emAndamento = abertos.length > 0
+  const linhas = emAndamento ? abertos : aguardando
+  if (linhas.length === 0) return null
+
+  const um = linhas.length === 1
   // Já está no detalhe DESTA demanda: a barra não tem para onde levar e ainda flutua por cima
   // dos botões de ação da tela (encerrar, confirmar chegada). Some.
   // Os != null vêm ANTES da comparação em String, mesma disciplina dos flags de identidade
   // das telas de detalhe: dois ids ausentes viram String(undefined) dos dois lados e casariam,
   // escondendo a barra em qualquer detalhe que chegasse sem params.
-  const idBarra = um ? cfg.idDemanda(abertos[0]) : null
+  const idBarra = um ? cfg.idDemanda(linhas[0]) : null
   const idRota = rota?.params?.[cfg.param]?.id
   const noDetalheDesta = rota?.name === cfg.detalhe &&
     idBarra != null && idRota != null && String(idRota) === String(idBarra)
@@ -109,11 +133,17 @@ const BarraServicoEmAndamento = () => {
   // Título da linha quando há UMA. Pode faltar — as candidaturas do pintor nem sempre trazem
   // titulo (ver os guardas em DetalheObraScreen) —, e aí o rótulo genérico ainda cumpre o
   // papel da barra, que é levar de volta.
-  const rotulo = um
-    ? (abertos[0].titulo
-        ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${abertos[0].titulo}`
-        : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
-    : `${abertos.length} ${ehObra ? 'obras' : 'serviços'} em andamento`
+  // "interessado(s)" é o vocabulário que o dono já lê no banner de parabéns; não se inventa
+  // "candidatura"/"proposta" aqui só porque o campo do servidor tem outro nome.
+  const rotulo = emAndamento
+    ? (um
+        ? (linhas[0].titulo
+            ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${linhas[0].titulo}`
+            : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
+        : `${linhas.length} ${ehObra ? 'obras' : 'serviços'} em andamento`)
+    : (um
+        ? `${linhas[0].titulo || (ehObra ? 'Obra' : 'Serviço')} · ${cfg.pendentes?.(linhas[0]) ?? 0} interessado(s) aguardando resposta`
+        : `${linhas.length} ${ehObra ? 'obras' : 'serviços'} com interessados aguardando`)
 
   // Uma leva ao detalhe; várias à lista, porque com mais de um combinado de pé não dá para
   // escolher pela pessoa. Mesma decisão (e mesma ordem de desistências) do RetomadaMatchHost.
@@ -121,7 +151,7 @@ const BarraServicoEmAndamento = () => {
     const nav = navigationRef.current
     if (!nav) return
     if (!um) { nav.navigate(cfg.tab); return }
-    const id = cfg.idDemanda(abertos[0])
+    const id = cfg.idDemanda(linhas[0])
     // Sem id não dá para abrir o detalhe; a lista ainda é melhor que não fazer nada.
     if (id == null) { nav.navigate(cfg.tab); return }
     nav.navigate(cfg.tab, { screen: cfg.detalhe, params: { [cfg.param]: { id } }, initial: false })
@@ -135,7 +165,8 @@ const BarraServicoEmAndamento = () => {
       accessibilityRole="button"
       accessibilityLabel={`${rotulo}. Toque para abrir.`}
     >
-      <Text style={estilos.texto} numberOfLines={1}>▶️ {rotulo}</Text>
+      {/* Emoji fora do rotulo, como sempre: o accessibilityLabel acima lê só o texto. */}
+      <Text style={estilos.texto} numberOfLines={1}>{emAndamento ? '▶️' : '📬'} {rotulo}</Text>
       <View style={estilos.pill}>
         <Text style={estilos.pillTexto}>Abrir →</Text>
       </View>
