@@ -904,8 +904,9 @@ export default function CadastroScreen({ navigation }) {
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
             <Text style={estilos.logoNome}>
-              Pro<Text style={{ color: cores.primaria }}>Lar</Text>
+              <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
             </Text>
+            <View style={estilos.logoRegua} />
           </View>
           <Text style={[estilos.titulo, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
           <Text style={[estilos.subtitulo, { textAlign: 'center' }]}>Escolha o perfil que melhor descreve você</Text>
@@ -986,9 +987,12 @@ export default function CadastroScreen({ navigation }) {
                 Amarrado ao logoSource (e não a tipoConta) para não poder dessincronizar
                 de qual imagem realmente aparece — mesma comparação da linha acima. */}
             {logoSource !== require('../../../assets/icone.png') && (
-              <Text style={estilos.logoNome}>
-                Pro<Text style={{ color: cores.primaria }}>Lar</Text>
-              </Text>
+              <>
+                <Text style={estilos.logoNome}>
+                  <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
+                </Text>
+                <View style={estilos.logoRegua} />
+              </>
             )}
           </View>
           <Text style={estilos.titulo}>
@@ -1252,6 +1256,8 @@ const estilos = StyleSheet.create({
   logoIcone: { width: 170, height: 120, marginBottom: 4 },
   // Mesmos valores do rótulo da SplashScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
+  // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
+  logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.textoFraco, marginTop: 2, marginBottom: 10 },
   btnVoltar: { marginTop: 8, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 12 },
