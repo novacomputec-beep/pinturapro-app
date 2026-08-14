@@ -14,7 +14,7 @@ const SECOES = [
   },
   {
     titulo: '3. Compartilhamento',
-    texto: 'Seus dados de contato (nome, telefone) são compartilhados com a outra parte quando um match de serviço é confirmado. Não vendemos seus dados para terceiros.'
+    texto: 'Seus dados de contato (nome, telefone) são compartilhados com a outra parte quando um match de serviço é confirmado. Os dados necessários à cobrança da assinatura são compartilhados com o PagBank, operador de pagamento responsável por processá-la. Não vendemos seus dados para terceiros.'
   },
   {
     titulo: '4. Armazenamento e Segurança',
