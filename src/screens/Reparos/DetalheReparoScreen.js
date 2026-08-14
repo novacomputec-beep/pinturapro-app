@@ -340,6 +340,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [avaliarVisivel, setAvaliarVisivel] = useState(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
+  // Edição do ponto de referência (só dono). Mesmo molde do modalTempo logo acima: um
+  // Modal inline com TextInput e dois botões, em vez de um componente novo.
+  const [modalReferencia, setModalReferencia] = useState(false)
+  const [textoReferencia, setTextoReferencia] = useState('')
+  const [salvandoReferencia, setSalvandoReferencia] = useState(false)
   const [modalEstender, setModalEstender] = useState(false)
   const [estendendo, setEstendendo] = useState(false)
   // Guarda a janela EM VOO (o id, não um boolean): trava as três opções de uma vez e
@@ -888,6 +893,37 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // buscar() (refresh de mutação já usado por esta tela, NÃO um refetch de mount) reidrata
   // expira_em e a contagem reinicia via o efeito [expiraEm]. Erros documentados da API:
   // 422 (acima do teto 2x), 409 (não aberta / já com match), 404.
+  // Abre já preenchido com o valor atual: a ação mais comum é corrigir, não redigitar.
+  const abrirReferencia = () => {
+    setTextoReferencia(reparo.ponto_referencia || '')
+    setModalReferencia(true)
+  }
+
+  // PATCH idempotente (grava um ESTADO, não cria recurso), daí { timeout: true } como no
+  // bloqueio/desbloqueio. String vazia é o jeito documentado de LIMPAR — por isso não há
+  // guarda de "não envie vazio". O estado local vem do ECO do servidor, então a linha
+  // muda sem refetch; se o eco vier sem o campo, cai no que foi enviado.
+  const salvarReferencia = async () => {
+    if (salvandoReferencia) return
+    setSalvandoReferencia(true)
+    const valor = textoReferencia.trim().slice(0, 200)
+    try {
+      const resp = await comRetry(
+        () => api.patch(`/reparos/dono/${reparo.id}/ponto-referencia`, { ponto_referencia: valor }),
+        { timeout: true },
+      )
+      const salvo = resp?.ponto_referencia !== undefined ? resp.ponto_referencia : valor
+      if (mountedRef.current) setReparo(prev => ({ ...prev, ponto_referencia: salvo }))
+      setModalReferencia(false)
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao salvar ponto de referência | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { setModalReferencia(false); return }
+      Alert.alert('Erro', err.mensagem || 'Não foi possível salvar o ponto de referência.')
+    } finally {
+      if (mountedRef.current) setSalvandoReferencia(false)
+    }
+  }
+
   const handleEstender = async (horas) => {
     if (estendendo) return
     setEstendendo(true)
@@ -1259,6 +1295,42 @@ export default function DetalheReparoScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      <Modal visible={modalReferencia} transparent animationType="fade" onRequestClose={() => setModalReferencia(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <View style={{ backgroundColor: cores.fundoCard, borderRadius: 16, padding: 24, width: '100%' }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>🔎 Ponto de referência</Text>
+            <Text style={{ fontSize: 13, color: cores.textoFraco, marginBottom: 16 }}>Ajuda o profissional a chegar. Deixe em branco para remover.</Text>
+            <TextInput
+              style={{ backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, fontSize: 14, color: cores.textoForte, marginBottom: 16, minHeight: 80, textAlignVertical: 'top' }}
+              value={textoReferencia}
+              onChangeText={setTextoReferencia}
+              placeholder="Ex: portão azul, ao lado da padaria"
+              placeholderTextColor={cores.textoMutado}
+              multiline
+              maxLength={200}
+              editable={!salvandoReferencia}
+              autoFocus
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, alignItems: 'center' }}
+                onPress={() => setModalReferencia(false)}
+                disabled={salvandoReferencia}
+              >
+                <Text style={{ color: cores.textoFraco, fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{ flex: 1, backgroundColor: cores.primaria, borderRadius: 10, padding: 14, alignItems: 'center' }, salvandoReferencia && { opacity: 0.6 }]}
+                onPress={salvarReferencia}
+                disabled={salvandoReferencia}
+              >
+                <Text style={{ color: '#0A0A0A', fontWeight: '700' }}>{salvandoReferencia ? 'Salvando...' : 'Salvar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={modalTempo} transparent animationType="fade" onRequestClose={() => { setModalTempo(false); setMinutosTempo('') }}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <View style={{ backgroundColor: cores.fundoCard, borderRadius: 16, padding: 24, width: '100%' }}>
@@ -1376,12 +1448,24 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </Text>
           )}
           {isDono && reparo.endereco_reparo ? (
-            <>
-              <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
+            <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
+          ) : null}
+          {/* Linha de referência do DONO: com valor, é a mesma linha de antes, agora tocável
+              para corrigir; vazia, vira um convite discreto — sem ele não havia como saber
+              que o campo existe. Fora do gate de endereco_reparo de propósito: a referência
+              é editável mesmo quando o endereço não foi preenchido. O profissional segue
+              vendo só o texto, nos blocos acima. */}
+          {isDono ? (
+            <TouchableOpacity onPress={abrirReferencia} activeOpacity={0.7}>
               {reparo.ponto_referencia ? (
-                <Text style={estilos.pontoReferenciaLinha}>🔎 Referência: {reparo.ponto_referencia}</Text>
-              ) : null}
-            </>
+                <Text style={estilos.pontoReferenciaLinha}>
+                  🔎 Referência: {reparo.ponto_referencia}
+                  <Text style={estilos.referenciaAcao}>  editar</Text>
+                </Text>
+              ) : (
+                <Text style={estilos.referenciaVazia}>🔎 Adicionar ponto de referência</Text>
+              )}
+            </TouchableOpacity>
           ) : null}
 
           {/* Pós-match a descrição e a mídia somam ~280dp no topo da rolagem e empurram o
@@ -2091,6 +2175,11 @@ const estilos = StyleSheet.create({
   // simples do dono: o marginTop negativo aproxima da linha de endereço acima, como o
   // enderecoLinha faz com a linha de cidade/bairro.
   pontoReferenciaLinha: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginTop: -10, marginBottom: 16 },
+  // "editar" no fim da própria linha, sem virar botão: a linha inteira já é a área de toque.
+  referenciaAcao:       { fontSize: 12, color: cores.primaria, fontWeight: '600' },
+  // Convite quando não há referência. Margens próprias (não as da linha preenchida, que
+  // tem marginTop negativo para colar no endereço) porque aqui não há linha acima a colar.
+  referenciaVazia:      { fontSize: 12, color: cores.primaria, fontWeight: '600', marginBottom: 16 },
   localDistancia: { color: cores.primaria, fontWeight: '600' },
   secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10 },
   togglePedido: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginBottom: 16 },
