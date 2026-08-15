@@ -161,19 +161,21 @@ export default function LoginScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 40 },
-  voltarBtn: { marginTop: 14, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  // Mesmo espaçamento do btnVoltar da CadastroScreen (8/10): é o elemento imediatamente
+  // acima do bloco do logo, então 14/20 aqui deslocava a marca para baixo em relação à
+  // outra tela mesmo com o bloco já idêntico.
+  voltarBtn: { marginTop: 8, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   voltarIcone: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
   // 22 aqui + os 10 do logoRegua = 32 de respiro entre a régua e o título — o mesmo 32 que
   // o subtitulo usa para separar o bloco do formulário, e ~0,9 da lineHeight do título de
   // 28px. Fica NESTE estilo, e não no marginBottom do logoRegua, porque aquele se declara
   // idêntico ao das outras duas telas: mexer lá tornaria o comentário mentira.
   logoWrap: { alignItems: 'center', marginBottom: 22 },
-  // marginBottom negativo: a arte do logo.png ocupa o quadrado inteiro (sobra <1dp de
-  // transparência ao pé, dentro da caixa de 64), então o vão até o wordmark não vinha do
-  // PNG — vinha da folga que a linha de texto de 28px reserva acima da altura da maiúscula.
-  // Isso puxa a palavra de volta para junto da imagem, para as duas lerem como um bloco só.
-  // Só nesta tela: é o único lugar onde a imagem fica colada no wordmark deste tamanho.
-  logo: { width: 170, height: 64, marginBottom: -6 },
+  // Mesmos valores do logo da CadastroScreen, sem margem própria. O -6 que morava aqui
+  // encostava a palavra na imagem só NESTA tela, e era exatamente o que impedia o bloco das
+  // três telas de bater: a folga que a linha de 28px reserva acima da maiúscula existe nas
+  // outras duas do mesmo jeito, e lá ela nunca foi compensada.
+  logo: { width: 170, height: 64 },
   // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
