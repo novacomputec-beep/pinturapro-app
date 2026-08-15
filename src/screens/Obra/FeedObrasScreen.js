@@ -396,6 +396,11 @@ export default function FeedObrasScreen({ navigation }) {
   const confirmarCidadeBusca = () => {
     if (!ufSelecionada || !cidadeSelecionada) return
     setCidadeBusca({ cidade: cidadeSelecionada, uf: ufSelecionada })
+    // Escolher a cidade define o escopo: o botão passa a anunciar "Cidade - UF", e um
+    // escopo de estado/país deixaria a lista mostrando muito além do que o cabeçalho diz.
+    // Um raio em km continua valendo — quem o escolheu quer aquela distância, e a cidade
+    // recém-escolhida vira justamente a âncora dele.
+    if (distancia === 'estado' || distancia === 'pais') setDistancia('cidade')
     setBuscaCidade('')
     setModalCidadeVisivel(false)
   }
