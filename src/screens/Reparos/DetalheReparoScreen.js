@@ -1851,6 +1851,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             >
                               <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
                             </TouchableOpacity>
+                            {/* Contrapor um valor que o profissional JÁ aceitou não quer dizer
+                                nada: ele copiou o valor pedido e a linha acima anuncia isso.
+                                Mesma condição que desenha aquela linha (aceitouValorPedido),
+                                não um segundo teste que poderia divergir dela. Aceitar e
+                                Recusar continuam nos dois casos — o dono ainda escolhe entre
+                                candidatos. */}
+                            {!aceitouValorPedido && (
                             <TouchableOpacity
                               style={{ flex: 1, backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 10, alignItems: 'center' }}
                               // Warm-up ao ABRIR o campo: entre carregar a tela e tocar em
@@ -1867,6 +1874,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             >
                               <Text style={{ fontSize: 12, fontWeight: '600', color: '#E8833A' }}>💬 Contraproposta</Text>
                             </TouchableOpacity>
+                            )}
                           </View>
                         )}
                       </View>
