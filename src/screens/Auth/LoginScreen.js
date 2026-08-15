@@ -168,11 +168,16 @@ const estilos = StyleSheet.create({
   // 28px. Fica NESTE estilo, e não no marginBottom do logoRegua, porque aquele se declara
   // idêntico ao das outras duas telas: mexer lá tornaria o comentário mentira.
   logoWrap: { alignItems: 'center', marginBottom: 22 },
-  logo: { width: 170, height: 64 },
+  // marginBottom negativo: a arte do logo.png ocupa o quadrado inteiro (sobra <1dp de
+  // transparência ao pé, dentro da caixa de 64), então o vão até o wordmark não vinha do
+  // PNG — vinha da folga que a linha de texto de 28px reserva acima da altura da maiúscula.
+  // Isso puxa a palavra de volta para junto da imagem, para as duas lerem como um bloco só.
+  // Só nesta tela: é o único lugar onde a imagem fica colada no wordmark deste tamanho.
+  logo: { width: 170, height: 64, marginBottom: -6 },
   // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
-  logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.textoFraco, marginTop: 2, marginBottom: 10 },
+  logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.primaria, marginTop: 0, marginBottom: 10 },
   // 20, e não 28: no 28 a saudação empatava com o wordmark (mesmo corpo, mesmo peso) e,
   // quebrando em duas linhas, pesava MAIS que a marca. 20 é o degrau em negrito que a
   // própria tela já usa (voltarIcone), então a marca lidera em 1,4x e o título ainda

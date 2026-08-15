@@ -1257,7 +1257,7 @@ const estilos = StyleSheet.create({
   // Mesmos valores do rótulo da SplashScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
-  logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.textoFraco, marginTop: 2, marginBottom: 10 },
+  logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.primaria, marginTop: 0, marginBottom: 10 },
   btnVoltar: { marginTop: 8, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   // Mesmos 20/26 do titulo da LoginScreen, pelo mesmo motivo: em 28 a saudação empatava
   // com o wordmark (mesmo corpo, mesmo peso) e, nos passos que quebram em duas linhas
