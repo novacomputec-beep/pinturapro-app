@@ -10,8 +10,21 @@ import { comRetry } from '../../utils/rede'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 
-const formatarData = (d) =>
-  d ? new Date(d).toLocaleDateString('pt-BR') : '—'
+// Idade APROXIMADA, em três faixas largas — nunca a data exata. O cartão trazia o nome de
+// quem avaliou ao lado do dia, e o par (pessoa, dia) apontava o contrato: bastava lembrar
+// quem foi atendido naquela data para saber de quem era o comentário. Com o nome fora, um
+// dia exato ainda pinçaria o serviço pela agenda, então a faixa é grossa de propósito.
+// Data ausente ou ilegível continua no traço de antes: não identifica ninguém.
+const idadeAproximada = (d) => {
+  if (!d) return '—'
+  const dias = Math.floor((Date.now() - new Date(d).getTime()) / 86400000)
+  if (!Number.isFinite(dias)) return '—'
+  // Datas no futuro (relógio do aparelho adiantado) dão diferença negativa e caem aqui,
+  // que é a faixa certa: uma avaliação que acabou de chegar é recente.
+  if (dias < 21) return 'há alguns dias'
+  if (dias < 90) return 'há algumas semanas'
+  return 'há alguns meses'
+}
 
 // Estrelas somente-leitura. Reproduz a MESMA renderização visual do ModalAvaliacao
 // (glifos ★/☆, laranja da marca), porque o modal não expõe as estrelas isoladamente e
@@ -100,9 +113,8 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
       ) : (
         <Text style={estilos.semComentario}>Sem comentário</Text>
       )}
-      <Text style={estilos.meta}>
-        👤 {item.avaliador_nome || 'Cliente'} · {formatarData(item.created_at)}
-      </Text>
+      {/* Só a idade aproximada: sem o 👤 e sem nome, porque não há mais pessoa a nomear. */}
+      <Text style={estilos.meta}>{idadeAproximada(item.created_at)}</Text>
     </View>
   )
 
