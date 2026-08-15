@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler'
 import React, { useRef, useEffect } from 'react'
-import { View, Text, ScrollView, TouchableOpacity, Linking, Alert } from 'react-native'
+import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Image } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, alturas } from '../utils/tema'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
+import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao from '../components/SoftAskNotificacao'
 import RetomadaMatchHost from '../components/RetomadaMatchHost'
@@ -269,8 +270,43 @@ const navegarParaNotificacao = (data) => {
   }
 }
 
+// A aba Perfil mostra a FOTO do usuário no lugar do boneco genérico: é a única aba que
+// aponta para algo que é DELE, e o próprio rosto se reconhece antes de qualquer ícone.
+// Serve as quatro tab bars do app (pintor, prestador, dono de reparo, dono de obra) —
+// todas passam por aqui, então a foto entra nas quatro de uma vez.
 const TabIcone = ({ nome, focado }) => {
   const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '📋' }
+  const { usuario } = useAuth()
+  // Rede de segurança da foto, como nos cards do feed: a URL pode não renderizar (link
+  // quebrado, mídia removida, transformação recusada). Sem isto sobraria um círculo vazio.
+  const [fotoFalhou, setFotoFalhou] = React.useState(false)
+  const foto = nome === 'Perfil' ? usuario?.foto_url : null
+  // Zera a marca de falha quando a foto muda (upload novo, troca de conta): sem isto a
+  // aba ficaria presa no emoji até o app reiniciar, mesmo com uma URL boa no lugar.
+  React.useEffect(() => { setFotoFalhou(false) }, [foto])
+
+  // Sem foto (conta nova) ou foto que falhou: cai no ícone de sempre, com o mesmo
+  // tratamento de cor/opacidade das outras abas.
+  if (foto && !fotoFalhou) {
+    return (
+      <Image
+        source={{ uri: avatar(foto) }}
+        style={{
+          width: 24, height: 24, borderRadius: 12,
+          // Uma foto não aceita o tint que marca as outras abas como ativas, então quem
+          // assume o papel é o anel — mesma primária, mesma leitura, só que no perímetro.
+          // A borda existe nos DOIS estados e só troca de cor: como o RN a desenha por
+          // dentro da caixa, manter a largura impede a foto de mudar de tamanho ao focar.
+          borderWidth: 2,
+          borderColor: focado ? cores.primaria : 'transparent',
+          // 0.5, e não os 0.3 dos emojis: um rosto naquele nível vira mancha sobre o
+          // fundo escuro. Continua claramente abaixo do estado ativo, que é o que importa.
+          opacity: focado ? 1 : 0.5,
+        }}
+        onError={() => setFotoFalhou(true)}
+      />
+    )
+  }
   return (
     <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
