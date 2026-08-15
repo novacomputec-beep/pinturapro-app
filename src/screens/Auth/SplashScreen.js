@@ -158,10 +158,15 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 60,
   },
+  // Mesma caixa do logo da CadastroScreen e da LoginScreen (170x64). As três telas desenham
+  // o MESMO logo.png, e a caixa quadrada de 72 daqui fazia o resizeMode="contain" entregar
+  // um wordmark visivelmente menor que o das outras duas — a marca mudava de tamanho de uma
+  // tela para a seguinte. Sem margem própria (0), como o logo da CadastroScreen: o respiro
+  // até o wordmark passa a ser o mesmo nas três.
   logoIcone: {
-    width: 72,
-    height: 72,
-    marginBottom: 16,
+    width: 170,
+    height: 64,
+    marginBottom: 0,
   },
   logoNome: {
     fontSize: 28,
