@@ -168,18 +168,20 @@ const estilos = StyleSheet.create({
     fontWeight: '700',
     color: cores.textoForte,
     letterSpacing: -0.5,
-    marginBottom: 6,
+    marginBottom: 2,
   },
   // Régua sob o wordmark, como na arte do logo. Largura fixa e curta de propósito: ela
   // acompanha a PALAVRA, não a tela — esticada de ponta a ponta viraria um divisor de
-  // seção. textoFraco (e 2px) para ficar atrás da marca, nunca competindo com ela.
+  // seção. Laranja primária: é peça da MARCA, e no cinza lia como divisor esquecido.
+  // Continua com 2px de altura para sublinhar a palavra sem competir com ela.
+  // Encostada no wordmark (marginTop 0 + os 2 do logoNome): solta, virava régua à toa.
   // Mesmos valores nas três telas que desenham o wordmark.
   logoRegua: {
     width: 64,
     height: 2,
     borderRadius: 1,
-    backgroundColor: cores.textoFraco,
-    marginTop: 2,
+    backgroundColor: cores.primaria,
+    marginTop: 0,
     marginBottom: 10,
   },
   // textAlign próprio: o alignItems do logoArea centra o BLOCO, não o texto, então a
