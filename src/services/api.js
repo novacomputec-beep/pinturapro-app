@@ -98,6 +98,81 @@ api.interceptors.response.use(
   }
 )
 
+// ─── Deduplicação de GETs idênticos em voo ───────────────────
+// Três componentes globais (CelebracaoMatchHost, RetomadaMatchHost e BarraServicoEmAndamento)
+// leem a MESMA coleção do papel do usuário, cada um com o seu próprio guarda de "uma por vez"
+// e o seu próprio intervalo de 15 s. Como nenhum conhece os outros, abrir o app dispara três
+// requisições idênticas no mesmo instante. Aqui elas passam a dividir UMA requisição e UMA
+// promise — os componentes não mudam e não sabem que isto existe.
+//
+// É compartilhamento EM VOO, nunca cache: a entrada morre quando a promise assenta, nos DOIS
+// desfechos. Guardar uma promise já REJEITADA seria o pior dos mundos — as três tentativas do
+// comRetry receberiam a mesma rejeição na hora, e o retry de ERR_NETWORK morreria parecendo
+// que rodou.
+//
+// A camada fica ACIMA do interceptor de request (que roda dentro de getOriginal, então os
+// compartilhadores custam um token e um aquecimento só) e ABAIXO do comRetry (que é do
+// chamador e reinvoca api.get a cada tentativa: com a entrada já liberada, a tentativa
+// seguinte abre uma requisição de verdade).
+//
+// Nada aqui toca em transporte: não monta requisição, não lê nem escreve header — o
+// Connection: close segue vindo dos defaults da instância, e três requisições viram uma, o que
+// só REDUZ o número de sockets — e não fala com o cliente HTTP nativo. Só decide se chama o
+// axios de novo.
+//
+// Lista fechada, e não todo GET: estas quatro coleções alimentam overlays consultivos que já
+// toleram 15 s de atraso. Ficam de fora, de propósito, as rotas de detalhe (/reparos/:id,
+// /obras/:id) e o /auth/perfil, que são relidas logo DEPOIS de uma escrita — ali compartilhar
+// uma leitura iniciada antes do commit devolveria o estado anterior à ação do usuário — e a
+// assinatura do Cloudinary, que é datada e não se divide entre dois uploads.
+const DEDUPAVEIS = new Set([
+  '/reparos/meus-interesses',
+  '/reparos/minhas',
+  '/obras/minhas',
+  '/candidaturas/minhas',
+])
+
+const emVoo = new Map()
+
+const getOriginal = api.get.bind(api)
+
+// A chave leva o TOKEN além da URL. Sem ele, uma entrada criada antes de um logout poderia ser
+// entregue a um chamador de depois do login seguinte, servindo os dados da conta anterior —
+// exatamente o risco de aparelho compartilhado que o logout já trata no AuthContext. Token
+// diferente (ou ausente) é chave diferente, então logout e troca de conta nunca reaproveitam
+// nada: a janela fecha aqui dentro, sem depender de aviso nenhum de fora.
+const dedupar = async (url, config) => {
+  let token = null
+  try {
+    token = await SecureStore.getItemAsync('token')
+  } catch (err) {
+    // Sem conseguir ler o token não dá para afirmar de QUEM seria a resposta compartilhada.
+    // Segue sem dividir, que é o comportamento de hoje.
+    console.log('[api] token ilegível para a chave de dedup, seguindo sem compartilhar | msg:', err.message)
+    return getOriginal(url, config)
+  }
+  const chave = `${url}|${token || ''}`
+  const existente = emVoo.get(chave)
+  if (existente) return existente
+  // .finally devolve uma promise NOVA, e é ela que vai ao mapa: quem compartilha recebe
+  // exatamente o mesmo desfecho do original, e a limpeza roda no assentamento — resolvida ou
+  // rejeitada, sem exceção.
+  const promessa = getOriginal(url, config).finally(() => { emVoo.delete(chave) })
+  emVoo.set(chave, promessa)
+  return promessa
+}
+
+// Só o api.get é embrulhado, então POST/PUT jamais entram. Fora da lista, a chamada segue
+// direto para o axios — mesmo objeto de promise de sempre, sem camada nenhuma no meio.
+api.get = (url, config) => {
+  // `signal`: FeedReparos e FeedObras abortam a requisição em voo ao trocar de filtro.
+  // Compartilhada, o abort de uma tela mataria a busca da outra.
+  // `params`: nenhuma das quatro rotas recebe algum hoje, e a chave não os carrega — se um dia
+  // receberem, dividir por URL entregaria o resultado do filtro errado.
+  if (!DEDUPAVEIS.has(url) || config?.signal || config?.params) return getOriginal(url, config)
+  return dedupar(url, config)
+}
+
 // Vai pela MESMA instância (mesma baseURL, mesmo host) porque é esse o pool de conexões
 // que precisa ser exercitado — um axios avulso poderia abrir outro socket e não provar
 // nada sobre o que a chamada real vai usar.
