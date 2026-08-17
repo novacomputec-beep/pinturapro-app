@@ -106,8 +106,10 @@ export default function PerfilScreen({ navigation }) {
   // de o soft-ask ter esgotado as 3 exibições ou de ter sido declinado.
   const verificarPermissaoNotif = useCallback(async () => {
     try {
-      const { granted, canAskAgain } = await Notifications.getPermissionsAsync()
-      setPermNotif({ granted, canAskAgain })
+      // `status` entra junto: é ele que separa "nunca perguntamos" ('undetermined') de
+      // "recusou" ('denied'), que o par granted/canAskAgain sozinho confunde.
+      const { granted, canAskAgain, status } = await Notifications.getPermissionsAsync()
+      setPermNotif({ granted, canAskAgain, status })
     } catch (err) {
       console.log('[Perfil] falha ao consultar permissão de notificação | msg:', err.message)
       setPermNotif(null)
@@ -223,15 +225,27 @@ export default function PerfilScreen({ navigation }) {
   const ehDonoReparo = isDono && usuario?.tipo_dono === 'reparo'
   // Rótulo do estado da permissão. null = ainda consultando (ou falha na consulta): melhor
   // não mostrar rótulo nenhum do que afirmar algo errado sobre a permissão.
+  // 'Permitir' (e não 'Desativadas') para quem NUNCA foi perguntado: 'undetermined' é o
+  // estado de todo aparelho recém-instalado, e anunciar "Desativadas" ali afirmava uma
+  // recusa que nunca houve — além de esconder que esta linha é justamente a porta para
+  // conceder. 'Desativadas' fica reservado a quem viu o diálogo e recusou.
+  // O verbo é OUTRO de propósito: o título da linha já diz "Ativar notificações", e
+  // repetir "Ativar" no rótulo de estado lia como eco em vez de ação.
   const estadoNotifTexto = permNotif == null
     ? ''
     : permNotif.granted ? 'Ativadas'
     : permNotif.canAskAgain === false ? 'Bloqueadas'
+    : permNotif.status === 'undetermined' ? 'Permitir'
     : 'Desativadas'
+  // A cor segue a MESMA ordem de ramos do rótulo acima, para que os dois não possam
+  // divergir. 'Ativar' ganha a cor primária, e não o cinza de 'Desativadas': é o único
+  // dos quatro estados que é um CONVITE — um toque resolve —, enquanto os outros três
+  // relatam uma situação já estabelecida.
   const estadoNotifCor = permNotif == null
     ? null
     : permNotif.granted ? cores.sucesso
     : permNotif.canAskAgain === false ? cores.perigo
+    : permNotif.status === 'undetermined' ? cores.primaria
     : cores.textoFraco
   // Desfecho do registro do token, distinto da permissão acima: dá para ter permissão
   // concedida e mesmo assim nenhum token no servidor (Expo fora do ar, POST falhando).

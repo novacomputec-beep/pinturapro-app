@@ -173,8 +173,9 @@ export const AuthProvider = ({ children }) => {
 
     // PROMPT-FREE: só consulta, NUNCA chama requestPermissionsAsync — pedir permissão
     // é responsabilidade do soft-ask (garantirPermissaoConcedida), num momento de
-    // relevância. canAskAgain (só do getPermissionsAsync, sem request) distingue
-    // 'bloqueada' de 'negada'; default true = a alegação mais fraca.
+    // relevância. O par (status, canAskAgain) — só do getPermissionsAsync, sem request —
+    // separa os três desfechos negativos abaixo; canAskAgain default true = a alegação
+    // mais fraca.
     let status
     let canAskAgain = true
     try {
@@ -187,9 +188,20 @@ export const AuthProvider = ({ children }) => {
       return { ok: false, motivo: 'erro_consulta', detalhe: err?.message }
     }
     if (status !== 'granted') {
-      console.error('[Push] permissão de notificação NÃO concedida | status:', status, '— token não será gerado')
-      reportarStatusPush(canAskAgain === false ? 'bloqueada' : 'negada')
-      return { ok: false, motivo: canAskAgain === false ? 'bloqueada' : 'negada' }
+      // Três desfechos, não dois. 'undetermined' no Android significa que o app NUNCA
+      // pediu a permissão: o expo grava em SharedPreferences que já perguntou
+      // (PermissionsService.didAsk) e só devolve 'denied' depois disso — e no caso
+      // undetermined o canAskAgain vem true por definição, então testar só ele
+      // classificava como 'negada' quem jamais viu um diálogo. Era o estado de TODO
+      // usuário recém-cadastrado, e o servidor não tinha como separar "ainda não
+      // perguntamos" de "recusou": os dois chegavam como 'negada', o primeiro
+      // acionável (basta pedir na hora certa) e o segundo não.
+      const motivo = status === 'undetermined' ? 'nao_solicitada'
+        : canAskAgain === false ? 'bloqueada'
+        : 'negada'
+      console.error('[Push] permissão de notificação NÃO concedida | status:', status, '| motivo:', motivo, '— token não será gerado')
+      reportarStatusPush(motivo)
+      return { ok: false, motivo }
     }
     reportarStatusPush('concedida')
 

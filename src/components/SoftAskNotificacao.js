@@ -6,9 +6,10 @@ import { cores, raios } from '../utils/tema'
 import { useAuth } from '../contexts/AuthContext'
 
 // Soft-ask de notificação: um pedido NOSSO, com contexto, ANTES do diálogo do SO.
-// O Android dá UMA tentativa por usuário — negar uma vez torna canAskAgain false
-// para sempre. Então só disparamos o diálogo do SO se a pessoa disser "sim" aqui;
-// "agora não" NÃO gasta a tentativa e podemos perguntar de novo depois.
+// O Android 13+ dá DUAS tentativas: a primeira recusa mantém canAskAgain true (o SO
+// ainda exibe a justificativa), e só a SEGUNDA torna o bloqueio permanente
+// (canAskAgain false). Mesmo assim só disparamos o diálogo do SO se a pessoa disser
+// "sim" aqui; "agora não" não chega ao SO e não gasta tentativa nenhuma.
 //
 // Combina os dois padrões existentes: host acionado por ref de módulo, como o
 // celebracaoRef do CelebracaoMatchHost, e o corpo <Modal> do ModalAvaliacao.
@@ -17,7 +18,10 @@ export const softAskRef = { mostrar: null }
 // Persistência do soft-ask num ÚNICO key JSON (mantém a convenção de keys inline do
 // arquivo; blob em vez de 3 keys irmãos, para leitura/escrita atômica):
 //   { concedido: bool, shows: number, ultimoShowMs: number }
-// "Sim" grava concedido:true → nunca mais mostra (gastamos nossa tentativa).
+// concedido:true é gravado só quando o SO REALMENTE concedeu → nunca mais mostra.
+// "Sim" seguido de recusa (ou de um diálogo dispensado) NÃO grava nada: o slot não é
+// queimado por uma permissão que a pessoa não tem, e o soft-ask segue elegível para as
+// exibições que ainda restam.
 // "Agora não" NÃO grava nada permanente: declinar não pode virar um one-shot nosso.
 // O soft-ask volta, respeitando um intervalo mínimo e um teto de exibições —
 // declinar NÃO gasta a tentativa do SO.
@@ -80,12 +84,22 @@ const SoftAskNotificacao = () => {
 
   const aoAtivar = async () => {
     setVariante(null)
-    // "Sim" gasta nossa tentativa: suprime de vez, seja qual for o desfecho no SO.
-    const estado = await lerEstadoSoftAsk()
-    await gravarEstadoSoftAsk({ ...estado, concedido: true })
     // garantirPermissaoConcedida é o ÚNICO ponto que dispara o diálogo do SO.
     const concedida = await garantirPermissaoConcedida()
-    if (concedida) registrarPushToken()
+    if (!concedida) return
+    // Só DEPOIS de o SO conceder é que o soft-ask se cala para sempre. Antes isto era
+    // gravado ANTES do diálogo, então quem tocasse "Sim" e recusasse no SO — ou apenas
+    // dispensasse o diálogo — perdia o soft-ask de vez, sem ter permissão nenhuma: o
+    // pedido com contexto sumia e sobrava só a linha do Perfil. Agora esse desfecho não
+    // grava nada e as exibições restantes (o teto e o intervalo seguem intactos)
+    // continuam valendo.
+    //
+    // A releitura do estado acontece aqui, DEPOIS do await, e não antes: no meio do
+    // diálogo do SO um novo mostrar() pode ter incrementado shows/ultimoShowMs, e
+    // reaproveitar um objeto lido antes desfaria essa contagem.
+    const estado = await lerEstadoSoftAsk()
+    await gravarEstadoSoftAsk({ ...estado, concedido: true })
+    registrarPushToken()
   }
 
   const aoRecusar = async () => {
