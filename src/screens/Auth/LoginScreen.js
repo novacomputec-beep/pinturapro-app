@@ -1,11 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet,
   TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Linking
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import * as SecureStore from 'expo-secure-store'
 import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
 
@@ -17,6 +18,31 @@ export default function LoginScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [linkPagamento, setLinkPagamento] = useState(null)
+
+  // Semente do campo de e-mail: o do último login bem-sucedido. O SecureStore é assíncrono,
+  // então não dá para ser o valor inicial do useState — o campo nasce vazio e recebe o valor
+  // quando a leitura volta, que é o mesmo vazio de hoje caso a chave não exista.
+  //
+  // O `anterior ||` não é decoração: entre a montagem e a resposta da leitura cabe o tempo
+  // de a pessoa já ter começado a digitar (ou colado outro e-mail), e sobrescrever ali
+  // trocaria o que ela escreveu por um endereço antigo, no meio da digitação. Só preenche
+  // campo que ainda está vazio.
+  //
+  // Sem senha nenhuma: só o e-mail é lembrado, e a senha continua sendo digitada sempre.
+  useEffect(() => {
+    let vivo = true
+    ;(async () => {
+      try {
+        const salvo = await SecureStore.getItemAsync(CHAVE_ULTIMO_EMAIL)
+        if (vivo && salvo) setEmail((anterior) => anterior || salvo)
+      } catch (err) {
+        // Chave ausente já devolve null sem lançar; este catch é para a falha do próprio
+        // SecureStore. Nos dois casos o certo é o campo vazio de sempre — nunca um alerta.
+        console.log('[Login] falha ao ler o último e-mail (campo segue vazio) | msg:', err?.message)
+      }
+    })()
+    return () => { vivo = false }
+  }, [])
 
   const validar = () => {
     const novosErros = {}

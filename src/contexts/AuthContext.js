@@ -10,6 +10,18 @@ import { limparRascunhoCadastro } from '../utils/rascunhoCadastro'
 
 const AuthContext = createContext({})
 
+// E-mail do último login BEM-SUCEDIDO, para a tela de login vir preenchida depois de um
+// logout. Exportada porque duas telas dependem da mesma chave (aqui e a LoginScreen): é a
+// disciplina do rascunhoCadastro.js — chave em UM lugar só, para os dois lados não
+// divergirem num typo silencioso, em que a escrita continua funcionando e a leitura
+// simplesmente nunca acha nada.
+//
+// Vai no SecureStore, e não no AsyncStorage, apenas por vizinhança com o 'token' que já
+// mora lá; um e-mail não é segredo. Sobrevive ao logout DE PROPÓSITO — é o ponto do
+// recurso —, e por isso o logout continua apagando só o 'token'. A senha JAMAIS entra
+// aqui: o que é guardado é identificação, nunca credencial.
+export const CHAVE_ULTIMO_EMAIL = 'ultimo_email'
+
 // Boas-vindas únicas para prestadores recém-aprovados: o backend devolve
 // boas_vindas_exibida no usuario (login e perfil). Mostra só uma vez, para
 // prestador com assinatura ativa que ainda não viu a tela. Nunca para donos.
@@ -242,6 +254,22 @@ export const AuthProvider = ({ children }) => {
     // para outra pessoa. Best-effort, não bloqueia o login.
     limparRascunhoCadastro().catch(() => {})
     await SecureStore.setItemAsync('token', resposta.token)
+    // Só depois do authService.login ter voltado sem erro: o e-mail guardado é o do último
+    // login que DEU CERTO, então uma tentativa com e-mail errado não passa a preencher a
+    // tela para sempre.
+    //
+    // A normalização é repetida aqui em vez de confiar na que a LoginScreen já faz (:33).
+    // Não é redundância inútil: `login` é uma função do contexto e qualquer chamador futuro
+    // a alcança sem passar por aquela tela — e um e-mail gravado com espaço ou maiúscula
+    // voltaria assim ao campo. Sendo idempotente, quem já normalizou não perde nada.
+    //
+    // Best-effort e isolado: gravar isto é conveniência, e uma falha do SecureStore não
+    // pode derrubar um login que o servidor já aceitou.
+    try {
+      await SecureStore.setItemAsync(CHAVE_ULTIMO_EMAIL, String(email || '').trim().toLowerCase())
+    } catch (err) {
+      console.log('[AuthContext] falha ao guardar o último e-mail (login segue) | msg:', err?.message)
+    }
     setUsuario(resposta.usuario)
     setAssinatura(resposta.assinatura)
     setMostrarBoasVindas(deveExibirBoasVindas(resposta.usuario, resposta.assinatura))
