@@ -11,6 +11,22 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+  <!-- Declaradas para NEGAR a obrigatoriedade, não para pedir hardware. O merge de manifesto
+       do Play INFERE estas features a partir das permissões CAMERA e ACCESS_FINE_LOCATION, e
+       o que é inferido entra como required="true" — o que apaga do catálogo todo aparelho sem
+       câmera, sem autofoco ou sem GPS, em silêncio e sem nada no manifesto que explique. Uma
+       declaração explícita vence a inferência, e o app segue instalável nesses aparelhos: as
+       fotos e a localização são opcionais no fluxo (o cadastro sobe mídia da galeria e o feed
+       filtra por cidade escolhida à mão), então nenhuma delas é motivo para excluir ninguém.
+       São QUATRO porque a localização é inferida por duas vias independentes: o GPS
+       (android.hardware.location.gps) vem de ACCESS_FINE_LOCATION, e a localização genérica
+       (android.hardware.location, que inclui a por rede) vem de ACCESS_COARSE_LOCATION.
+       Negar só a do GPS deixaria a segunda inferida como obrigatória e o aparelho sem
+       hardware de localização nenhum continuaria fora do catálogo. -->
+  <uses-feature android:name="android.hardware.camera" android:required="false"/>
+  <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
+  <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+  <uses-feature android:name="android.hardware.location" android:required="false"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
