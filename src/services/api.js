@@ -15,20 +15,36 @@ const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 // é erro de aplicação. ATENÇÃO ao corpo: um 304 legítimo vem VAZIO, então o interceptor de
 // sucesso devolve `undefined` como `response.data` — quem chama precisa tolerar isso, que
 // é justamente o que os chamadores já fazem com `resp?.campo` e o fallback do buscar().
-// Connection: close — cada requisição pede uma conexão NOVA em vez de reaproveitar uma
-// do pool. Ataca na origem o problema descrito em rede.js:4-10: o socket de keep-alive
-// ocioso que o SO/a rede derrubam sem avisar o cliente, que o pool continua entregando e
-// no qual a requisição seguinte se perde (o ERR_NETWORK que motivou o retry e o
-// aquecimento). Sem reaproveitamento, não há socket velho para morrer.
+// Connection: close SAIU daqui. Ele existia para atacar o problema descrito em rede.js:4-10
+// — o socket de keep-alive ocioso que o SO/a rede derrubam sem avisar o cliente, que o pool
+// continua entregando e no qual a requisição seguinte se perde (o ERR_NETWORK que motivou o
+// retry e o aquecimento) — e resolvia pedindo uma conexão NOVA a cada chamada: sem
+// reaproveitamento, não há socket velho para morrer. O preço era um handshake TCP + TLS em
+// TODA requisição, pago no rádio do celular: cada montagem de tela, cada ciclo de 15 s dos
+// overlays, cada /health de aquecimento.
 //
-// Vale só para ESTA instância. Os uploads que não passam por ela seguem com keep-alive,
-// de propósito: uploadFotoPerfil (:94) e uploadMidiaPublica (:108) usam axios avulso, e
-// midia.js, EditarPerfilScreen e CadastroScreen sobem por XHR direto — arquivos grandes
-// são exatamente o caso em que reaproveitar a conexão compensa.
+// Quem cuida disso agora é o cliente HTTP nativo, uma camada abaixo e sem custo por
+// requisição: android/app/src/main/java/com/pinturapro/app/PinturaProOkHttpFactory.kt
+// registra um OkHttp com ConnectionPool de 45 s — menor que a JANELA_OCIOSA de 60 s do
+// rede.js, então o pool descarta a conexão ANTES da janela em que este app já a considera
+// suspeita — e com retryOnConnectionFailure, que reexecuta numa conexão nova, de forma
+// transparente, a chamada que morreu num socket reaproveitado.
+//
+// O que o nativo NÃO cobre continua valendo aqui: o retryOnConnectionFailure só pega a
+// variante que falha NA HORA. A que TRAVA até o timeout chega como InterruptedIOException, o
+// OkHttp não a reexecuta, e ela segue sendo o ECONNABORTED do comRetry({ timeout: true }) —
+// com o aquecimento de rede.js como para-raios. Nada nessas duas camadas mudou.
+//
+// A troca vale para o app inteiro, não só para esta instância: o header saía apenas daqui,
+// mas o cliente nativo é o mesmo de todo fetch/XHR (uploads ao Cloudinary, IBGE/ViaCEP/
+// Nominatim, token do expo-notifications) e do carregamento de imagens. Os uploads, que já
+// vinham com keep-alive de propósito — uploadFotoPerfil, uploadMidiaPublica e os XHR de
+// midia.js, EditarPerfilScreen e CadastroScreen —, passam a expirar em 45 s de ociosidade
+// como todo o resto.
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json', Connection: 'close' },
+  headers: { 'Content-Type': 'application/json' },
   validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
 })
 
@@ -115,10 +131,9 @@ api.interceptors.response.use(
 // chamador e reinvoca api.get a cada tentativa: com a entrada já liberada, a tentativa
 // seguinte abre uma requisição de verdade).
 //
-// Nada aqui toca em transporte: não monta requisição, não lê nem escreve header — o
-// Connection: close segue vindo dos defaults da instância, e três requisições viram uma, o que
-// só REDUZ o número de sockets — e não fala com o cliente HTTP nativo. Só decide se chama o
-// axios de novo.
+// Nada aqui toca em transporte: não monta requisição, não lê nem escreve header, e não fala
+// com o cliente HTTP nativo — só decide se chama o axios de novo. Três requisições viram uma,
+// o que apenas REDUZ o que se pede ao pool de conexões.
 //
 // Lista fechada, e não todo GET: estas quatro coleções alimentam overlays consultivos que já
 // toleram 15 s de atraso. Ficam de fora, de propósito, as rotas de detalhe (/reparos/:id,
