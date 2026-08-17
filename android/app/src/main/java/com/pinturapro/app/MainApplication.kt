@@ -14,6 +14,7 @@ import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.flipper.ReactNativeFlipper
+import com.facebook.react.modules.network.OkHttpClientProvider
 import com.facebook.soloader.SoLoader
 
 import expo.modules.ApplicationLifecycleDispatcher
@@ -44,6 +45,14 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    // AQUI, e não mais tarde. O OkHttpClientProvider guarda a fábrica num campo estático e
+    // cria o cliente por demanda: quem pedir o cliente ANTES deste ponto recebe o padrão do
+    // RN, sem erro nenhum — a fábrica seria ignorada em silêncio. Os dois que pedem são
+    // módulos nativos (NetworkingModule e FrescoModule), construídos junto com o
+    // ReactInstanceManager a partir da MainActivity, ou seja, sempre DEPOIS do onCreate da
+    // Application. Antes daqui só rodam ContentProviders (o FirebaseInitProvider do
+    // google-services), que têm transporte próprio e não passam por este cliente.
+    OkHttpClientProvider.setOkHttpClientFactory(PinturaProOkHttpFactory(this))
     SoLoader.init(this, false)
     if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
       ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false
