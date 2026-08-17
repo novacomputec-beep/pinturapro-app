@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native'
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -55,94 +55,106 @@ export default function SplashScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
 
-      {/* Logo */}
-      <View style={estilos.logoArea}>
-        <Image
-          source={require('../../../assets/logo.png')}
-          style={estilos.logoIcone}
-          resizeMode="contain"
-        />
-        <Text style={estilos.logoNome}>
-          <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
-        </Text>
-        <View style={estilos.logoRegua} />
-        <Text style={estilos.logoTagline}>Obras e serviços gerais com profissionais qualificados e idoneidade checada.</Text>
-      </View>
+      {/* Sem rolagem, esta tela dependia de caber inteira: em aparelho baixo o "Entrar na
+          plataforma" e os links de Termos/Privacidade ficavam abaixo da dobra, sem forma
+          alguma de alcançá-los — o login ficava bloqueado no aparelho, não apenas apertado.
+          O par flexGrow: 1 + justifyContent: 'center' do contentContainer é o mesmo padrão da
+          LoginScreen (:83): em tela alta o conteúdo continua centrado e nada muda, porque o
+          artArea (flex: 1) segue absorvendo a folga e não sobra espaço para o justifyContent
+          distribuir; em tela baixa o contêiner cresce até a altura do conteúdo e passa a
+          rolar. O SafeAreaView segue por fora, então as bordas seguras não rolam junto. */}
+      <ScrollView contentContainerStyle={estilos.scroll} showsVerticalScrollIndicator={false}>
 
-      {/* Arte central */}
-      <View style={estilos.artArea}>
-        <TouchableOpacity
-          style={estilos.artCard}
-          onPress={() => navigation.navigate('Cadastro')}
-          activeOpacity={0.8}
-        >
-          <View style={estilos.artLinha}>
-            <View style={[estilos.artBloco, { flex: 2, backgroundColor: cores.primariaSuave }]} />
-            <View style={[estilos.artBloco, { flex: 1 }]} />
-          </View>
-          <View style={[estilos.artLinha, { marginTop: 8 }]}>
-            <View style={[estilos.artBloco, { flex: 1 }]} />
-            <View style={[estilos.artBloco, { flex: 1 }]} />
-            <View style={[estilos.artBloco, { flex: 1, backgroundColor: cores.sucessoSuave }]} />
-          </View>
-          <View style={[estilos.artLinha, { marginTop: 8 }]}>
-            <View style={[estilos.artBloco, { flex: 3 }]} />
-          </View>
-          <View style={estilos.artValor}>
-            <Text style={estilos.artValorTexto}>
-              {temStats
-                ? `R$ ${Number(stats.total_valor_obras).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-                : '—'}
-            </Text>
-            <Text style={estilos.artValorLabel}>
-              {temStats
-                ? `${stats.total_obras_ativas} vagas ativas agora`
-                : 'vagas ativas agora'}
-            </Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Ações */}
-      <View style={estilos.acoes}>
-        {/* Chamada ao dono: a tela sempre falou ao prestador ("profissionais
-            qualificados"), e o dono é o outro lado do marketplace. Leva ao MESMO
-            destino do "Criar minha conta" — Cadastro no passo 0, onde a escolha de
-            perfil acontece. Sem rota nova, sem params. */}
-        <TouchableOpacity
-          style={estilos.donoCard}
-          onPress={() => navigation.navigate('Cadastro')}
-          activeOpacity={0.8}
-        >
-          <Text style={estilos.donoTitulo}>Precisa de um profissional?</Text>
-          <Text style={estilos.donoTexto}>
-            Da lâmpada queimada à reforma inteira — e também manicure, cabeleireiro, cuidador, professor particular. Publique o que você precisa, de graça, e receba propostas de profissionais aprovados da sua região.
+        {/* Logo */}
+        <View style={estilos.logoArea}>
+          <Image
+            source={require('../../../assets/logo.png')}
+            style={estilos.logoIcone}
+            resizeMode="contain"
+          />
+          <Text style={estilos.logoNome}>
+            <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
           </Text>
-        </TouchableOpacity>
-        {/* Criar conta em primeiro e em laranja: esta tela é pré-login, então quem chega
-            aqui é majoritariamente quem AINDA não tem conta. Dar o botão de destaque ao
-            "Entrar" pedia a ação que só o usuário recorrente precisa, e ele já sabe o
-            caminho. Mesmo par de destinos, invertida a ênfase. */}
-        <BotaoPrimario
-          titulo="Criar minha conta"
-          onPress={() => navigation.navigate('Cadastro')}
-          estilo={{ marginBottom: 10 }}
-        />
-        <BotaoSecundario
-          titulo="Entrar na plataforma"
-          onPress={() => navigation.navigate('Login')}
-          estilo={{ marginBottom: 20 }}
-        />
-        {/* Frase e links em blocos separados: no <Text> único os links ficavam no meio do
-            parágrafo, e quebravam onde a largura mandasse. Em duas linhas o aviso se lê
-            de uma vez e os dois alvos de toque ficam lado a lado, previsíveis. */}
-        <Text style={estilos.termos}>Ao continuar, você concorda com os</Text>
-        <Text style={estilos.termosLinks}>
-          <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Termos')}>Termos de uso</Text>
-          {' '}e{' '}
-          <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Privacidade')}>Política de privacidade</Text>
-        </Text>
-      </View>
+          <View style={estilos.logoRegua} />
+          <Text style={estilos.logoTagline}>Obras e serviços gerais com profissionais qualificados e idoneidade checada.</Text>
+        </View>
+
+        {/* Arte central */}
+        <View style={estilos.artArea}>
+          <TouchableOpacity
+            style={estilos.artCard}
+            onPress={() => navigation.navigate('Cadastro')}
+            activeOpacity={0.8}
+          >
+            <View style={estilos.artLinha}>
+              <View style={[estilos.artBloco, { flex: 2, backgroundColor: cores.primariaSuave }]} />
+              <View style={[estilos.artBloco, { flex: 1 }]} />
+            </View>
+            <View style={[estilos.artLinha, { marginTop: 8 }]}>
+              <View style={[estilos.artBloco, { flex: 1 }]} />
+              <View style={[estilos.artBloco, { flex: 1 }]} />
+              <View style={[estilos.artBloco, { flex: 1, backgroundColor: cores.sucessoSuave }]} />
+            </View>
+            <View style={[estilos.artLinha, { marginTop: 8 }]}>
+              <View style={[estilos.artBloco, { flex: 3 }]} />
+            </View>
+            <View style={estilos.artValor}>
+              <Text style={estilos.artValorTexto}>
+                {temStats
+                  ? `R$ ${Number(stats.total_valor_obras).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+                  : '—'}
+              </Text>
+              <Text style={estilos.artValorLabel}>
+                {temStats
+                  ? `${stats.total_obras_ativas} vagas ativas agora`
+                  : 'vagas ativas agora'}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Ações */}
+        <View style={estilos.acoes}>
+          {/* Chamada ao dono: a tela sempre falou ao prestador ("profissionais
+              qualificados"), e o dono é o outro lado do marketplace. Leva ao MESMO
+              destino do "Criar minha conta" — Cadastro no passo 0, onde a escolha de
+              perfil acontece. Sem rota nova, sem params. */}
+          <TouchableOpacity
+            style={estilos.donoCard}
+            onPress={() => navigation.navigate('Cadastro')}
+            activeOpacity={0.8}
+          >
+            <Text style={estilos.donoTitulo}>Precisa de um profissional?</Text>
+            <Text style={estilos.donoTexto}>
+              Da lâmpada queimada à reforma inteira — e também manicure, cabeleireiro, cuidador, professor particular. Publique o que você precisa, de graça, e receba propostas de profissionais aprovados da sua região.
+            </Text>
+          </TouchableOpacity>
+          {/* Criar conta em primeiro e em laranja: esta tela é pré-login, então quem chega
+              aqui é majoritariamente quem AINDA não tem conta. Dar o botão de destaque ao
+              "Entrar" pedia a ação que só o usuário recorrente precisa, e ele já sabe o
+              caminho. Mesmo par de destinos, invertida a ênfase. */}
+          <BotaoPrimario
+            titulo="Criar minha conta"
+            onPress={() => navigation.navigate('Cadastro')}
+            estilo={{ marginBottom: 10 }}
+          />
+          <BotaoSecundario
+            titulo="Entrar na plataforma"
+            onPress={() => navigation.navigate('Login')}
+            estilo={{ marginBottom: 20 }}
+          />
+          {/* Frase e links em blocos separados: no <Text> único os links ficavam no meio do
+              parágrafo, e quebravam onde a largura mandasse. Em duas linhas o aviso se lê
+              de uma vez e os dois alvos de toque ficam lado a lado, previsíveis. */}
+          <Text style={estilos.termos}>Ao continuar, você concorda com os</Text>
+          <Text style={estilos.termosLinks}>
+            <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Termos')}>Termos de uso</Text>
+            {' '}e{' '}
+            <Text style={{ color: cores.primaria }} onPress={() => navigation.navigate('Privacidade')}>Política de privacidade</Text>
+          </Text>
+        </View>
+
+      </ScrollView>
 
     </SafeAreaView>
   )
@@ -153,6 +165,13 @@ const estilos = StyleSheet.create({
     flex: 1,
     backgroundColor: cores.fundo,
     paddingHorizontal: espacos.tela,
+  },
+  // Só o contentContainer da rolagem — nenhum valor das regras abaixo mudou. O flexGrow
+  // garante o mínimo de uma tela cheia (sem ele o conteúdo encolheria para a própria altura
+  // e a centralização se perderia), e a partir daí o conteúdo manda e a rolagem aparece.
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
   },
   logoArea: {
     alignItems: 'center',
