@@ -230,9 +230,24 @@ const estilos = StyleSheet.create({
   },
   artArea: {
     flex: 1,
-    justifyContent: 'center',
+    // 'flex-end', e não 'center'. Centralizado, a folga que o flex: 1 sobra se dividia
+    // em duas metades — uma acima do card, outra abaixo —, e a metade de baixo entrava
+    // no vão até "Precisa de um profissional?". Esse vão passava a depender da altura da
+    // tela e não havia como calibrá-lo. Encostando o card embaixo, TODA a folga vai para
+    // cima e o vão de baixo vira só o padding + a métrica do texto, igual em qualquer
+    // aparelho. A altura desta caixa continua vindo do flex (do container), não do
+    // conteúdo: justifyContent só distribui o espaço DENTRO dela, então nada disso mexe
+    // na altura intrínseca da coluna nem no ponto de dobra do ScrollView.
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    paddingVertical: 40,
+    // paddingTop 40 / paddingBottom 36 (era um paddingVertical: 40 simétrico). Os 36
+    // daqui, somados a 1,12 de meia-entrelinha e 3,38 de cap-gap do título de 13, dão
+    // 40,50 dp de vão ÓPTICO acima do título; os 20 do marginBottom da vitrineGrid, com
+    // os 5 de padding da pill, 0,5 de borda e 3,30 de folga do descendente, dão 28,80 dp
+    // abaixo da grade. É o corte de 58/42 medido no que se VÊ, não nos números
+    // declarados. A soma declarada segue 56, como era antes de qualquer redistribuição.
+    paddingTop: 40,
+    paddingBottom: 36,
   },
   artCard: {
     backgroundColor: cores.fundoCard,
@@ -284,7 +299,13 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: espacos.lg,
+    // 20 literal, no lugar de espacos.lg (16): é a metade de baixo do corte óptico de
+    // 58/42. Os 20 daqui + 5 de padding da pill + 0,5 de borda + 3,30 de folga do
+    // descendente do rótulo de 10 dão 28,80 dp, contra os 40,50 dp do vão acima do
+    // título (ver artArea). Literal, e não token, porque 20 não existe em `espacos` — o
+    // valor sai da conta óptica, não da escala de espaçamento.
+    // O `gap: 6` acima é o respiro ENTRE as pills e não entra nessa conta.
+    marginBottom: 20,
   },
   // Espelha o estado NÃO-selecionado da categoriaPill do CadastrarReparoScreen (mesmo
   // fundo, mesma borda de 0.5, mesma cor de texto), em escala menor: 10 em vez de 12 no
