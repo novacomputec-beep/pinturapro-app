@@ -87,23 +87,36 @@ const especialidadesTexto = (esp) => {
   return limpos.length ? limpos.join(', ') : null
 }
 
-// Trunca para as unidades mais significativas, com granularidade decrescente:
-//   ≥ 1 dia  → "19 dias 7h 25m"
-//   ≥ 1 hora → "7h 25m"
-//   ≥ 1 min  → "25m"
-//   < 1 min  → "menos de 1 min"
-// Estava inline no contador da lista; virou função de módulo para o RelogioRegressivo
-// usar a MESMA regra. Ele formatava hh:mm:ss com a hora acumulada, e um prazo de uma
-// semana aparecia como "167:45:46" — um número que ninguém lê como prazo.
-// Segundos saíram de TODAS as faixas: um prazo medido em horas não se decide no
+// Trunca para UMA unidade só, a mais significativa — a MESMA regra, palavra por palavra,
+// do pill do feed de obras (FeedObrasScreen.js:79-92):
+//   ≥ 60 dias → "2 meses e 12 dias"  (meses de 30 dias; sem o "e X dias" com resto zero)
+//   ≥ 1 dia   → "23 dias"            (horas e minutos descartados)
+//   ≥ 1 hora  → "7h 25min"
+//   < 1 hora  → "25min"
+//   < 1 min   → "menos de 1 min"
+// Antes empilhava as três unidades ("19 dias 7h 25m"), e o MESMO prazo aparecia de duas
+// formas conforme a tela: o cartão do feed dizia "Finaliza em 19 dias" e o detalhe da
+// mesma obra dizia "19 dias 7h 25m". Num prazo de obra, contado em semanas, a hora e o
+// minuto não mudam decisão nenhuma — quem precisa deles é o REPARO, cujo
+// formatarTempoRestante (byte-idêntico ao que este era, em DetalheReparoScreen.js:71)
+// segue empilhado de propósito e NÃO acompanha esta mudança. São duas funções locais
+// independentes, sem import entre elas: mexer aqui não alcança lá.
+// Segundos seguem fora de todas as faixas: um prazo medido em dias não se decide no
 // segundo, e o dígito piscando puxava o olho para o único número que não importa.
-// O último minuto não vira "0m" (que se lê como esgotado, e não é): vira uma frase.
 const formatarTempoRestante = ({ d, h, m }) => {
-  const pad = (n) => String(n).padStart(2, '0')
-  if (d > 0) return `${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
-  if (h > 0) return `${h}h ${pad(m)}m`
-  if (m > 0) return `${m}m`
-  return 'menos de 1 min'
+  if (d >= 60) {
+    const meses = Math.floor(d / 30)
+    const diasRest = d % 30
+    return `${meses} ${meses === 1 ? 'mês' : 'meses'}` +
+      (diasRest > 0 ? ` e ${diasRest} ${diasRest === 1 ? 'dia' : 'dias'}` : '')
+  }
+  if (d >= 1) return `${d} ${d === 1 ? 'dia' : 'dias'}`
+  if (h >= 1) return `${h}h ${String(m).padStart(2, '0')}min`
+  // Única diferença em relação ao pill do feed, e de propósito: "0min" se lê como
+  // esgotado, e não é. No cartão do feed isso quase não aparece, mas AQUI o texto ocupa
+  // a contagem em destaque por até 60 s antes de virar EXPIRADO.
+  if (m < 1) return 'menos de 1 min'
+  return `${m}min`
 }
 
 // Janelas de chegada oferecidas ao profissional depois que sua proposta é aceita. O
