@@ -6,6 +6,16 @@ import { cores, espacos, raios } from '../../utils/tema'
 import api from '../../services/api'
 import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 
+// Vitrine ESTÁTICA do que a plataforma cobre, na tela pré-login. Não é a lista de
+// categorias do cadastro (CadastrarReparoScreen/CadastrarObraScreen, que são a fonte da
+// verdade e têm 15 e 6 itens): é uma amostra dos dois lados do marketplace — seis de
+// serviço doméstico, três de obra — escolhida para caber em 3x3 sem rolar.
+const VITRINE = [
+  '🔧 Hidráulica', '⚡ Elétrica',   '🧹 Faxina',
+  '💅 Manicure',   '🤝 Cuidador',   '🌳 Jardineiro',
+  '🏠 Residencial', '🏢 Comercial',  '🌾 Rural',
+]
+
 // Garante que o prompt de retomada apareça no máximo uma vez por execução do app
 // (evita re-perguntar ao voltar ao Splash na mesma sessão). Reinicia a cada
 // cold-start porque o módulo é recarregado junto com o processo.
@@ -115,20 +125,21 @@ export default function SplashScreen({ navigation }) {
 
         {/* Ações */}
         <View style={estilos.acoes}>
-          {/* Chamada ao dono: a tela sempre falou ao prestador ("profissionais
-              qualificados"), e o dono é o outro lado do marketplace. Leva ao MESMO
-              destino do "Criar minha conta" — Cadastro no passo 0, onde a escolha de
-              perfil acontece. Sem rota nova, sem params. */}
-          <TouchableOpacity
-            style={estilos.donoCard}
-            onPress={() => navigation.navigate('Cadastro')}
-            activeOpacity={0.8}
-          >
-            <Text style={estilos.donoTitulo}>Precisa de um profissional?</Text>
-            <Text style={estilos.donoTexto}>
-              Da lâmpada queimada à reforma inteira — e também manicure, cabeleireiro, cuidador, professor particular. Publique o que você precisa, de graça, e receba propostas de profissionais aprovados da sua região.
-            </Text>
-          </TouchableOpacity>
+          {/* Mesma pergunta de antes, agora respondida pelos próprios exemplos em vez de um
+              parágrafo: a lista se lê num golpe de vista e o bloco encolhe. */}
+          <Text style={estilos.vitrineTitulo}>Precisa de um profissional?</Text>
+          {/* <View>, e NÃO <TouchableOpacity>: nada aqui é tocável. Um chip com cara de
+              botão que não responde ao toque é pior do que chip nenhum — quem quiser entrar
+              usa os dois botões logo abaixo, que continuam sendo os únicos alvos da tela.
+              numberOfLines={1} por isso mesmo: em tela estreita o rótulo trunca e a grade
+              mantém as três colunas, em vez de quebrar em duas linhas e desalinhar tudo. */}
+          <View style={estilos.vitrineGrid}>
+            {VITRINE.map((c) => (
+              <View key={c} style={estilos.vitrineChip}>
+                <Text style={estilos.vitrineChipTexto} numberOfLines={1}>{c}</Text>
+              </View>
+            ))}
+          </View>
           {/* Criar conta em primeiro e em laranja: esta tela é pré-login, então quem chega
               aqui é majoritariamente quem AINDA não tem conta. Dar o botão de destaque ao
               "Entrar" pedia a ação que só o usuário recorrente precisa, e ele já sabe o
@@ -260,24 +271,39 @@ const estilos = StyleSheet.create({
   acoes: {
     paddingBottom: 40,
   },
-  donoCard: {
-    backgroundColor: cores.primariaSuave,
-    borderWidth: 0.5,
-    borderColor: cores.primariaBorda,
-    borderRadius: raios.grande,
-    padding: espacos.lg,
+  vitrineTitulo: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: cores.textoForte,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  // Mesma grade das pills de categoria do cadastro (linha + wrap + largura 31%), com o
+  // gap menor: são nove itens decorativos, não um seletor.
+  vitrineGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
     marginBottom: espacos.lg,
   },
-  donoTitulo: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: cores.textoForte,
-    marginBottom: 6,
+  // Espelha o estado NÃO-selecionado da categoriaPill do CadastrarReparoScreen (mesmo
+  // fundo, mesma borda de 0.5, mesma cor de texto), em escala menor: 10 em vez de 12 no
+  // rótulo, 5/4 de padding em vez de 7/12, raio 13 em vez dos 24 do raios.pill. Não há
+  // estado ativo — nada aqui seleciona nada.
+  vitrineChip: {
+    width: '31%',
+    alignItems: 'center',
+    backgroundColor: cores.fundoElevado,
+    borderWidth: 0.5,
+    borderColor: cores.borda,
+    borderRadius: 13,
+    paddingHorizontal: 4,
+    paddingVertical: 5,
   },
-  donoTexto: {
-    fontSize: 12,
+  vitrineChipTexto: {
+    fontSize: 10,
     color: cores.textoMedio,
-    lineHeight: 18,
+    textAlign: 'center',
   },
   termos: {
     textAlign: 'center',
