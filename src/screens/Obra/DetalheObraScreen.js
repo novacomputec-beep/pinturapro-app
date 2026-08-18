@@ -745,7 +745,23 @@ export default function DetalheObraScreen({ route, navigation }) {
       await comRetry(() => api.post(`/obras/${obra.id}/expirar-match`, {}))
       setObra(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
       Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. A obra está disponível novamente.')
-    } catch (err) { console.log('Erro ao expirar match:', err) }
+    } catch (err) {
+      console.log('Erro ao expirar match:', err)
+      // Sem alerta e sem banner, e isso é deliberado: quem dispara este handler é o relógio
+      // (RelogioRegressivo onExpirar), não um toque. Um modal aqui interromperia alguém que
+      // está apenas olhando a tela, por uma ação que essa pessoa não pediu — é exatamente a
+      // distinção que o comentário do handleNaoChegou, logo abaixo, já registra.
+      // O que faltava era a TELA ficar certa. Falhando o expirar-match, ela seguia mostrando
+      // um match que o servidor pode já ter desfeito, e nada corrigia isso: o setObra acima
+      // só roda no sucesso. A releitura arruma o estado em silêncio, que é o comportamento
+      // que este caminho sempre quis ter.
+      // recarregarObra() e não buscar(): o buscar() marca setErro('Não foi possível atualizar...') ao
+      // falhar, e um banner é justamente o aviso que não cabe aqui.
+      // Sem await e com .catch que só loga: nada nesta releitura pode atrasar, lançar ou
+      // aparecer. Rede pura fica de fora (err.status ausente): não há o que reler, e a
+      // requisição pode nem ter chegado ao servidor.
+      if (err.status != null) recarregarObra().catch(e => console.log('[DetalheObra] recarga pós-erro falhou | code:', e?.code))
+    }
   }
 
   // "O profissional não chegou": o dono contesta a declaração de chegada da outra parte.
