@@ -110,7 +110,19 @@ api.interceptors.response.use(
     // Sem este repasse o comRetry não teria como enxergá-lo — ele só vê o objeto montado
     // aqui, nunca a resposta original.
     const retryAfter = error.response?.headers?.['retry-after']
-    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo, retryAfter })
+    // `metodo`/`rota`: o par que faltava para o comRetry decidir se uma chamada PODE ser
+    // reenviada. Os dois já existiam no AxiosError (error.config, preenchido antes do
+    // despacho, então presente até quando não há response — o caso ERR_NETWORK) e morriam
+    // exatamente aqui, porque este objeto é construído de zero e é o único que o comRetry
+    // enxerga. Sem eles, a decisão de retry só tinha o erro em mãos: nada dizia se aquilo
+    // era um GET relendo uma lista ou um POST que já pode ter criado recurso no servidor.
+    // Optional chaining nos dois níveis: um erro malformado (sem config, ou com config sem
+    // method) não pode LANÇAR dentro do interceptor — daqui uma exceção não teria mais onde
+    // ser tratada e viraria unhandled rejection, trocando um erro de rede legível por um
+    // crash silencioso. Método em maiúsculas porque o axios normaliza para minúsculas.
+    const metodo = error.config?.method?.toUpperCase()
+    const rota = error.config?.url
+    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo, retryAfter, metodo, rota })
   }
 )
 

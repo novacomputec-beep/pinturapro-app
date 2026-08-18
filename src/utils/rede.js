@@ -121,6 +121,79 @@ export const aquecerSeOcioso = async () => {
   await aquecimentoEmVoo
 }
 
+// ─── Reenvio é OPT-IN por rota ───────────────────────────────
+// Antes, TODA chamada embrulhada em comRetry era reexecutada num ERR_NETWORK, sem olhar
+// método nem rota. Isso reenviava mutações não idempotentes: o POST /obras/:id/estender
+// chegou três vezes ao servidor (três 200) enquanto o app mostrava "erro de conexão", e o
+// prazo foi somado três vezes. O erro de rede é honesto — a resposta se perdeu —, mas
+// "não recebi a resposta" NUNCA quis dizer "o servidor não processou".
+//
+// Agora a permissão é uma LISTA DE INCLUSÃO e falha FECHADA: quem não está aqui não é
+// reenviado. Denylist teria o defeito oposto — cada rota nova nasceria reenviável, e o
+// esquecimento custaria uma cobrança dupla em produção. GET entra por classe, não por
+// item: reler é inócuo por definição, e são 21 call sites que não precisam de manutenção.
+//
+// Método e rota chegam no próprio objeto de erro (`metodo`/`rota`, postos pelo interceptor
+// de api.js), então nada aqui muda a assinatura do comRetry nem os 81 call sites.
+const SEG_NUMERICO = /^\d+$/
+const SEG_UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+// Colapsa id em curinga para o padrão casar independente do id: numérico e UUID, os dois
+// formatos que as rotas usam. A query sai fora — `/reparos?categoria=x` (FeedReparos) tem
+// de casar com `/reparos`, e um filtro no meio da URL não muda QUAL rota é.
+const normalizarRota = (rota) => {
+  if (typeof rota !== 'string' || !rota) return null
+  return rota
+    .split('?')[0]
+    .split('/')
+    .map(seg => (SEG_NUMERICO.test(seg) || SEG_UUID.test(seg)) ? '*' : seg)
+    .join('/')
+}
+
+// Cada entrada foi conferida rota a rota do lado da API: todas absorvem uma entrega
+// repetida sem alterar o dado guardado. Padrões escritos com os segmentos LITERAIS dos
+// call sites — `candidatura` e `interesse` no singular, que é como as URLs são montadas,
+// independentemente de a API chamar os params de :candidaturaId e :interesse_id.
+//
+// Os pares obra/reparo andam JUNTOS. A versão anterior desta lista trazia só o lado da
+// obra em "responder", e o reparador ficava sem reenvio numa ação que o dono de obra
+// tinha — a regra bilateral deste app não admite um lado com rede mais frágil que o outro.
+const REENVIAVEIS = new Set([
+  // Prazo — o caso que originou tudo isto.
+  'POST /obras/*/estender',
+  'POST /reparos/*/estender',
+  // Fechamento do combinado.
+  'POST /obras/*/match',
+  'POST /reparos/*/match',
+  // Chegada: a declaração e a janela prevista.
+  'POST /obras/*/chegada',
+  'POST /reparos/*/chegada',
+  'POST /obras/*/chegada-prevista',
+  'POST /reparos/*/chegada-prevista',
+  // Resposta à proposta, nos DOIS lados — obra usa `candidatura`, reparo usa `interesse`.
+  'POST /obras/*/candidatura/*/responder',
+  'POST /reparos/*/interesse/*/responder',
+  // Bloqueio de profissional e o seu desfazimento.
+  'POST /usuarios/bloquear-prestador',
+  'DELETE /usuarios/desbloquear-prestador/*',
+  // Exclusões: o alvo é um estado final, então repetir chega no mesmo lugar.
+  'DELETE /conta/excluir',
+  'DELETE /obras/dono/*',
+  'DELETE /reparos/dono/*',
+])
+
+// `metodo`/`rota` ausentes = NÃO reenvia. Acontece de verdade: um erro lançado dentro do
+// interceptor de REQUEST estoura antes do despacho, e aí não existe config para ler — sem
+// saber o que a chamada era, o único palpite seguro é não repeti-la.
+const podeReenviar = (err) => {
+  const metodo = err?.metodo
+  if (metodo === 'GET') return true
+  if (!metodo) return false
+  const rota = normalizarRota(err?.rota)
+  if (!rota) return false
+  return REENVIAVEIS.has(`${metodo} ${rota}`)
+}
+
 export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs = 1000, persistir = false } = {}) => {
   const maxTentativas = 3
   const inicio = Date.now()
@@ -147,7 +220,14 @@ export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs
       // duas vezes e para não herdar o backoff local quando há Retry-After.
       const isSobrecarga = err.status === 503 && err.codigo === 'SOBRECARGA'
       const isServidor = !isClientError && servidor && err.status >= 500 && !isSobrecarga
-      const reexecutavel = isNetwork || isTimeout || isServidor || isSobrecarga
+      // A allowlist entra como AND sobre a classificação: a rota ganha o direito de ser
+      // reenviada, mas o MOTIVO continua tendo de ser um dos de sempre.
+      //
+      // O shed fica FORA dela, e por isso vem antes do parêntese. Um 503 SOBRECARGA é o
+      // servidor recusando a requisição ANTES de processá-la (ver :142-147): não há efeito
+      // a duplicar, em rota nenhuma e método nenhum, então condicioná-lo à lista não
+      // protegia nada e desligava o shed em ~56 call sites de mutação de uma vez.
+      const reexecutavel = isSobrecarga || (podeReenviar(err) && (isNetwork || isTimeout || isServidor))
 
       // Não-reexecutável → propaga na hora, em qualquer modo.
       if (!reexecutavel) throw err
