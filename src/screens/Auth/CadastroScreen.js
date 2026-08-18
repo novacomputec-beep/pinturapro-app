@@ -889,11 +889,6 @@ export default function CadastroScreen({ navigation }) {
   const fotosVerificacaoOk = !!docFrenteUrl && !!docVersoUrl && !!selfieUrl
   const bloquearFinalizarPorFotos = isPrestador && passo === totalPassos && !fotosVerificacaoOk
 
-  // Prestador e dono de reparo usam o ícone; demais tipos seguem com o logo completo.
-  const logoSource = (tipoConta === 'prestador' || tipoConta === 'dono_reparo')
-    ? require('../../../assets/icone.png')
-    : require('../../../assets/logo.png')
-
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
@@ -978,22 +973,11 @@ export default function CadastroScreen({ navigation }) {
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <View style={estilos.logoWrap}>
-            <Image
-              source={logoSource}
-              style={logoSource === require('../../../assets/icone.png') ? estilos.logoIcone : estilos.logo}
-              resizeMode="contain"
-            />
-            {/* O rótulo acompanha o logo completo; quem usa o ícone não o recebe.
-                Amarrado ao logoSource (e não a tipoConta) para não poder dessincronizar
-                de qual imagem realmente aparece — mesma comparação da linha acima. */}
-            {logoSource !== require('../../../assets/icone.png') && (
-              <>
-                <Text style={estilos.logoNome}>
-                  <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
-                </Text>
-                <View style={estilos.logoRegua} />
-              </>
-            )}
+            <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
+            <Text style={estilos.logoNome}>
+              <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
+            </Text>
+            <View style={estilos.logoRegua} />
           </View>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
@@ -1253,7 +1237,6 @@ const estilos = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 8 },
   logoWrap: { alignItems: 'center', marginBottom: 4 },
   logo: { width: 170, height: 64 },
-  logoIcone: { width: 170, height: 120, marginBottom: 4 },
   // Mesmos valores do rótulo da SplashScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
