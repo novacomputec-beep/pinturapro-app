@@ -577,6 +577,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
       // tem (respondida ou não), que é o que a pessoa precisa saber. Qualquer erro COM
       // resposta do servidor continua no alerta.
       if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      // Recarrega ANTES de alertar, e só quando VEIO resposta do servidor. O alerta era
+      // levantado sobre o estado de ANTES da requisição, que pode contradizê-lo: o servidor
+      // responde "Não há previsão de chegada aguardando resposta" justamente porque já
+      // registrou a resposta, e a tela atrás do alerta seguia mostrando a janela pendente.
+      // Rede pura fica de fora (err.status ausente): não há o que reler, e a requisição pode
+      // nem ter chegado — esse caso é do recarregarSeFalhaDeRede logo acima.
+      // O try/catch existe para a recarga NÃO trocar o erro: se ela falhar, o alerta abaixo
+      // continua sendo o do erro original, que é o que a pessoa precisa ver.
+      if (err.status != null) {
+        try { await buscar() } catch (e) { console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code) }
+      }
       Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
     } finally {
       if (mountedRef.current) setRespondendoChegada(false)
@@ -1015,6 +1026,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
       console.log('[DetalheReparo] falha ao prestador responder contraproposta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (alertouSuspensao(err)) return
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      // Recarrega ANTES de alertar, e só quando VEIO resposta do servidor. O alerta era
+      // levantado sobre o estado de ANTES da requisição, que pode contradizê-lo: o servidor
+      // responde "Não há contraproposta pendente" justamente porque já processou a resposta,
+      // e a tela atrás do alerta seguia oferecendo a contraproposta como pendente.
+      // Rede pura fica de fora (err.status ausente): não há o que reler, e a requisição pode
+      // nem ter chegado — esse caso é do ramo isNetwork logo abaixo, com "Tentar novamente".
+      // O try/catch existe para a recarga NÃO trocar o erro: se ela falhar, o alerta abaixo
+      // continua sendo o do erro original, que é o que a pessoa precisa ver.
+      if (err.status != null) {
+        try { await buscar() } catch (e) { console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code) }
+      }
       if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
           { text: 'Tentar novamente', onPress: () => handlePrestadorResponder(action, valor) },
