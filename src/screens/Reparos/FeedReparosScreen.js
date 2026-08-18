@@ -291,17 +291,25 @@ export default function FeedReparosScreen({ navigation }) {
   const confirmarCidadeBusca = () => {
     if (!ufSelecionada || !cidadeSelecionada) return
     setCidadeBusca({ cidade: cidadeSelecionada, uf: ufSelecionada })
-    // Escolher a cidade define o escopo: o botão passa a anunciar "Cidade - UF", e um
-    // escopo de estado/país deixaria a lista mostrando muito além do que o cabeçalho diz.
-    // Um raio em km continua valendo — quem o escolheu quer aquela distância, e a cidade
-    // recém-escolhida vira justamente a âncora dele.
-    if (distancia === 'estado' || distancia === 'pais') setDistancia('cidade')
+    // Trocar a âncora zera o escopo, SEMPRE. Antes caíam só 'estado' e 'pais', e um raio em
+    // km era mantido de propósito — mas esse raio foi escolhido pensando na cidade ANTERIOR
+    // (em geral a do cadastro), e reaplicá-lo calado a uma cidade a centenas de km dali
+    // devolve uma lista que ninguém pediu: quem marcou "+120 km" perto de casa não pediu
+    // 120 km em volta de Curitiba. O botão passa a anunciar "Cidade - UF" e a lista passa a
+    // mostrar exatamente isso. Ampliar de novo custa um toque — e aí é escolha consciente,
+    // feita já sabendo qual é a cidade de referência.
+    setDistancia('cidade')
     setBuscaCidade('')
     setModalCidadeVisivel(false)
   }
 
   const limparCidadeBusca = () => {
     setCidadeBusca(null)
+    // Limpar também é TROCAR de âncora — ela volta a ser a cidade do cadastro —, então o
+    // escopo volta junto, pelo mesmo motivo do confirmarCidadeBusca acima: deixar valendo um
+    // raio escolhido em torno da cidade que acabou de ser descartada é o mesmo descasamento,
+    // só que na direção contrária.
+    setDistancia('cidade')
     setBuscaCidade('')
     // Sem busca imperativa aqui: cidadeBusca é dependência do efeito único, que dispara
     // sozinho — a chamada extra somava com ele e fazia DUAS requisições por limpeza.
