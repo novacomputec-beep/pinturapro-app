@@ -57,21 +57,26 @@ class PinturaProOkHttpFactory(private val context: Context) : OkHttpClientFactor
     // sobrecarga de um argumento é justamente a que esta fábrica deixa de alcançar (ver acima).
     private const val CACHE_BYTES = 10 * 1024 * 1024
 
-    // 45 s. O teto vem da JANELA_OCIOSA de 60 s em src/utils/rede.js: passado esse tempo o app
-    // JÁ considera a conexão suspeita e dispara um /health descartável. Uma conexão do pool tem
-    // de expirar ANTES desse limite, senão o pool entregaria exatamente aquilo de que o
-    // aquecimento desconfia; 45 s deixam 15 s de margem — e garantem que o /health de
-    // aquecimento sempre abra conexão nova, que é o que ele sempre quis fazer.
+    // 5 s — era 45 s. A hipótese que este número testa: o que morre em silêncio é o socket
+    // OCIOSO. Uma mutação pequena é respondida em 4–9 ms e a conexão fica parada no pool por
+    // até o keep-alive inteiro; nesse tempo um intermediário pode derrubá-la sem que o FIN
+    // chegue ao aparelho, e a requisição seguinte é entregue num socket morto. O upload ao
+    // Cloudinary nunca falha e é o contraexemplo: ele segura o socket OCUPADO por segundos ou
+    // minutos, e socket ocupado não é ceifado.
     //
-    // O piso vem das janelas de reaproveitamento que interessam: o ciclo de 15 s dos três
-    // overlays, o disparo simultâneo de várias chamadas ao montar uma tela, e o "usuário lê o
-    // card e toca" de 5–30 s. 30 s cobririam os dois primeiros e começariam a perder o
-    // terceiro.
+    // Com 5 s, só é reaproveitada a conexão que ficou parada por muito pouco tempo — a janela
+    // em que a chance de ela ter morrido é mínima. O ganho de reúso que sobra é o que
+    // realmente importa: a rajada de chamadas ao montar uma tela, todas dentro do mesmo
+    // segundo.
     //
-    // A corrida NÃO acaba: uma conexão ociosa há 44 s ainda é entregue, e ainda pode ter
-    // morrido antes disso na NAT da operadora ou na borda. É por isso que o
-    // retryOnConnectionFailure acima, o comRetry e o aquecimento continuam todos de pé.
-    private const val KEEP_ALIVE_SEGUNDOS = 45L
+    // O preço é explícito: o ciclo de 15 s dos três overlays passa a abrir conexão nova a
+    // cada volta, e o "usuário lê o card e toca" também. Cada uma dessas custa um handshake
+    // TCP + TLS contra os EUA — na casa das centenas de milissegundos a partir do Brasil.
+    //
+    // A corrida NÃO acaba: mesmo uma conexão ociosa há 4 s pode estar morta se quem a derruba
+    // for mais agressivo que isso. Por isso o retryOnConnectionFailure acima, o comRetry e o
+    // aquecimento seguem todos de pé — este número reduz a exposição, não a elimina.
+    private const val KEEP_ALIVE_SEGUNDOS = 5L
 
     // 8, e não os 5 do default. Este cliente é compartilhado por seis hosts — a API na Railway,
     // api.cloudinary.com, servicodados.ibge.gov.br, viacep.com.br,
