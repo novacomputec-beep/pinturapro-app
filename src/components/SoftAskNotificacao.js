@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, Alert, Linking } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import { cores, raios } from '../utils/tema'
@@ -86,7 +86,44 @@ const SoftAskNotificacao = () => {
     setVariante(null)
     // garantirPermissaoConcedida é o ÚNICO ponto que dispara o diálogo do SO.
     const concedida = await garantirPermissaoConcedida()
-    if (!concedida) return
+    if (!concedida) {
+      // Saída para o beco sem saída. O garantirPermissaoConcedida só dispara o diálogo do
+      // SO enquanto canAskAgain for true (AuthContext:163); com ele false, ele nem pede e
+      // devolve false — e este handler apenas voltava, sem diálogo, sem mensagem e sem
+      // caminho. O toque não fazia absolutamente nada.
+      //
+      // A verificação vem DEPOIS da tentativa, e não antes, de propósito. Antes ela não
+      // cobriria o caso em que o bloqueio NASCE da própria tentativa: no Android 13+ a
+      // primeira recusa mantém canAskAgain true e a segunda o derruba, então uma checagem
+      // prévia passaria, o diálogo apareceria, a pessoa recusaria pela segunda vez e o
+      // handler voltaria calado de novo — o mesmo beco, um passo adiante. Consultando
+      // depois da falha, os dois caminhos (já bloqueado antes do toque, e bloqueado agora)
+      // caem no mesmo lugar.
+      //
+      // Recusa que AINDA permite pedir de novo segue sem alerta: ali o diálogo do SO
+      // apareceu e a pessoa respondeu, então o toque não foi silencioso e a porta não
+      // fechou. Insistir com um alerta logo depois de um "não" seria pressão, não ajuda.
+      let bloqueada = false
+      try {
+        const { canAskAgain } = await Notifications.getPermissionsAsync()
+        bloqueada = canAskAgain === false
+      } catch (err) {
+        console.log('[SoftAsk] falha ao reconsultar permissão após negativa | msg:', err?.message)
+      }
+      if (bloqueada) {
+        // Texto e ações reaproveitados do PerfilScreen (:134-141), que já resolvia este
+        // mesmo estado. Mesma mensagem para o mesmo fato, venha o usuário de onde vier.
+        Alert.alert(
+          'Notificações bloqueadas',
+          'O aviso foi bloqueado nas configurações do aparelho, e só por lá é possível liberar.',
+          [
+            { text: 'Agora não', style: 'cancel' },
+            { text: 'Abrir Configurações', onPress: () => Linking.openSettings() },
+          ],
+        )
+      }
+      return
+    }
     // Só DEPOIS de o SO conceder é que o soft-ask se cala para sempre. Antes isto era
     // gravado ANTES do diálogo, então quem tocasse "Sim" e recusasse no SO — ou apenas
     // dispensasse o diálogo — perdia o soft-ask de vez, sem ter permissão nenhuma: o
