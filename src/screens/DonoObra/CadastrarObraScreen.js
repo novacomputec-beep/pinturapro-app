@@ -57,6 +57,30 @@ const horasAteData = (str) => {
   return Math.max(1, Math.ceil((fim.getTime() - Date.now()) / 3600000))
 }
 
+// Nome IANA do fuso do APARELHO (ex.: 'America/Sao_Paulo', 'America/Rio_Branco'). O
+// servidor precisa dele para resolver "fim do dia de hoje" no fuso de quem publica: o app
+// roda em todo o Brasil, e Acre é UTC-5 enquanto São Paulo é UTC-3 — fixar um fuso erraria
+// o prazo em duas horas para o outro lado do país.
+//
+// Intl.DateTimeFormat().resolvedOptions().timeZone é a ÚNICA fonte disponível aqui sem
+// dependência nova: não há expo-localization nem react-native-localize no projeto.
+//
+// Devolve undefined quando não dá para confiar na resposta, e nesse caso o campo
+// simplesmente não vai no corpo. NUNCA devolve offset no lugar do nome: '-03:00' não diz
+// em que fuso o aparelho está (Cuiabá e São Paulo compartilham offset em parte do ano) e
+// mandá-lo como se fosse o nome faria o servidor calcular sobre um dado errado sem ter
+// como perceber. O teste de '/' é o que separa um nome de região ('America/Sao_Paulo') de
+// um retorno degenerado ('', 'UTC') — nenhum fuso brasileiro é 'UTC'.
+const fusoDoAparelho = () => {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return typeof tz === 'string' && tz.includes('/') ? tz : undefined
+  } catch (err) {
+    console.log('[CadastrarObra] fuso do aparelho indisponível | msg:', err?.message)
+    return undefined
+  }
+}
+
 export default function CadastrarObraScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -291,6 +315,11 @@ export default function CadastrarObraScreen({ navigation }) {
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
     const geo = await geocodificarEnderecoFinal()
     if (montadoRef.current) { setLatitude(geo.lat); setLongitude(geo.lng) }
+    // Só a faixa "Hoje" (id 24 da lista PRAZOS). O teste é sobre a ESCOLHA do usuário, não
+    // sobre o número de horas: o seletor de data também pode render 24 em horas_para_expirar
+    // por coincidência, e ali "hoje" não foi pedido — mandar o modo naquele caso mudaria o
+    // prazo de quem escolheu uma data. Lido uma vez só, antes do corpo.
+    const fusoHoje = prazo === 24 ? fusoDoAparelho() : null
     let obra
     try {
       obra = await comRetry(() => api.post('/obras/dono', {
@@ -303,6 +332,13 @@ export default function CadastrarObraScreen({ navigation }) {
         cidade: cidade.trim(),
         bairro: bairro.trim(),
         horas_para_expirar: prazo === 'data' ? horasAteData(dataInicial) : prazo,
+        // Os dois campos abaixo SÓ existem no corpo da faixa "Hoje". Em qualquer outra faixa
+        // o spread é `{}` e o corpo sai idêntico ao de antes, chave por chave: o ramo de
+        // fallback do servidor (o das horas) depende de prazo_modo estar AUSENTE, não de
+        // valer outra coisa. Duas guardas separadas porque são condições diferentes — a
+        // faixa escolhida e a disponibilidade do fuso.
+        ...(prazo === 24 ? { prazo_modo: 'hoje' } : {}),
+        ...(fusoHoje ? { timezone: fusoHoje } : {}),
         endereco_obra: enderecoCompleto,
         // Campo livre e opcional: vazio vira null em vez de string vazia.
         ponto_referencia: pontoReferencia.trim() || null,
