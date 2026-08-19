@@ -121,17 +121,23 @@ export const aquecerSeOcioso = async () => {
   await aquecimentoEmVoo
 }
 
-// ─── Reenvio é OPT-IN por rota ───────────────────────────────
-// Antes, TODA chamada embrulhada em comRetry era reexecutada num ERR_NETWORK, sem olhar
-// método nem rota. Isso reenviava mutações não idempotentes: o POST /obras/:id/estender
-// chegou três vezes ao servidor (três 200) enquanto o app mostrava "erro de conexão", e o
-// prazo foi somado três vezes. O erro de rede é honesto — a resposta se perdeu —, mas
-// "não recebi a resposta" NUNCA quis dizer "o servidor não processou".
+// ─── Reenvio é OPT-OUT por rota ──────────────────────────────
+// O ponto de partida continua o mesmo: o cliente NÃO distingue "a resposta se perdeu" de
+// "a requisição não chegou" — o adapter do axios entrega um ERR_NETWORK idêntico nos dois
+// casos. Reenviar às cegas somou três vezes o mesmo prazo em POST /obras/:id/estender.
 //
-// Agora a permissão é uma LISTA DE INCLUSÃO e falha FECHADA: quem não está aqui não é
-// reenviado. Denylist teria o defeito oposto — cada rota nova nasceria reenviável, e o
-// esquecimento custaria uma cobrança dupla em produção. GET entra por classe, não por
-// item: reler é inócuo por definição, e são 21 call sites que não precisam de manutenção.
+// A primeira tentativa de conserto foi uma lista de INCLUSÃO, e errou a mão: com ela, toda
+// rota fora da lista deixava de ser reenviada, e isso alcançou login, upload de mídia e
+// criação de demanda — justamente as chamadas mais longas, as que mais falham em rede
+// ruim e as que o usuário mais sente. O inventário rota a rota mostrou o porquê: na
+// esmagadora maioria das rotas deste app, uma entrega repetida no máximo dispara uma
+// notificação duplicada; ela não corrompe dado guardado.
+//
+// Então inverte: reenvia SEMPRE, exceto nas rotas em que repetir causa dano real e
+// irreversível. O risco que a inclusão evitava — uma rota nova nascer reenviável por
+// esquecimento — passa a ser o preço, e é o preço menor: uma rota nova que dispara
+// notificação a mais incomoda, uma rota antiga que não reenvia quebra o app na mão de
+// quem está com sinal fraco.
 //
 // Método e rota chegam no próprio objeto de erro (`metodo`/`rota`, postos pelo interceptor
 // de api.js), então nada aqui muda a assinatura do comRetry nem os 81 call sites.
@@ -150,48 +156,37 @@ const normalizarRota = (rota) => {
     .join('/')
 }
 
-// Cada entrada foi conferida rota a rota do lado da API: todas absorvem uma entrega
-// repetida sem alterar o dado guardado. Padrões escritos com os segmentos LITERAIS dos
-// call sites — `candidatura` e `interesse` no singular, que é como as URLs são montadas,
-// independentemente de a API chamar os params de :candidaturaId e :interesse_id.
+// As QUATRO rotas em que repetir causa dano real e irreversível — cobrança, e-mail
+// disparado, segredo rotacionado, recurso criado em duplicata. Fora daqui, o pior que uma
+// entrega repetida faz neste app é mandar uma notificação a mais.
 //
-// Os pares obra/reparo andam JUNTOS. A versão anterior desta lista trazia só o lado da
-// obra em "responder", e o reparador ficava sem reenvio numa ação que o dono de obra
-// tinha — a regra bilateral deste app não admite um lado com rede mais frágil que o outro.
-const REENVIAVEIS = new Set([
-  // Prazo — o caso que originou tudo isto.
-  'POST /obras/*/estender',
-  'POST /reparos/*/estender',
-  // Fechamento do combinado.
-  'POST /obras/*/match',
-  'POST /reparos/*/match',
-  // Chegada: a declaração e a janela prevista.
-  'POST /obras/*/chegada',
-  'POST /reparos/*/chegada',
-  'POST /obras/*/chegada-prevista',
-  'POST /reparos/*/chegada-prevista',
-  // Resposta à proposta, nos DOIS lados — obra usa `candidatura`, reparo usa `interesse`.
-  'POST /obras/*/candidatura/*/responder',
-  'POST /reparos/*/interesse/*/responder',
-  // Bloqueio de profissional e o seu desfazimento.
-  'POST /usuarios/bloquear-prestador',
-  'DELETE /usuarios/desbloquear-prestador/*',
-  // Exclusões: o alvo é um estado final, então repetir chega no mesmo lugar.
-  'DELETE /conta/excluir',
-  'DELETE /obras/dono/*',
-  'DELETE /reparos/dono/*',
+// A comparação é por IGUALDADE EXATA da string normalizada, não por prefixo. É isso que
+// mantém 'POST /obras' restrito à rota administrativa sem segmento nenhum depois: a
+// normalização preserva a profundidade do caminho, então /obras/dono vira 'POST
+// /obras/dono' e /obras/12/estender vira 'POST /obras/*/estender' — strings diferentes,
+// nenhuma delas negada. Um teste de prefixo bloquearia a árvore inteira de obras.
+const NAO_REENVIAVEIS = new Set([
+  // Cobrança: repetir pode gerar uma segunda assinatura no PagBank.
+  'POST /pagamentos/criar-assinatura',
+  // Dispara e-mail com link de recuperação: repetir enche a caixa e multiplica tokens.
+  'POST /auth/esqueci-senha',
+  // Rotaciona o segredo do 2FA: a segunda chamada invalida o que a primeira mostrou.
+  'POST /admin/2fa/setup',
+  // Criação administrativa de obra, EXATAMENTE esta rota — sem nada depois de /obras.
+  'POST /obras',
 ])
 
-// `metodo`/`rota` ausentes = NÃO reenvia. Acontece de verdade: um erro lançado dentro do
-// interceptor de REQUEST estoura antes do despacho, e aí não existe config para ler — sem
-// saber o que a chamada era, o único palpite seguro é não repeti-la.
+// `metodo`/`rota` ausentes = REENVIA (falha ABERTA), coerente com a inversão. Não é
+// descuido: o caso real em que isso acontece é um erro lançado dentro do interceptor de
+// REQUEST, que estoura ANTES do despacho — nada foi entregue ao servidor, então repetir é
+// seguro por construção, e era exatamente o comportamento de julho. Uma rota negada
+// tampouco escapa por aqui: para chegar às quatro acima a requisição precisa ter sido
+// despachada, e aí error.config existe e `metodo`/`rota` vêm preenchidos.
 const podeReenviar = (err) => {
   const metodo = err?.metodo
-  if (metodo === 'GET') return true
-  if (!metodo) return false
   const rota = normalizarRota(err?.rota)
-  if (!rota) return false
-  return REENVIAVEIS.has(`${metodo} ${rota}`)
+  if (!metodo || !rota) return true
+  return !NAO_REENVIAVEIS.has(`${metodo} ${rota}`)
 }
 
 export const comRetry = async (fn, { timeout = false, servidor = false, esperaMs = 1000, persistir = false } = {}) => {
