@@ -9,17 +9,20 @@ import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rasc
 // Vitrine ESTÁTICA do que a plataforma cobre, na tela pré-login. Não é a lista de
 // categorias do cadastro (CadastrarReparoScreen/CadastrarObraScreen, que são a fonte da
 // verdade e têm 15 e 6 itens): é uma amostra dos dois lados do marketplace — nove de
-// serviço doméstico, três de obra — em 4x3. A quarta linha entrou para alargar a amostra
-// para além de reparo e limpeza; os emojis dela seguem o padrão das outras nove entradas,
-// que nunca aparecem sem um. O "3x3 sem rolar" que este comentário prometia deixou de
-// valer: com quatro linhas a tela pode passar da dobra em aparelho baixo, e quem sustenta
-// esse caso é o flexGrow do contentContainer somado ao piso dos espaçadores, não a
-// contagem de linhas.
+// serviço doméstico, três de obra — em 4x3. A ORDEM agrupa: as três primeiras linhas são
+// serviço doméstico e a ÚLTIMA fecha a grade com as três categorias de obra. Aulas,
+// Chaveiro e Cabelo entraram por último e por isso ficaram no fim, partindo o bloco
+// doméstico ao meio; movidos para a terceira linha, cada bloco volta a ser contíguo e a
+// leitura não alterna entre os dois lados do marketplace. Os emojis seguem o padrão das
+// outras entradas, que nunca aparecem sem um. O "3x3 sem rolar" que este comentário
+// prometia deixou de valer: com quatro linhas a tela pode passar da dobra em aparelho
+// baixo, e quem sustenta esse caso é o flexGrow do contentContainer somado ao piso dos
+// espaçadores, não a contagem de linhas.
 const VITRINE = [
   '🔧 Hidráulica', '⚡ Elétrica',   '🧹 Faxina',
   '💅 Manicure',   '🤝 Cuidador',   '🌳 Jardineiro',
-  '🏠 Residencial', '🏢 Comercial',  '🌾 Rural',
   '📚 Aulas',      '🔑 Chaveiro',   '💇 Cabelo',
+  '🏠 Residencial', '🏢 Comercial',  '🌾 Rural',
 ]
 
 // Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
