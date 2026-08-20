@@ -76,27 +76,6 @@ const formatarTempoRestante = ({ d, h, m }) => {
   return 'menos de 1 min'
 }
 
-// Antecedência mínima para estender, por faixa de prazo (mesmo particionamento do
-// getFaixa da API): floor-match — a faixa é a MAIOR janela <= prazo_atendimento_horas.
-const ANTECEDENCIA_ESTENDER_MIN = [
-  { janela: 1,   minutos: 15 },
-  { janela: 2,   minutos: 30 },
-  { janela: 4,   minutos: 30 },
-  { janela: 8,   minutos: 45 },
-  { janela: 24,  minutos: 120 },
-  { janela: 168, minutos: 1440 },
-]
-
-const antecedenciaDe = (horas) => {
-  const h = Number(horas)
-  if (!Number.isFinite(h)) return null          // ausente/ilegível → sem limiar
-  let achado = null
-  for (const f of ANTECEDENCIA_ESTENDER_MIN) {
-    if (h >= f.janela) achado = f               // floor-match: último <= h vence
-  }
-  return achado ? achado.minutos : null
-}
-
 // Janelas de chegada oferecidas ao profissional depois que sua proposta é aceita. O
 // rótulo aqui é só o que ELE lê; quem converte a janela num instante é o servidor, que
 // devolve chegada_prevista_em. Nada nesta lista vira horário no aparelho.
@@ -370,16 +349,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const emEsperaEstender = Number.isFinite(liberaEstenderEm) && liberaEstenderEm > agora
   // Arredonda para cima e nunca mostra "0 min": faltando 10s ainda é 1 minuto de espera.
   const minutosEsperaEstender = emEsperaEstender ? Math.max(1, Math.ceil((liberaEstenderEm - agora) / 60000)) : 0
-
-  // Só faz sentido oferecer extensão perto do fim: antes disso o botão nem aparece.
-  // Qualquer dado faltando (sem expira_em, data ilegível, faixa desconhecida) devolve
-  // false — o botão segue exatamente como hoje.
-  const antecedenciaMin = antecedenciaDe(reparo.prazo_atendimento_horas)
-  const expiraEmMs = reparo.expira_em ? new Date(reparo.expira_em).getTime() : NaN
-  const cedoDemaisParaEstender =
-    antecedenciaMin != null &&
-    Number.isFinite(expiraEmMs) &&
-    (expiraEmMs - agora) > antecedenciaMin * 60000
 
   // O relógio só existe enquanto a espera existe: ao vencer, este efeito faz o último
   // setAgora, o botão reabre e o intervalo é descartado. 30s bastam para um rótulo em
@@ -1612,7 +1581,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {isDono && (
             <>
-              {reparo.status === 'aberta' && !reparo.match_usuario_id && !cedoDemaisParaEstender && (
+              {reparo.status === 'aberta' && !reparo.match_usuario_id && (
                 <TouchableOpacity
                   style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (reparo.expirada || emEsperaEstender) && { opacity: 0.6 }]}
                   onPress={() => setModalEstender(true)}
