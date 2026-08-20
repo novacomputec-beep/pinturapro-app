@@ -8,13 +8,29 @@ import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rasc
 
 // Vitrine ESTÁTICA do que a plataforma cobre, na tela pré-login. Não é a lista de
 // categorias do cadastro (CadastrarReparoScreen/CadastrarObraScreen, que são a fonte da
-// verdade e têm 15 e 6 itens): é uma amostra dos dois lados do marketplace — seis de
-// serviço doméstico, três de obra — escolhida para caber em 3x3 sem rolar.
+// verdade e têm 15 e 6 itens): é uma amostra dos dois lados do marketplace — nove de
+// serviço doméstico, três de obra — em 4x3. A quarta linha entrou para alargar a amostra
+// para além de reparo e limpeza; os emojis dela seguem o padrão das outras nove entradas,
+// que nunca aparecem sem um. O "3x3 sem rolar" que este comentário prometia deixou de
+// valer: com quatro linhas a tela pode passar da dobra em aparelho baixo, e quem sustenta
+// esse caso é o flexGrow do contentContainer somado ao piso dos espaçadores, não a
+// contagem de linhas.
 const VITRINE = [
   '🔧 Hidráulica', '⚡ Elétrica',   '🧹 Faxina',
   '💅 Manicure',   '🤝 Cuidador',   '🌳 Jardineiro',
   '🏠 Residencial', '🏢 Comercial',  '🌾 Rural',
+  '📚 Aulas',      '🔑 Chaveiro',   '💇 Cabelo',
 ]
+
+// Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
+// flexWrap justamente para isto: cada linha é uma <View> própria, e é o que permite às
+// pills usarem flex: 1 e fecharem a largura exata (ver vitrineLinha/vitrineChip). Uma
+// última linha incompleta continua válida — suas pills ficam mais largas, nunca tortas.
+const emLinhasDeTres = (itens) => {
+  const linhas = []
+  for (let i = 0; i < itens.length; i += 3) linhas.push(itens.slice(i, i + 3))
+  return linhas
+}
 
 // Garante que o prompt de retomada apareça no máximo uma vez por execução do app
 // (evita re-perguntar ao voltar ao Splash na mesma sessão). Reinicia a cada
@@ -104,12 +120,12 @@ export default function SplashScreen({ navigation }) {
               <View style={[estilos.artBloco, { flex: 2, backgroundColor: cores.primariaSuave }]} />
               <View style={[estilos.artBloco, { flex: 1 }]} />
             </View>
-            <View style={[estilos.artLinha, { marginTop: 8 }]}>
+            <View style={[estilos.artLinha, { marginTop: 6 }]}>
               <View style={[estilos.artBloco, { flex: 1 }]} />
               <View style={[estilos.artBloco, { flex: 1 }]} />
               <View style={[estilos.artBloco, { flex: 1, backgroundColor: cores.sucessoSuave }]} />
             </View>
-            <View style={[estilos.artLinha, { marginTop: 8 }]}>
+            <View style={[estilos.artLinha, { marginTop: 6 }]}>
               <View style={[estilos.artBloco, { flex: 3 }]} />
             </View>
             <View style={estilos.artValor}>
@@ -129,26 +145,50 @@ export default function SplashScreen({ navigation }) {
 
         <View style={estilos.espacador} />
 
-        {/* Vitrine: o título e a grade são UM bloco. Ficam dentro do mesmo <View> para que
-            os espaçadores os movam juntos — separá-los abriria um quarto vão, e a simetria
-            é de três. */}
-        <View>
+        {/* Vitrine: o título e a grade são UM bloco — e agora UM alvo de toque. Seguem
+            dentro do mesmo elemento para que os espaçadores os movam juntos: separá-los
+            abriria um quarto vão, e a simetria é de três. */}
+        {/* O comentário que ficava aqui dizia o OPOSTO do que este código faz agora —
+            "<View>, e NÃO <TouchableOpacity>: nada aqui é tocável" —, com o argumento de
+            que um chip com cara de botão que não responde ao toque é pior do que chip
+            nenhum. O argumento continua certo; o que mudou foi a premissa. Não mexemos na
+            aparência das pills, mexemos no destino: o bloco inteiro abre o Cadastro, o
+            mesmo destino do artCard (:100) e do "Criar minha conta" logo abaixo. A cara de
+            botão deixou de ser promessa falsa e virou verdade, então a regra que proibia o
+            toque perdeu o objeto.
+            UM alvo para o bloco todo, NUNCA um por pill: a vitrine é amostra do que a
+            plataforma cobre, não um seletor. Doze alvos que caem todos no mesmo lugar
+            prometeriam uma escolha por categoria que não existe do outro lado — tocar
+            "Faxina" não filtra nada, e a decepção seria maior do que a de não poder tocar.
+            Sem chevron, sem "ver todas", sem qualquer outra pista visual, e isso é
+            deliberado: o convite explícito da tela é o botão primário, e dar seta ou
+            rótulo a esta vitrine faria dela um segundo apelo competindo com ele. O
+            activeOpacity é a ÚNICA resposta ao toque, o mesmo 0.8 do artCard — quem
+            encostar descobre; quem não encostar não perde nada. */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Cadastro')}
+          activeOpacity={0.8}
+        >
           {/* Mesma pergunta de antes, agora respondida pelos próprios exemplos em vez de um
               parágrafo: a lista se lê num golpe de vista e o bloco encolhe. */}
           <Text style={estilos.vitrineTitulo}>Precisa de um profissional?</Text>
-          {/* <View>, e NÃO <TouchableOpacity>: nada aqui é tocável. Um chip com cara de
-              botão que não responde ao toque é pior do que chip nenhum — quem quiser entrar
-              usa os dois botões logo abaixo, que continuam sendo os únicos alvos da tela.
-              numberOfLines={1} por isso mesmo: em tela estreita o rótulo trunca e a grade
-              mantém as três colunas, em vez de quebrar em duas linhas e desalinhar tudo. */}
+          {/* Uma <View> por linha de três, em vez de uma grade só com wrap: é o que deixa
+              as pills usarem flex: 1 e consumirem a largura exata da linha (ver
+              vitrineGrid). numberOfLines={1} segue pelo mesmo motivo de antes: em tela
+              estreita o rótulo trunca e a linha mantém as três colunas, em vez de quebrar
+              em duas linhas e desalinhar tudo. */}
           <View style={estilos.vitrineGrid}>
-            {VITRINE.map((c) => (
-              <View key={c} style={estilos.vitrineChip}>
-                <Text style={estilos.vitrineChipTexto} numberOfLines={1}>{c}</Text>
+            {emLinhasDeTres(VITRINE).map((linha, i) => (
+              <View key={i} style={estilos.vitrineLinha}>
+                {linha.map((c) => (
+                  <View key={c} style={estilos.vitrineChip}>
+                    <Text style={estilos.vitrineChipTexto} numberOfLines={1}>{c}</Text>
+                  </View>
+                ))}
               </View>
             ))}
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={estilos.espacador} />
 
@@ -254,29 +294,38 @@ const estilos = StyleSheet.create({
   artArea: {
     alignItems: 'center',
   },
+  // O maxWidth: 300 saiu. O width: '100%' já resolvia contra a área útil da tela (o
+  // container tem paddingHorizontal: espacos.tela), então era só a trava de 300 que
+  // segurava o card mais estreito que o "Criar minha conta" — as duas bordas do card
+  // ficavam para dentro das do botão. Sem a trava, as quatro bordas coincidem.
+  //
+  // Com o card mais largo, as alturas de DENTRO baixaram junto, senão ele viraria uma
+  // faixa alta demais para o que é: um enfeite com um número. Padding 20→16, blocos 14→12,
+  // respiro entre as linhas do mock 8→6 (inline no JSX) e o rodapé do valor 16/12→12/10.
+  // São 24 dp a menos de caixa — perto do que a quarta linha da vitrine passou a ocupar
+  // logo abaixo, então o conjunto sai quase no mesmo lugar na vertical.
   artCard: {
     backgroundColor: cores.fundoCard,
     borderWidth: 0.5,
     borderColor: cores.borda,
     borderRadius: 20,
-    padding: 20,
+    padding: 16,
     width: '100%',
-    maxWidth: 300,
   },
   artLinha: {
     flexDirection: 'row',
     gap: 8,
   },
   artBloco: {
-    height: 14,
+    height: 12,
     backgroundColor: cores.fundoElevado,
     borderRadius: 4,
   },
   artValor: {
-    marginTop: 16,
+    marginTop: 12,
     borderTopWidth: 0.5,
     borderTopColor: cores.bordaFraca,
-    paddingTop: 12,
+    paddingTop: 10,
   },
   artValorTexto: {
     fontSize: 20,
@@ -313,22 +362,45 @@ const estilos = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  // Mesma grade das pills de categoria do cadastro (linha + wrap + largura 31%), com o
-  // gap menor: são nove itens decorativos, não um seletor.
+  // A grade era UMA linha com flexWrap e 31% de largura por pill. Três pills a 31% somam
+  // 93%; com os dois gaps de 6 dp, sobrava perto de 7% da largura sem dono — 10,4 dp numa
+  // tela de 360 (área útil 320). Como a linha alinha à esquerda, essa sobra ia TODA para a
+  // direita: a primeira coluna encostava certinho na borda esquerda do botão primário e a
+  // terceira parava antes da direita. Desalinhamento de uma borda só, na margem que mais
+  // se compara, porque o botão logo abaixo mostra onde a direita deveria estar.
+  //
+  // Mecanismo novo: uma <View> por linha (vitrineLinha) e flex: 1 nas pills. Cada linha
+  // ocupa a largura inteira do container; os dois gaps de 6 dp são descontados primeiro e
+  // o que resta se divide em três partes iguais. Largura exata, sem porcentagem para
+  // arredondar e sem sobra para acumular em ponta nenhuma — a primeira pill começa na
+  // borda esquerda e a terceira termina na direita, as duas do botão.
+  //
+  // Vale para QUALQUER número de linhas, as quatro de hoje ou mais, porque a conta é feita
+  // por linha e não pela grade inteira. Foi preferido a justifyContent: 'space-between',
+  // que acertaria as bordas mas espalharia uma última linha incompleta de ponta a ponta, e
+  // a medir a largura com onLayout, que custaria estado e um render a mais numa tela que
+  // não precisa de nenhum dos dois.
   vitrineGrid: {
+    // Agora é o respiro VERTICAL, entre as quatro linhas. O marginBottom: 20 que ficava
+    // aqui saiu: ele era o terceiro vão (grade → botão) escrito como número fixo, e esse
+    // vão é o terceiro espaçador — deixá-lo somaria por cima e quebraria a igualdade.
+    gap: 6,
+  },
+  // O respiro HORIZONTAL entre as três pills da linha, o mesmo 6 dp de antes. É este gap
+  // que sai da conta ANTES do flex: 1, e por isso a soma fecha exata na largura útil.
+  vitrineLinha: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    // `gap: 6` é o respiro ENTRE as pills, interno à grade. O marginBottom: 20 que ficava
-    // aqui saiu: ele era o terceiro vão (grade → botão) escrito como número fixo, e agora
-    // esse vão é o terceiro espaçador — deixá-lo somaria por cima e quebraria a igualdade.
     gap: 6,
   },
   // Espelha o estado NÃO-selecionado da categoriaPill do CadastrarReparoScreen (mesmo
   // fundo, mesma borda de 0.5, mesma cor de texto), em escala menor: 10 em vez de 12 no
   // rótulo, 5/4 de padding em vez de 7/12, raio 13 em vez dos 24 do raios.pill. Não há
-  // estado ativo — nada aqui seleciona nada.
+  // estado ativo — nada aqui seleciona nada, e a pill não é alvo de toque por si: quem
+  // responde ao dedo é o bloco inteiro, um nível acima.
+  //
+  // flex: 1 no lugar de width: '31%' — é aqui que a largura exata acontece. Ver vitrineGrid.
   vitrineChip: {
-    width: '31%',
+    flex: 1,
     alignItems: 'center',
     backgroundColor: cores.fundoElevado,
     borderWidth: 0.5,
