@@ -532,12 +532,25 @@ function VerificacaoPendenteScreen() {
 }
 
 // Stack do Perfil (compartilhado entre pintor e prestador)
+//
+// Termos e Privacidade entram AQUI, e não no Stack raiz logado, porque o empilhamento é o
+// que decide para onde o gesto de voltar leva. Dentro do PerfilStack o Perfil continua na
+// pilha por baixo, então voltar devolve a pessoa exatamente à linha que ela tocou —
+// mesmo comportamento do EditarPerfil e do AlterarSenha, que são os vizinhos diretos.
+// No Stack raiz a tela cobriria a barra de abas inteira e o retorno cairia na raiz da aba,
+// perdendo a posição de rolagem do Perfil.
+//
+// Os MESMOS dois componentes ficam registrados no ramo deslogado (:827-828) para a entrada
+// da Splash. São dois REGISTROS da mesma tela, não duas telas: os componentes são
+// importados uma vez no topo deste arquivo e nada do texto legal foi copiado.
 const PerfilStackNavigator = () => (
   <PerfilStack.Navigator screenOptions={{ headerShown: false }}>
     <PerfilStack.Screen name="PerfilMain"   component={PerfilScreen} />
     <PerfilStack.Screen name="EditarPerfil" component={EditarPerfilScreen} />
     <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
+    <PerfilStack.Screen name="Termos"       component={TermosScreen} />
+    <PerfilStack.Screen name="Privacidade"  component={PrivacidadeScreen} />
   </PerfilStack.Navigator>
 )
 
