@@ -6,6 +6,7 @@ import com.facebook.react.modules.network.OkHttpClientProvider
 import java.util.concurrent.TimeUnit
 import okhttp3.ConnectionPool
 import okhttp3.OkHttpClient
+import okhttp3.Protocol
 
 /**
  * Cliente HTTP nativo de todo o app. Substitui o `Connection: close` que a instância axios
@@ -50,6 +51,29 @@ class PinturaProOkHttpFactory(private val context: Context) : OkHttpClientFactor
       // como InterruptedIOException e não é reexecutada — essa continua sendo do
       // comRetry({ timeout: true }) e do aquecimento, em src/utils/rede.js.
       .retryOnConnectionFailure(true)
+      // HTTP/1.1 FORÇADO — teste de hipótese, como o keep-alive de 5 s foi antes.
+      //
+      // O log de borda da Railway trouxe os dois campos que faltavam: downstreamProto é
+      // HTTP/2.0 e upstreamProto é HTTP/1.1. O aparelho fala h2 com a borda; a borda fala
+      // HTTP/1.1 com o Node. E upstreamRqDuration é IGUAL a totalDuration em toda linha —
+      // 56 e 56 nos POSTs que falham, 4 e 4 nos GETs. Os ~55 ms são o Node respondendo, e
+      // não um handshake: a leitura de "conexão nova" morre aí, e a de "conexões
+      // concorrentes" morre no h2, onde streams dividem uma conexão só.
+      //
+      // O que sobra de plausível é um STREAM h2 sendo resetado entre a borda e o aparelho.
+      // Para o cliente isso chega exatamente como o sintoma: ERR_NETWORK, sem status, sem
+      // resposta — enquanto upstreamErrors fica vazio, porque a borda recebeu a resposta do
+      // Node normalmente e não viu problema nenhum. Um reset de stream não derruba a
+      // conexão, então os GETs vizinhos continuam voltando em 4 ms na mesma conexão viva —
+      // que é justamente o que o log mostra três segundos depois da rajada.
+      //
+      // Sem h2 não há stream para resetar: cada requisição volta a ter a própria conexão, e
+      // o modo de falha, se persistir, passa a ser observável como queda de conexão.
+      //
+      // PREÇO: sem multiplexação. Requisições concorrentes deixam de dividir uma conexão e
+      // cada uma precisa da sua, com handshake quando não houver ociosa no pool — o que
+      // torna o keep-alive de 45 s abaixo mais importante, não menos.
+      .protocols(listOf(Protocol.HTTP_1_1))
       .build()
 
   companion object {
@@ -57,26 +81,35 @@ class PinturaProOkHttpFactory(private val context: Context) : OkHttpClientFactor
     // sobrecarga de um argumento é justamente a que esta fábrica deixa de alcançar (ver acima).
     private const val CACHE_BYTES = 10 * 1024 * 1024
 
-    // 5 s — era 45 s. A hipótese que este número testa: o que morre em silêncio é o socket
-    // OCIOSO. Uma mutação pequena é respondida em 4–9 ms e a conexão fica parada no pool por
-    // até o keep-alive inteiro; nesse tempo um intermediário pode derrubá-la sem que o FIN
-    // chegue ao aparelho, e a requisição seguinte é entregue num socket morto. O upload ao
-    // Cloudinary nunca falha e é o contraexemplo: ele segura o socket OCUPADO por segundos ou
-    // minutos, e socket ocupado não é ceifado.
+    // 45 s. Voltou a ser 45 depois de um período em 5 s, e o 5 foi um TESTE DE HIPÓTESE que
+    // o log de borda falsificou.
     //
-    // Com 5 s, só é reaproveitada a conexão que ficou parada por muito pouco tempo — a janela
-    // em que a chance de ela ter morrido é mínima. O ganho de reúso que sobra é o que
-    // realmente importa: a rajada de chamadas ao montar uma tela, todas dentro do mesmo
-    // segundo.
+    // A hipótese era: o que morre em silêncio é o socket OCIOSO, então encurtar o keep-alive
+    // reduziria a janela em que um intermediário pode derrubá-lo sem que o FIN chegue ao
+    // aparelho. O build com 5 s manteve a falha IDÊNTICA — as mesmas rajadas de exatamente
+    // três entregas, com o servidor processando as três e o cliente sem ver resposta
+    // nenhuma. E os tempos mataram a explicação por handshake: upstreamRqDuration é igual a
+    // totalDuration em toda linha do log, ou seja, os ~55 ms das requisições que falham são
+    // o Node respondendo, não conexão sendo aberta. Socket ocioso morto não é o mecanismo.
     //
-    // O preço é explícito: o ciclo de 15 s dos três overlays passa a abrir conexão nova a
-    // cada volta, e o "usuário lê o card e toca" também. Cada uma dessas custa um handshake
-    // TCP + TLS contra os EUA — na casa das centenas de milissegundos a partir do Brasil.
+    // Falsificada a hipótese, o custo que ela cobrava deixa de se justificar: com 5 s o ciclo
+    // de 15 s dos três overlays abria conexão nova a cada volta, e o "usuário lê o card e
+    // toca" também — cada uma pagando TCP + TLS contra os EUA, centenas de milissegundos a
+    // partir do Brasil. Com o HTTP/1.1 forçado acima isso piora, porque some a multiplexação
+    // e cada requisição concorrente quer a própria conexão: manter 5 s agora seria pagar
+    // handshake quase sempre.
     //
-    // A corrida NÃO acaba: mesmo uma conexão ociosa há 4 s pode estar morta se quem a derruba
-    // for mais agressivo que isso. Por isso o retryOnConnectionFailure acima, o comRetry e o
-    // aquecimento seguem todos de pé — este número reduz a exposição, não a elimina.
-    private const val KEEP_ALIVE_SEGUNDOS = 5L
+    // 45 s também RECOLOCA a relação que o aquecimento pressupõe. O aquecerSeOcioso de
+    // src/utils/rede.js só dispara o GET /health depois de 60 s sem resposta bem-sucedida
+    // (JANELA_OCIOSA). Com o pool em 45 s, a conexão é descartada ANTES dessa janela, e o
+    // /health encontra o pool já limpo — que é o desenho descrito em src/services/api.js.
+    // Com o pool em 5 s a distância virava uma ordem de grandeza: entre 5 s e 60 s de
+    // ociosidade o pool já não tinha conexão E o aquecimento ainda se recusava a rodar, de
+    // modo que a ação do usuário pagava o handshake inteiro sozinha.
+    //
+    // A corrida contra o socket ceifado não acaba com nenhum dos dois valores. Por isso o
+    // retryOnConnectionFailure acima, o comRetry e o aquecimento seguem todos de pé.
+    private const val KEEP_ALIVE_SEGUNDOS = 45L
 
     // 8, e não os 5 do default. Este cliente é compartilhado por seis hosts — a API na Railway,
     // api.cloudinary.com, servicodados.ibge.gov.br, viacep.com.br,
