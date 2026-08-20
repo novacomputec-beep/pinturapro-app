@@ -326,6 +326,12 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [salvandoReferencia, setSalvandoReferencia] = useState(false)
   const [modalEstender, setModalEstender] = useState(false)
   const [estendendo, setEstendendo] = useState(false)
+  // Trava de envio EM VOO. O estado logo acima não serve para o botão "Tentar novamente"
+  // do alerta de rede: aquele onPress captura o handleEstender do render em que o erro
+  // aconteceu — render no qual `estendendo` ainda era false —, então um toque abriria um
+  // segundo ciclo por cima de um que ainda estivesse rodando. O ref é lido no INSTANTE do
+  // toque, e não no do fechamento, e por isso é ele quem guarda a entrada do handler.
+  const estendendoRef = useRef(false)
   // Guarda a janela EM VOO (o id, não um boolean): trava as três opções de uma vez e
   // ainda permite marcar qual delas está sendo enviada.
   const [enviandoJanela, setEnviandoJanela] = useState(null)
@@ -833,7 +839,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const handleEstender = async (horas) => {
-    if (estendendo) return
+    if (estendendoRef.current) return
+    estendendoRef.current = true
     setEstendendo(true)
     try {
       const resp = await comRetry(() => api.post(`/obras/${obra.id}/estender`, { horas }))
@@ -843,6 +850,23 @@ export default function DetalheObraScreen({ route, navigation }) {
       Alert.alert('✅ Prazo aumentado!', 'O novo prazo já está valendo.')
     } catch (err) {
       console.log('[DetalheObra] falha ao estender prazo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Rede pura → RECARREGA em vez de alertar, na mesma forma do salvarReferencia
+      // (:828) — dos cinco vizinhos que já fazem isto, é o único que também precisa
+      // fechar um modal antes de sair, que é exatamente a situação deste handler.
+      //
+      // Um ERR_NETWORK não distingue "a requisição não chegou" de "chegou e a resposta se
+      // perdeu": o adapter entrega o mesmo erro nos dois casos. Alertar escolhia sempre a
+      // primeira leitura, e quando a extensão TINHA sido gravada a pessoa via "Erro de
+      // conexão" sobre um prazo que já valia. A recarga mostra o que o SERVIDOR tem — o
+      // expira_em novo, se valeu; a tela intacta, se não valeu — e é honesta nos dois.
+      //
+      // O alerta abaixo não sumiu: recarregarSeFalhaDeRede devolve false quando a própria
+      // recarga falha, e aí o caminho é o de sempre.
+      //
+      // SEM { persistir }, de propósito: esta é a única mutação CUMULATIVA do conjunto, e
+      // insistir por 45 s multiplicaria entregas do mesmo prazo contra uma guarda de
+      // deduplicação da qual este código não quer depender por projeto.
+      if (await recarregarSeFalhaDeRede(err, recarregarObra)) { setModalEstender(false); return }
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (err.status === 422) {
         setModalEstender(false)
@@ -855,14 +879,21 @@ export default function DetalheObraScreen({ route, navigation }) {
         Alert.alert('Não encontrado', err.mensagem || 'Obra não encontrada.')
       } else if (isNetwork) {
         Alert.alert('Erro de conexão', 'Não foi possível aumentar o prazo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
-          { text: 'Tentar novamente', onPress: () => handleEstender(horas) },
+          // Passa pela trava em vez de reentrar direto: o alerta é levantado DENTRO do
+          // catch, o finally que libera o ref roda logo depois, e nada impede um segundo
+          // toque enquanto um ciclo ainda corre. Ler o ref no toque resolve as duas pontas.
+          { text: 'Tentar novamente', onPress: () => { if (!estendendoRef.current) handleEstender(horas) } },
           { text: 'Cancelar', style: 'cancel' },
         ])
       } else {
         Alert.alert('Erro', err.mensagem || 'Não foi possível aumentar o prazo.')
       }
     } finally {
-      setEstendendo(false)
+      // O ref é liberado SEMPRE: ele é a trava, não um pedaço de tela, e deixá-lo preso
+      // depois de um unmount travaria a ação numa remontagem. O estado segue a guarda de
+      // montagem dos vizinhos (salvarReferencia, handleEscolherJanela, handleResponderChegada).
+      estendendoRef.current = false
+      if (mountedRef.current) setEstendendo(false)
     }
   }
 
