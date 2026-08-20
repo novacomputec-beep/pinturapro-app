@@ -26,8 +26,16 @@ export const softAskRef = { mostrar: null }
 // O soft-ask volta, respeitando um intervalo mínimo e um teto de exibições —
 // declinar NÃO gasta a tentativa do SO.
 const CHAVE_SOFTASK = 'softask_notificacao_respondido'
-const ESPERA_MS = 7 * 24 * 60 * 60 * 1000 // 7 dias entre exibições
-const MAX_SHOWS = 3                        // após 3 exibições declinadas, para de vez
+// O orçamento de exibições foi ampliado: 3 exibições a cada 7 dias cobriam duas semanas,
+// e o slot é consumido na EXIBIÇÃO (:75), não numa decisão da pessoa — três aparições
+// apenas dispensadas, ignoradas ou cobertas por outro modal esgotavam o convite PARA
+// SEMPRE. Depois disso nada no app volta a levantar o diálogo do SO: o registrarPushToken
+// é prompt-free de propósito (AuthContext:186-188) e sobra só a linha do Perfil, que a
+// pessoa precisa procurar sozinha. Para um app cujo valor inteiro depende de avisar dono e
+// profissional, era barato demais perder as notificações de alguém em definitivo.
+// 8 exibições a cada 3 dias mantêm o convite vivo por ~3 semanas de uso em vez de 2.
+const ESPERA_MS = 3 * 24 * 60 * 60 * 1000 // 3 dias entre exibições
+const MAX_SHOWS = 8                        // após 8 exibições declinadas, para de vez
 
 const lerEstadoSoftAsk = async () => {
   try {
@@ -38,6 +46,23 @@ const lerEstadoSoftAsk = async () => {
 }
 const gravarEstadoSoftAsk = async (estado) => {
   try { await SecureStore.setItemAsync(CHAVE_SOFTASK, JSON.stringify(estado)) } catch (e) {}
+}
+
+// Diagnóstico: UM console.log, alcançado por TODAS as saídas antecipadas do mostrar().
+// Só observa — não decide nada, não lê nada a mais e não grava nada, então nenhuma porta
+// muda de comportamento por causa dele.
+//
+// Nas três primeiras portas o estado do soft-ask ainda NÃO foi lido, e de propósito: a
+// checagem ao vivo vem antes justamente para que concedidos e bloqueados não custem um
+// slot (:64-65). Forçar uma leitura só para enfeitar o log introduziria I/O que hoje não
+// acontece, então ali shows e msDesdeUltimoShow saem como null — ausência de dado, e não
+// zero, que se leria como "nunca exibido".
+const barrado = (porta, estado = null) => {
+  console.log(
+    '[SoftAsk] não exibido | porta:', porta,
+    '| shows:', estado ? estado.shows : null,
+    '| msDesdeUltimoShow:', estado && estado.ultimoShowMs ? Date.now() - estado.ultimoShowMs : null,
+  )
 }
 
 // Copy por vertical — obra e reparo mantêm nomenclatura distinta neste projeto.
@@ -58,18 +83,19 @@ const SoftAskNotificacao = () => {
   // (canAskAgain false) são cuidados pelo BannerNotificacaoBloqueada (Fase 3), e
   // quem já respondeu não é perguntado de novo.
   const mostrar = useCallback(async (v) => {
-    if (Platform.OS !== 'android') return
-    if (!VARIANTES[v]) return
+    if (Platform.OS !== 'android') { barrado('plataforma_nao_android'); return }
+    if (!VARIANTES[v]) { barrado('variante_desconhecida'); return }
     try {
       // Check ao vivo PRIMEIRO: concedidos e bloqueados (canAskAgain false) retornam
       // aqui, antes de contar ou exibir qualquer coisa — nunca consomem um slot.
       const { granted, canAskAgain } = await Notifications.getPermissionsAsync()
-      if (granted || canAskAgain === false) return
+      // A condição é a MESMA de sempre; só o rótulo separa os dois motivos que ela junta.
+      if (granted || canAskAgain === false) { barrado(granted ? 'permissao_ja_concedida' : 'permissao_bloqueada'); return }
 
       const estado = await lerEstadoSoftAsk()
-      if (estado.concedido) return                                                   // já disse "sim"
-      if (estado.shows >= MAX_SHOWS) return                                          // teto de exibições
-      if (estado.shows > 0 && Date.now() - estado.ultimoShowMs < ESPERA_MS) return   // < 7 dias
+      if (estado.concedido) { barrado('concedido_gravado', estado); return }                                  // já disse "sim"
+      if (estado.shows >= MAX_SHOWS) { barrado('teto_de_exibicoes', estado); return }                         // teto de exibições
+      if (estado.shows > 0 && Date.now() - estado.ultimoShowMs < ESPERA_MS) { barrado('intervalo_minimo', estado); return }   // < 3 dias
 
       // Vai EXIBIR: conta o show AGORA (incrementa NO SHOW, não a cada mostrar()).
       await gravarEstadoSoftAsk({ ...estado, shows: estado.shows + 1, ultimoShowMs: Date.now() })
@@ -142,7 +168,7 @@ const SoftAskNotificacao = () => {
   const aoRecusar = async () => {
     setVariante(null)
     // NÃO grava flag permanente. O show já foi contado (com timestamp) no momento da
-    // exibição; a próxima vez respeitará o intervalo de 7 dias e o teto de 3. Declinar
+    // exibição; a próxima vez respeitará o intervalo de 3 dias e o teto de 8. Declinar
     // NÃO gasta a tentativa do SO — nada de permissão é chamado aqui.
   }
 
