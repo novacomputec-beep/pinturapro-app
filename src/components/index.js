@@ -108,17 +108,27 @@ export const Tag = ({ texto }) => (
 //
 // `children` cai abaixo do texto e é onde entram botões e links — o componente não
 // opina sobre a ação, só sobre a moldura.
+// `suave` pinta o disco no estado contornado; `solida` serve ao MESMO token nos dois
+// papéis — borda no contornado, fundo no preenchido —, e é o que garante que o par nunca
+// saia de tons diferentes.
 const ICONE_TOKENS = {
-  sucesso:  { fundo: cores.sucessoSuave,  borda: cores.sucessoBorda  },
-  primaria: { fundo: cores.primariaSuave, borda: cores.primariaBorda },
+  sucesso:  { suave: cores.sucessoSuave,  solida: cores.sucesso  },
+  primaria: { suave: cores.primariaSuave, solida: cores.primaria },
 }
 
-export const TelaAviso = ({ emoji, corIcone = 'primaria', titulo, corTitulo = 'textoForte', texto, children }) => {
-  const icone = ICONE_TOKENS[corIcone] || ICONE_TOKENS.primaria
+export const TelaAviso = ({ icone, iconePreenchido = false, corIcone = 'primaria', titulo, corTitulo = 'textoForte', texto, children }) => {
+  const t = ICONE_TOKENS[corIcone] || ICONE_TOKENS.primaria
   return (
     <View style={estilos.avisoWrap}>
-      <View style={[estilos.avisoIcone, { backgroundColor: icone.fundo, borderColor: icone.borda }]}>
-        <Text style={estilos.avisoEmoji}>{emoji}</Text>
+      {/* Contornado x preenchido é escolha do CÍRCULO, não do ícone: quem chama passa a
+          cor do traço junto com o nó, e aqui só decidimos o disco atrás dele. */}
+      <View style={[
+        estilos.avisoIcone,
+        iconePreenchido
+          ? { backgroundColor: t.solida }
+          : { backgroundColor: t.suave, borderWidth: 2, borderColor: t.solida },
+      ]}>
+        {icone}
       </View>
       <Text style={[estilos.avisoTitulo, { color: cores[corTitulo] || cores.textoForte }]}>{titulo}</Text>
       {!!texto && <Text style={estilos.avisoTexto}>{texto}</Text>}
@@ -227,8 +237,8 @@ const estilos = StyleSheet.create({
     paddingVertical: 4,
   },
   avisoWrap: { width: '100%', alignItems: 'center', justifyContent: 'center' },
-  avisoIcone: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: espacos.lg },
-  avisoEmoji: { fontSize: 24 },
+  // borderWidth/borderColor e backgroundColor saem do render (contornado x preenchido).
+  avisoIcone: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: espacos.lg },
   avisoTitulo: { fontSize: 17, fontWeight: '600', textAlign: 'center', marginBottom: espacos.sm },
   // lineHeight 1.5 do corpo: 13 * 1.5 = 19.5, arredondado para 20 (o RN não interpola).
   avisoTexto: { fontSize: 13, color: cores.textoFraco, lineHeight: 20, textAlign: 'center', marginBottom: espacos.xl },
