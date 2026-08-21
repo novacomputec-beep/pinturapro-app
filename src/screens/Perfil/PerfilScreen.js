@@ -383,6 +383,8 @@ export default function PerfilScreen({ navigation }) {
           )}
           <ItemAcao titulo="🔒 Alterar senha" onPress={() => navigation.navigate('AlterarSenha')} />
           <Separador />
+          <ItemAcao titulo="💡 Sugestões" onPress={() => navigation.navigate('Sugestoes')} />
+          <Separador />
           {/* Navegação interna, e não Linking.openURL. As duas linhas abriam páginas no
               host do painel no Railway: marca PinturaPro antiga, fora do app, no Chrome e
               sem caminho de volta — quem tocasse aqui só regressava pelo botão do sistema.
