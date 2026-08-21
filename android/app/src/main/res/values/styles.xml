@@ -29,5 +29,14 @@
     <item name="android:textColorPrimary">@color/dialog_texto_forte</item>
     <item name="android:textColorSecondary">@color/dialog_texto_medio</item>
     <item name="android:colorAccent">@color/dialog_acento</item>
+    <!-- O par de colorAccent NÃO é redundância. O android: é lido pelo AlertDialog do
+         framework; o SEM prefixo é o que o AppCompat lê, e é ele que vale nos botões:
+         a ReactActivity é uma AppCompatActivity, a factory de inflate do AppCompat troca
+         cada <Button> por AppCompatButton, e o AppCompatButton pinta o rótulo com o
+         colorAccent NÃO-prefixado. Esse ficava sem valor aqui, então o rótulo caía no
+         accent herdado da Activity (#023c69, 1.67:1 sobre #111111) — presente, tocável
+         e invisível, que foi exatamente o relato do aparelho no build 132.
+         Fica na ProLarAlertDialog, não na AppTheme: assim só os diálogos mudam. -->
+    <item name="colorAccent">@color/dialog_acento</item>
   </style>
 </resources>
