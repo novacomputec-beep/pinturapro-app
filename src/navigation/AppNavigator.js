@@ -8,6 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, alturas } from '../utils/tema'
+import { TelaAviso, BotaoPrimario } from '../components'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import { avatar } from '../utils/imagemOtimizada'
@@ -400,59 +401,63 @@ function PagamentoPendenteScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
-        <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
-          {assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
-        </Text>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
-          {valorMensal}/mês
-        </Text>
-
-        {carregando && (
-          <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
-            Gerando link de pagamento...
-          </Text>
-        )}
-
-        {erro && !carregando && (
-          <View style={{ backgroundColor: '#3a1a1a', borderWidth: 1, borderColor: '#f4433644', borderRadius: raios.medio, padding: 14, width: '100%', marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, color: '#f44336', textAlign: 'center', lineHeight: 20 }}>{erro}</Text>
-          </View>
-        )}
-
-        {link ? (
-          <>
-            <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 16 }}>
-              Você está sendo redirecionado. Se não abriu automaticamente, toque no botão abaixo.
-            </Text>
-            <TouchableOpacity
-              style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
-              onPress={() => Linking.openURL(link).catch(err => console.log('[AppNavigator] falha ao abrir link de pagamento | msg:', err.message))}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Abrir página de pagamento →</Text>
-            </TouchableOpacity>
-          </>
-        ) : !carregando && (
-          <TouchableOpacity
-            style={{ backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, width: '100%', alignItems: 'center', marginBottom: 12 }}
-            onPress={buscarLink}
-          >
-            <Text style={{ fontSize: 15, fontWeight: '700', color: '#0A0A0A' }}>Tentar novamente →</Text>
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity
-          style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 0.5, borderColor: cores.borda }}
-          onPress={verificarPagamento}
-          disabled={verificando}
+        <TelaAviso
+          emoji="💳"
+          corIcone="primaria"
+          titulo={assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
         >
-          <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
-            {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+          <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
+            {valorMensal}/mês
           </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
-          <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
-        </TouchableOpacity>
+
+          {carregando && (
+            <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+              Gerando link de pagamento...
+            </Text>
+          )}
+
+          {/* perigoSuave/perigo no lugar do #3a1a1a / #f4433644 / #f44336 que estavam
+              cravados aqui — era o único ponto das três telas fora da paleta. */}
+          {erro && !carregando && (
+            <View style={{ backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 14, width: '100%', marginBottom: 16 }}>
+              <Text style={{ fontSize: 13, color: cores.perigo, textAlign: 'center', lineHeight: 20 }}>{erro}</Text>
+            </View>
+          )}
+
+          {link ? (
+            <>
+              <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 16 }}>
+                Você está sendo redirecionado. Se não abriu automaticamente, toque no botão abaixo.
+              </Text>
+              <BotaoPrimario
+                titulo="Abrir página de pagamento →"
+                onPress={() => Linking.openURL(link).catch(err => console.log('[AppNavigator] falha ao abrir link de pagamento | msg:', err.message))}
+                estilo={{ width: '100%', marginBottom: 12 }}
+              />
+            </>
+          ) : !carregando && (
+            <BotaoPrimario
+              titulo="Tentar novamente →"
+              onPress={buscarLink}
+              estilo={{ width: '100%', marginBottom: 12 }}
+            />
+          )}
+
+          {/* Secundário: continua o botão de fundoCard de sempre. Só o principal virou
+              BotaoPrimario, senão a tela teria dois laranjas competindo. */}
+          <TouchableOpacity
+            style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 0.5, borderColor: cores.borda }}
+            onPress={verificarPagamento}
+            disabled={verificando}
+          >
+            <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
+              {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
+            <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
+          </TouchableOpacity>
+        </TelaAviso>
       </ScrollView>
     </SafeAreaView>
   )
@@ -505,28 +510,28 @@ function VerificacaoPendenteScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>{ehGratuito ? '✅' : '💳'}</Text>
-        <Text style={{ fontSize: 24, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 8 }}>
-          {ehGratuito ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
-        </Text>
-        <Text style={{ fontSize: 15, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>
-          {ehGratuito
+        <TelaAviso
+          emoji={ehGratuito ? '✅' : '💳'}
+          corIcone="sucesso"
+          titulo={ehGratuito ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
+          texto={ehGratuito
             ? 'Estamos analisando seus dados — isso pode levar até uma hora. Você será avisado assim que for aprovado.'
             : 'Em instantes aprovaremos seu cadastro — isto pode levar até uma hora'}
-        </Text>
-
-        <TouchableOpacity
-          style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', marginBottom: 12, borderWidth: 0.5, borderColor: cores.borda }}
-          onPress={verificarPagamento}
-          disabled={verificando}
         >
-          <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
-            {verificando ? 'Verificando...' : (ehGratuito ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
-          <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
-        </TouchableOpacity>
+          {/* titulo com o rótulo condicional, e NÃO carregando: o carregando do
+              BotaoPrimario troca o texto por um ActivityIndicator, e a string
+              "Verificando..." desapareceria da tela. desabilitado dá o mesmo bloqueio
+              de toque que o disabled antigo, preservando o texto. */}
+          <BotaoPrimario
+            titulo={verificando ? 'Verificando...' : (ehGratuito ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
+            onPress={verificarPagamento}
+            desabilitado={verificando}
+            estilo={{ width: '100%', marginBottom: 12 }}
+          />
+          <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
+            <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
+          </TouchableOpacity>
+        </TelaAviso>
       </ScrollView>
     </SafeAreaView>
   )
