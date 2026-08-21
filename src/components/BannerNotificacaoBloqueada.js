@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Platform, AppState, Linking } from 'react-native'
 import * as Notifications from 'expo-notifications'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 
 // Aviso PERSISTENTE para quem bloqueou permanentemente as notificações
@@ -12,6 +13,11 @@ import { useAuth } from '../contexts/AuthContext'
 // consulta; pedir permissão é a Fase 2.
 const BannerNotificacaoBloqueada = () => {
   const { usuario } = useAuth()
+  // Inset do topo pelo MESMO caminho do BarraServicoEmAndamento (:25) e do
+  // useTabBarStyle (AppNavigator:634): useSafeAreaInsets no render, valor fixo no
+  // StyleSheet. Sem altura cravada — em aparelho sem recorte o inset é 0 e a tarja
+  // não se mexe; com recorte ela desce exatamente o que o aparelho pede.
+  const { top } = useSafeAreaInsets()
   // Começa false: durante a consulta assíncrona a barra não aparece, para nunca
   // exibir um aviso falso antes de sabermos o estado real da permissão.
   const [bloqueada, setBloqueada] = useState(false)
@@ -46,7 +52,7 @@ const BannerNotificacaoBloqueada = () => {
   if (!usuario || !bloqueada) return null
 
   return (
-    <View style={estilos.banner}>
+    <View style={[estilos.banner, { top }]}>
       <Text style={estilos.texto}>
         🔕 Notificações bloqueadas — você não será avisado de novidades.
       </Text>
@@ -63,7 +69,7 @@ const estilos = StyleSheet.create({
   // e o vencimento — montado depois — pinta por cima no raro dia em que ambos valem.
   banner: {
     position: 'absolute',
-    top: 0,
+    // `top` sai do render (inset do aparelho); o resto da caixa é fixo.
     left: 0,
     right: 0,
     zIndex: 9999,
