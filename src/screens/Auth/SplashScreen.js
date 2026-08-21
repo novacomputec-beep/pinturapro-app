@@ -115,6 +115,7 @@ export default function SplashScreen({ navigation }) {
         {/* Arte central */}
         <View style={estilos.artArea}>
           <TouchableOpacity
+            style={{ width: '100%' }}
             onPress={() => navigation.navigate('Cadastro')}
             activeOpacity={0.8}
           >
