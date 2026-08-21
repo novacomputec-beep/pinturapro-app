@@ -96,6 +96,37 @@ export const Tag = ({ texto }) => (
   </View>
 )
 
+// ─── TELA DE AVISO (STATUS EM TELA CHEIA) ────────────────────
+// Moldura das telas cujo trabalho INTEIRO é dar um recado: cadastro em análise,
+// pagamento pendente, boas-vindas. As três desenhavam a própria pilha de <Text> com
+// estilos inline, cada uma com um tamanho de emoji e um peso de título diferente — o
+// mesmo recado com três caras. Aqui a moldura é uma só e o que varia fica nas props.
+//
+// `corIcone` é o NOME de um token, não uma cor: o círculo deriva fundo e borda das
+// variantes Suave/Borda do mesmo token, então pedir 'sucesso' já traz o par certo e não
+// há como combinar um fundo verde com uma borda laranja.
+//
+// `children` cai abaixo do texto e é onde entram botões e links — o componente não
+// opina sobre a ação, só sobre a moldura.
+const ICONE_TOKENS = {
+  sucesso:  { fundo: cores.sucessoSuave,  borda: cores.sucessoBorda  },
+  primaria: { fundo: cores.primariaSuave, borda: cores.primariaBorda },
+}
+
+export const TelaAviso = ({ emoji, corIcone = 'primaria', titulo, corTitulo = 'textoForte', texto, children }) => {
+  const icone = ICONE_TOKENS[corIcone] || ICONE_TOKENS.primaria
+  return (
+    <View style={estilos.avisoWrap}>
+      <View style={[estilos.avisoIcone, { backgroundColor: icone.fundo, borderColor: icone.borda }]}>
+        <Text style={estilos.avisoEmoji}>{emoji}</Text>
+      </View>
+      <Text style={[estilos.avisoTitulo, { color: cores[corTitulo] || cores.textoForte }]}>{titulo}</Text>
+      {!!texto && <Text style={estilos.avisoTexto}>{texto}</Text>}
+      {children}
+    </View>
+  )
+}
+
 // ─── SELETOR DE LOCALIDADE ───────────────────────────────────
 export { default as SeletorLocalidade } from './SeletorLocalidade'
 
@@ -195,6 +226,12 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4,
   },
+  avisoWrap: { width: '100%', alignItems: 'center', justifyContent: 'center' },
+  avisoIcone: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: espacos.lg },
+  avisoEmoji: { fontSize: 24 },
+  avisoTitulo: { fontSize: 17, fontWeight: '600', textAlign: 'center', marginBottom: espacos.sm },
+  // lineHeight 1.5 do corpo: 13 * 1.5 = 19.5, arredondado para 20 (o RN não interpola).
+  avisoTexto: { fontSize: 13, color: cores.textoFraco, lineHeight: 20, textAlign: 'center', marginBottom: espacos.xl },
   tagTexto: {
     fontSize: 11,
     color: cores.textoFraco,
