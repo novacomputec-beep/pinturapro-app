@@ -115,33 +115,36 @@ export default function SplashScreen({ navigation }) {
         {/* Arte central */}
         <View style={estilos.artArea}>
           <TouchableOpacity
-            style={estilos.artCard}
+            style={{ width: '100%' }}
             onPress={() => navigation.navigate('Cadastro')}
             activeOpacity={0.8}
           >
-            <View style={estilos.artLinha}>
-              <View style={[estilos.artBloco, { flex: 2, backgroundColor: cores.primariaSuave }]} />
-              <View style={[estilos.artBloco, { flex: 1 }]} />
-            </View>
-            <View style={[estilos.artLinha, { marginTop: 6 }]}>
-              <View style={[estilos.artBloco, { flex: 1 }]} />
-              <View style={[estilos.artBloco, { flex: 1 }]} />
-              <View style={[estilos.artBloco, { flex: 1, backgroundColor: cores.sucessoSuave }]} />
-            </View>
-            <View style={[estilos.artLinha, { marginTop: 6 }]}>
-              <View style={[estilos.artBloco, { flex: 3 }]} />
-            </View>
-            <View style={estilos.artValor}>
-              <Text style={estilos.artValorTexto}>
-                {temStats
-                  ? `R$ ${Number(stats.total_valor_obras).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
-                  : '—'}
-              </Text>
-              <Text style={estilos.artValorLabel}>
-                {temStats
-                  ? `${stats.total_obras_ativas} vagas ativas agora`
-                  : 'vagas ativas agora'}
-              </Text>
+            <Text style={estilos.vitrineTitulo}>Monetize seus talentos</Text>
+            <View style={estilos.artCard}>
+              <View style={estilos.artLinha}>
+                <View style={[estilos.artBloco, { flex: 2, backgroundColor: cores.primariaSuave }]} />
+                <View style={[estilos.artBloco, { flex: 1 }]} />
+              </View>
+              <View style={[estilos.artLinha, { marginTop: 6 }]}>
+                <View style={[estilos.artBloco, { flex: 1 }]} />
+                <View style={[estilos.artBloco, { flex: 1 }]} />
+                <View style={[estilos.artBloco, { flex: 1, backgroundColor: cores.sucessoSuave }]} />
+              </View>
+              <View style={[estilos.artLinha, { marginTop: 6 }]}>
+                <View style={[estilos.artBloco, { flex: 3 }]} />
+              </View>
+              <View style={estilos.artValor}>
+                <Text style={estilos.artValorTexto}>
+                  {temStats
+                    ? `R$ ${Number(stats.total_valor_obras).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`
+                    : '—'}
+                </Text>
+                <Text style={estilos.artValorLabel}>
+                  {temStats
+                    ? `${stats.total_obras_ativas} vagas ativas agora`
+                    : 'vagas ativas agora'}
+                </Text>
+              </View>
             </View>
           </TouchableOpacity>
         </View>
