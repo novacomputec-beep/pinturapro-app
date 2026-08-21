@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, BackHandler } from 'react-native'
+import { View, StyleSheet, BackHandler } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 import { cores } from '../utils/tema'
 import { TelaAviso, BotaoPrimario } from '../components'
+import { Feather } from '@expo/vector-icons'
 
 // Tela de boas-vindas exibida uma única vez para prestadores recém-aprovados
 // (reparador, pintor, construtor). Mostrada pelo AppNavigator antes das abas do
@@ -31,10 +32,10 @@ export default function BoasVindasPrestadorScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.fundo}>
       <View style={estilos.card}>
-        <Text style={estilos.confete}>🎉   ✨   🎉</Text>
         <TelaAviso
-          emoji="✅"
+          icone={<Feather name="check" size={36} color={cores.fundo} />}
           corIcone="sucesso"
+          iconePreenchido
           titulo="Cadastro Aprovado!"
           corTitulo="sucesso"
           texto="Parabéns! Você agora está apto para atender às demandas disponíveis na plataforma. Bom trabalho!"
@@ -56,5 +57,4 @@ export default function BoasVindasPrestadorScreen() {
 const estilos = StyleSheet.create({
   fundo:           { flex: 1, backgroundColor: cores.fundo, alignItems: 'center', justifyContent: 'center', padding: 28 },
   card:            { width: '100%', maxWidth: 380, backgroundColor: cores.fundoCard, borderRadius: 24, borderWidth: 1, borderColor: cores.primaria, padding: 28, alignItems: 'center' },
-  confete:         { fontSize: 24, marginBottom: 4 },
 })

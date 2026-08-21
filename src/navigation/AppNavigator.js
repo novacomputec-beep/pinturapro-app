@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, alturas } from '../utils/tema'
 import { TelaAviso, BotaoPrimario } from '../components'
+import { Feather } from '@expo/vector-icons'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import { avatar } from '../utils/imagemOtimizada'
@@ -402,7 +403,7 @@ function PagamentoPendenteScreen() {
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <TelaAviso
-          emoji="💳"
+          icone={<Feather name="credit-card" size={34} color={cores.primaria} />}
           corIcone="primaria"
           titulo={assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
         >
@@ -511,7 +512,7 @@ function VerificacaoPendenteScreen() {
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <TelaAviso
-          emoji={ehGratuito ? '✅' : '💳'}
+          icone={<Feather name="check" size={34} color={cores.sucesso} />}
           corIcone="sucesso"
           titulo={ehGratuito ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
           texto={ehGratuito
