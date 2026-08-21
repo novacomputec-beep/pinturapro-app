@@ -5,7 +5,6 @@
     <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
     <item name="colorPrimary">@color/colorPrimary</item>
     <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-    <item name="android:alertDialogTheme">@style/ProLarAlertDialog</item>
   </style>
   <style name="ResetEditText" parent="@android:style/Widget.EditText">
     <item name="android:padding">0dp</item>
@@ -14,51 +13,5 @@
   </style>
   <style name="Theme.App.SplashScreen" parent="AppTheme">
     <item name="android:windowBackground">@drawable/splashscreen</item>
-  </style>
-
-  <!-- Tema dos diálogos nativos do RN (Alert.alert). O pai é o tema do FRAMEWORK,
-       não o do AppCompat: o AlertFragment do RN 0.73.6 importa android.app.AlertDialog
-       e constrói o diálogo com `new AlertDialog.Builder(activityContext)` sem resId de
-       tema, então quem resolve o visual é o atributo android:alertDialogTheme do tema da
-       Activity — o alertDialogTheme do AppCompat é ignorado nesse caminho.
-       Theme.Material.Dialog.Alert já é a variante ESCURA (a clara é .Light.Dialog.Alert),
-       então aqui só retingimos para a paleta ProLar; mesmo que um atributo não pegue em
-       alguma API, o piso é o cinza escuro do Material, nunca o branco de antes. -->
-  <style name="ProLarAlertDialog" parent="@android:style/Theme.Material.Dialog.Alert">
-    <item name="android:colorBackground">@color/dialog_fundo</item>
-    <item name="android:textColorPrimary">@color/dialog_texto_forte</item>
-    <item name="android:textColorSecondary">@color/dialog_texto_medio</item>
-    <item name="android:colorAccent">@color/dialog_acento</item>
-    <!-- O par de colorAccent NÃO é redundância. O android: é lido pelo AlertDialog do
-         framework; o SEM prefixo é o que o AppCompat lê, e é ele que vale nos botões:
-         a ReactActivity é uma AppCompatActivity, a factory de inflate do AppCompat troca
-         cada <Button> por AppCompatButton, e o AppCompatButton pinta o rótulo com o
-         colorAccent NÃO-prefixado. Esse ficava sem valor aqui, então o rótulo caía no
-         accent herdado da Activity (#023c69, 1.67:1 sobre #111111) — presente, tocável
-         e invisível, que foi exatamente o relato do aparelho no build 132.
-         Fica na ProLarAlertDialog, não na AppTheme: assim só os diálogos mudam. -->
-    <item name="colorAccent">@color/dialog_acento</item>
-    <!-- O TÍTULO não vinha do textColorPrimary: ele é o alertTitle, estilizado pelo
-         android:windowTitleStyle. Como a ProLarAlertDialog não definia nem esse nem um
-         android:textColor, o título caía no android:textColor da AppTheme — preto, que dá
-         1.11:1 sobre o #111111. O alertDialogTheme SOBREPÕE a ProLarAlertDialog ao tema da
-         Activity em vez de substituí-lo, então tudo que não é redefinido aqui continua
-         vindo da AppTheme. É por isso que a mensagem (textColorPrimary) saía branca e o
-         título saía invisível na MESMA caixa.
-         Corrigido pelo windowTitleStyle, e NÃO por um android:textColor solto neste tema:
-         o textColor repintaria TODO TextView do diálogo de uma vez, inclusive as linhas da
-         lista logo abaixo, trocando um problema de cor cega por outro. -->
-    <item name="android:windowTitleStyle">@style/ProLarAlertDialogTitulo</item>
-    <!-- Linhas do Alert.alert de três opções (setItems). Atributo próprio, que não sai do
-         textColorPrimary nem do Secondary — sem ele as linhas ficavam no cinza herdado do
-         Material e destoavam do resto da caixa. -->
-    <item name="android:textColorAlertDialogListItem">@color/dialog_texto_forte</item>
-  </style>
-
-  <!-- SÓ a cor. O pai é a própria aparência de título de diálogo do Material, então
-       tamanho, peso e família continuam sendo exatamente os que o diálogo já usava —
-       nada de fixar sp aqui, que mudaria o desenho do título junto com a cor. -->
-  <style name="ProLarAlertDialogTitulo" parent="@android:style/TextAppearance.Material.DialogWindowTitle">
-    <item name="android:textColor">@color/dialog_texto_forte</item>
   </style>
 </resources>
