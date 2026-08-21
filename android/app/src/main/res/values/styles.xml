@@ -38,5 +38,27 @@
          e invisível, que foi exatamente o relato do aparelho no build 132.
          Fica na ProLarAlertDialog, não na AppTheme: assim só os diálogos mudam. -->
     <item name="colorAccent">@color/dialog_acento</item>
+    <!-- O TÍTULO não vinha do textColorPrimary: ele é o alertTitle, estilizado pelo
+         android:windowTitleStyle. Como a ProLarAlertDialog não definia nem esse nem um
+         android:textColor, o título caía no android:textColor da AppTheme — preto, que dá
+         1.11:1 sobre o #111111. O alertDialogTheme SOBREPÕE a ProLarAlertDialog ao tema da
+         Activity em vez de substituí-lo, então tudo que não é redefinido aqui continua
+         vindo da AppTheme. É por isso que a mensagem (textColorPrimary) saía branca e o
+         título saía invisível na MESMA caixa.
+         Corrigido pelo windowTitleStyle, e NÃO por um android:textColor solto neste tema:
+         o textColor repintaria TODO TextView do diálogo de uma vez, inclusive as linhas da
+         lista logo abaixo, trocando um problema de cor cega por outro. -->
+    <item name="android:windowTitleStyle">@style/ProLarAlertDialogTitulo</item>
+    <!-- Linhas do Alert.alert de três opções (setItems). Atributo próprio, que não sai do
+         textColorPrimary nem do Secondary — sem ele as linhas ficavam no cinza herdado do
+         Material e destoavam do resto da caixa. -->
+    <item name="android:textColorAlertDialogListItem">@color/dialog_texto_forte</item>
+  </style>
+
+  <!-- SÓ a cor. O pai é a própria aparência de título de diálogo do Material, então
+       tamanho, peso e família continuam sendo exatamente os que o diálogo já usava —
+       nada de fixar sp aqui, que mudaria o desenho do título junto com a cor. -->
+  <style name="ProLarAlertDialogTitulo" parent="@android:style/TextAppearance.Material.DialogWindowTitle">
+    <item name="android:textColor">@color/dialog_texto_forte</item>
   </style>
 </resources>
