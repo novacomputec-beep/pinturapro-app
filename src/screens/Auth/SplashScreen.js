@@ -107,7 +107,7 @@ export default function SplashScreen({ navigation }) {
             <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
           </Text>
           <View style={estilos.logoRegua} />
-          <Text style={estilos.logoTagline}>Obras e serviços gerais com profissionais qualificados e idoneidade checada.</Text>
+          <Text style={estilos.logoTagline}>Conecta quem precisa a quem faz — da faxina à obra, com profissionais verificados.</Text>
         </View>
 
         <View style={estilos.espacador} />
