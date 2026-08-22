@@ -99,3 +99,35 @@ export const paraSeletor = (lista) =>
 // segue fora da ordenação alfabética — primeiro item, sempre.
 export const paraFiltro = (lista) =>
   [{ id: 'todas', label: 'Todas' }, ...paraSeletor(lista)]
+
+// Teto de especialidades do prestador. Mora aqui e não na tela porque o cadastro, o
+// perfil e a tela de seleção precisam do MESMO número — três cópias de "5" é como as
+// listas de categoria divergiram em primeiro lugar.
+export const MAX_ESPECIALIDADES = 5
+
+// Normaliza qualquer coisa que chegue no lugar de `especialidades` para uma lista limpa
+// de slugs VÁLIDOS. Aceita as três formas que existem no mundo real:
+//   - array de slugs (o formato novo),
+//   - string CSV (texto livre do cadastro antigo e rascunhos gravados antes desta
+//     mudança),
+//   - null/undefined (conta sem o campo).
+//
+// O que não é slug conhecido é DESCARTADO em silêncio — "Faz tudo", "Acho", "Hidráulica"
+// com maiúscula e acento não têm para onde mapear sem adivinhar, e adivinhar erraria. A
+// consequência é assumida: quem tinha texto livre volta a ter a lista vazia e escolhe de
+// novo, o que é o ponto da migração.
+//
+// Também deduplica: sem isto um slug repetido no banco ocuparia duas das cinco vagas.
+export const normalizarEspecialidades = (valor) => {
+  const bruto = Array.isArray(valor)
+    ? valor
+    : (typeof valor === 'string' ? valor.split(',') : [])
+  const validos = new Set(CATEGORIAS_SERVICO.map((c) => c.slug))
+  return [...new Set(bruto.map((s) => String(s).trim()).filter((s) => validos.has(s)))]
+}
+
+// Rótulo de um slug avulso, para as telas que mostram a seleção já feita.
+export const rotuloEspecialidade = (slug) => {
+  const c = CATEGORIAS_SERVICO.find((x) => x.slug === slug)
+  return c ? rotuloComEmoji(c) : slug
+}

@@ -16,6 +16,7 @@ import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCad
 import { useAuth } from '../../contexts/AuthContext'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios } from '../../utils/tema'
+import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
 
 // ─── VALIDAÇÃO CPF/CNPJ ──────────────────────────────────────
 const validarCPF = (cpf) => {
@@ -163,7 +164,7 @@ const classificarErro = (err) => {
   return `UNKNOWN(code=${err?.code ?? 'none'})`
 }
 
-export default function CadastroScreen({ navigation }) {
+export default function CadastroScreen({ navigation, route }) {
   const { loginComToken } = useAuth()
   const insets = useSafeAreaInsets()
   const montadoRef = useRef(true)
@@ -216,7 +217,24 @@ export default function CadastroScreen({ navigation }) {
   const [cpfCnpj, setCpfCnpj] = useState('')
   const [anosExp, setAnosExp] = useState('')
   const [equipe, setEquipe] = useState('')
-  const [especialidades, setEspecialidades] = useState('')
+  // Array de SLUGS, não mais texto livre. normalizarEspecialidades cuida de rascunho
+  // antigo (que gravava CSV) e de valor legado — ver restauração abaixo.
+  const [especialidades, setEspecialidades] = useState([])
+
+  // Retorno da EspecialidadesScreen, por params SERIALIZÁVEIS — nada de callback em
+  // rota: função não sobrevive ao Android reciclar o processo, e o estado de navegação
+  // restaurado traria um callback morto.
+  //
+  // O setParams(undefined) logo depois de aplicar é o que impede o mesmo retorno de ser
+  // reaplicado num foco seguinte: sem ele, remover uma pill pelo ✕ e sair/voltar da tela
+  // faria o param antigo ressuscitar a seleção e desfazer a remoção.
+  const especialidadesRetorno = route.params?.especialidades
+  useEffect(() => {
+    if (!especialidadesRetorno) return
+    setEspecialidades(normalizarEspecialidades(especialidadesRetorno))
+    setErros(e => ({ ...e, especialidades: undefined }))
+    navigation.setParams({ especialidades: undefined })
+  }, [especialidadesRetorno])
   const [planoSelecionado, setPlanoSelecionado] = useState('mensal')
 
   const [rg, setRg] = useState('')
@@ -318,7 +336,7 @@ export default function CadastroScreen({ navigation }) {
           setLogradouro(s.logradouro ?? ''); setNumero(s.numero ?? '')
           setComplemento(s.complemento ?? ''); setBairro(s.bairro ?? '')
           setCpfCnpj(s.cpfCnpj ?? ''); setAnosExp(s.anosExp ?? ''); setEquipe(s.equipe ?? '')
-          setEspecialidades(s.especialidades ?? ''); setPlanoSelecionado(s.planoSelecionado ?? 'mensal')
+          setEspecialidades(normalizarEspecialidades(s.especialidades)); setPlanoSelecionado(s.planoSelecionado ?? 'mensal')
           setRg(s.rg ?? ''); setRgOrgao(s.rgOrgao ?? 'SSP'); setRgEstado(s.rgEstado ?? '')
           setPixReembolso(s.pixReembolso ?? '')
           setRef1Nome(s.ref1Nome ?? ''); setRef1Tel(s.ref1Tel ?? '')
@@ -501,6 +519,7 @@ export default function CadastroScreen({ navigation }) {
   const validarPasso2 = () => {
     const novos = {}
     if (isPrestador && (!cep || cep.length !== 8)) novos.cep = 'Informe um CEP válido'
+    if (isPrestador && !especialidades.length) novos.especialidades = 'Escolha ao menos uma especialidade'
     if (!uf.trim()) novos.uf = 'Selecione o estado'
     if (!cidade.trim()) novos.cidade = 'Selecione a cidade'
     if (!cpfCnpj.trim()) {
@@ -697,6 +716,25 @@ export default function CadastroScreen({ navigation }) {
   }, [])
 
   const handleCadastrar = async () => {
+    // Rede de segurança do passo 2, e não uma segunda regra: validarPasso2 continua sendo
+    // quem valida: `avancar` o executa em toda transição 2→3. O buraco é OUTRO — a
+    // restauração de rascunho faz setPasso(s.passo ?? 0) (:358) e cai direto no passo 3 ou
+    // 4 sem passar por `avancar`, então um rascunho gravado antes desta mudança (cujo texto
+    // livre a normalização descarta) chegava ao submit com a lista vazia. validarPasso4 só
+    // olha PIX/referências/fotos e não pegaria isso.
+    //
+    // Volta ao passo 2 com o erro no campo em vez de só recusar: o useEffect de [passo]
+    // rola ao topo, então o campo aparece já em vermelho e a ação fica óbvia. O alerta
+    // existe porque um salto de tela sem explicação se lê como bug.
+    //
+    // ANTES do emAndamentoRef: sair aqui com a trava ligada deixaria o botão morto para
+    // sempre, e o usuário não teria como submeter nem depois de escolher.
+    if (isPrestador && !especialidades.length) {
+      setErros(e => ({ ...e, especialidades: 'Escolha ao menos uma especialidade' }))
+      setPasso(2)
+      Alert.alert('Falta uma coisa', 'Escolha ao menos uma especialidade para concluir o cadastro.')
+      return
+    }
     if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
     emAndamentoRef.current = true
     setCarregando(true)
@@ -804,8 +842,7 @@ export default function CadastroScreen({ navigation }) {
         bairro: isPrestador ? (bairro.trim() || null) : null,
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
-        especialidades: isPrestador
-          ? especialidades.split(',').map(s => s.trim()).filter(Boolean) : [],
+        especialidades: isPrestador ? especialidades : [],
         pix_reembolso: pixReembolso.trim() || null,
         referencias,
         verificacao_doc_frente_url: uploadedDocFrenteUrl,
@@ -1050,12 +1087,36 @@ export default function CadastroScreen({ navigation }) {
                     <Input label="ANOS DE EXP." placeholder="Ex: 8" value={anosExp} onChangeText={setAnosExp} keyboardType="numeric" estilo={{ flex: 1 }} />
                     <Input label="TAMANHO DA EQUIPE" placeholder="Nº de pessoas" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
                   </View>
-                  <Input
-                    label={tipoConta === 'prestador' ? 'ESPECIALIDADES (ex: hidráulica, elétrica)' : 'ESPECIALIDADES (ex: textura, epóxi)'}
-                    placeholder="Separe por vírgula"
-                    value={especialidades}
-                    onChangeText={setEspecialidades}
-                  />
+                  {/* Campo de ABERTURA, não de digitação: a lista é fechada e a escolha
+                      acontece na EspecialidadesScreen. O ✕ de cada pill remove ali mesmo,
+                      sem reabrir a tela — tirar uma de cinco não vale uma navegação. */}
+                  <Text style={estilos.labelSecao}>ESPECIALIDADES (até {MAX_ESPECIALIDADES})</Text>
+                  <TouchableOpacity
+                    style={[estilos.campoEspecialidades, erros.especialidades && estilos.campoEspecialidadesErro]}
+                    onPress={() => navigation.navigate('Especialidades', { selecionadas: especialidades, origem: 'Cadastro' })}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={especialidades.length ? estilos.campoEspTexto : estilos.campoEspPlaceholder}>
+                      {especialidades.length ? `${especialidades.length} selecionada${especialidades.length > 1 ? 's' : ''}` : 'Escolher especialidades'}
+                    </Text>
+                    <Text style={estilos.campoEspSeta}>→</Text>
+                  </TouchableOpacity>
+                  {!!erros.especialidades && <Text style={estilos.erroEspecialidades}>{erros.especialidades}</Text>}
+                  {!!especialidades.length && (
+                    <View style={estilos.espPills}>
+                      {especialidades.map(slug => (
+                        <TouchableOpacity
+                          key={slug}
+                          style={estilos.espPill}
+                          onPress={() => setEspecialidades(atuais => atuais.filter(s => s !== slug))}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={estilos.espPillTexto}>{rotuloEspecialidade(slug)}</Text>
+                          <Text style={estilos.espPillX}>✕</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                   <Input label="RG (somente números)" placeholder="000000000" value={rg} onChangeText={(t) => setRg(t.replace(/\D/g, '').slice(0, 9))} keyboardType="numeric" />
                   <Text style={estilos.labelSecao}>ÓRGÃO EMISSOR DO RG</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
@@ -1282,6 +1343,18 @@ const estilos = StyleSheet.create({
   verificacaoBannerTitulo: { fontSize: 13, fontWeight: '700', color: cores.sucesso, marginBottom: 6 },
   verificacaoBannerTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
   labelSecao: { fontSize: 11, fontWeight: '600', color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  // Mesma caixa do Input (fundo, borda, raio, padding) para o campo não parecer de outra
+  // família só por abrir uma tela em vez de aceitar digitação.
+  campoEspecialidades: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 13, marginTop: 7 },
+  campoEspecialidadesErro: { borderColor: cores.perigo },
+  campoEspTexto: { fontSize: 14, color: cores.textoForte },
+  campoEspPlaceholder: { fontSize: 14, color: cores.textoMutado },
+  campoEspSeta: { fontSize: 14, color: cores.textoFraco },
+  erroEspecialidades: { color: cores.perigo, fontSize: 11, marginTop: 4 },
+  espPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 4 },
+  espPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  espPillTexto: { fontSize: 12, color: cores.textoForte },
+  espPillX: { fontSize: 12, color: cores.primaria, fontWeight: '700' },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },

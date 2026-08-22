@@ -36,6 +36,7 @@ import PerfilScreen        from '../screens/Perfil/PerfilScreen'
 import EditarPerfilScreen  from '../screens/Perfil/EditarPerfilScreen'
 import AlterarSenhaScreen  from '../screens/Perfil/AlterarSenhaScreen'
 import SugestoesScreen     from '../screens/Perfil/SugestoesScreen'
+import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
 
 // App — Prestador
@@ -555,6 +556,7 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="PerfilMain"   component={PerfilScreen} />
     <PerfilStack.Screen name="EditarPerfil" component={EditarPerfilScreen} />
     <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
+    <PerfilStack.Screen name="Especialidades" component={EspecialidadesScreen} />
     <PerfilStack.Screen name="Sugestoes"    component={SugestoesScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
     <PerfilStack.Screen name="Termos"       component={TermosScreen} />
@@ -847,6 +849,11 @@ export default function AppNavigator() {
             <Stack.Screen name="EsqueciSenha"  component={EsqueciSenhaScreen} />
             <Stack.Screen name="Termos"        component={TermosScreen} />
             <Stack.Screen name="Privacidade"   component={PrivacidadeScreen} />
+            {/* Mesmo registro-duplo de Termos/Privacidade acima: a tela é a MESMA
+                (importada uma vez no topo), registrada nos dois ramos porque o cadastro
+                vive no ramo deslogado e o Perfil no logado. Sem isto, o campo do
+                cadastro não teria para onde navegar. */}
+            <Stack.Screen name="Especialidades" component={EspecialidadesScreen} />
           </>
         )}
       </Stack.Navigator>
