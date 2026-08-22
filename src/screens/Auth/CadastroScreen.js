@@ -716,6 +716,25 @@ export default function CadastroScreen({ navigation, route }) {
   }, [])
 
   const handleCadastrar = async () => {
+    // Rede de segurança do passo 2, e não uma segunda regra: validarPasso2 continua sendo
+    // quem valida: `avancar` o executa em toda transição 2→3. O buraco é OUTRO — a
+    // restauração de rascunho faz setPasso(s.passo ?? 0) (:358) e cai direto no passo 3 ou
+    // 4 sem passar por `avancar`, então um rascunho gravado antes desta mudança (cujo texto
+    // livre a normalização descarta) chegava ao submit com a lista vazia. validarPasso4 só
+    // olha PIX/referências/fotos e não pegaria isso.
+    //
+    // Volta ao passo 2 com o erro no campo em vez de só recusar: o useEffect de [passo]
+    // rola ao topo, então o campo aparece já em vermelho e a ação fica óbvia. O alerta
+    // existe porque um salto de tela sem explicação se lê como bug.
+    //
+    // ANTES do emAndamentoRef: sair aqui com a trava ligada deixaria o botão morto para
+    // sempre, e o usuário não teria como submeter nem depois de escolher.
+    if (isPrestador && !especialidades.length) {
+      setErros(e => ({ ...e, especialidades: 'Escolha ao menos uma especialidade' }))
+      setPasso(2)
+      Alert.alert('Falta uma coisa', 'Escolha ao menos uma especialidade para concluir o cadastro.')
+      return
+    }
     if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
     emAndamentoRef.current = true
     setCarregando(true)
