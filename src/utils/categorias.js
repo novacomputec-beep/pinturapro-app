@@ -1,29 +1,86 @@
-// Emoji por categoria, usado onde uma demanda precisa aparecer SEM imagem: o
-// thumbnail do feed quando não há capa, e o tile da tira de mídia do detalhe quando a
-// URL não renderiza. Não são emojis novos: são os MESMOS já exibidos nos labels de
-// CATEGORIAS dos feeds e das telas de cadastro, para que o placeholder bata com o chip
-// de filtro que a pessoa acabou de tocar.
+// Vocabulário de categorias do app — FONTE ÚNICA.
 //
-// Mora aqui, e não em cada tela, porque a lista passou a ser lida em QUATRO arquivos
-// (os dois feeds e os dois detalhes) — a cópia verbatim entre telas irmãs é exatamente
-// a divergência que este projeto já pagou antes, e é o mesmo motivo de utils/thumbnail.js
-// existir. Obra e reparo têm listas DIFERENTES (categorias diferentes), então são dois
-// mapas, não um.
+// Antes, as listas viviam copiadas em cinco telas (as duas de cadastro, os dois feeds e
+// a vitrine da Splash), cada uma com sua ordem e seus rótulos. Foi assim que "Aula
+// Particular" virou "Aulas" na Splash e que o painel passou a mostrar uma categoria que
+// o app não oferecia: cópia verbatim entre telas irmãs é exatamente a divergência que
+// este projeto já pagou antes, e o mesmo motivo de utils/thumbnail.js existir.
+//
+// O SLUG é o contrato com o banco e com a API — nunca renomeie um slug existente, há
+// linhas gravadas apontando para ele. Rótulo e emoji são só apresentação e podem mudar
+// à vontade. Slug novo segue a convenção dos antigos: sem acento, sem espaço,
+// underscore no lugar do espaço.
+//
+// Obra e serviço são listas DIFERENTES (categorias diferentes), então são dois arrays,
+// não um.
+
+// Ordena por rótulo em pt-BR — localeCompare com a locale explícita é o que faz "Á"
+// cair junto de "A" em vez de depois de "Z", que é onde a ordenação por code point
+// jogaria os acentos. "Outros" é a exceção e vai SEMPRE ao fim das duas listas: é o
+// escape da taxonomia, e alfabetá-lo no meio o esconderia entre categorias reais.
+const ordenar = (lista) =>
+  [...lista].sort((a, b) => {
+    if (a.slug === 'outros') return 1
+    if (b.slug === 'outros') return -1
+    return a.rotulo.localeCompare(b.rotulo, 'pt-BR')
+  })
+
+export const CATEGORIAS_SERVICO = ordenar([
+  { slug: 'hidraulica',      rotulo: 'Hidráulica',        emoji: '🚿' },
+  { slug: 'eletrica',        rotulo: 'Elétrica',          emoji: '⚡' },
+  { slug: 'marcenaria',      rotulo: 'Marcenaria',        emoji: '🪚' },
+  { slug: 'alvenaria',       rotulo: 'Alvenaria',         emoji: '🧱' },
+  { slug: 'climatizacao',    rotulo: 'Climatização',      emoji: '❄️' },
+  { slug: 'chaveiro',        rotulo: 'Chaveiro',          emoji: '🔑' },
+  { slug: 'faxina',          rotulo: 'Faxina',            emoji: '🧹' },
+  { slug: 'eletronica',      rotulo: 'Eletrônica',        emoji: '📱' },
+  { slug: 'aula_particular', rotulo: 'Aula particular',   emoji: '📚' },
+  { slug: 'cuidador',        rotulo: 'Cuidador',          emoji: '🤝' },
+  { slug: 'jardineiro',      rotulo: 'Jardineiro',        emoji: '🌳' },
+  { slug: 'manicure',        rotulo: 'Manicure/pedicure', emoji: '💅' },
+  { slug: 'cabelo',          rotulo: 'Cabelo/penteados',  emoji: '✂️' },
+  { slug: 'massagem',        rotulo: 'Massagens',         emoji: '💆' },
+  { slug: 'mudancas',        rotulo: 'Mudanças',          emoji: '📦' },
+  { slug: 'estofamento',     rotulo: 'Estofamento',       emoji: '🛋️' },
+  { slug: 'baba',            rotulo: 'Babá',              emoji: '👶' },
+  { slug: 'cozinheiro',      rotulo: 'Cozinheiro',        emoji: '🍳' },
+  { slug: 'motorista',       rotulo: 'Motorista',         emoji: '🚗' },
+  { slug: 'garcom',          rotulo: 'Garçom',            emoji: '🍽️' },
+  { slug: 'outros',          rotulo: 'Outros',            emoji: '🔨' },
+])
+
+export const CATEGORIAS_OBRA = ordenar([
+  { slug: 'residencial',    rotulo: 'Residencial',    emoji: '🏠' },
+  { slug: 'comercial',      rotulo: 'Comercial',      emoji: '🏢' },
+  { slug: 'galpao',         rotulo: 'Galpão',         emoji: '🏭' },
+  { slug: 'rural',          rotulo: 'Rural',          emoji: '🌾' },
+  { slug: 'institucional',  rotulo: 'Institucional',  emoji: '🏛️' },
+  { slug: 'industrial',     rotulo: 'Industrial',     emoji: '⚙️' },
+  { slug: 'saneamento',     rotulo: 'Saneamento',     emoji: '🚰' },
+  { slug: 'infraestrutura', rotulo: 'Infraestrutura', emoji: '🛣️' },
+  { slug: 'outros',         rotulo: 'Outros',         emoji: '🔨' },
+])
+
+// Os dois mapas continuam existindo, agora DERIVADOS dos arrays acima em vez de
+// escritos à mão — é o que garante que um slug novo não possa entrar na lista sem
+// emoji. Seguem privados, como antes: quem consome usa emojiReparo/emojiObra.
+const paraMapa = (lista) =>
+  lista.reduce((mapa, c) => { mapa[c.slug] = c.emoji; return mapa }, {})
+
+const EMOJIS_REPARO = paraMapa(CATEGORIAS_SERVICO)
+const EMOJIS_OBRA   = paraMapa(CATEGORIAS_OBRA)
+
+// Emoji por categoria, usado onde uma demanda precisa aparecer SEM imagem: o thumbnail
+// do feed quando não há capa, e o tile da tira de mídia do detalhe quando a URL não
+// renderiza. O placeholder bate com o chip de filtro que a pessoa acabou de tocar
+// porque os dois saem da MESMA lista.
 //
 // O fallback cobre categoria desconhecida (o banco pode ter valor legado fora da lista)
 // sem se disfarçar de "outros", que é 🔨 legítimo nos dois lados.
-
-const EMOJIS_REPARO = {
-  hidraulica: '🚿', eletrica: '⚡', marcenaria: '🪚', alvenaria: '🧱',
-  climatizacao: '❄️', chaveiro: '🔑', faxina: '🧹', outros: '🔨',
-  eletronica: '📱', aula_particular: '📚', cuidador: '🤝', jardineiro: '🌳',
-  manicure: '💅', cabelo: '✂️', massagem: '💆',
-}
-
-const EMOJIS_OBRA = {
-  residencial: '🏠', comercial: '🏢', institucional: '🏛️',
-  galpao: '🏭', rural: '🌾', outros: '🔨',
-}
-
 export const emojiReparo = (categoria) => EMOJIS_REPARO[categoria] || '🔨'
 export const emojiObra   = (categoria) => EMOJIS_OBRA[categoria]   || '🏗️'
+
+// Rótulo pronto para chip/label: "🚿 Hidráulica". Existe para as telas não voltarem a
+// concatenar emoji e texto cada uma do seu jeito — foi o que produziu "Aula Particular"
+// numa tela e "Aulas" na outra.
+export const rotuloComEmoji = (c) => `${c.emoji} ${c.rotulo}`
