@@ -21,7 +21,7 @@ import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rasc
 const VITRINE = [
   '🔧 Hidráulica',       '⚡ Elétrica',  '🪚 Marcenaria',
   '🧹 Faxina',           '✂️ Cabelo',    '💅 Manicure',
-  '👶 Babá',             '📚 Aula particular', '🚚 Mudanças',
+  '👶 Babá',             '📚 Aulas',     '🚚 Mudanças',
 ]
 
 // A cápsula NÃO é uma décima pill: é a outra METADE do marketplace. Nove pills cobrem o
@@ -30,7 +30,7 @@ const VITRINE = [
 // obra é mais uma categoria de serviço, e não o outro lado inteiro da plataforma.
 // Fica FORA da vitrineGrid, irmã dela: dentro, viraria uma quarta linha de três colunas
 // e o flex: 1 a espremeria em um terço da largura.
-const VITRINE_OBRAS = '🏗 Obras residenciais, comerciais, rurais, pinturas e mais…'
+const VITRINE_OBRAS = '🏗️ Obras residenciais, comerciais, rurais, pinturas e mais…'
 
 // Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
 // flexWrap justamente para isto: cada linha é uma <View> própria, e é o que permite às
