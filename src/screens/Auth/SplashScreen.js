@@ -19,11 +19,18 @@ import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rasc
 // baixo, e quem sustenta esse caso é o flexGrow do contentContainer somado ao piso dos
 // espaçadores, não a contagem de linhas.
 const VITRINE = [
-  '🔧 Hidráulica', '⚡ Elétrica',   '🧹 Faxina',
-  '💅 Manicure',   '🤝 Cuidador',   '🌳 Jardineiro',
-  '📚 Aulas',      '🔑 Chaveiro',   '💇 Cabelo',
-  '🏠 Residencial', '🏢 Comercial',  '🌾 Rural',
+  '🔧 Hidráulica',       '⚡ Elétrica',  '🪚 Marcenaria',
+  '🧹 Faxina',           '✂️ Cabelo',    '💅 Manicure',
+  '👶 Babá',             '📚 Aula particular', '🚚 Mudanças',
 ]
+
+// A cápsula NÃO é uma décima pill: é a outra METADE do marketplace. Nove pills cobrem o
+// lado dos serviços; obra é um bloco só, com uma faixa própria, porque enfileirar
+// 'Residencial'/'Comercial'/'Rural' entre as pills (como era antes) dava a entender que
+// obra é mais uma categoria de serviço, e não o outro lado inteiro da plataforma.
+// Fica FORA da vitrineGrid, irmã dela: dentro, viraria uma quarta linha de três colunas
+// e o flex: 1 a espremeria em um terço da largura.
+const VITRINE_OBRAS = '🏗 Obras residenciais, comerciais, rurais, pinturas e mais…'
 
 // Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
 // flexWrap justamente para isto: cada linha é uma <View> própria, e é o que permite às
@@ -193,6 +200,11 @@ export default function SplashScreen({ navigation }) {
                 ))}
               </View>
             ))}
+          </View>
+          {/* Irmã da grade, e ainda dentro do MESMO TouchableOpacity: o bloco segue
+              sendo um alvo de toque só, como as pills. Sem onPress próprio. */}
+          <View style={estilos.vitrineObras}>
+            <Text style={estilos.vitrineObrasTexto}>{VITRINE_OBRAS}</Text>
           </View>
         </TouchableOpacity>
 
@@ -418,6 +430,27 @@ const estilos = StyleSheet.create({
   vitrineChipTexto: {
     fontSize: 10,
     color: cores.textoMedio,
+    textAlign: 'center',
+  },
+  // Mesmo raio e mesmo corpo de texto das pills — é a mesma família visual —, mas com a
+  // borda inteira em primária e o fundo no primariaSuave: lê como OUTRO tipo de item, não
+  // como uma pill que por acaso ficou larga. marginTop 6 repete o gap da grade, então o
+  // respiro até ela é o mesmo que há entre duas linhas de pills.
+  vitrineObras: {
+    marginTop: 6,
+    alignItems: 'center',
+    backgroundColor: cores.primariaSuave,
+    borderWidth: 1,
+    borderColor: cores.primaria,
+    borderRadius: 13,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  // Sem numberOfLines, ao contrário das pills: aqui a quebra em duas linhas é aceitável
+  // (a faixa ocupa a largura toda e não tem coluna vizinha para desalinhar).
+  vitrineObrasTexto: {
+    fontSize: 10,
+    color: cores.textoForte,
     textAlign: 'center',
   },
   termos: {
