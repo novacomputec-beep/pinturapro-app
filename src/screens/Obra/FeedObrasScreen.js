@@ -13,7 +13,7 @@ import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
-import { emojiObra } from '../../utils/categorias'
+import { emojiObra, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
@@ -28,15 +28,7 @@ const DISTANCIAS = [
   { id: 'pais',   label: 'País'    },
 ]
 
-const CATEGORIAS = [
-  { id: 'todas',         label: 'Todas'           },
-  { id: 'residencial',   label: '🏠 Residencial'  },
-  { id: 'comercial',     label: '🏢 Comercial'    },
-  { id: 'institucional', label: '🏛️ Institucional' },
-  { id: 'galpao',        label: '🏭 Galpão'       },
-  { id: 'rural',         label: '🌾 Rural'        },
-  { id: 'outros',        label: '🔨 Outros'       },
-]
+const CATEGORIAS = paraFiltro(CATEGORIAS_OBRA)
 
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
