@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, ScrollView,
@@ -15,6 +15,7 @@ import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
+import { normalizarEspecialidades } from '../../utils/categorias'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
 // o versionCode é gerado pelo EAS e não existe em nenhum arquivo do repositório, então
@@ -48,7 +49,7 @@ const ItemAcao = ({ titulo, onPress, perigo, estado, estadoCor }) => (
   </TouchableOpacity>
 )
 
-export default function PerfilScreen({ navigation }) {
+export default function PerfilScreen({ navigation, route }) {
   const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
@@ -59,6 +60,39 @@ export default function PerfilScreen({ navigation }) {
   // houve toque nesta montagem). Só o toque no item alimenta isto: os registros de
   // boot/login não passam por aqui e continuam invisíveis.
   const [resultadoPush, setResultadoPush] = useState(null)
+
+  // Salva a seleção que volta da EspecialidadesScreen. Mesmo caminho do EditarPerfil:
+  // authService.atualizarPerfil -> PUT /auth/perfil, com comRetry { timeout, servidor }
+  // porque a gravação é idempotente (grava os mesmos campos) e repetir é inócuo.
+  //
+  // Manda SÓ `especialidades`, como o EditarPerfil manda só nome/telefone/cidade: o
+  // PUT desta API trata chave ausente como 'não mexa', e é por isso que salvar lá nunca
+  // apagou os campos que a tela não edita. Reenviar o resto daqui seria pior — o que a
+  // tela tem em mãos é a cópia carregada no último foco, e devolvê-la sobrescreveria com
+  // valor velho qualquer campo alterado noutro lugar nesse meio-tempo.
+  const [salvandoEsp, setSalvandoEsp] = useState(false)
+  const espRetorno = route.params?.especialidades
+  useEffect(() => {
+    if (!espRetorno) return
+    const lista = normalizarEspecialidades(espRetorno)
+    navigation.setParams({ especialidades: undefined })
+    if (!lista.length) return
+    let vivo = true
+    const salvar = async () => {
+      setSalvandoEsp(true)
+      try {
+        await comRetry(() => authService.atualizarPerfil({ especialidades: lista }), { timeout: true, servidor: true })
+        if (vivo) setDadosCompletos(d => (d ? { ...d, especialidades: lista } : d))
+      } catch (err) {
+        console.log('[Perfil] falha ao salvar especialidades | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        Alert.alert('Erro', err.mensagem || 'Não foi possível salvar suas especialidades.')
+      } finally {
+        if (vivo) setSalvandoEsp(false)
+      }
+    }
+    salvar()
+    return () => { vivo = false }
+  }, [espRetorno])
 
   const handleRenovarAssinatura = async () => {
     setRenovandoAssinatura(true)
@@ -362,6 +396,16 @@ export default function PerfilScreen({ navigation }) {
         <View style={estilos.acoesWrap}>
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
+          {ehPrestador && (
+            <>
+              <ItemAcao
+                titulo="🛠 Minhas especialidades"
+                estado={salvandoEsp ? 'Salvando...' : String(normalizarEspecialidades(dados?.especialidades).length)}
+                onPress={() => navigation.navigate('Especialidades', { selecionadas: normalizarEspecialidades(dados?.especialidades), origem: 'PerfilMain' })}
+              />
+              <Separador />
+            </>
+          )}
           {/* Para TODOS os papéis: dono e prestador dependem igualmente de push (interesse
               recebido, proposta aceita, encerramento). Sem gate de role e sem gate do
               soft-ask — é a porta sempre disponível para resolver a permissão. */}

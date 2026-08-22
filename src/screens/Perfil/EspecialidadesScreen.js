@@ -2,61 +2,74 @@ import React, { useState } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario } from '../../components'
-import { CATEGORIAS_SERVICO, rotuloComEmoji } from '../../utils/categorias'
+import {
+  CATEGORIAS_SERVICO, MAX_ESPECIALIDADES,
+  normalizarEspecialidades, rotuloComEmoji,
+} from '../../utils/categorias'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 
-// Seleção das especialidades do prestador — de 1 a 5 categorias da lista fechada de
-// CATEGORIAS_SERVICO. Substitui o campo de texto livre do cadastro, onde "Hidráulica",
-// "hidraulica" e "hidráulica " viravam três valores distintos no banco.
+// Seleção das especialidades do prestador — de 1 a MAX_ESPECIALIDADES categorias da
+// lista fechada de CATEGORIAS_SERVICO. Substitui o campo de texto livre do cadastro,
+// onde "Hidráulica", "hidraulica" e "hidráulica " viravam três valores no banco.
 //
-// MÍNIMO 1 e MÁXIMO 5, e os dois limites existem pelo mesmo motivo: quem não escolhe
-// nada não aparece em busca nenhuma, e quem marca as 21 não está dizendo nada sobre si.
-const MAX = 5
-
+// MÍNIMO 1 e teto de 5 existem pelo mesmo motivo: quem não escolhe nada não aparece em
+// busca nenhuma, e quem marca as 21 não está dizendo nada sobre si.
+//
+// Devolve o resultado por navigation.navigate(origem, { especialidades }), NÃO por
+// callback em params: função em rota não sobrevive ao Android reciclar o processo, e o
+// estado de navegação restaurado traria um callback morto. Com params serializáveis a
+// seleção atravessa o background/restore intacta.
 export default function EspecialidadesScreen({ navigation, route }) {
-  // A seleção inicial chega por params e é copiada para o estado local: enquanto a
-  // pessoa mexe, nada volta para o chamador. É o que faz o voltar do topo/gesto
-  // devolver a seleção ORIGINAL sem precisar de "descartar alterações?".
-  const [selecionadas, setSelecionadas] = useState(() => route.params?.selecionadas ?? [])
-  const aoConfirmar = route.params?.aoConfirmar
+  // A seleção inicial é FILTRADA na entrada: valor legado de texto livre ("Faz tudo")
+  // não vira pill, não entra na contagem e não ocupa vaga do teto. Ver
+  // normalizarEspecialidades — o descarte é silencioso e assumido.
+  const [selecionadas, setSelecionadas] = useState(
+    () => normalizarEspecialidades(route.params?.selecionadas)
+  )
+  // Rota que abriu a tela; é para lá que o resultado volta.
+  const origem = route.params?.origem
 
-  const cheio = selecionadas.length >= MAX
+  const cheio = selecionadas.length >= MAX_ESPECIALIDADES
 
   // Atualização FUNCIONAL, e não `selecionadas.includes(...)` lido de fora: dois toques
-  // no mesmo quadro leem o mesmo estado antigo, e o segundo passaria pela checagem de
+  // no mesmo quadro leem a mesma lista antiga, e o segundo passaria pela checagem de
   // teto com a contagem pré-primeiro-toque. Aqui cada chamada recebe a lista já
   // atualizada pela anterior, então o teto vale toque a toque.
   const alternar = (slug) => {
     setSelecionadas((atuais) => {
       if (atuais.includes(slug)) return atuais.filter((s) => s !== slug)
-      if (atuais.length >= MAX) return atuais
+      if (atuais.length >= MAX_ESPECIALIDADES) return atuais
       return [...atuais, slug]
     })
   }
 
+  // navigate (e não goBack) porque é o navigate que carrega os params de volta. Como a
+  // origem JÁ está na pilha, o navigate volta para a instância existente e só mescla os
+  // params — não empilha uma segunda cópia da tela de cadastro.
   const confirmar = () => {
     if (!selecionadas.length) return
-    if (aoConfirmar) aoConfirmar(selecionadas)
-    navigation.goBack()
+    if (origem) navigation.navigate(origem, { especialidades: selecionadas })
+    else navigation.goBack()
   }
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <ScrollView contentContainerStyle={estilos.scroll}>
+        {/* Voltar comum: sai SEM devolver params, então o chamador mantém o que tinha. */}
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
         </TouchableOpacity>
 
         <Text style={estilos.titulo}>Suas{'\n'}especialidades</Text>
-        <Text style={estilos.subtitulo}>Escolha de 1 a {MAX} — são elas que dizem em que você aparece nas buscas</Text>
+        <Text style={estilos.subtitulo}>Escolha de 1 a {MAX_ESPECIALIDADES} — são elas que dizem em que você aparece nas buscas</Text>
 
-        <Text style={estilos.contador}>{selecionadas.length} de {MAX} selecionadas</Text>
+        <Text style={estilos.contador}>{selecionadas.length} de {MAX_ESPECIALIDADES} selecionadas</Text>
 
         <View style={estilos.grade}>
           {CATEGORIAS_SERVICO.map((c) => {
             const ativa = selecionadas.includes(c.slug)
             // Só as NÃO escolhidas apagam ao encher: as escolhidas seguem tocáveis para
-            // a pessoa poder trocar uma pela outra sem ter que limpar tudo antes.
+            // a pessoa trocar uma pela outra sem ter que limpar tudo antes.
             const bloqueada = cheio && !ativa
             return (
               <TouchableOpacity
@@ -74,8 +87,8 @@ export default function EspecialidadesScreen({ navigation, route }) {
           })}
         </View>
 
-        {/* A explicação só aparece quando o botão está travado: com algo escolhido ela
-            seria ruído sobre uma ação que já funciona. */}
+        {/* A explicação só aparece com o botão travado: com algo escolhido ela seria
+            ruído sobre uma ação que já funciona. */}
         {!selecionadas.length && (
           <Text style={estilos.aviso}>Escolha pelo menos uma especialidade para continuar.</Text>
         )}

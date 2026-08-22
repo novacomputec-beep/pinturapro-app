@@ -849,6 +849,11 @@ export default function AppNavigator() {
             <Stack.Screen name="EsqueciSenha"  component={EsqueciSenhaScreen} />
             <Stack.Screen name="Termos"        component={TermosScreen} />
             <Stack.Screen name="Privacidade"   component={PrivacidadeScreen} />
+            {/* Mesmo registro-duplo de Termos/Privacidade acima: a tela é a MESMA
+                (importada uma vez no topo), registrada nos dois ramos porque o cadastro
+                vive no ramo deslogado e o Perfil no logado. Sem isto, o campo do
+                cadastro não teria para onde navegar. */}
+            <Stack.Screen name="Especialidades" component={EspecialidadesScreen} />
           </>
         )}
       </Stack.Navigator>
