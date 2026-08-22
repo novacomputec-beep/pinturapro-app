@@ -26,7 +26,7 @@ const ordenar = (lista) =>
   })
 
 export const CATEGORIAS_SERVICO = ordenar([
-  { slug: 'hidraulica',      rotulo: 'Hidráulica',        emoji: '🚿' },
+  { slug: 'hidraulica',      rotulo: 'Hidráulica',        emoji: '🔧' },
   { slug: 'eletrica',        rotulo: 'Elétrica',          emoji: '⚡' },
   { slug: 'marcenaria',      rotulo: 'Marcenaria',        emoji: '🪚' },
   { slug: 'alvenaria',       rotulo: 'Alvenaria',         emoji: '🧱' },
@@ -46,7 +46,7 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'cozinheiro',      rotulo: 'Cozinheiro',        emoji: '🍳' },
   { slug: 'motorista',       rotulo: 'Motorista',         emoji: '🚗' },
   { slug: 'garcom',          rotulo: 'Garçom',            emoji: '🍽️' },
-  { slug: 'outros',          rotulo: 'Outros',            emoji: '🔨' },
+  { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
 export const CATEGORIAS_OBRA = ordenar([
@@ -58,7 +58,7 @@ export const CATEGORIAS_OBRA = ordenar([
   { slug: 'industrial',     rotulo: 'Industrial',     emoji: '⚙️' },
   { slug: 'saneamento',     rotulo: 'Saneamento',     emoji: '🚰' },
   { slug: 'infraestrutura', rotulo: 'Infraestrutura', emoji: '🛣️' },
-  { slug: 'outros',         rotulo: 'Outros',         emoji: '🔨' },
+  { slug: 'outros',         rotulo: 'Outros',         emoji: '➕' },
 ])
 
 // Os dois mapas continuam existindo, agora DERIVADOS dos arrays acima em vez de
@@ -84,3 +84,18 @@ export const emojiObra   = (categoria) => EMOJIS_OBRA[categoria]   || '🏗️'
 // concatenar emoji e texto cada uma do seu jeito — foi o que produziu "Aula Particular"
 // numa tela e "Aulas" na outra.
 export const rotuloComEmoji = (c) => `${c.emoji} ${c.rotulo}`
+
+// Adaptadores para a forma que as telas já consomem: { id, label }. Ficam AQUI e não em
+// cada tela porque remodelar no ponto de uso é o que reabre a porta para cada uma
+// concatenar do seu jeito — a origem exata da divergência que este arquivo veio fechar.
+//
+// `id` recebe o SLUG sem tradução: é o valor que a tela envia à API, e o contrato com o
+// banco não muda por causa de apresentação.
+export const paraSeletor = (lista) =>
+  lista.map((c) => ({ id: c.slug, label: rotuloComEmoji(c) }))
+
+// Filtro dos feeds = o seletor com 'Todas' na frente. 'todas' NÃO é categoria: é o
+// estado 'sem filtro' do feed, por isso não entra em CATEGORIAS_* nem ganha emoji, e
+// segue fora da ordenação alfabética — primeiro item, sempre.
+export const paraFiltro = (lista) =>
+  [{ id: 'todas', label: 'Todas' }, ...paraSeletor(lista)]

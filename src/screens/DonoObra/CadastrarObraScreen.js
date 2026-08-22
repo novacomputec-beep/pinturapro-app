@@ -11,15 +11,9 @@ import { useFocusEffect } from '@react-navigation/native'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
 
-const CATEGORIAS = [
-  { id: 'residencial',   label: '🏠 Residencial'   },
-  { id: 'comercial',     label: '🏢 Comercial'      },
-  { id: 'galpao',        label: '🏭 Galpão'         },
-  { id: 'rural',         label: '🌾 Rural'          },
-  { id: 'institucional', label: '🏛️ Institucional'  },
-  { id: 'outros',        label: '🔨 Outros'         },
-]
+const CATEGORIAS = paraSeletor(CATEGORIAS_OBRA)
 
 const PRAZOS = [
   { id: 24,   label: '📅 Hoje',           desc: 'Início hoje'          },

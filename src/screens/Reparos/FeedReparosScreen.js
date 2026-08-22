@@ -14,7 +14,7 @@ import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
-import { emojiReparo } from '../../utils/categorias'
+import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
@@ -29,24 +29,7 @@ const DISTANCIAS = [
   { id: 'pais',   label: 'País'    },
 ]
 
-const CATEGORIAS = [
-  { id: 'todas',        label: 'Todas'          },
-  { id: 'hidraulica',   label: '🚿 Hidráulica'  },
-  { id: 'eletrica',     label: '⚡ Elétrica'    },
-  { id: 'marcenaria',   label: '🪚 Marcenaria'  },
-  { id: 'alvenaria',    label: '🧱 Alvenaria'   },
-  { id: 'climatizacao', label: '❄️ Climatização' },
-  { id: 'chaveiro',     label: '🔑 Chaveiro'    },
-  { id: 'faxina',       label: '🧹 Faxina'      },
-  { id: 'eletronica',      label: '📱 Eletrônica'      },
-  { id: 'aula_particular', label: '📚 Aula Particular'  },
-  { id: 'cuidador',        label: '🤝 Cuidador'        },
-  { id: 'jardineiro',      label: '🌳 Jardineiro'      },
-  { id: 'manicure',        label: '💅 Manicure/Pedicure' },
-  { id: 'cabelo',          label: '✂️ Cabelo/Penteados'  },
-  { id: 'massagem',        label: '💆 Massagens'       },
-  { id: 'outros',       label: '🔨 Outros'      },
-]
+const CATEGORIAS = paraFiltro(CATEGORIAS_SERVICO)
 
 const getUrgenciaInfo = (horas) => {
   if (!horas) return null

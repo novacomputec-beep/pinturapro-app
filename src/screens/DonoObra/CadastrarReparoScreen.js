@@ -11,24 +11,9 @@ import { useFocusEffect } from '@react-navigation/native'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import { paraSeletor, CATEGORIAS_SERVICO } from '../../utils/categorias'
 
-const CATEGORIAS = [
-  { id: 'hidraulica',   label: '🚿 Hidráulica'   },
-  { id: 'eletrica',     label: '⚡ Elétrica'      },
-  { id: 'marcenaria',   label: '🪚 Marcenaria'    },
-  { id: 'alvenaria',    label: '🧱 Alvenaria'     },
-  { id: 'climatizacao', label: '❄️ Climatização'  },
-  { id: 'chaveiro',     label: '🔑 Chaveiro'      },
-  { id: 'faxina',       label: '🧹 Faxina'        },
-  { id: 'eletronica',      label: '📱 Eletrônica'      },
-  { id: 'aula_particular', label: '📚 Aula Particular'  },
-  { id: 'cuidador',        label: '🤝 Cuidador'        },
-  { id: 'jardineiro',      label: '🌳 Jardineiro'      },
-  { id: 'manicure',        label: '💅 Manicure/Pedicure' },
-  { id: 'cabelo',          label: '✂️ Cabelo/Penteados'  },
-  { id: 'massagem',        label: '💆 Massagens'       },
-  { id: 'outros',       label: '🔨 Outros'        },
-]
+const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
 
 const URGENCIAS = [
   { id: 1,   label: '🔴 1 hora',      desc: 'Urgência máxima' },
