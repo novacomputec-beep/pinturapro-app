@@ -131,3 +131,20 @@ export const rotuloEspecialidade = (slug) => {
   const c = CATEGORIAS_SERVICO.find((x) => x.slug === slug)
   return c ? rotuloComEmoji(c) : slug
 }
+
+// Linha "Alvenaria, Aula particular, Babá" para as telas que mostram as especialidades
+// de um prestador como texto corrido (Perfil e os cards de candidato dos dois Detalhes).
+// Vivia duplicada como especialidadesTexto() em DetalheObra e DetalheReparo — mesma
+// cópia verbatim que este arquivo existe para fechar.
+//
+// Aceita array, CSV (dado antigo do banco) e null. Difere de normalizarEspecialidades
+// num ponto DELIBERADO: valor fora da lista NÃO é descartado, aparece cru. Aqui é
+// exibição de dado gravado, e sumir com uma entrada leria como o campo perdendo dados;
+// lá é entrada de seleção, onde texto livre legado não tem pill para ocupar.
+// Sem emoji: é linha de dado, não chip.
+export const rotulosEspecialidades = (esp) => {
+  const arr = Array.isArray(esp) ? esp : (typeof esp === 'string' ? esp.split(',') : [])
+  const limpos = arr.map((s) => String(s).trim()).filter(Boolean)
+  const rotulos = limpos.map((s) => CATEGORIAS_SERVICO.find((c) => c.slug === s)?.rotulo || s)
+  return rotulos.length ? rotulos.join(', ') : null
+}
