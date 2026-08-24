@@ -642,6 +642,13 @@ export default function CadastroScreen({ navigation, route }) {
     cloudForm.append('signature', params.signature)
     cloudForm.append('api_key', params.api_key)
     cloudForm.append('folder', params.folder)
+    // O Cloudinary recalcula a assinatura sobre TUDO que o cliente manda (menos file/
+    // api_key), então cada parâmetro extra só pode ir se o servidor o assinou — e a
+    // presença dele na resposta é o único sinal disso. Condicional para a app seguir
+    // funcionando contra a API atual, que ainda não assina os dois; quando a API nova
+    // passar a mandá-los, o eco é obrigatório ou o upload cai com 401.
+    if (params.allowed_formats != null) cloudForm.append('allowed_formats', String(params.allowed_formats))
+    if (params.max_file_size != null) cloudForm.append('max_file_size', String(params.max_file_size))
     console.log(`[upload][${tipo}] ▶ step3 XHR Cloudinary | cloud=${params.cloud_name} folder=${params.folder}`)
     let cloudData
     try {
