@@ -20,7 +20,9 @@ export default function EsqueciSenhaScreen({ navigation }) {
     setCarregando(true)
     try {
       await api.post('/auth/esqueci-senha', { email: email.trim().toLowerCase() })
-      setEnviado(true)
+      // POST aceito → segue direto para digitar o código, levando o e-mail para a
+      // pessoa não redigitar. A tela "verifique seu e-mail" fica só para o catch.
+      navigation.navigate('RedefinirSenha', { email: email.trim().toLowerCase() })
     } catch (err) {
       console.log('[EsqueciSenha] falha ao enviar e-mail | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // Sempre mostra sucesso para não revelar se e-mail existe
