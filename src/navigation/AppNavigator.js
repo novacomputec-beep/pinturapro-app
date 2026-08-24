@@ -23,6 +23,7 @@ import SplashScreen        from '../screens/Auth/SplashScreen'
 import LoginScreen         from '../screens/Auth/LoginScreen'
 import CadastroScreen      from '../screens/Auth/CadastroScreen'
 import EsqueciSenhaScreen  from '../screens/Auth/EsqueciSenhaScreen'
+import RedefinirSenhaScreen from '../screens/Auth/RedefinirSenhaScreen'
 import TermosScreen        from '../screens/Auth/TermosScreen'
 import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 
@@ -847,6 +848,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Login"         component={LoginScreen} />
             <Stack.Screen name="Cadastro"      component={CadastroScreen} />
             <Stack.Screen name="EsqueciSenha"  component={EsqueciSenhaScreen} />
+            <Stack.Screen name="RedefinirSenha" component={RedefinirSenhaScreen} />
             <Stack.Screen name="Termos"        component={TermosScreen} />
             <Stack.Screen name="Privacidade"   component={PrivacidadeScreen} />
             {/* Mesmo registro-duplo de Termos/Privacidade acima: a tela é a MESMA
