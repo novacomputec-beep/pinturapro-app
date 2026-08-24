@@ -15,7 +15,7 @@ import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
-import { CATEGORIAS_SERVICO, normalizarEspecialidades } from '../../utils/categorias'
+import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
 // o versionCode é gerado pelo EAS e não existe em nenhum arquivo do repositório, então
@@ -387,14 +387,7 @@ export default function PerfilScreen({ navigation, route }) {
               <LinhaPerfil label="Equipe" valor={dados?.tamanho_equipe ? `${dados.tamanho_equipe} profissionais` : null} />
               <LinhaPerfil
                 label="Especialidades"
-                valor={dados?.especialidades?.length
-                  ? dados.especialidades
-                      // Rótulo humano no lugar do slug ("Babá", não "baba"), SEM emoji —
-                      // é linha de dado, não chip. Slug fora da lista aparece cru mesmo:
-                      // sumir com ele leria como campo perdendo entrada.
-                      .map((s) => CATEGORIAS_SERVICO.find((c) => c.slug === s)?.rotulo || s)
-                      .join(', ')
-                  : null}
+                valor={rotulosEspecialidades(dados?.especialidades)}
               />
             </>
           )}

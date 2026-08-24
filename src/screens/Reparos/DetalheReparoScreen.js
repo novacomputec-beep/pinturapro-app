@@ -19,7 +19,7 @@ import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
-import { emojiReparo, CATEGORIAS_SERVICO } from '../../utils/categorias'
+import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -196,17 +196,6 @@ const textoPrazoAtendimento = (horas) => {
   if (!Number.isFinite(h) || h <= 24) return `${horas}h`
   const dias = Math.round(h / 24)
   return `${dias} ${dias === 1 ? 'dia' : 'dias'}`
-}
-
-// especialidades pode vir como array (cadastro) ou CSV; normaliza para "a, b, c".
-// Slug conhecido vira o rótulo humano da lista ("Babá", não "baba"), sem emoji; valor
-// fora da lista (texto livre legado) aparece cru — sumir com ele leria como o card
-// perdendo entrada.
-const especialidadesTexto = (esp) => {
-  const arr = Array.isArray(esp) ? esp : (typeof esp === 'string' ? esp.split(',') : [])
-  const limpos = arr.map(s => String(s).trim()).filter(Boolean)
-  const rotulos = limpos.map(s => CATEGORIAS_SERVICO.find(c => c.slug === s)?.rotulo || s)
-  return rotulos.length ? rotulos.join(', ') : null
 }
 
 const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
@@ -1779,7 +1768,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       </View>
                     )
                   }
-                  const espTexto = especialidadesTexto(item.especialidades)
+                  const espTexto = rotulosEspecialidades(item.especialidades)
                   // Fechado o match, o valor do prestador escolhido não é mais proposta: vira o
                   // combinado, mesma troca de rótulo do topo da tela. QUAL linha carrega esse
                   // valor segue o COALESCE(contraproposta, proposto) usado lá — havendo
