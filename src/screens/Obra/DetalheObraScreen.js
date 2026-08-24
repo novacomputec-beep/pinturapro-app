@@ -19,7 +19,7 @@ import { cores, espacos, raios, alturas } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
-import { emojiObra } from '../../utils/categorias'
+import { emojiObra, CATEGORIAS_SERVICO } from '../../utils/categorias'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -81,10 +81,14 @@ const formatarExperiencia = (v) => {
 }
 
 // especialidades pode vir como array (cadastro) ou CSV; normaliza para "a, b, c".
+// Slug conhecido vira o rótulo humano da lista ("Babá", não "baba"), sem emoji; valor
+// fora da lista (texto livre legado) aparece cru — sumir com ele leria como o card
+// perdendo entrada.
 const especialidadesTexto = (esp) => {
   const arr = Array.isArray(esp) ? esp : (typeof esp === 'string' ? esp.split(',') : [])
   const limpos = arr.map(s => String(s).trim()).filter(Boolean)
-  return limpos.length ? limpos.join(', ') : null
+  const rotulos = limpos.map(s => CATEGORIAS_SERVICO.find(c => c.slug === s)?.rotulo || s)
+  return rotulos.length ? rotulos.join(', ') : null
 }
 
 // Trunca para UMA unidade só, a mais significativa — a MESMA regra, palavra por palavra,

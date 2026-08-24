@@ -112,11 +112,14 @@ const estilos = StyleSheet.create({
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 24 },
   contador: { fontSize: 12, fontWeight: '600', color: cores.primaria, marginBottom: 12 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-  // As quatro categoriaPill* são cópia literal das de CadastrarReparoScreen.js:468-471 —
-  // mesmos valores, mesmos nomes. Não há StyleSheet compartilhado neste app (o estilo já
-  // vivia duplicado em CadastrarObra, CadastrarReparo, Cadastro e ModalDenuncia), então
-  // reaproveitar aqui é copiar; extrair as quatro para components/ é outra tarefa.
-  categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  // As quatro categoriaPill* são cópia das de CadastrarReparoScreen.js:468-471 — mesmos
+  // valores, mesmos nomes, com UMA exceção: width 48% (duas colunas) em vez dos 31% (três)
+  // de lá. Com três colunas, num aparelho de 360dp a área de texto da pill fica em ~74dp e
+  // rótulos como "Manicure/pedicure" (~118dp) truncam; a 48% todos os 21 cabem inteiros.
+  // Não há StyleSheet compartilhado neste app (o estilo já vivia duplicado em
+  // CadastrarObra, CadastrarReparo, Cadastro e ModalDenuncia), então reaproveitar aqui é
+  // copiar; extrair as quatro para components/ é outra tarefa.
+  categoriaPill: { width: '48%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: cores.fundo, fontWeight: '600' },
