@@ -14,6 +14,11 @@ import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_SERVICO } from '../../utils/categorias'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
+// Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'hidraulica'
+// que morava aqui era o primeiro da lista ANTES de utils/categorias.js passar a ordenar
+// por rótulo, e ficou para trás — o seletor abria em Hidráulica no meio da lista. Lido
+// da lista, acompanha qualquer reordenação ou categoria nova sem ninguém lembrar daqui.
+const CATEGORIA_INICIAL = CATEGORIAS[0].id
 
 const URGENCIAS = [
   { id: 1,   label: '🔴 1 hora',      desc: 'Urgência máxima' },
@@ -50,7 +55,7 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
-  const [categoria, setCategoria] = useState('hidraulica')
+  const [categoria, setCategoria] = useState(CATEGORIA_INICIAL)
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
   const [urgencia, setUrgencia] = useState(null)
@@ -106,7 +111,7 @@ export default function CadastrarReparoScreen({ navigation }) {
     if (!submetidoRef.current) return
     submetidoRef.current = false
     setTitulo('')
-    setCategoria('hidraulica')
+    setCategoria(CATEGORIA_INICIAL)
     setDescricao('')
     setValorEstimado('')
     setUrgencia(null)
