@@ -14,6 +14,12 @@ import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_OBRA)
+// Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'residencial'
+// que morava aqui era o primeiro da lista ANTES de utils/categorias.js passar a ordenar
+// por rótulo, e ficou para trás — o seletor abria em Residencial no meio da lista. Lido
+// da lista, acompanha qualquer reordenação ou categoria nova sem ninguém lembrar daqui.
+// Mesmo molde de CadastrarReparoScreen.
+const CATEGORIA_INICIAL = CATEGORIAS[0].id
 
 const PRAZOS = [
   { id: 24,   label: '📅 Hoje',           desc: 'Início hoje'          },
@@ -79,7 +85,7 @@ export default function CadastrarObraScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
-  const [categoria, setCategoria] = useState('residencial')
+  const [categoria, setCategoria] = useState(CATEGORIA_INICIAL)
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
   const [prazo, setPrazo] = useState(null)
@@ -130,7 +136,7 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!submetidoRef.current) return
     submetidoRef.current = false
     setTitulo('')
-    setCategoria('residencial')
+    setCategoria(CATEGORIA_INICIAL)
     setDescricao('')
     setValorEstimado('')
     setPrazo(null)
