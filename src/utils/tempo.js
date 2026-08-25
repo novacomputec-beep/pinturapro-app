@@ -21,11 +21,14 @@
 //   obra    → ano, mês, dia, hora, minuto.  Agrupa para cima: 90 dias é "3 meses".
 // Abaixo de um dia as duas frentes são idênticas.
 //
-// Saída: até TRÊS unidades, da maior para a menor, unidas por vírgula e "e":
+// Saída: até `maxUnidades` unidades não zeradas (padrão 3), da maior para a menor,
+// unidas por vírgula e "e":
 //   "1 ano, 2 meses e 3 dias" · "1 dia e 12h" · "45min"
 // Unidade ZERADA é omitida, nunca impressa — "1 ano e 4h" é saída válida quando meses e
-// dias são zero. Depois da terceira unidade não zerada, o resto é truncado (nunca
-// arredondado: prazo que "sobe" prometeria tempo que não existe).
+// dias são zero. Depois da última unidade permitida, o resto é TRUNCADO, nunca
+// arredondado: prazo que "sobe" prometeria tempo que não existe. Com maxUnidades: 1,
+// 6 dias e 20h é "6 dias" — é o que os pills do feed usam, onde cabe uma palavra e o
+// detalhe é que mostra as três.
 //
 // Singular/plural: "1 dia"/"2 dias", "1 mês"/"2 meses", "1 ano"/"2 anos",
 // "1 hora" (por extenso, só no singular) / "2h" (abreviado no plural), "1min"/"30min".
@@ -81,9 +84,13 @@ const decompor = (ms, frente) => {
 // Duração em milissegundos → texto. `frente` é obrigatória e validada: um chamador que
 // esquecesse a opção cairia em silêncio na frente errada e a divergência voltaria pela
 // porta dos fundos.
-export const formatarDuracao = (ms, { frente } = {}) => {
+export const formatarDuracao = (ms, { frente, maxUnidades = 3 } = {}) => {
   if (!FRENTES.includes(frente)) {
     throw new Error(`formatarDuracao: frente inválida "${frente}" (use 'servico' ou 'obra')`)
+  }
+  // Inteiro ≥ 1; qualquer outra coisa é erro de chamada, não um pedido de "zero unidades".
+  if (!Number.isInteger(maxUnidades) || maxUnidades < 1) {
+    throw new Error(`formatarDuracao: maxUnidades inválido "${maxUnidades}" (inteiro ≥ 1)`)
   }
   const n = Number(ms)
   if (!Number.isFinite(n) || n <= 0) return 'expirado'
@@ -91,7 +98,7 @@ export const formatarDuracao = (ms, { frente } = {}) => {
 
   const naoZeradas = decompor(n, frente)
     .filter(([, valor]) => valor > 0)
-    .slice(0, 3)
+    .slice(0, maxUnidades)
     .map(([unidade, valor]) => rotulo(unidade, valor))
   return juntar(naoZeradas)
 }

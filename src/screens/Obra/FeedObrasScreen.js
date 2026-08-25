@@ -62,7 +62,9 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   if (!restante) return null
 
   const urgente = restante < 10 * 60000
-  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra' })}`
+  // Uma unidade só: o pill é uma palavra, e "2 meses" diz o que o pintor decide; as três
+  // unidades ficam para o detalhe. Truncado, nunca arredondado — 6 dias e 20h é 6 dias.
+  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra', maxUnidades: 1 })}`
   // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
   // sob sol forte, não recebe sinal nenhum de um pill só colorido. Aqui isso é ainda
   // mais crítico que no reparo — a obra não tem banner de urgência, então o pill é o
