@@ -135,7 +135,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
     const info       = eEncerrado || eExpirado
       ? null
       : (statusInfo[item.status_aprovacao] || statusInfo[item.status] || statusInfo.pendente)
-    const temMatch   = tipo === 'reparo' && item.match_feito_em && item.match_usuario_id
+    const temMatch   = item.match_feito_em && item.match_usuario_id
     const dist       = distanciaItemKm(coords, item)
 
     return (

@@ -330,8 +330,31 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [enviandoJanela, setEnviandoJanela] = useState(null)
   const [respondendoChegada, setRespondendoChegada] = useState(false)
   const [declarandoChegada, setDeclarandoChegada] = useState(false)
+  // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
+  // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
+  // futuro nem vale abrir o modal — o envio só voltaria recusado (409). Mesmo molde de
+  // DetalheReparoScreen.
+  const [agora, setAgora] = useState(() => Date.now())
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
+
+  // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
+  // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
+  // para ler. Passado também libera — só o futuro segura.
+  const liberaEstenderEm = obra?.pode_estender_em ? new Date(obra.pode_estender_em).getTime() : NaN
+  const emEsperaEstender = Number.isFinite(liberaEstenderEm) && liberaEstenderEm > agora
+  // Arredonda para cima e nunca mostra "0 min": faltando 10s ainda é 1 minuto de espera.
+  const minutosEsperaEstender = emEsperaEstender ? Math.max(1, Math.ceil((liberaEstenderEm - agora) / 60000)) : 0
+
+  // O relógio só existe enquanto a espera existe: ao vencer, este efeito faz o último
+  // setAgora, o botão reabre e o intervalo é descartado. 30s bastam para um rótulo em
+  // minutos e evitam re-renderizar o detalhe inteiro a cada segundo (os contadores de
+  // expiração têm relógio próprio, isolados em seus componentes, justamente por isso).
+  useEffect(() => {
+    if (!emEsperaEstender) return
+    const id = setInterval(() => setAgora(Date.now()), 30000)
+    return () => clearInterval(id)
+  }, [emEsperaEstender, liberaEstenderEm])
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -1472,11 +1495,13 @@ export default function DetalheObraScreen({ route, navigation }) {
             <>
               {obra.status === 'aberta' && !obra.match_usuario_id && (
                 <TouchableOpacity
-                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, obra.expirada && { opacity: 0.6 }]}
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (obra.expirada || emEsperaEstender) && { opacity: 0.6 }]}
                   onPress={() => setModalEstender(true)}
-                  disabled={obra.expirada}
+                  disabled={obra.expirada || emEsperaEstender}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : '⏳ Aumentar tempo para serviço'}</Text>
+                  {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
+                      para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar tempo para serviço'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
