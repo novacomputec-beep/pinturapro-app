@@ -16,6 +16,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
+import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
@@ -60,11 +61,9 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
         }
         return
       }
-      const dias = Math.floor(diff / 86400000)
-      const h = Math.floor((diff % 86400000) / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const totalMin = Math.floor(diff / 60000)
-      setRestante({ dias, h, m, totalMin })
+      // Guarda só os milissegundos: quem decide dia/hora/minuto é utils/tempo.js, a mesma
+      // régua do outro feed e (em breve) dos detalhes.
+      setRestante(diff)
     }
     tick()
     const interval = setInterval(tick, 1000)
@@ -73,17 +72,8 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 
   if (!restante) return null
 
-  const { dias, h, m, totalMin } = restante
-  const urgente = totalMin < 10
-  const mm = String(m).padStart(2, '0')
-  let texto
-  if (dias >= 1) {
-    texto = `Finaliza em ${dias} ${dias === 1 ? 'dia' : 'dias'}`
-  } else if (h >= 1) {
-    texto = `Finaliza em ${h}h ${mm}min`
-  } else {
-    texto = `Finaliza em ${m}min`
-  }
+  const urgente = restante < 10 * 60000
+  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'servico' })}`
   // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
   // sob sol forte, não recebe sinal nenhum de um pill só colorido. O banner de
   // urgência é exclusivo do reparo, então a palavra vai no próprio pill — assim os
@@ -124,7 +114,7 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
       {urgencia && (
         <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.cor + '44' }]}>
           <Text style={[estilos.urgenciaTexto, { color: urgencia.cor }]}>{urgencia.label}</Text>
-          <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>Atender em até {item.prazo_atendimento_horas}h</Text>
+          <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>Atender em até {formatarPrazoAtendimento(item.prazo_atendimento_horas) ?? `${item.prazo_atendimento_horas}h`}</Text>
         </View>
       )}
 
