@@ -8,10 +8,13 @@
 // utils/categorias.js. Este arquivo é o mesmo remédio: UM formatador, e as telas migram
 // para cá uma a uma (nenhuma foi migrada ainda — este é o passo 1).
 //
-// CALENDÁRIO FIXO: mês = 30 dias, ano = 365 dias. Não há calendário real aqui: um prazo
-// é uma DURAÇÃO, não uma data, e "1 mês" contado a partir de 31/01 não tem resposta
-// certa. Consequência assumida: 12 meses (360 dias) NÃO viram "1 ano" — só 365 dias
-// viram. Entre 360 e 364 dias a saída é "12 meses[ e N dias]".
+// CALENDÁRIO FIXO (comercial): mês = 30 dias, ano = 360 dias. Não há calendário real
+// aqui: um prazo é uma DURAÇÃO, não uma data, e "1 mês" contado a partir de 31/01 não
+// tem resposta certa. O ano é 360 e não 365 DE PROPÓSITO: 12 × 30 = 360, então o resto
+// depois de tirar os anos é sempre < 360 dias e os meses nunca chegam a 12 — a saída
+// "12 meses" é inalcançável por construção. Com 365 havia um buraco de cinco dias
+// (360 a 364) em que aparecia "12 meses[ e N dias]" em vez de "1 ano".
+// Consequência assumida: uma obra de 365 dias reais lê "1 ano e 5 dias".
 //
 // Duas FRENTES, porque obra e reparo medem prazos de escalas diferentes:
 //   servico → dia, hora, minuto.            NUNCA agrupa em mês/ano: 90 dias é "90 dias".
@@ -32,7 +35,7 @@ const MINUTO = 60 * 1000
 const HORA   = 60 * MINUTO
 const DIA    = 24 * HORA
 const MES    = 30 * DIA
-const ANO    = 365 * DIA
+const ANO    = 360 * DIA
 
 const FRENTES = ['servico', 'obra']
 
