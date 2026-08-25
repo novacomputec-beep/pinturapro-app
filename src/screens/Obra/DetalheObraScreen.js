@@ -859,10 +859,14 @@ export default function DetalheObraScreen({ route, navigation }) {
     estendendoRef.current = true
     setEstendendo(true)
     try {
-      const resp = await comRetry(() => api.post(`/obras/${obra.id}/estender`, { horas }))
+      await comRetry(() => api.post(`/obras/${obra.id}/estender`, { horas }))
       setModalEstender(false)
-      const novoExpira = resp?.expira_em || resp?.obra?.expira_em
-      if (novoExpira) setObra(prev => ({ ...prev, expira_em: novoExpira }))
+      // Recarrega em vez de remendar expira_em no estado: o detalhe também traz o novo
+      // pode_estender_em, e sem ele o botão reabria na hora e o toque seguinte batia no
+      // 409. Mesmo molde de DetalheReparoScreen. buscar() ENGOLE a falha (vira o aviso
+      // "dados podem estar desatualizados"), então o alerta de sucesso abaixo sai mesmo
+      // se a recarga cair — a extensão já valeu no servidor.
+      await buscar()
       Alert.alert('✅ Prazo aumentado!', 'O novo prazo já está valendo.')
     } catch (err) {
       console.log('[DetalheObra] falha ao estender prazo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
