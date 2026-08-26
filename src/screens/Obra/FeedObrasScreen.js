@@ -15,6 +15,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiObra, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
+import { formatarDuracao } from '../../utils/tempo'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
@@ -49,11 +50,9 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
         }
         return
       }
-      const dias = Math.floor(diff / 86400000)
-      const h = Math.floor((diff % 86400000) / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const totalMin = Math.floor(diff / 60000)
-      setRestante({ dias, h, m, totalMin })
+      // Guarda só os milissegundos: quem decide dia/hora/minuto é utils/tempo.js, a mesma
+      // régua do outro feed e (em breve) dos detalhes.
+      setRestante(diff)
     }
     tick()
     const interval = setInterval(tick, 1000)
@@ -62,22 +61,10 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 
   if (!restante) return null
 
-  const { dias, h, m, totalMin } = restante
-  const urgente = totalMin < 10
-  const mm = String(m).padStart(2, '0')
-  let texto
-  if (dias >= 60) {
-    const meses = Math.floor(dias / 30)
-    const diasRest = dias % 30
-    texto = `Finaliza em ${meses} ${meses === 1 ? 'mês' : 'meses'}` +
-      (diasRest > 0 ? ` e ${diasRest} ${diasRest === 1 ? 'dia' : 'dias'}` : '')
-  } else if (dias >= 1) {
-    texto = `Finaliza em ${dias} ${dias === 1 ? 'dia' : 'dias'}`
-  } else if (h >= 1) {
-    texto = `Finaliza em ${h}h ${mm}min`
-  } else {
-    texto = `Finaliza em ${m}min`
-  }
+  const urgente = restante < 10 * 60000
+  // Uma unidade só: o pill é uma palavra, e "2 meses" diz o que o pintor decide; as três
+  // unidades ficam para o detalhe. Truncado, nunca arredondado — 6 dias e 20h é 6 dias.
+  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra', maxUnidades: 1 })}`
   // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
   // sob sol forte, não recebe sinal nenhum de um pill só colorido. Aqui isso é ainda
   // mais crítico que no reparo — a obra não tem banner de urgência, então o pill é o

@@ -20,6 +20,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
+import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -55,25 +56,6 @@ const TileMidia = ({ midia, emoji, onPress }) => {
       )}
     </TouchableOpacity>
   )
-}
-
-// Trunca para as unidades mais significativas, com granularidade decrescente:
-//   ≥ 1 dia  → "19 dias 7h 25m"
-//   ≥ 1 hora → "7h 25m"
-//   ≥ 1 min  → "25m"
-//   < 1 min  → "menos de 1 min"
-// Estava inline no contador da lista; virou função de módulo para o RelogioRegressivo
-// usar a MESMA regra. Ele formatava hh:mm:ss com a hora acumulada, e um prazo de uma
-// semana aparecia como "167:45:46" — um número que ninguém lê como prazo.
-// Segundos saíram de TODAS as faixas: um prazo medido em horas não se decide no
-// segundo, e o dígito piscando puxava o olho para o único número que não importa.
-// O último minuto não vira "0m" (que se lê como esgotado, e não é): vira uma frase.
-const formatarTempoRestante = ({ d, h, m }) => {
-  const pad = (n) => String(n).padStart(2, '0')
-  if (d > 0) return `${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
-  if (h > 0) return `${h}h ${pad(m)}m`
-  if (m > 0) return `${m}m`
-  return 'menos de 1 min'
 }
 
 // Janelas de chegada oferecidas ao profissional depois que sua proposta é aceita. O
@@ -146,7 +128,8 @@ const ContadorExpiracaoReparo = ({ expiraEm }) => {
       const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ d, h, m, s })
+      // `ms` vai junto: é o que utils/tempo.js formata; d/h/m seguem para os limiares de urgência.
+      setRestante({ d, h, m, s, ms: diff })
     }
     tick()
     const interval = setInterval(tick, 1000)
@@ -158,7 +141,7 @@ const ContadorExpiracaoReparo = ({ expiraEm }) => {
   }
 
   const { d, h, m } = restante
-  const texto = `Expira em: ${formatarTempoRestante(restante)}`
+  const texto = `Expira em: ${formatarDuracao(restante.ms, { frente: 'servico' })}`
   const urgente = d === 0 && h === 0 && m < 10
   return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
 }
@@ -184,18 +167,6 @@ const formatarExperiencia = (v) => {
     return n > 0 ? `${n} ${n === 1 ? 'ano' : 'anos'} de experiência` : null
   }
   return EXPERIENCIA_LABELS[s] || s.replace(/_/g, ' ')    // bucket conhecido, ou fallback limpo
-}
-
-// Prazo de atendimento legível. Até 24h a hora é a unidade que o dono escolheu no
-// cadastro (1, 2, 4, 8, 24) e se lê literal; acima disso não — "Atender em até 168h"
-// obriga a dividir de cabeça para descobrir que é uma semana. Arredonda porque o valor
-// vem do servidor e não precisa ser múltiplo de 24 (um reparo antigo traz 72 = 3 dias).
-// Valor ausente ou não numérico volta no formato antigo, para não inventar um prazo.
-const textoPrazoAtendimento = (horas) => {
-  const h = Number(horas)
-  if (!Number.isFinite(h) || h <= 24) return `${horas}h`
-  const dias = Math.round(h / 24)
-  return `${dias} ${dias === 1 ? 'dia' : 'dias'}`
 }
 
 const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
@@ -235,7 +206,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
       const agora = new Date()
       const diff = fim - agora
       if (diff <= 0) {
-        setRestante({ d: 0, h: 0, m: 0, s: 0 })
+        setRestante({ d: 0, h: 0, m: 0, s: 0, ms: 0 })
         if (!expirouRef.current) {
           expirouRef.current = true
           setExpirou(true)
@@ -248,7 +219,8 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
       const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ d, h, m, s })
+      // `ms` vai junto: é o que utils/tempo.js formata; d/h/m seguem para os limiares de urgência.
+      setRestante({ d, h, m, s, ms: diff })
     }
     calcular()
     const interval = setInterval(calcular, 1000)
@@ -258,7 +230,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   // Mesmo limiar de antes — o "00:" inicial só era verdade abaixo de 1 hora —, agora
   // lido dos campos em vez do texto, que não é mais hh:mm:ss.
   const urgente = !!restante && restante.d === 0 && restante.h === 0
-  const tempo = restante ? formatarTempoRestante(restante) : ''
+  const tempo = restante ? formatarDuracao(restante.ms, { frente: 'servico' }) : ''
   return (
     /* Barra de UMA linha, com a forma e a altura do botão primário (mesmo raio, mesmo
        padding) mas em contorno, não preenchida: é informação, não ação, e uma caixa
@@ -346,8 +318,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // para ler. Passado também libera — só o futuro segura.
   const liberaEstenderEm = reparo.pode_estender_em ? new Date(reparo.pode_estender_em).getTime() : NaN
   const emEsperaEstender = Number.isFinite(liberaEstenderEm) && liberaEstenderEm > agora
-  // Arredonda para cima e nunca mostra "0 min": faltando 10s ainda é 1 minuto de espera.
-  const minutosEsperaEstender = emEsperaEstender ? Math.max(1, Math.ceil((liberaEstenderEm - agora) / 60000)) : 0
+  // Texto da espera pela régua única de utils/tempo.js, com teto ('cima'): carência se
+  // conta em minutos inteiros e 45,5 min são 46 de espera, não 45. Só existe enquanto emEsperaEstender — que exige libera > agora —,
+  // então a duração aqui é sempre positiva e "expirado" nunca chega ao rótulo.
+  const esperaEstenderTexto = emEsperaEstender ? formatarDuracao(liberaEstenderEm - agora, { frente: 'servico', arredondar: 'cima' }) : ''
 
   // O relógio só existe enquanto a espera existe: ao vencer, este efeito faz o último
   // setAgora, o botão reabre e o intervalo é descartado. 30s bastam para um rótulo em
@@ -1117,9 +1091,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
   }
 
   const handleResponderTempo = (aceito) => {
+    // Guarda no HANDLER, não só no botão: é o único ponto por onde qualquer caminho (botão
+    // de hoje, atalho de amanhã) chega ao alerta "precisará de … a mais", e um pedido sem
+    // tempo positivo não tem o que aceitar — recusar continua permitido, para o
+    // profissional refazer o pedido. Dado assim só chega de fora do app (o campo bloqueia 0).
+    if (aceito && !(Number(reparo.pedido_tempo_minutos) > 0)) {
+      Alert.alert('Pedido sem tempo válido', 'Este pedido não informa um tempo extra válido. Recuse-o para que o profissional possa pedir novamente.')
+      return
+    }
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O profissional precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.` : 'O serviço voltará para disponível e o profissional será bloqueado.',
+      aceito ? `O profissional precisará de ${formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })} a mais.` : 'O serviço voltará para disponível e o profissional será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
@@ -1432,7 +1414,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   de deixar buraco no banner. */}
               {reparo.expira_em && !foraDaDisputa && !encerrada
                 ? <ContadorExpiracaoReparo expiraEm={reparo.expira_em} />
-                : <Text style={estilos.urgenciaHoras}>Atender em até {textoPrazoAtendimento(reparo.prazo_atendimento_horas)}</Text>
+                : <Text style={estilos.urgenciaHoras}>Atender em até {formatarPrazoAtendimento(reparo.prazo_atendimento_horas) ?? `${reparo.prazo_atendimento_horas}h`}</Text>
               }
             </View>
           )}
@@ -1613,7 +1595,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 >
                   {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
                       para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{reparo.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar tempo para serviço'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{reparo.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${esperaEstenderTexto})` : '⏳ Aumentar tempo para serviço'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
@@ -1713,7 +1695,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
-                  <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {reparo.pedido_tempo_minutos} minuto(s)</Text>
+                  {/* Valor não positivo não vira frase: "Tempo solicitado: expirado" seria
+                      absurdo. A linha some; título, motivo e botões ficam. */}
+                  {reparo.pedido_tempo_minutos > 0 && (
+                    <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}</Text>
+                  )}
                   <View style={estilos.pedidoBotoesRow}>
                     <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
                       <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
@@ -1983,9 +1969,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
                 </TouchableOpacity>
               )}
-              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && (
+              {/* pedido_tempo_minutos > 0 no gate: com valor não positivo a caixa inteira some —
+                  ela só tem esta frase, e a frase sem tempo não diz nada. */}
+              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && reparo.pedido_tempo_minutos > 0 && (
                 <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {reparo.pedido_tempo_minutos} minuto(s) extra...</Text>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}...</Text>
                 </View>
               )}
               {!temMatch && !encerrada && (
