@@ -16,6 +16,7 @@ import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCad
 import { useAuth } from '../../contexts/AuthContext'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios } from '../../utils/tema'
+import { mostrarCobranca } from '../../utils/plataforma'
 import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
 
 // ─── VALIDAÇÃO CPF/CNPJ ──────────────────────────────────────
@@ -1181,10 +1182,13 @@ export default function CadastroScreen({ navigation, route }) {
                   <Text style={estilos.planoPeriodo}>/mês · {valores.anualTotal}</Text>
                 </View>
               </TouchableOpacity>
+              {/* Menção à forma de pagamento: some no iOS (3.1.1), sem frase no lugar. */}
+              {mostrarCobranca && (
               <View style={estilos.segurancaBox}>
                 <Text style={estilos.segurancaIcone}>🔒</Text>
                 <Text style={estilos.segurancaTexto}>Pagamento 100% seguro via PagBank. Cancele quando quiser.</Text>
               </View>
+              )}
             </View>
           )}
 

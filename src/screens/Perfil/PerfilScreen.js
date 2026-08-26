@@ -14,6 +14,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
 
@@ -345,6 +346,8 @@ export default function PerfilScreen({ navigation, route }) {
                 {isDono ? 'Perene' : (assinatura?.plano === 'anual' ? 'Anual' : 'Mensal')}
               </Text>
             </View>
+            {/* Preço de assinatura digital não aparece no iOS (3.1.1); a linha some inteira. */}
+            {(isDono || mostrarCobranca) && (
             <View style={estilos.assinaturaItem}>
               <Text style={estilos.assinaturaLabel}>Valor</Text>
               <Text style={[estilos.assinaturaValor, { color: cores.sucesso }]}>
@@ -355,6 +358,7 @@ export default function PerfilScreen({ navigation, route }) {
                     : (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês'))}
               </Text>
             </View>
+            )}
             {!isDono && assinatura?.tipo !== 'gratuito' && vencimento && (
               <View style={estilos.assinaturaItem}>
                 <Text style={estilos.assinaturaLabel}>Próximo vencimento</Text>
@@ -362,7 +366,11 @@ export default function PerfilScreen({ navigation, route }) {
               </View>
             )}
           </View>
-          {!isDono && assinatura?.tipo !== 'gratuito' && (
+          {/* No iOS o CTA de pagamento vira a frase — sem botão, sem link (3.1.1). */}
+          {!isDono && assinatura?.tipo !== 'gratuito' && !mostrarCobranca && (
+            <Text style={[estilos.assinaturaLabel, { textAlign: 'center', marginTop: 12 }]}>{FRASE_ASSINATURA_EXTERNA}</Text>
+          )}
+          {!isDono && assinatura?.tipo !== 'gratuito' && mostrarCobranca && (
             <TouchableOpacity
               style={[estilos.btnRenovar, renovandoAssinatura && { opacity: 0.6 }]}
               onPress={handleRenovarAssinatura}
