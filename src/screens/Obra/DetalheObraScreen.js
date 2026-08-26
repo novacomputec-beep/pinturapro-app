@@ -314,8 +314,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   // para ler. Passado também libera — só o futuro segura.
   const liberaEstenderEm = obra?.pode_estender_em ? new Date(obra.pode_estender_em).getTime() : NaN
   const emEsperaEstender = Number.isFinite(liberaEstenderEm) && liberaEstenderEm > agora
-  // Arredonda para cima e nunca mostra "0 min": faltando 10s ainda é 1 minuto de espera.
-  const minutosEsperaEstender = emEsperaEstender ? Math.max(1, Math.ceil((liberaEstenderEm - agora) / 60000)) : 0
+  // Texto da espera pela régua única de utils/tempo.js (trunca; abaixo de 1 min vira
+  // "menos de 1 min"). Só existe enquanto emEsperaEstender — que exige libera > agora —,
+  // então a duração aqui é sempre positiva e "expirado" nunca chega ao rótulo.
+  const esperaEstenderTexto = emEsperaEstender ? formatarDuracao(liberaEstenderEm - agora, { frente: 'obra' }) : ''
 
   // O relógio só existe enquanto a espera existe: ao vencer, este efeito faz o último
   // setAgora, o botão reabre e o intervalo é descartado. 30s bastam para um rótulo em
@@ -1476,7 +1478,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                 >
                   {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
                       para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${minutosEsperaEstender} min)` : '⏳ Aumentar tempo para serviço'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${esperaEstenderTexto})` : '⏳ Aumentar tempo para serviço'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
@@ -1576,7 +1578,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
-                  <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {obra.pedido_tempo_minutos} minuto(s)</Text>
+                  <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })}</Text>
                   <View style={estilos.pedidoBotoesRow}>
                     <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
                       <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
@@ -1845,7 +1847,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               )}
               {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && (
                 <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {obra.pedido_tempo_minutos} minuto(s) extra...</Text>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })} extra...</Text>
                 </View>
               )}
               {!temMatch && !encerrada && (
