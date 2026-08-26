@@ -30,7 +30,7 @@ const VITRINE = [
 // obra é mais uma categoria de serviço, e não o outro lado inteiro da plataforma.
 // Fica FORA da vitrineGrid, irmã dela: dentro, viraria uma quarta linha de três colunas
 // e o flex: 1 a espremeria em um terço da largura.
-const VITRINE_OBRAS = '🏗️ Obras residenciais, comerciais, rurais, pinturas e mais…'
+const VITRINE_OBRAS = '🏗️ Obras de construção civil residenciais, comerciais, rurais, pinturas e muito mais…'
 
 // Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
 // flexWrap justamente para isto: cada linha é uma <View> própria, e é o que permite às
@@ -111,10 +111,12 @@ export default function SplashScreen({ navigation }) {
             resizeMode="contain"
           />
           <Text style={estilos.logoNome}>
-            <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
+            <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
           </Text>
           <View style={estilos.logoRegua} />
-          <Text style={estilos.logoTagline}>Conecta quem precisa a quem faz — da faxina à obra, com profissionais verificados.</Text>
+          {/* Duas linhas de propósito (quebra explícita, não por largura): a promessa e a
+              garantia são frases distintas, e centradas uma sob a outra. */}
+          <Text style={estilos.logoTagline}>{'Conecta quem precisa a quem faz — da faxina à obra.\nTodos os profissionais cadastrados na plataforma são verificados.'}</Text>
         </View>
 
         <View style={estilos.espacador} />
@@ -204,7 +206,7 @@ export default function SplashScreen({ navigation }) {
           {/* Irmã da grade, e ainda dentro do MESMO TouchableOpacity: o bloco segue
               sendo um alvo de toque só, como as pills. Sem onPress próprio. */}
           <View style={estilos.vitrineObras}>
-            <Text style={estilos.vitrineObrasTexto}>{VITRINE_OBRAS}</Text>
+            <Text style={estilos.vitrineObrasTexto} numberOfLines={2}>{VITRINE_OBRAS}</Text>
           </View>
         </TouchableOpacity>
 
@@ -284,9 +286,10 @@ const estilos = StyleSheet.create({
   // seção. Laranja primária: é peça da MARCA, e no cinza lia como divisor esquecido.
   // Continua com 2px de altura para sublinhar a palavra sem competir com ela.
   // Encostada no wordmark (marginTop 0 + os 2 do logoNome): solta, virava régua à toa.
-  // Mesmos valores nas três telas que desenham o wordmark.
+  // Mesmos valores nas três telas que desenham o wordmark. 88 acompanha "ProTudo" (sete
+  // letras); os 64 anteriores eram a medida de "ProLar".
   logoRegua: {
-    width: 64,
+    width: 88,
     height: 2,
     borderRadius: 1,
     backgroundColor: cores.primaria,
@@ -446,8 +449,9 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  // Sem numberOfLines, ao contrário das pills: aqui a quebra em duas linhas é aceitável
-  // (a faixa ocupa a largura toda e não tem coluna vizinha para desalinhar).
+  // numberOfLines={2}, ao contrário do {1} das pills: aqui a quebra em duas linhas é
+  // aceitável (a faixa ocupa a largura toda e não tem coluna vizinha para desalinhar),
+  // mas o texto cresceu e sem teto uma terceira linha em tela estreita empurraria o botão.
   vitrineObrasTexto: {
     fontSize: 10,
     color: cores.textoForte,

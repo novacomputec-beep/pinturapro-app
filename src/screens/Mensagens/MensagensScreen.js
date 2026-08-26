@@ -25,7 +25,7 @@ const CardMensagem = ({ msg }) => (
     {msg.respondido && msg.resposta ? (
       <View style={estilos.respostaWrap}>
         <View style={estilos.respostaBubble}>
-          <Text style={estilos.respostaLabel}>Equipe ProLar</Text>
+          <Text style={estilos.respostaLabel}>Equipe ProTudo</Text>
           <Text style={estilos.respostaTexto}>{msg.resposta}</Text>
         </View>
         <Text style={[estilos.msgData, { textAlign: 'left' }]}>
