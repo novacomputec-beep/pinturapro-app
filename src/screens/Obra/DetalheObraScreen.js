@@ -1032,7 +1032,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const handleResponderTempo = (aceito) => {
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O profissional precisará de ${obra.pedido_tempo_minutos} minuto(s) a mais.` : 'A obra voltará para disponível e o profissional será bloqueado.',
+      aceito ? `O profissional precisará de ${formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })} a mais.` : 'A obra voltará para disponível e o profissional será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {

@@ -1093,7 +1093,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const handleResponderTempo = (aceito) => {
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O profissional precisará de ${reparo.pedido_tempo_minutos} minuto(s) a mais.` : 'O serviço voltará para disponível e o profissional será bloqueado.',
+      aceito ? `O profissional precisará de ${formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico' })} a mais.` : 'O serviço voltará para disponível e o profissional será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
