@@ -20,6 +20,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
+import { FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -250,7 +251,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
 
 export default function DetalheReparoScreen({ route, navigation }) {
   const { reparo: reparoInicial } = route.params
-  const { usuario } = useAuth()
+  const { usuario, assinaturaAtiva } = useAuth()
   const [reparo, setReparo] = useState(reparoInicial)
   // Falha da RECARGA, não "serviço inexistente": a tela segue mostrando o objeto semeado
   // pelo param da lista, que pode estar desatualizado — é isso que o banner avisa.
@@ -2086,6 +2087,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Sua proposta não foi aceita desta vez.</Text>
                       </>
                     )}
+                  </View>
+                ) : !assinaturaAtiva ? (
+                  /* Sem assinatura ativa não há proposta. Só o iOS chega aqui assim (no
+                     Android quem deve nem entra nas abas): leitura completa, ação não —
+                     e a única frase que a 3.1.1 permite. */
+                  <View style={estilos.formInteresse}>
+                    <Text style={estilos.aviso}>{FRASE_ASSINATURA_EXTERNA}</Text>
                   </View>
                 ) : mostrarForm ? (
                   <View style={estilos.formInteresse}>

@@ -394,7 +394,10 @@ export default function CadastroScreen({ navigation, route }) {
   // vira 3 etapas [1, 2, verificação]; internamente a verificação continua sendo o
   // passo 4 (mesmos gates de render/submit/validação intactos), então o caminho pago
   // fica byte-idêntico. Só a navegação (2→4) e a numeração exibida são remapeadas.
-  const modoLancamento = lancamentoGratis && isPrestador
+  // No iOS o passo de plano também some (Apple 3.1.1: nada de preço de assinatura) e o
+  // plano vai fixo em 'mensal' — o mesmo desvio 2→4 do lançamento, pela mesma variável,
+  // para os gates de render/validação/submit continuarem intactos.
+  const modoLancamento = (lancamentoGratis || !mostrarCobranca) && isPrestador
   const totalPassosVisivel = modoLancamento ? 3 : totalPassos
   const passoVisivel = modoLancamento && passo === 4 ? 3 : passo
 
@@ -838,7 +841,9 @@ export default function CadastroScreen({ navigation, route }) {
         cidade: cidade.trim(),
         cpf_cnpj: cpfCnpj.trim(),
         tipo_conta: tipoConta,
-        plano: isPrestador ? planoSelecionado : null,
+        // iOS nunca mostra a escolha: vai 'mensal' explícito, e não o estado (que também é
+        // 'mensal', mas por omissão — e um rascunho poderia trazer outro valor).
+        plano: isPrestador ? (mostrarCobranca ? planoSelecionado : 'mensal') : null,
         pais: 'Brasil',
         uf: uf.trim(),
         cep: isPrestador ? (cep || null) : null,
@@ -956,14 +961,15 @@ export default function CadastroScreen({ navigation, route }) {
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou construtor, pedreiro ou pintor</Text>
               <Text style={estilos.tipoDesc}>Quero encontrar obras disponíveis na minha região</Text>
-              {lancamentoGratis ? (
+              {/* Preço de assinatura: nunca no iOS (3.1.1), nem riscado. */}
+              {mostrarCobranca && (lancamentoGratis ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 99,90/mês</Text>
                   <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
                 </View>
               ) : (
                 <Text style={estilos.tipoPreco}>R$ 99,90/mês</Text>
-              )}
+              ))}
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>
@@ -973,14 +979,15 @@ export default function CadastroScreen({ navigation, route }) {
             <View style={{ flex: 1 }}>
               <Text style={estilos.tipoNome}>Sou prestador de serviços domésticos</Text>
               <Text style={estilos.tipoDesc}>Quero encontrar serviços gerais na minha região</Text>
-              {lancamentoGratis ? (
+              {/* Preço de assinatura: nunca no iOS (3.1.1), nem riscado. */}
+              {mostrarCobranca && (lancamentoGratis ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 49,90/mês</Text>
                   <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
                 </View>
               ) : (
                 <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
-              )}
+              ))}
             </View>
             <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
           </TouchableOpacity>

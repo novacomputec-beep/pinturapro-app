@@ -387,8 +387,10 @@ function PagamentoPendenteScreen() {
       // Qualquer outro status (expirada, cancelada, pendente, sem assinatura): pagamento
       // ainda não confirmado pela plataforma.
       Alert.alert(
-        'Pagamento ainda não confirmado',
-        'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+        mostrarCobranca ? 'Pagamento ainda não confirmado' : 'Acesso ainda não liberado',
+        mostrarCobranca
+          ? 'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+          : 'Sua assinatura ainda não consta como ativa. Aguarde alguns minutos e toque novamente em "Verificar acesso".'
       )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -409,7 +411,9 @@ function PagamentoPendenteScreen() {
         <TelaAviso
           icone={<Feather name="credit-card" size={34} color={cores.primaria} />}
           corIcone="primaria"
-          titulo={assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
+          titulo={mostrarCobranca
+            ? (assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento')
+            : (assinatura?.status === 'expirada' ? 'Assinatura vencida' : 'Assinatura pendente')}
         >
           {mostrarCobranca ? (
           <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
@@ -462,7 +466,7 @@ function PagamentoPendenteScreen() {
             disabled={verificando}
           >
             <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
-              {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+              {verificando ? 'Verificando...' : mostrarCobranca ? 'Já paguei — verificar acesso' : 'Verificar acesso'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
@@ -506,8 +510,10 @@ function VerificacaoPendenteScreen() {
       // Qualquer outro status (expirada, cancelada, pendente, sem assinatura): pagamento
       // ainda não confirmado pela plataforma.
       Alert.alert(
-        'Pagamento ainda não confirmado',
-        'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+        mostrarCobranca ? 'Pagamento ainda não confirmado' : 'Acesso ainda não liberado',
+        mostrarCobranca
+          ? 'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+          : 'Sua assinatura ainda não consta como ativa. Aguarde alguns minutos e toque novamente em "Verificar acesso".'
       )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -524,7 +530,7 @@ function VerificacaoPendenteScreen() {
         <TelaAviso
           icone={<Feather name="check" size={34} color={cores.sucesso} />}
           corIcone="sucesso"
-          titulo={ehGratuito ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
+          titulo={ehGratuito || !mostrarCobranca ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
           texto={ehGratuito
             ? 'Estamos analisando seus dados — isso pode levar até uma hora. Você será avisado assim que for aprovado.'
             : 'Em instantes aprovaremos seu cadastro — isto pode levar até uma hora'}
@@ -534,7 +540,7 @@ function VerificacaoPendenteScreen() {
               "Verificando..." desapareceria da tela. desabilitado dá o mesmo bloqueio
               de toque que o disabled antigo, preservando o texto. */}
           <BotaoPrimario
-            titulo={verificando ? 'Verificando...' : (ehGratuito ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
+            titulo={verificando ? 'Verificando...' : (ehGratuito || !mostrarCobranca ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
             onPress={verificarPagamento}
             desabilitado={verificando}
             estilo={{ width: '100%', marginBottom: 12 }}
@@ -783,6 +789,13 @@ const DonoObraNavigator = () => (
 export default function AppNavigator() {
   const { usuario, assinatura, carregando, mostrarBoasVindas } = useAuth()
   const respostaNotificacaoRef = useRef(null)
+  // Quem entra nas abas. Android: só assinatura ativa — quem deve vai para a tela de
+  // pagamento. iOS: a tela de pagamento nunca é destino (3.1.1 + 2.1: sem cobrança no app,
+  // ela seria um beco sem saída), então pendente/expirada/vencida entram nas abas com
+  // leitura completa e ficam sem poder AGIR — os detalhes trocam o "Tenho interesse" pela
+  // frase única (assinaturaAtiva). 'pendente_verificacao' é análise do admin, não
+  // cobrança, e segue igual nas duas lojas.
+  const liberaAbas = assinatura?.status === 'ativa' || (!mostrarCobranca && assinatura?.status !== 'pendente_verificacao')
 
   // Mantém o contexto do usuário disponível para o roteador de notificações (deep-links)
   useEffect(() => { setUsuarioContexto(usuario) }, [usuario])
@@ -826,7 +839,7 @@ export default function AppNavigator() {
               <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
             )
           ) : usuario.role === 'prestador' ? (
-            assinatura?.status === 'ativa' ? (
+            liberaAbas ? (
               // Prestador recém-aprovado vê a tela de boas-vindas única antes das
               // abas. Ao confirmar, o flag limpa e cai direto no feed (aba inicial).
               mostrarBoasVindas ? (
@@ -842,7 +855,7 @@ export default function AppNavigator() {
               <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
             )
           ) : (
-            assinatura?.status === 'ativa' ? (
+            liberaAbas ? (
               <Stack.Screen name="App" component={TabsPintorNavigator} />
             ) : assinatura?.status === 'pendente_verificacao' ? (
               <Stack.Screen name="Verificacao" component={VerificacaoPendenteScreen} />
