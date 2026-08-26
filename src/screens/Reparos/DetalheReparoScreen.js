@@ -20,6 +20,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
+import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -55,25 +56,6 @@ const TileMidia = ({ midia, emoji, onPress }) => {
       )}
     </TouchableOpacity>
   )
-}
-
-// Trunca para as unidades mais significativas, com granularidade decrescente:
-//   ≥ 1 dia  → "19 dias 7h 25m"
-//   ≥ 1 hora → "7h 25m"
-//   ≥ 1 min  → "25m"
-//   < 1 min  → "menos de 1 min"
-// Estava inline no contador da lista; virou função de módulo para o RelogioRegressivo
-// usar a MESMA regra. Ele formatava hh:mm:ss com a hora acumulada, e um prazo de uma
-// semana aparecia como "167:45:46" — um número que ninguém lê como prazo.
-// Segundos saíram de TODAS as faixas: um prazo medido em horas não se decide no
-// segundo, e o dígito piscando puxava o olho para o único número que não importa.
-// O último minuto não vira "0m" (que se lê como esgotado, e não é): vira uma frase.
-const formatarTempoRestante = ({ d, h, m }) => {
-  const pad = (n) => String(n).padStart(2, '0')
-  if (d > 0) return `${d} dia${d > 1 ? 's' : ''}${h > 0 ? ` ${h}h` : ''}${m > 0 ? ` ${m}m` : ''}`
-  if (h > 0) return `${h}h ${pad(m)}m`
-  if (m > 0) return `${m}m`
-  return 'menos de 1 min'
 }
 
 // Janelas de chegada oferecidas ao profissional depois que sua proposta é aceita. O
@@ -146,7 +128,8 @@ const ContadorExpiracaoReparo = ({ expiraEm }) => {
       const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ d, h, m, s })
+      // `ms` vai junto: é o que utils/tempo.js formata; d/h/m seguem para os limiares de urgência.
+      setRestante({ d, h, m, s, ms: diff })
     }
     tick()
     const interval = setInterval(tick, 1000)
@@ -158,7 +141,7 @@ const ContadorExpiracaoReparo = ({ expiraEm }) => {
   }
 
   const { d, h, m } = restante
-  const texto = `Expira em: ${formatarTempoRestante(restante)}`
+  const texto = `Expira em: ${formatarDuracao(restante.ms, { frente: 'servico' })}`
   const urgente = d === 0 && h === 0 && m < 10
   return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
 }
@@ -184,18 +167,6 @@ const formatarExperiencia = (v) => {
     return n > 0 ? `${n} ${n === 1 ? 'ano' : 'anos'} de experiência` : null
   }
   return EXPERIENCIA_LABELS[s] || s.replace(/_/g, ' ')    // bucket conhecido, ou fallback limpo
-}
-
-// Prazo de atendimento legível. Até 24h a hora é a unidade que o dono escolheu no
-// cadastro (1, 2, 4, 8, 24) e se lê literal; acima disso não — "Atender em até 168h"
-// obriga a dividir de cabeça para descobrir que é uma semana. Arredonda porque o valor
-// vem do servidor e não precisa ser múltiplo de 24 (um reparo antigo traz 72 = 3 dias).
-// Valor ausente ou não numérico volta no formato antigo, para não inventar um prazo.
-const textoPrazoAtendimento = (horas) => {
-  const h = Number(horas)
-  if (!Number.isFinite(h) || h <= 24) return `${horas}h`
-  const dias = Math.round(h / 24)
-  return `${dias} ${dias === 1 ? 'dia' : 'dias'}`
 }
 
 const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
@@ -235,7 +206,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
       const agora = new Date()
       const diff = fim - agora
       if (diff <= 0) {
-        setRestante({ d: 0, h: 0, m: 0, s: 0 })
+        setRestante({ d: 0, h: 0, m: 0, s: 0, ms: 0 })
         if (!expirouRef.current) {
           expirouRef.current = true
           setExpirou(true)
@@ -248,7 +219,8 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
       const h = Math.floor((diff % 86400000) / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
-      setRestante({ d, h, m, s })
+      // `ms` vai junto: é o que utils/tempo.js formata; d/h/m seguem para os limiares de urgência.
+      setRestante({ d, h, m, s, ms: diff })
     }
     calcular()
     const interval = setInterval(calcular, 1000)
@@ -258,7 +230,7 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
   // Mesmo limiar de antes — o "00:" inicial só era verdade abaixo de 1 hora —, agora
   // lido dos campos em vez do texto, que não é mais hh:mm:ss.
   const urgente = !!restante && restante.d === 0 && restante.h === 0
-  const tempo = restante ? formatarTempoRestante(restante) : ''
+  const tempo = restante ? formatarDuracao(restante.ms, { frente: 'servico' }) : ''
   return (
     /* Barra de UMA linha, com a forma e a altura do botão primário (mesmo raio, mesmo
        padding) mas em contorno, não preenchida: é informação, não ação, e uma caixa
@@ -1432,7 +1404,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   de deixar buraco no banner. */}
               {reparo.expira_em && !foraDaDisputa && !encerrada
                 ? <ContadorExpiracaoReparo expiraEm={reparo.expira_em} />
-                : <Text style={estilos.urgenciaHoras}>Atender em até {textoPrazoAtendimento(reparo.prazo_atendimento_horas)}</Text>
+                : <Text style={estilos.urgenciaHoras}>Atender em até {formatarPrazoAtendimento(reparo.prazo_atendimento_horas) ?? `${reparo.prazo_atendimento_horas}h`}</Text>
               }
             </View>
           )}
