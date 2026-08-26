@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView } from 'react-native'
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView, PixelRatio } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios } from '../../utils/tema'
@@ -30,7 +30,7 @@ const VITRINE = [
 // obra é mais uma categoria de serviço, e não o outro lado inteiro da plataforma.
 // Fica FORA da vitrineGrid, irmã dela: dentro, viraria uma quarta linha de três colunas
 // e o flex: 1 a espremeria em um terço da largura.
-const VITRINE_OBRAS = '🏗️ Obras de construção civil residenciais, comerciais, rurais, pinturas e muito mais…'
+const VITRINE_OBRAS = '🏗️ Obras de construção civil residenciais, comerciais, rurais, pinturas e muito mais… 🧱'
 
 // Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
 // flexWrap justamente para isto: cada linha é uma <View> própria, e é o que permite às
@@ -49,6 +49,18 @@ let resumeCadastroVerificado = false
 
 export default function SplashScreen({ navigation }) {
   const [stats, setStats] = useState({ total_valor_obras: null, total_obras_ativas: null })
+  // Escala de fonte do SISTEMA (acessibilidade), lida a cada render. Na escala normal (1.0)
+  // a tagline cabe em duas linhas encolhendo só onde precisa; acima disso a pessoa PEDIU
+  // texto maior, e encolher + cortar em duas linhas contradiria o pedido e comeria o fim
+  // da frase — o "✓" e o "obra!". Então, a partir de qualquer escala > 1, o teto de linhas
+  // sai e o texto quebra em quantas linhas precisar: perder legibilidade é aceitável,
+  // perder o fim da frase não. O limiar é estritamente "acima do normal" (> 1), e não um
+  // degrau como 1.15 ou 1.3, porque o piso de 0.85 é RELATIVO ao tamanho já escalado — em
+  // 1.15 numa tela de 360dp o mínimo (11,3px) ainda não caberia e cortaria do mesmo jeito.
+  const escalaFonteSistema = PixelRatio.getFontScale()
+  const taglineAjuste = escalaFonteSistema > 1
+    ? {}
+    : { numberOfLines: 2, adjustsFontSizeToFit: true, minimumFontScale: 0.85 }
 
   useEffect(() => {
     api.get('/stats/publico')
@@ -115,8 +127,19 @@ export default function SplashScreen({ navigation }) {
           </Text>
           <View style={estilos.logoRegua} />
           {/* Duas linhas de propósito (quebra explícita, não por largura): a promessa e a
-              garantia são frases distintas, e centradas uma sob a outra. */}
-          <Text style={estilos.logoTagline}>{'Conecta quem precisa a quem faz — da faxina à obra.\nTodos os profissionais cadastrados na plataforma são verificados.'}</Text>
+              garantia são frases distintas, e centradas uma sob a outra. O ✓ vai em
+              cores.sucesso — a cor semântica de "aprovado", não um verde novo.
+              numberOfLines={2} + adjustsFontSizeToFit (via taglineAjuste, só na escala de
+              fonte normal): cada linha tem ~52 caracteres e a 13px passa dos ~320px úteis
+              de um aparelho de 360dp, onde quebrava em quatro. O texto só encolhe onde não
+              cabe (em 412dp fica nos 13px) e nunca abaixo de minimumFontScale 0.85 = 11px
+              — o menor corpo que esta tela já usa (termos), então o piso é "tão legível
+              quanto o rodapé", não um número inventado. Com fonte do sistema ampliada
+              nada disso se aplica: ver taglineAjuste. */}
+          <Text style={estilos.logoTagline} {...taglineAjuste}>
+            {'Conecta quem precisa a quem faz — da faxina à obra!'}{'\n'}
+            {'Todos os profissionais cadastrados são verificados '}<Text style={{ color: cores.sucesso }}>✓</Text>
+          </Text>
         </View>
 
         <View style={estilos.espacador} />
