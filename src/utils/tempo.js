@@ -33,6 +33,14 @@
 // Singular/plural: "1 dia"/"2 dias", "1 mês"/"2 meses", "1 ano"/"2 anos",
 // "1 hora" (por extenso, só no singular) / "2h" (abreviado no plural), "1min"/"30min".
 // Abaixo de um minuto: "menos de 1 min". Zero ou negativo: "expirado".
+//
+// `arredondar`: 'baixo' (padrão) trunca ao minuto — é a régua de tudo que conta PARA
+// BAIXO até um prazo, onde subir prometeria tempo que não existe. 'cima' sobe ao minuto
+// inteiro seguinte e é para o caso oposto: uma CARÊNCIA que a pessoa tem de esperar
+// passar, onde "45min" para 45,5 min prometeria uma liberação que ainda não chegou.
+// Com 'cima', 20 s viram "1min" (não "menos de 1 min"): o rótulo diz quanto ESPERAR, e
+// espera se conta em minutos inteiros. O corte por maxUnidades continua truncando —
+// 'cima' age só no minuto.
 
 const MINUTO = 60 * 1000
 const HORA   = 60 * MINUTO
@@ -41,6 +49,7 @@ const MES    = 30 * DIA
 const ANO    = 360 * DIA
 
 const FRENTES = ['servico', 'obra']
+const ARREDONDAMENTOS = ['baixo', 'cima']
 
 // Rótulo de uma unidade já com a regra de número. Fica numa tabela e não em ifs
 // espalhados para a regra "hora por extenso só no singular" existir num lugar só.
@@ -62,11 +71,11 @@ const juntar = (partes) => {
   return `${partes.slice(0, -1).join(', ')} e ${partes[partes.length - 1]}`
 }
 
-// Decompõe a duração nas unidades da frente. Trabalha em MINUTOS inteiros (floor) para
-// o segundo nunca influenciar: um prazo não se decide no segundo, e "59min 59s" é
-// 59min, não 1 hora.
-const decompor = (ms, frente) => {
-  const totalMin = Math.floor(ms / MINUTO)
+// Decompõe a duração nas unidades da frente. Trabalha em MINUTOS inteiros (floor por
+// padrão, ceil com 'cima') para o segundo nunca influenciar: um prazo não se decide no
+// segundo, e "59min 59s" é 59min, não 1 hora — salvo quando se pede o teto.
+const decompor = (ms, frente, arredondar) => {
+  const totalMin = arredondar === 'cima' ? Math.ceil(ms / MINUTO) : Math.floor(ms / MINUTO)
   const partes = []
   let restoMin = totalMin
 
@@ -84,9 +93,12 @@ const decompor = (ms, frente) => {
 // Duração em milissegundos → texto. `frente` é obrigatória e validada: um chamador que
 // esquecesse a opção cairia em silêncio na frente errada e a divergência voltaria pela
 // porta dos fundos.
-export const formatarDuracao = (ms, { frente, maxUnidades = 3 } = {}) => {
+export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'baixo' } = {}) => {
   if (!FRENTES.includes(frente)) {
     throw new Error(`formatarDuracao: frente inválida "${frente}" (use 'servico' ou 'obra')`)
+  }
+  if (!ARREDONDAMENTOS.includes(arredondar)) {
+    throw new Error(`formatarDuracao: arredondar inválido "${arredondar}" (use 'baixo' ou 'cima')`)
   }
   // Inteiro ≥ 1; qualquer outra coisa é erro de chamada, não um pedido de "zero unidades".
   if (!Number.isInteger(maxUnidades) || maxUnidades < 1) {
@@ -94,9 +106,9 @@ export const formatarDuracao = (ms, { frente, maxUnidades = 3 } = {}) => {
   }
   const n = Number(ms)
   if (!Number.isFinite(n) || n <= 0) return 'expirado'
-  if (n < MINUTO) return 'menos de 1 min'
+  if (n < MINUTO && arredondar !== 'cima') return 'menos de 1 min'
 
-  const naoZeradas = decompor(n, frente)
+  const naoZeradas = decompor(n, frente, arredondar)
     .filter(([, valor]) => valor > 0)
     .slice(0, maxUnidades)
     .map(([unidade, valor]) => rotulo(unidade, valor))

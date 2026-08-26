@@ -314,10 +314,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   // para ler. Passado também libera — só o futuro segura.
   const liberaEstenderEm = obra?.pode_estender_em ? new Date(obra.pode_estender_em).getTime() : NaN
   const emEsperaEstender = Number.isFinite(liberaEstenderEm) && liberaEstenderEm > agora
-  // Texto da espera pela régua única de utils/tempo.js (trunca; abaixo de 1 min vira
-  // "menos de 1 min"). Só existe enquanto emEsperaEstender — que exige libera > agora —,
+  // Texto da espera pela régua única de utils/tempo.js, com teto ('cima'): carência se
+  // conta em minutos inteiros e 45,5 min são 46 de espera, não 45. Só existe enquanto emEsperaEstender — que exige libera > agora —,
   // então a duração aqui é sempre positiva e "expirado" nunca chega ao rótulo.
-  const esperaEstenderTexto = emEsperaEstender ? formatarDuracao(liberaEstenderEm - agora, { frente: 'obra' }) : ''
+  const esperaEstenderTexto = emEsperaEstender ? formatarDuracao(liberaEstenderEm - agora, { frente: 'obra', arredondar: 'cima' }) : ''
 
   // O relógio só existe enquanto a espera existe: ao vencer, este efeito faz o último
   // setAgora, o botão reabre e o intervalo é descartado. 30s bastam para um rótulo em
@@ -1578,7 +1578,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                 <View style={estilos.pedidoAlertaBox}>
                   <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
                   <Text style={estilos.pedidoAlertaMotivo}>Motivo: {obra.pedido_tempo_motivo}</Text>
-                  <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })}</Text>
+                  {/* Valor não positivo não vira frase: "Tempo solicitado: expirado" seria
+                      absurdo. A linha some; título, motivo e botões ficam. */}
+                  {obra.pedido_tempo_minutos > 0 && (
+                    <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })}</Text>
+                  )}
                   <View style={estilos.pedidoBotoesRow}>
                     <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
                       <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
@@ -1845,9 +1849,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
                 </TouchableOpacity>
               )}
-              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && (
+              {/* pedido_tempo_minutos > 0 no gate: com valor não positivo a caixa inteira some —
+                  ela só tem esta frase, e a frase sem tempo não diz nada. */}
+              {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && obra.pedido_tempo_minutos > 0 && (
                 <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar os {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })} extra...</Text>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })}...</Text>
                 </View>
               )}
               {!temMatch && !encerrada && (
