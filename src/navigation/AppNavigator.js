@@ -8,6 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, alturas } from '../utils/tema'
+import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../utils/plataforma'
 import { TelaAviso, BotaoPrimario } from '../components'
 import { Feather } from '@expo/vector-icons'
 import api from '../services/api'
@@ -359,7 +360,8 @@ function PagamentoPendenteScreen() {
     }
   }, [assinatura?.plano])
 
-  React.useEffect(() => { buscarLink() }, [])
+  // No iOS não se busca nem se abre link nenhum (3.1.1): a tela vira só a frase.
+  React.useEffect(() => { if (mostrarCobranca) buscarLink() }, [])
 
   // "Já paguei — verificar acesso" (tela de pagamento). Sempre dá feedback: revalida a
   // sessão e decide a mensagem pelo status REAL de assinatura devolvido por GET /auth/perfil
@@ -385,8 +387,10 @@ function PagamentoPendenteScreen() {
       // Qualquer outro status (expirada, cancelada, pendente, sem assinatura): pagamento
       // ainda não confirmado pela plataforma.
       Alert.alert(
-        'Pagamento ainda não confirmado',
-        'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+        mostrarCobranca ? 'Pagamento ainda não confirmado' : 'Acesso ainda não liberado',
+        mostrarCobranca
+          ? 'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+          : 'Sua assinatura ainda não consta como ativa. Aguarde alguns minutos e toque novamente em "Verificar acesso".'
       )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -407,13 +411,21 @@ function PagamentoPendenteScreen() {
         <TelaAviso
           icone={<Feather name="credit-card" size={34} color={cores.primaria} />}
           corIcone="primaria"
-          titulo={assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
+          titulo={mostrarCobranca
+            ? (assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento')
+            : (assinatura?.status === 'expirada' ? 'Assinatura vencida' : 'Assinatura pendente')}
         >
+          {mostrarCobranca ? (
           <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
             {valorMensal}/mês
           </Text>
+          ) : (
+          <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+            {FRASE_ASSINATURA_EXTERNA}
+          </Text>
+          )}
 
-          {carregando && (
+          {mostrarCobranca && carregando && (
             <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
               Gerando link de pagamento...
             </Text>
@@ -421,13 +433,13 @@ function PagamentoPendenteScreen() {
 
           {/* perigoSuave/perigo no lugar do #3a1a1a / #f4433644 / #f44336 que estavam
               cravados aqui — era o único ponto das três telas fora da paleta. */}
-          {erro && !carregando && (
+          {mostrarCobranca && erro && !carregando && (
             <View style={{ backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 14, width: '100%', marginBottom: 16 }}>
               <Text style={{ fontSize: 13, color: cores.perigo, textAlign: 'center', lineHeight: 20 }}>{erro}</Text>
             </View>
           )}
 
-          {link ? (
+          {!mostrarCobranca ? null : link ? (
             <>
               <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 16 }}>
                 Você está sendo redirecionado. Se não abriu automaticamente, toque no botão abaixo.
@@ -454,7 +466,7 @@ function PagamentoPendenteScreen() {
             disabled={verificando}
           >
             <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
-              {verificando ? 'Verificando...' : 'Já paguei — verificar acesso'}
+              {verificando ? 'Verificando...' : mostrarCobranca ? 'Já paguei — verificar acesso' : 'Verificar acesso'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
@@ -498,8 +510,10 @@ function VerificacaoPendenteScreen() {
       // Qualquer outro status (expirada, cancelada, pendente, sem assinatura): pagamento
       // ainda não confirmado pela plataforma.
       Alert.alert(
-        'Pagamento ainda não confirmado',
-        'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+        mostrarCobranca ? 'Pagamento ainda não confirmado' : 'Acesso ainda não liberado',
+        mostrarCobranca
+          ? 'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
+          : 'Sua assinatura ainda não consta como ativa. Aguarde alguns minutos e toque novamente em "Verificar acesso".'
       )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -516,7 +530,7 @@ function VerificacaoPendenteScreen() {
         <TelaAviso
           icone={<Feather name="check" size={34} color={cores.sucesso} />}
           corIcone="sucesso"
-          titulo={ehGratuito ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
+          titulo={ehGratuito || !mostrarCobranca ? 'Cadastro enviado!' : 'Pagamento efetuado com sucesso'}
           texto={ehGratuito
             ? 'Estamos analisando seus dados — isso pode levar até uma hora. Você será avisado assim que for aprovado.'
             : 'Em instantes aprovaremos seu cadastro — isto pode levar até uma hora'}
@@ -526,7 +540,7 @@ function VerificacaoPendenteScreen() {
               "Verificando..." desapareceria da tela. desabilitado dá o mesmo bloqueio
               de toque que o disabled antigo, preservando o texto. */}
           <BotaoPrimario
-            titulo={verificando ? 'Verificando...' : (ehGratuito ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
+            titulo={verificando ? 'Verificando...' : (ehGratuito || !mostrarCobranca ? 'Verificar acesso' : 'Já paguei — verificar acesso')}
             onPress={verificarPagamento}
             desabilitado={verificando}
             estilo={{ width: '100%', marginBottom: 12 }}
@@ -775,6 +789,13 @@ const DonoObraNavigator = () => (
 export default function AppNavigator() {
   const { usuario, assinatura, carregando, mostrarBoasVindas } = useAuth()
   const respostaNotificacaoRef = useRef(null)
+  // Quem entra nas abas. Android: só assinatura ativa — quem deve vai para a tela de
+  // pagamento. iOS: a tela de pagamento nunca é destino (3.1.1 + 2.1: sem cobrança no app,
+  // ela seria um beco sem saída), então pendente/expirada/vencida entram nas abas com
+  // leitura completa e ficam sem poder AGIR — os detalhes trocam o "Tenho interesse" pela
+  // frase única (assinaturaAtiva). 'pendente_verificacao' é análise do admin, não
+  // cobrança, e segue igual nas duas lojas.
+  const liberaAbas = assinatura?.status === 'ativa' || (!mostrarCobranca && assinatura?.status !== 'pendente_verificacao')
 
   // Mantém o contexto do usuário disponível para o roteador de notificações (deep-links)
   useEffect(() => { setUsuarioContexto(usuario) }, [usuario])
@@ -818,7 +839,7 @@ export default function AppNavigator() {
               <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
             )
           ) : usuario.role === 'prestador' ? (
-            assinatura?.status === 'ativa' ? (
+            liberaAbas ? (
               // Prestador recém-aprovado vê a tela de boas-vindas única antes das
               // abas. Ao confirmar, o flag limpa e cai direto no feed (aba inicial).
               mostrarBoasVindas ? (
@@ -834,7 +855,7 @@ export default function AppNavigator() {
               <Stack.Screen name="Pagamento" component={PagamentoPendenteScreen} />
             )
           ) : (
-            assinatura?.status === 'ativa' ? (
+            liberaAbas ? (
               <Stack.Screen name="App" component={TabsPintorNavigator} />
             ) : assinatura?.status === 'pendente_verificacao' ? (
               <Stack.Screen name="Verificacao" component={VerificacaoPendenteScreen} />

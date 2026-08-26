@@ -9,6 +9,7 @@ import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios } from '../../utils/tema'
+import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth()
@@ -61,7 +62,10 @@ export default function LoginScreen({ navigation }) {
         if (resposta?.usuario?.role === 'prestador' || resposta?.usuario?.role === 'assinante') {
           try {
             const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: 'mensal' })
-            if (pagamento.init_point) {
+            // No iOS a chamada acima continua (a assinatura nasce do mesmo jeito), mas o
+            // link não vira tela: a 3.1.1 proíbe o checkout externo. Quem acolhe esse
+            // usuário é a PagamentoPendenteScreen, que no iOS mostra só a frase.
+            if (pagamento.init_point && mostrarCobranca) {
               setLinkPagamento(pagamento.init_point)
               return
             }

@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { useAuth } from '../contexts/AuthContext'
+import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../utils/plataforma'
 
 const GlobalVencimentoBanner = () => {
   const { usuario, assinatura } = useAuth()
@@ -20,8 +21,9 @@ const GlobalVencimentoBanner = () => {
 
   return (
     <View style={estilos.banner}>
+      {/* No iOS não se pede para renovar (3.1.1): fica só a frase, sem CTA. */}
       <Text style={estilos.texto}>
-        ⚠️ Último dia de acesso — sua assinatura vence hoje. Renove agora!
+        {mostrarCobranca ? '⚠️ Último dia de acesso — sua assinatura vence hoje. Renove agora!' : FRASE_ASSINATURA_EXTERNA}
       </Text>
     </View>
   )
