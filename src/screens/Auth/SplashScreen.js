@@ -30,7 +30,7 @@ const VITRINE = [
 // obra é mais uma categoria de serviço, e não o outro lado inteiro da plataforma.
 // Fica FORA da vitrineGrid, irmã dela: dentro, viraria uma quarta linha de três colunas
 // e o flex: 1 a espremeria em um terço da largura.
-const VITRINE_OBRAS = '🏗️ Obras de construção civil residenciais, comerciais, rurais, pinturas e mais…'
+const VITRINE_OBRAS = '🏗️ Obras de construção civil residenciais, comerciais, rurais, pinturas e muito mais… 🧱'
 
 // Quebra a vitrine em linhas de três. A grade deixou de ser um container único com
 // flexWrap justamente para isto: cada linha é uma <View> própria, e é o que permite às
@@ -116,8 +116,13 @@ export default function SplashScreen({ navigation }) {
           <View style={estilos.logoRegua} />
           {/* Duas linhas de propósito (quebra explícita, não por largura): a promessa e a
               garantia são frases distintas, e centradas uma sob a outra. O ✓ vai em
-              cores.sucesso — a cor semântica de "aprovado", não um verde novo. */}
-          <Text style={estilos.logoTagline}>
+              cores.sucesso — a cor semântica de "aprovado", não um verde novo.
+              numberOfLines={2} + adjustsFontSizeToFit: cada linha tem ~52 caracteres e a
+              13px passa dos ~320px úteis de um aparelho de 360dp, onde quebrava em quatro.
+              O texto só encolhe onde não cabe (em 412dp fica nos 13px) e nunca abaixo de
+              minimumFontScale 0.85 = 11px — o menor corpo que esta tela já usa (termos),
+              então o piso é "tão legível quanto o rodapé", não um número inventado. */}
+          <Text style={estilos.logoTagline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>
             {'Conecta quem precisa a quem faz — da faxina à obra!'}{'\n'}
             {'Todos os profissionais cadastrados são verificados '}<Text style={{ color: cores.sucesso }}>✓</Text>
           </Text>
