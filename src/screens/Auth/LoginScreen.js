@@ -115,7 +115,7 @@ export default function LoginScreen({ navigation }) {
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
             <Text style={estilos.logoNome}>
-              <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>L</Text>ar
+              <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
             </Text>
             <View style={estilos.logoRegua} />
           </View>
