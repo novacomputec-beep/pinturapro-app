@@ -286,9 +286,10 @@ const estilos = StyleSheet.create({
   // seção. Laranja primária: é peça da MARCA, e no cinza lia como divisor esquecido.
   // Continua com 2px de altura para sublinhar a palavra sem competir com ela.
   // Encostada no wordmark (marginTop 0 + os 2 do logoNome): solta, virava régua à toa.
-  // Mesmos valores nas três telas que desenham o wordmark.
+  // Mesmos valores nas três telas que desenham o wordmark. 88 acompanha "ProTudo" (sete
+  // letras); os 64 anteriores eram a medida de "ProLar".
   logoRegua: {
-    width: 64,
+    width: 88,
     height: 2,
     borderRadius: 1,
     backgroundColor: cores.primaria,

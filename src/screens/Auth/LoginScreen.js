@@ -205,7 +205,7 @@ const estilos = StyleSheet.create({
   // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
   logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
   // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
-  logoRegua: { width: 64, height: 2, borderRadius: 1, backgroundColor: cores.primaria, marginTop: 0, marginBottom: 10 },
+  logoRegua: { width: 88, height: 2, borderRadius: 1, backgroundColor: cores.primaria, marginTop: 0, marginBottom: 10 },
   // 20, e não 28: no 28 a saudação empatava com o wordmark (mesmo corpo, mesmo peso) e,
   // quebrando em duas linhas, pesava MAIS que a marca. 20 é o degrau em negrito que a
   // própria tela já usa (voltarIcone), então a marca lidera em 1,4x e o título ainda

@@ -43,22 +43,23 @@ const configurarCanalAndroid = async () => {
   // O canal 'default' antigo foi criado com sound: true (booleano) — tipo inválido
   // que o nativo lê como string, vira null e registra o canal SEM som. Canais são
   // imutáveis, então editá-lo não conserta quem já o tem: some com o antigo e cria
-  // um id NOVO ('default_v2', nunca recriar o mesmo id) com sound: 'default'
-  // (string → som padrão do sistema).
-  // O delete vai em try PRÓPRIO: em instalação nova o canal não existe, e uma falha
-  // aqui jamais pode abortar a criação do 'default_v2' abaixo.
-  try {
-    await Notifications.deleteNotificationChannelAsync('default')
-  } catch (err) {
-    console.log('[Push] canal antigo "default" ausente ou não removido (ok) | msg:', err?.message)
+  // um id NOVO (nunca recriar o mesmo id) com sound: 'default' (string → som padrão do
+  // sistema). O mesmo raciocínio valeu para o NOME: 'default_v2' nasceu como "ProLar" e,
+  // imutável, seguiria "ProLar" nas configurações de quem já tinha o app — daí o
+  // 'default_v3', que nasce "ProTudo". Convenção do id: sufixo _vN, sempre crescente.
+  // Os deletes vão em try PRÓPRIO, um por id: em instalação nova nenhum dos dois existe,
+  // e uma falha aqui jamais pode abortar a criação do 'default_v3' abaixo. Apagar o v2
+  // é o que evita dois canais lado a lado nas configurações do Android.
+  for (const antigo of ['default', 'default_v2']) {
+    try {
+      await Notifications.deleteNotificationChannelAsync(antigo)
+    } catch (err) {
+      console.log(`[Push] canal antigo "${antigo}" ausente ou não removido (ok) | msg:`, err?.message)
+    }
   }
   try {
-    // O id segue 'default_v2' de propósito: canais são imutáveis, então este `name` novo
-    // só aparece em instalação NOVA — quem já tem o app continua vendo o rótulo antigo nas
-    // configurações do Android. Trocar o id para renomear de verdade custaria queimar mais
-    // um id, e o público do lançamento é justamente quem instala agora.
-    await Notifications.setNotificationChannelAsync('default_v2', {
-      name: 'ProLar',
+    await Notifications.setNotificationChannelAsync('default_v3', {
+      name: 'ProTudo',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#E8833A',
