@@ -8,6 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, alturas } from '../utils/tema'
+import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../utils/plataforma'
 import { TelaAviso, BotaoPrimario } from '../components'
 import { Feather } from '@expo/vector-icons'
 import api from '../services/api'
@@ -359,7 +360,8 @@ function PagamentoPendenteScreen() {
     }
   }, [assinatura?.plano])
 
-  React.useEffect(() => { buscarLink() }, [])
+  // No iOS não se busca nem se abre link nenhum (3.1.1): a tela vira só a frase.
+  React.useEffect(() => { if (mostrarCobranca) buscarLink() }, [])
 
   // "Já paguei — verificar acesso" (tela de pagamento). Sempre dá feedback: revalida a
   // sessão e decide a mensagem pelo status REAL de assinatura devolvido por GET /auth/perfil
@@ -409,11 +411,17 @@ function PagamentoPendenteScreen() {
           corIcone="primaria"
           titulo={assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento'}
         >
+          {mostrarCobranca ? (
           <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
             {valorMensal}/mês
           </Text>
+          ) : (
+          <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
+            {FRASE_ASSINATURA_EXTERNA}
+          </Text>
+          )}
 
-          {carregando && (
+          {mostrarCobranca && carregando && (
             <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
               Gerando link de pagamento...
             </Text>
@@ -421,13 +429,13 @@ function PagamentoPendenteScreen() {
 
           {/* perigoSuave/perigo no lugar do #3a1a1a / #f4433644 / #f44336 que estavam
               cravados aqui — era o único ponto das três telas fora da paleta. */}
-          {erro && !carregando && (
+          {mostrarCobranca && erro && !carregando && (
             <View style={{ backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 14, width: '100%', marginBottom: 16 }}>
               <Text style={{ fontSize: 13, color: cores.perigo, textAlign: 'center', lineHeight: 20 }}>{erro}</Text>
             </View>
           )}
 
-          {link ? (
+          {!mostrarCobranca ? null : link ? (
             <>
               <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 16 }}>
                 Você está sendo redirecionado. Se não abriu automaticamente, toque no botão abaixo.
