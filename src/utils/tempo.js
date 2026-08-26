@@ -41,6 +41,13 @@
 // Com 'cima', 20 s viram "1min" (não "menos de 1 min"): o rótulo diz quanto ESPERAR, e
 // espera se conta em minutos inteiros. O corte por maxUnidades continua truncando —
 // 'cima' age só no minuto.
+//
+// `agrupar`: true (padrão) sobe minutos para horas, dias etc. false devolve a duração na
+// unidade-base do formatador, o MINUTO, sem reagrupar: 90 min é "90min", não "1 hora e
+// 30min". É para QUANTIDADES que a pessoa digitou num campo de minutos (o pedido de
+// tempo extra): quem escreveu 90 e o outro lado lê "1 hora e 30min" está falando do mesmo
+// número com nomes diferentes. Contagens e prazos NÃO usam isto — lá o reagrupamento é
+// o que torna o número legível. "menos de 1 min" e "expirado" seguem iguais.
 
 const MINUTO = 60 * 1000
 const HORA   = 60 * MINUTO
@@ -93,12 +100,15 @@ const decompor = (ms, frente, arredondar) => {
 // Duração em milissegundos → texto. `frente` é obrigatória e validada: um chamador que
 // esquecesse a opção cairia em silêncio na frente errada e a divergência voltaria pela
 // porta dos fundos.
-export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'baixo' } = {}) => {
+export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'baixo', agrupar = true } = {}) => {
   if (!FRENTES.includes(frente)) {
     throw new Error(`formatarDuracao: frente inválida "${frente}" (use 'servico' ou 'obra')`)
   }
   if (!ARREDONDAMENTOS.includes(arredondar)) {
     throw new Error(`formatarDuracao: arredondar inválido "${arredondar}" (use 'baixo' ou 'cima')`)
+  }
+  if (typeof agrupar !== 'boolean') {
+    throw new Error(`formatarDuracao: agrupar inválido "${agrupar}" (use true ou false)`)
   }
   // Inteiro ≥ 1; qualquer outra coisa é erro de chamada, não um pedido de "zero unidades".
   if (!Number.isInteger(maxUnidades) || maxUnidades < 1) {
@@ -107,6 +117,10 @@ export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'bai
   const n = Number(ms)
   if (!Number.isFinite(n) || n <= 0) return 'expirado'
   if (n < MINUTO && arredondar !== 'cima') return 'menos de 1 min'
+  if (!agrupar) {
+    const totalMin = arredondar === 'cima' ? Math.ceil(n / MINUTO) : Math.floor(n / MINUTO)
+    return rotulo('minuto', totalMin)
+  }
 
   const naoZeradas = decompor(n, frente, arredondar)
     .filter(([, valor]) => valor > 0)

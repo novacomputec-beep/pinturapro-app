@@ -1030,9 +1030,17 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   const handleResponderTempo = (aceito) => {
+    // Guarda no HANDLER, não só no botão: é o único ponto por onde qualquer caminho (botão
+    // de hoje, atalho de amanhã) chega ao alerta "precisará de … a mais", e um pedido sem
+    // tempo positivo não tem o que aceitar — recusar continua permitido, para o
+    // profissional refazer o pedido. Dado assim só chega de fora do app (o campo bloqueia 0).
+    if (aceito && !(Number(obra.pedido_tempo_minutos) > 0)) {
+      Alert.alert('Pedido sem tempo válido', 'Este pedido não informa um tempo extra válido. Recuse-o para que o profissional possa pedir novamente.')
+      return
+    }
     Alert.alert(
       aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O profissional precisará de ${formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })} a mais.` : 'A obra voltará para disponível e o profissional será bloqueado.',
+      aceito ? `O profissional precisará de ${formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra', agrupar: false })} a mais.` : 'A obra voltará para disponível e o profissional será bloqueado.',
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
@@ -1581,7 +1589,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   {/* Valor não positivo não vira frase: "Tempo solicitado: expirado" seria
                       absurdo. A linha some; título, motivo e botões ficam. */}
                   {obra.pedido_tempo_minutos > 0 && (
-                    <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })}</Text>
+                    <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra', agrupar: false })}</Text>
                   )}
                   <View style={estilos.pedidoBotoesRow}>
                     <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
@@ -1853,7 +1861,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   ela só tem esta frase, e a frase sem tempo não diz nada. */}
               {souPintorDoMatch && obra.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && obra.pedido_tempo_minutos > 0 && (
                 <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra' })}...</Text>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra', agrupar: false })}...</Text>
                 </View>
               )}
               {!temMatch && !encerrada && (
