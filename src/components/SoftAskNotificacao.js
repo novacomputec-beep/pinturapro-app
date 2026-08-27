@@ -82,7 +82,13 @@ const SoftAskNotificacao = () => {
   // Caso contrário no-op silencioso — concedidos não precisam, bloqueados
   // (canAskAgain false) são cuidados pelo BannerNotificacaoBloqueada (Fase 3), e
   // quem já respondeu não é perguntado de novo.
-  const mostrar = useCallback(async (v) => {
+  // ignorarFrequencia: pula APENAS os dois portões de frequência (MAX_SHOWS e ESPERA_MS).
+  // Existe para a tela de aguardando-aprovação, o único momento em que um prestador recém-
+  // cadastrado pode conceder antes de chegar ao feed — e ali a contagem/intervalo não devem
+  // silenciar o pedido. Os TRÊS portões de elegibilidade continuam: Android, permissão ao
+  // vivo (granted / canAskAgain false) e o 'concedido' gravado. Ausente = comportamento de
+  // sempre; nenhum outro chamador passa a flag.
+  const mostrar = useCallback(async (v, { ignorarFrequencia = false } = {}) => {
     if (Platform.OS !== 'android') { barrado('plataforma_nao_android'); return }
     if (!VARIANTES[v]) { barrado('variante_desconhecida'); return }
     try {
@@ -94,8 +100,8 @@ const SoftAskNotificacao = () => {
 
       const estado = await lerEstadoSoftAsk()
       if (estado.concedido) { barrado('concedido_gravado', estado); return }                                  // já disse "sim"
-      if (estado.shows >= MAX_SHOWS) { barrado('teto_de_exibicoes', estado); return }                         // teto de exibições
-      if (estado.shows > 0 && Date.now() - estado.ultimoShowMs < ESPERA_MS) { barrado('intervalo_minimo', estado); return }   // < 3 dias
+      if (!ignorarFrequencia && estado.shows >= MAX_SHOWS) { barrado('teto_de_exibicoes', estado); return }                         // teto de exibições
+      if (!ignorarFrequencia && estado.shows > 0 && Date.now() - estado.ultimoShowMs < ESPERA_MS) { barrado('intervalo_minimo', estado); return }   // < 3 dias
 
       // Vai EXIBIR: conta o show AGORA (incrementa NO SHOW, não a cada mostrar()).
       await gravarEstadoSoftAsk({ ...estado, shows: estado.shows + 1, ultimoShowMs: Date.now() })
