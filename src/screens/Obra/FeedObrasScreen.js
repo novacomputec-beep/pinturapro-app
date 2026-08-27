@@ -85,6 +85,17 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   )
 }
 
+// Janela de início que o dono escolheu, por horas_para_expirar (a mesma tabela do
+// CadastrarObraScreen). Fora da tabela cai no genérico "Iniciar em <duração>". É rótulo,
+// não escala de urgência: a obra tem sempre o MESMO cinza, ao contrário do reparo.
+const JANELA_INICIO_OBRA = {
+  24: 'Iniciar hoje',
+  168: 'Iniciar esta semana',
+  720: 'Iniciar este mês',
+  1440: 'Iniciar mês que vem',
+  2160: 'Sem urgência',
+}
+
 const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const dist = distanciaItemKm(coords, item)
   const emoji = emojiObra(item.categoria)
@@ -96,9 +107,34 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const capa = thumbnailDeCapa(item.foto_capa)
   const temFoto = !!capa && !fotoFalhou
 
+  // horas_para_expirar chega como STRING ("168"): coage para número antes de qualquer
+  // conta ou lookup. Ausente/não-numérico → sem faixa (mesmo comportamento da faixa do
+  // reparo quando o campo falta). O mapa cobre as cinco janelas; o resto vira duração.
+  const horasInicio = item.horas_para_expirar == null ? NaN : Number(item.horas_para_expirar)
+  const temFaixa = Number.isFinite(horasInicio)
+  const labelJanela = JANELA_INICIO_OBRA[horasInicio]
+    || `Iniciar em ${formatarDuracao(horasInicio * 3600000, { frente: 'obra' })}`
+  // Extensão = (expira_em − criado_em) − janela original. Só aparece se positiva; negativa
+  // (ex.: prazo_modo 'hoje' faz expira_em virar fim do dia) ou NaN não renderam nada.
+  const extensaoMs = (item.expira_em && item.criado_em)
+    ? (new Date(item.expira_em) - new Date(item.criado_em)) - horasInicio * 3600000
+    : NaN
+  const textoExtensao = (Number.isFinite(extensaoMs) && extensaoMs > 0)
+    ? `+${formatarDuracao(extensaoMs, { frente: 'obra' })}`
+    : ''
+
   return (
   <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
     <View style={estilos.acentoEsq} />
+
+    {/* Faixa de prazo — espelha a urgenciaBanner do reparo (mesma altura, tipografia e
+        borda), mas cinza fixo: obra não tem escala de urgência. */}
+    {temFaixa && (
+      <View style={estilos.faixaPrazoObra}>
+        <Text style={estilos.faixaPrazoTexto}>⚪ {labelJanela}</Text>
+        {!!textoExtensao && <Text style={estilos.faixaPrazoExtensao}>{textoExtensao}</Text>}
+      </View>
+    )}
 
     <View style={estilos.cardCorpo}>
       {/* Categoria à esquerda, prazo à direita, em flex row: por não serem mais
@@ -630,6 +666,11 @@ const estilos = StyleSheet.create({
   prazoTexto: { fontSize: 12, fontWeight: '700' },
   prazoTextoNormal: { color: '#FFC107' },
   prazoTextoUrgente: { color: '#FF6B6B' },
+  // Espelho exato da urgenciaBanner/urgenciaTexto/urgenciaHoras do reparo, com o cinza
+  // do ramo de menor urgência (#9e9e9e) fixado — obra não varia de cor.
+  faixaPrazoObra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 0.5, backgroundColor: '#2a2a2a', borderBottomColor: '#9e9e9e44' },
+  faixaPrazoTexto: { fontSize: 13, fontWeight: '700', color: '#9e9e9e' },
+  faixaPrazoExtensao: { fontSize: 11, fontWeight: '500', color: '#9e9e9e' },
 
   // Valor — label e número na mesma linha. O número caiu de 24px p/ 17px: abaixo
   // dos 18.66px o WCAG deixa de tratá-lo como "texto grande" (3:1) e passa a exigir
