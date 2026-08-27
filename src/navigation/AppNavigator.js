@@ -2,7 +2,7 @@ import 'react-native-gesture-handler'
 import React, { useRef, useEffect } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Image } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
-import { NavigationContainer } from '@react-navigation/native'
+import { NavigationContainer, useFocusEffect } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import * as Notifications from 'expo-notifications'
@@ -15,7 +15,7 @@ import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
-import SoftAskNotificacao from '../components/SoftAskNotificacao'
+import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
 import RetomadaMatchHost from '../components/RetomadaMatchHost'
 import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
 
@@ -479,8 +479,16 @@ function PagamentoPendenteScreen() {
 }
 
 function VerificacaoPendenteScreen() {
-  const { logout, revalidarSessao, assinatura } = useAuth()
+  const { logout, revalidarSessao, assinatura, usuario } = useAuth()
   const [verificando, setVerificando] = React.useState(false)
+
+  // Unico momento em que o prestador recem-cadastrado pode conceder notificacao antes de
+  // chegar ao feed (mesmo padrao de FeedReparosScreen.js:438). Passa ignorarFrequencia
+  // porque aqui o pedido nao pode ser silenciado pela contagem/intervalo: e a chance de
+  // gerar o push_token a tempo do aviso de aprovacao. Variante pela audiencia da tela.
+  useFocusEffect(React.useCallback(() => {
+    softAskRef.mostrar?.(usuario?.tipo_prestador === 'pintor' ? 'pintor' : 'reparador', { ignorarFrequencia: true })
+  }, [usuario?.tipo_prestador]))
   // Conta gratuita (janela de lançamento): a API marca assinatura.tipo === 'gratuito'.
   // Nesse caso a tela troca a copy de pagamento por "aguardando aprovação". Qualquer
   // outro tipo (pago, null ou ausente) mantém a copy original byte-idêntica.
