@@ -478,6 +478,12 @@ function PagamentoPendenteScreen() {
   )
 }
 
+// Guarda EM MEMORIA (nao persiste): o soft-ask da tela de aguardando-aprovacao aparece
+// no maximo uma vez por vida do processo. Zera sozinho no cold start — nada em
+// SecureStore/AsyncStorage. Nao substitui os portoes do proprio mostrar (Android,
+// permissao ao vivo, 'concedido' gravado); so evita reabrir a cada foco desta tela.
+let softAskAguardandoMostradoNaSessao = false
+
 function VerificacaoPendenteScreen() {
   const { logout, revalidarSessao, assinatura, usuario } = useAuth()
   const [verificando, setVerificando] = React.useState(false)
@@ -487,6 +493,8 @@ function VerificacaoPendenteScreen() {
   // porque aqui o pedido nao pode ser silenciado pela contagem/intervalo: e a chance de
   // gerar o push_token a tempo do aviso de aprovacao. Variante pela audiencia da tela.
   useFocusEffect(React.useCallback(() => {
+    if (softAskAguardandoMostradoNaSessao) return
+    softAskAguardandoMostradoNaSessao = true
     softAskRef.mostrar?.(usuario?.tipo_prestador === 'pintor' ? 'pintor' : 'reparador', { ignorarFrequencia: true })
   }, [usuario?.tipo_prestador]))
   // Conta gratuita (janela de lançamento): a API marca assinatura.tipo === 'gratuito'.
