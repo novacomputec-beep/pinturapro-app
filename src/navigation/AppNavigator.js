@@ -113,9 +113,13 @@ const navegarParaNotificacao = (data) => {
     switch (data.tipo) {
       // Feed
       case 'nova_obra':
-        navegar('Obras'); break
+        if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar('Obras')
+        break
       case 'novo_reparo':
-        navegar('Reparos'); break
+        if (data.reparo_id) navigationRef.current.navigate('Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else navegar('Reparos')
+        break
       // Mensagens
       case 'nova_mensagem':
         navegar('Mensagens'); break
