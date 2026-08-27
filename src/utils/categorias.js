@@ -49,6 +49,30 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
+// Lado CONSTRUÇÃO — os quatro slugs que a API aceita para pintor/construtor. Lista à
+// parte de CATEGORIAS_SERVICO (o lado doméstico, reparador) porque a API valida cada
+// especialidade contra a lista DO LADO: um slug doméstico salvo por um pintor volta 400.
+// Slugs idênticos aos da API — engenheiro, construtor, pedreiro_servente, pintor — e é
+// esse o contrato; rótulo e emoji são só apresentação. Sem 'outros' aqui: não existe do
+// lado da API.
+export const CATEGORIAS_CONSTRUCAO = ordenar([
+  { slug: 'engenheiro',        rotulo: 'Engenheiro',        emoji: '📐' },
+  { slug: 'construtor',        rotulo: 'Construtor',        emoji: '🏗️' },
+  { slug: 'pedreiro_servente', rotulo: 'Pedreiro/servente', emoji: '🧱' },
+  { slug: 'pintor',            rotulo: 'Pintor',            emoji: '🖌️' },
+])
+
+// Espelha o listaPorLado da API: 'pintura' devolve a construção, qualquer outra coisa
+// (inclusive null/undefined) cai no lado doméstico. É a MESMA regra de fallback da API,
+// que sem lado usa a lista do reparador — um dono que não deveria ver isto, ou um
+// tipo_prestador ausente, nunca causa erro, só recebe a lista mais permissiva.
+export const especialidadesPorLado = (lado) =>
+  lado === 'pintura' ? CATEGORIAS_CONSTRUCAO : CATEGORIAS_SERVICO
+
+// União dos dois lados, para os lookups de RÓTULO e a validação de normalização: nenhum
+// slug válido — de qualquer lado — pode ser descartado por vir "do outro".
+const TODAS_ESPECIALIDADES = [...CATEGORIAS_SERVICO, ...CATEGORIAS_CONSTRUCAO]
+
 export const CATEGORIAS_OBRA = ordenar([
   { slug: 'residencial',    rotulo: 'Residencial',    emoji: '🏠' },
   { slug: 'comercial',      rotulo: 'Comercial',      emoji: '🏢' },
@@ -122,13 +146,17 @@ export const normalizarEspecialidades = (valor) => {
   const bruto = Array.isArray(valor)
     ? valor
     : (typeof valor === 'string' ? valor.split(',') : [])
-  const validos = new Set(CATEGORIAS_SERVICO.map((c) => c.slug))
+  // Aceita slugs dos DOIS lados: um pintor selecionando construção não pode ter suas
+  // escolhas descartadas aqui antes de chegar à API. Lixo de fato (texto livre legado)
+  // segue caindo fora.
+  const validos = new Set(TODAS_ESPECIALIDADES.map((c) => c.slug))
   return [...new Set(bruto.map((s) => String(s).trim()).filter((s) => validos.has(s)))]
 }
 
 // Rótulo de um slug avulso, para as telas que mostram a seleção já feita.
 export const rotuloEspecialidade = (slug) => {
-  const c = CATEGORIAS_SERVICO.find((x) => x.slug === slug)
+  // Busca nos dois lados; slug desconhecido volta cru, como antes.
+  const c = TODAS_ESPECIALIDADES.find((x) => x.slug === slug)
   return c ? rotuloComEmoji(c) : slug
 }
 
@@ -145,6 +173,6 @@ export const rotuloEspecialidade = (slug) => {
 export const rotulosEspecialidades = (esp) => {
   const arr = Array.isArray(esp) ? esp : (typeof esp === 'string' ? esp.split(',') : [])
   const limpos = arr.map((s) => String(s).trim()).filter(Boolean)
-  const rotulos = limpos.map((s) => CATEGORIAS_SERVICO.find((c) => c.slug === s)?.rotulo || s)
+  const rotulos = limpos.map((s) => TODAS_ESPECIALIDADES.find((c) => c.slug === s)?.rotulo || s)
   return rotulos.length ? rotulos.join(', ') : null
 }
