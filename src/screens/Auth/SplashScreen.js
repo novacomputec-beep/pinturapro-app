@@ -229,7 +229,7 @@ export default function SplashScreen({ navigation }) {
           {/* Irmã da grade, e ainda dentro do MESMO TouchableOpacity: o bloco segue
               sendo um alvo de toque só, como as pills. Sem onPress próprio. */}
           <View style={estilos.vitrineObras}>
-            <Text style={estilos.vitrineObrasTexto} numberOfLines={2}>{VITRINE_OBRAS}</Text>
+            <Text style={estilos.vitrineObrasTexto} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8333}>{VITRINE_OBRAS}</Text>
           </View>
         </TouchableOpacity>
 
