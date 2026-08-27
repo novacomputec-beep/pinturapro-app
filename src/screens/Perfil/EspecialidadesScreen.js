@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario } from '../../components'
 import {
-  CATEGORIAS_SERVICO, MAX_ESPECIALIDADES,
+  especialidadesPorLado, MAX_ESPECIALIDADES,
   normalizarEspecialidades, rotuloComEmoji,
 } from '../../utils/categorias'
 import { cores, espacos, raios, alturas } from '../../utils/tema'
@@ -28,6 +28,11 @@ export default function EspecialidadesScreen({ navigation, route }) {
   )
   // Rota que abriu a tela; é para lá que o resultado volta.
   const origem = route.params?.origem
+  // Lado vem por PARÂMETRO, não por contexto: esta tela é apresentacional e os dois
+  // chamadores já sabem o lado (Cadastro pelo tipoConta, Perfil pelo tipo_prestador);
+  // além disso, no cadastro o usuário nem está logado, então AuthContext não teria o dado.
+  // Ausente cai na lista doméstica, o mesmo fallback da API.
+  const lista = especialidadesPorLado(route.params?.lado)
 
   const cheio = selecionadas.length >= MAX_ESPECIALIDADES
 
@@ -66,7 +71,7 @@ export default function EspecialidadesScreen({ navigation, route }) {
         <Text style={estilos.contador}>{selecionadas.length} de {MAX_ESPECIALIDADES} selecionadas</Text>
 
         <View style={estilos.grade}>
-          {CATEGORIAS_SERVICO.map((c) => {
+          {lista.map((c) => {
             const ativa = selecionadas.includes(c.slug)
             // Só as NÃO escolhidas apagam ao encher: as escolhidas seguem tocáveis para
             // a pessoa trocar uma pela outra sem ter que limpar tudo antes.

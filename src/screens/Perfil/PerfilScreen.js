@@ -409,7 +409,7 @@ export default function PerfilScreen({ navigation, route }) {
               <ItemAcao
                 titulo="🛠 Minhas especialidades"
                 estado={salvandoEsp ? 'Salvando...' : String(normalizarEspecialidades(dados?.especialidades).length)}
-                onPress={() => navigation.navigate('Especialidades', { selecionadas: normalizarEspecialidades(dados?.especialidades), origem: 'PerfilMain' })}
+                onPress={() => navigation.navigate('Especialidades', { selecionadas: normalizarEspecialidades(dados?.especialidades), lado: dados?.tipo_prestador === 'pintor' ? 'pintura' : 'reparo', origem: 'PerfilMain' })}
               />
               <Separador />
             </>

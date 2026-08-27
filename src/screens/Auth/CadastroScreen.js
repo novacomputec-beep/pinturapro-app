@@ -1108,7 +1108,7 @@ export default function CadastroScreen({ navigation, route }) {
                   <Text style={estilos.labelSecao}>ESPECIALIDADES (até {MAX_ESPECIALIDADES})</Text>
                   <TouchableOpacity
                     style={[estilos.campoEspecialidades, erros.especialidades && estilos.campoEspecialidadesErro]}
-                    onPress={() => navigation.navigate('Especialidades', { selecionadas: especialidades, origem: 'Cadastro' })}
+                    onPress={() => navigation.navigate('Especialidades', { selecionadas: especialidades, lado: tipoConta === 'pintor' ? 'pintura' : 'reparo', origem: 'Cadastro' })}
                     activeOpacity={0.7}
                   >
                     <Text style={especialidades.length ? estilos.campoEspTexto : estilos.campoEspPlaceholder}>
