@@ -229,7 +229,7 @@ export default function SplashScreen({ navigation }) {
           {/* Irmã da grade, e ainda dentro do MESMO TouchableOpacity: o bloco segue
               sendo um alvo de toque só, como as pills. Sem onPress próprio. */}
           <View style={estilos.vitrineObras}>
-            <Text style={estilos.vitrineObrasTexto} numberOfLines={2}>{VITRINE_OBRAS}</Text>
+            <Text style={estilos.vitrineObrasTexto} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8333}>{VITRINE_OBRAS}</Text>
           </View>
         </TouchableOpacity>
 
@@ -476,7 +476,7 @@ const estilos = StyleSheet.create({
   // aceitável (a faixa ocupa a largura toda e não tem coluna vizinha para desalinhar),
   // mas o texto cresceu e sem teto uma terceira linha em tela estreita empurraria o botão.
   vitrineObrasTexto: {
-    fontSize: 10,
+    fontSize: 12,
     color: cores.textoForte,
     textAlign: 'center',
   },
