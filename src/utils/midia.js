@@ -363,7 +363,14 @@ export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
         await comRetry(() => api.post(config.registerPath, {
           [config.idField]: demandaId, url: secureUrl, tipo: item.tipo, ordem,
         }), { timeout: true, servidor: true })
-        await apagarArquivoTemp(item.localUri, logPrefix)
+        // Upload+registro deste item concluídos: acende o "✓ Enviada" NA HORA, item a item,
+        // pelo MESMO mecanismo do efeito de streaming (setItens marca status 'enviada'); o
+        // painel recebe itens por prop e re-renderiza. Guardado por montadoRef.
+        if (montadoRef.current) setItens(prev => prev.map(i => i.id === item.id ? { ...i, status: 'enviada', progresso: 1, secureUrl, publicId } : i))
+        // Limpeza do temp NÃO é aguardada: não pode atrasar o alerta de sucesso nem o
+        // midias-prontas. Fire-and-forget e já engole a própria falha (apagarArquivoTemp
+        // tem try/catch interno) — some em 2º plano, sem erro para o usuário.
+        apagarArquivoTemp(item.localUri, logPrefix)
       } catch (err) {
         console.log(`${logPrefix} falha no upload/registro de mídia | ordem: ${ordem} | code: ${err.code} | msg: ${err.message}`)
         falhas.push({ ...item, ordem })
