@@ -3,7 +3,7 @@
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
   <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
   <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
   <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
@@ -11,18 +11,6 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-  <!-- Declaradas para NEGAR a obrigatoriedade, não para pedir hardware. O merge de manifesto
-       do Play INFERE estas features a partir das permissões CAMERA e ACCESS_FINE_LOCATION, e
-       o que é inferido entra como required="true" — o que apaga do catálogo todo aparelho sem
-       câmera, sem autofoco ou sem GPS, em silêncio e sem nada no manifesto que explique. Uma
-       declaração explícita vence a inferência, e o app segue instalável nesses aparelhos: as
-       fotos e a localização são opcionais no fluxo (o cadastro sobe mídia da galeria e o feed
-       filtra por cidade escolhida à mão), então nenhuma delas é motivo para excluir ninguém.
-       São QUATRO porque a localização é inferida por duas vias independentes: o GPS
-       (android.hardware.location.gps) vem de ACCESS_FINE_LOCATION, e a localização genérica
-       (android.hardware.location, que inclui a por rede) vem de ACCESS_COARSE_LOCATION.
-       Negar só a do GPS deixaria a segunda inferida como obrigatória e o aparelho sem
-       hardware de localização nenhum continuaria fora do catálogo. -->
   <uses-feature android:name="android.hardware.camera" android:required="false"/>
   <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
   <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
@@ -34,31 +22,19 @@
       <data android:scheme="https"/>
     </intent>
   </queries>
-  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme">
+  <application android:name=".MainApplication" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:allowBackup="true" android:theme="@style/AppTheme" android:supportsRtl="true" android:enableOnBackInvokedCallback="false" android:fullBackupContent="@xml/secure_store_backup_rules" android:dataExtractionRules="@xml/secure_store_data_extraction_rules">
+    <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notification_icon_color"/>
+    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/notification_icon"/>
+    <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notification_icon_color"/>
+    <meta-data android:name="expo.modules.notifications.default_notification_icon" android:resource="@drawable/notification_icon"/>
     <meta-data android:name="expo.modules.updates.ENABLED" android:value="false"/>
-    <meta-data android:name="expo.modules.updates.EXPO_SDK_VERSION" android:value="50.0.0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
-    <!-- Ícone monocromático da barra de status (silhueta branca sobre transparente). O par
-         expo.modules.notifications.* é o que ESTA app lê (as notificações são apresentadas pelo
-         expo-notifications); o par com.google.firebase.messaging.* cobre apresentação direta do
-         FCM. Ambos apontam para o MESMO drawable/cor, logo produzem um único resultado visual. -->
-    <meta-data android:name="expo.modules.notifications.default_notification_icon" android:resource="@drawable/ic_stat_pinturapro"/>
-    <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notificacao_cor"/>
-    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_pinturapro"/>
-    <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/notificacao_cor"/>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
-      <intent-filter>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.DEFAULT"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="com.pinturapro.app"/>
-      </intent-filter>
     </activity>
-    <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
   </application>
 </manifest>
