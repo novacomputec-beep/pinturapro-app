@@ -127,7 +127,7 @@ export default function EditarPerfilScreen({ navigation }) {
           try {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à sua galeria.'); return }
-            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 })
             // Mesma guarda do ramo da câmera acima, pela mesma razão.
             if (!result.canceled && result.assets?.length) processarFoto(result.assets[0].uri)
           } catch (err) { console.log('[EditarPerfil] falha ao abrir galeria | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a galeria.') }

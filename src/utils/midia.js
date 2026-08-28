@@ -103,7 +103,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
       if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
       const t0 = Date.now()
       const resultado = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 0.6,
         allowsEditing: false,
       })
@@ -122,10 +122,8 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
       await Audio.requestPermissionsAsync()
       const t0 = Date.now()
       const resultado = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: ['videos'],
         videoMaxDuration: 30,
-        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-        videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
         allowsEditing: false,
       })
       processarResultadoPicker(resultado, 'camera-video', t0)
@@ -142,7 +140,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
       if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
       const t0 = Date.now()
       const resultado = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: true,
         quality: 0.6,
         videoMaxDuration: 30,
