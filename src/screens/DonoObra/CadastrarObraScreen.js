@@ -30,6 +30,15 @@ const PRAZOS = [
   { id: 'data', label: '📅 Defina a data', desc: 'Escolha uma data' },
 ]
 
+// Linhas de três, como na SplashScreen: agrupa em <View>s de linha para as pills usarem
+// flex: 1 e fecharem a largura exata (borda direita alinhada ao input). flex: 1 sozinho,
+// sob flexWrap, colapsaria os 9 itens numa linha só — o agrupamento é parte do padrão.
+const emLinhasDeTres = (itens) => {
+  const linhas = []
+  for (let i = 0; i < itens.length; i += 3) linhas.push(itens.slice(i, i + 3))
+  return linhas
+}
+
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
 const gerarRequestId = () =>
   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -410,20 +419,28 @@ export default function CadastrarObraScreen({ navigation }) {
           <Input label="TÍTULO DA OBRA" placeholder="Ex: Pintura interna residência 3 quartos" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
-            {CATEGORIAS.map(c => (
-              <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => setCategoria(c.id)}>
-                <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
-              </TouchableOpacity>
+            {emLinhasDeTres(CATEGORIAS).map((linha, i) => (
+              <View key={i} style={estilos.pillLinha}>
+                {linha.map(c => (
+                  <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => setCategoria(c.id)}>
+                    <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             ))}
           </View>
           <Text style={estilos.labelCategoria}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
           {erros.prazo && <Text style={estilos.erroTexto}>{erros.prazo}</Text>}
           <View style={estilos.urgenciasGrid}>
-            {PRAZOS.map(p => (
-              <TouchableOpacity key={p.id} style={[estilos.urgenciaCard, prazo === p.id && estilos.urgenciaCardAtivo]} onPress={() => setPrazo(p.id)}>
-                <Text style={estilos.urgenciaLabel}>{p.label}</Text>
-                <Text style={estilos.urgenciaDesc}>{p.desc}</Text>
-              </TouchableOpacity>
+            {emLinhasDeTres(PRAZOS).map((linha, i) => (
+              <View key={i} style={estilos.pillLinha}>
+                {linha.map(p => (
+                  <TouchableOpacity key={p.id} style={[estilos.urgenciaCard, prazo === p.id && estilos.urgenciaCardAtivo]} onPress={() => setPrazo(p.id)}>
+                    <Text style={estilos.urgenciaLabel}>{p.label}</Text>
+                    <Text style={estilos.urgenciaDesc}>{p.desc}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             ))}
           </View>
           {prazo === 'data' && (
@@ -534,13 +551,14 @@ const estilos = StyleSheet.create({
   tituloBordaAzul: { borderColor: cores.info, borderWidth: 1.5 },
   labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
-  categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  categoriasRow: { gap: 8, marginBottom: 16 },
+  pillLinha: { flexDirection: 'row', gap: 8 },
+  categoriaPill: { flex: 1, alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  urgenciaCard: { width: '31%', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
+  urgenciasGrid: { gap: 8, marginBottom: 16 },
+  urgenciaCard: { flex: 1, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
   urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
   urgenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
   urgenciaDesc: { fontSize: 11, color: cores.textoFraco, textAlign: 'center' },
