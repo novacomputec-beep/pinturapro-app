@@ -26,8 +26,8 @@ const PRAZOS = [
   { id: 168,  label: '📆 Esta semana',    desc: 'Início esta semana'   },
   { id: 720,  label: '🗓️ Este mês',        desc: 'Início este mês'      },
   { id: 1440, label: '📋 Mês que vem',    desc: 'Início mês que vem'   },
-  { id: 2160, label: '⏳ Mais de um mês', desc: 'Sem urgência'         },
-  { id: 'data', label: '📅 Defina a data inicial', desc: 'Escolha uma data específica' },
+  { id: 2160, label: '⏳ Mais de 1 mês', desc: 'Sem urgência'         },
+  { id: 'data', label: '📅 Defina a data', desc: 'Escolha uma data' },
 ]
 
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
@@ -535,14 +535,14 @@ const estilos = StyleSheet.create({
   labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
   categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  categoriaPill: { width: '48%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  urgenciaCard: { width: '48%', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
+  urgenciaCard: { width: '31%', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
   urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
-  urgenciaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
+  urgenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
   urgenciaDesc: { fontSize: 11, color: cores.textoFraco, textAlign: 'center' },
   cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },

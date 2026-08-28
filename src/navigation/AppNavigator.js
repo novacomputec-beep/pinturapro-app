@@ -285,7 +285,7 @@ const navegarParaNotificacao = (data) => {
 // Serve as quatro tab bars do app (pintor, prestador, dono de reparo, dono de obra) —
 // todas passam por aqui, então a foto entra nas quatro de uma vez.
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🖌️', 'Minhas Obras': '📋' }
+  const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🏗️', 'Minhas Obras': '📋' }
   const { usuario } = useAuth()
   // Rede de segurança da foto, como nos cards do feed: a URL pode não renderizar (link
   // quebrado, mídia removida, transformação recusada). Sem isto sobraria um círculo vazio.
