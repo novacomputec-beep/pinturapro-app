@@ -292,6 +292,10 @@ export default function CadastrarReparoScreen({ navigation }) {
         ponto_referencia: pontoReferencia.trim() || null,
         latitude: geo.lat,
         longitude: geo.lng,
+        // tera_midias: o servidor segura o push do novo serviço enquanto for true e só empurra
+        // quando /reparos/:id/midias-prontas chega. True SÓ se o dono escolheu ao menos uma mídia
+        // (midia.itens.length), senão false = push imediato, comportamento de sempre.
+        tera_midias: midia.itens.length > 0,
         client_request_id: clientRequestIdRef.current,
       }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)

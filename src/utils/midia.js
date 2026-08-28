@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Alert, AppState, Keyboard } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { Audio } from 'expo-av'
@@ -171,8 +171,8 @@ export const USAR_UPLOAD_STREAMING = false
 // Config por vertical: ÚNICO ponto de divergência obra × reparo na camada de
 // mídia. Ambos os endpoints de registro já são idempotentes por (id, ordem).
 const CONFIG_MIDIA = {
-  obra:   { idField: 'obra_id',   registerPath: '/upload/obra-url'   },
-  reparo: { idField: 'reparo_id', registerPath: '/upload/reparo-url' },
+  obra:   { idField: 'obra_id',   registerPath: '/upload/obra-url',   prontasPath: (id) => `/obras/${id}/midias-prontas`   },
+  reparo: { idField: 'reparo_id', registerPath: '/upload/reparo-url', prontasPath: (id) => `/reparos/${id}/midias-prontas` },
 }
 
 // ── Caminho ANTIGO (direto ao Cloudinary) — MOVIDO VERBATIM das telas ────────
@@ -290,6 +290,12 @@ const gerarIdMidia = () =>
 export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
   const config = CONFIG_MIDIA[vertical]
   const [itens, setItens] = useState([])
+  // Aviso "mídias prontas" dispara UMA vez por demanda: o servidor segura o push da nova
+  // demanda enquanto tera_midias=true e só empurra quando este endpoint chega. A primeira
+  // passada de publicarMidias já tentou TODOS os arquivos (o último inclusive), então é ali
+  // que avisamos; retries de falha não reavisam. Idempotente no servidor, mas a trava evita
+  // a chamada extra.
+  const prontasAvisadasRef = useRef(false)
 
   const adicionar = useCallback((entrada) => {
     const assets = typeof entrada === 'function' ? entrada([]) : entrada
@@ -363,8 +369,16 @@ export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
         falhas.push({ ...item, ordem })
       }
     }
+    // Último arquivo já processado (sucesso ou falha): avisa o servidor, uma vez. Fire-and-
+    // forget — NÃO bloqueia a UI e o erro é engolido (a rede de segurança de 10min do
+    // servidor cobre). Pula se a tela foi abandonada (montadoRef falso) e se já avisou.
+    if (!prontasAvisadasRef.current && montadoRef.current) {
+      prontasAvisadasRef.current = true
+      comRetry(() => api.post(config.prontasPath(demandaId), {}), { timeout: true, servidor: true })
+        .catch(err => console.log(`${logPrefix} midias-prontas falhou (rede de segurança de 10min do servidor cobre) | code: ${err.code} | msg: ${err.message}`))
+    }
     return falhas
-  }, [itens, config, logPrefix])
+  }, [itens, config, logPrefix, montadoRef])
 
   return { itens, adicionar, remover, reenviar, resetar, algumEnviando, publicarMidias }
 }
