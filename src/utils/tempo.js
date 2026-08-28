@@ -57,6 +57,7 @@ const ANO    = 360 * DIA
 
 const FRENTES = ['servico', 'obra']
 const ARREDONDAMENTOS = ['baixo', 'cima']
+const UNIDADES_MINIMAS = ['minuto', 'hora']
 
 // Rótulo de uma unidade já com a regra de número. Fica numa tabela e não em ifs
 // espalhados para a regra "hora por extenso só no singular" existir num lugar só.
@@ -81,7 +82,7 @@ const juntar = (partes) => {
 // Decompõe a duração nas unidades da frente. Trabalha em MINUTOS inteiros (floor por
 // padrão, ceil com 'cima') para o segundo nunca influenciar: um prazo não se decide no
 // segundo, e "59min 59s" é 59min, não 1 hora — salvo quando se pede o teto.
-const decompor = (ms, frente, arredondar) => {
+const decompor = (ms, frente, arredondar, unidadeMinima) => {
   const totalMin = arredondar === 'cima' ? Math.ceil(ms / MINUTO) : Math.floor(ms / MINUTO)
   const partes = []
   let restoMin = totalMin
@@ -93,14 +94,17 @@ const decompor = (ms, frente, arredondar) => {
   }
   const dias = Math.floor(restoMin / (DIA / MINUTO));    restoMin -= dias * (DIA / MINUTO)
   const horas = Math.floor(restoMin / (HORA / MINUTO));  restoMin -= horas * (HORA / MINUTO)
-  partes.push(['dia', dias], ['hora', horas], ['minuto', restoMin])
+  partes.push(['dia', dias], ['hora', horas])
+  // unidadeMinima 'hora' descarta o minuto (o resto ja foi truncado): lado obra nunca
+  // mostra minuto. Default 'minuto' empurra normalmente, entao o servico nao muda.
+  if (unidadeMinima !== 'hora') partes.push(['minuto', restoMin])
   return partes
 }
 
 // Duração em milissegundos → texto. `frente` é obrigatória e validada: um chamador que
 // esquecesse a opção cairia em silêncio na frente errada e a divergência voltaria pela
 // porta dos fundos.
-export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'baixo', agrupar = true } = {}) => {
+export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'baixo', agrupar = true, unidadeMinima = 'minuto' } = {}) => {
   if (!FRENTES.includes(frente)) {
     throw new Error(`formatarDuracao: frente inválida "${frente}" (use 'servico' ou 'obra')`)
   }
@@ -110,19 +114,23 @@ export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'bai
   if (typeof agrupar !== 'boolean') {
     throw new Error(`formatarDuracao: agrupar inválido "${agrupar}" (use true ou false)`)
   }
+  if (!UNIDADES_MINIMAS.includes(unidadeMinima)) {
+    throw new Error(`formatarDuracao: unidadeMinima inválida "${unidadeMinima}" (use 'minuto' ou 'hora')`)
+  }
   // Inteiro ≥ 1; qualquer outra coisa é erro de chamada, não um pedido de "zero unidades".
   if (!Number.isInteger(maxUnidades) || maxUnidades < 1) {
     throw new Error(`formatarDuracao: maxUnidades inválido "${maxUnidades}" (inteiro ≥ 1)`)
   }
   const n = Number(ms)
   if (!Number.isFinite(n) || n <= 0) return 'expirado'
+  if (unidadeMinima === 'hora' && n < HORA && arredondar !== 'cima') return 'menos de 1 hora'
   if (n < MINUTO && arredondar !== 'cima') return 'menos de 1 min'
   if (!agrupar) {
     const totalMin = arredondar === 'cima' ? Math.ceil(n / MINUTO) : Math.floor(n / MINUTO)
     return rotulo('minuto', totalMin)
   }
 
-  const naoZeradas = decompor(n, frente, arredondar)
+  const naoZeradas = decompor(n, frente, arredondar, unidadeMinima)
     .filter(([, valor]) => valor > 0)
     .slice(0, maxUnidades)
     .map(([unidade, valor]) => rotulo(unidade, valor))
