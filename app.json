@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ProLar",
+    "name": "ProTudo",
     "slug": "pinturapro",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -48,7 +48,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png"
+          "icon": "./assets/notification-icon.png",
+          "color": "#E8833A"
         }
       ],
       [
@@ -63,10 +64,8 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.24",
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
-            "buildToolsVersion": "34.0.0"
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
           }
         }
       ]
