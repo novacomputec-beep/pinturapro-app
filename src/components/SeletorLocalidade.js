@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import {
-  View, Text, TouchableOpacity, Modal,
+  View, Text, TouchableOpacity, Modal, KeyboardAvoidingView,
   FlatList, ActivityIndicator, StyleSheet, TextInput,
 } from 'react-native'
 import { cores, raios, espacos } from '../utils/tema'
@@ -108,6 +108,13 @@ export default function SeletorLocalidade({
         animationType="slide"
         onRequestClose={() => { setModalAberto(null); setBusca('') }}
       >
+        {/* KeyboardAvoidingView DENTRO do Modal: o do CadastroScreen fica fora dele e não
+            alcança a folha. Com edge-to-edge (SDK 54, targetSdk 36) o adjustResize do
+            manifesto não encolhe mais a janela para o teclado no Android 15+, então a folha
+            ancorada embaixo ficava atrás do teclado. 'padding' nos dois sistemas: empurra
+            a folha para cima da altura do teclado; maxHeight 75% passa a valer sobre o
+            espaço restante. */}
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <View style={estilos.overlay}>
           <TouchableOpacity style={{ flex: 1 }} onPress={() => { setModalAberto(null); setBusca('') }} activeOpacity={1} />
           <View style={estilos.sheet}>
@@ -152,6 +159,7 @@ export default function SeletorLocalidade({
             />
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   )
