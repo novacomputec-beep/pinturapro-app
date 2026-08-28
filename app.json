@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "ProLar",
+    "name": "ProTudo",
     "slug": "pinturapro",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -40,7 +40,8 @@
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.POST_NOTIFICATIONS"
-      ]
+      ],
+      "versionCode": 147
     },
     "plugins": [
       "expo-location",
@@ -48,7 +49,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png"
+          "icon": "./assets/notification-icon.png",
+          "color": "#E8833A"
         }
       ],
       [
@@ -63,13 +65,12 @@
         "expo-build-properties",
         {
           "android": {
-            "kotlinVersion": "1.9.24",
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
-            "buildToolsVersion": "34.0.0"
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
           }
         }
-      ]
+      ],
+      "./plugins/withProTudoNative.js"
     ],
     "extra": {
       "eas": {

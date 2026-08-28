@@ -457,7 +457,7 @@ export default function CadastroScreen({ navigation, route }) {
               return
             }
             lancar('galeria', () => ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              mediaTypes: ['images'],
               allowsEditing: true,
               quality: 0.6,
               maxWidth: 1200,

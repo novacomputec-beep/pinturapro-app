@@ -1,8 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Alert, AppState, Keyboard } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { Audio } from 'expo-av'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import * as SecureStore from 'expo-secure-store'
 import api from '../services/api'
 import { comRetry } from './rede'
@@ -103,7 +102,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
       if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
       const t0 = Date.now()
       const resultado = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         quality: 0.6,
         allowsEditing: false,
       })
@@ -119,13 +118,14 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync()
       if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-      await Audio.requestPermissionsAsync()
+      // Sem pedido de microfone: o expo-av saiu (Audio.requestPermissionsAsync ficava aqui). O
+      // expo-image-picker só pede CAMERA (ImagePickerModule.kt) e grava vídeo pelo app de câmera do
+      // sistema (ACTION_VIDEO_CAPTURE), que usa a própria permissão de áudio — o app não precisa de
+      // RECORD_AUDIO para isso. A permissão que o picker exige é a de câmera, pedida logo acima.
       const t0 = Date.now()
       const resultado = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: ['videos'],
         videoMaxDuration: 30,
-        videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
-        videoExportPreset: ImagePicker.VideoExportPreset.MediumQuality,
         allowsEditing: false,
       })
       processarResultadoPicker(resultado, 'camera-video', t0)
@@ -142,7 +142,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
       if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
       const t0 = Date.now()
       const resultado = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: true,
         quality: 0.6,
         videoMaxDuration: 30,

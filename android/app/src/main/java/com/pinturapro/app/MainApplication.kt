@@ -1,21 +1,18 @@
 package com.pinturapro.app
+import com.facebook.react.modules.network.OkHttpClientProvider
 
 import android.app.Application
 import android.content.res.Configuration
-import androidx.annotation.NonNull
 
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
+import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
 import com.facebook.react.ReactHost
-import com.facebook.react.config.ReactFeatureFlags
-import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
-import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.facebook.react.common.ReleaseLevel
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint
 import com.facebook.react.defaults.DefaultReactNativeHost
-import com.facebook.react.flipper.ReactNativeFlipper
-import com.facebook.react.modules.network.OkHttpClientProvider
-import com.facebook.soloader.SoLoader
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
@@ -23,47 +20,39 @@ import expo.modules.ReactNativeHostWrapper
 class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost = ReactNativeHostWrapper(
-        this,
-        object : DefaultReactNativeHost(this) {
-          override fun getPackages(): List<ReactPackage> {
-            // Packages that cannot be autolinked yet can be added manually here, for example:
-            // packages.add(new MyReactNativePackage());
-            return PackageList(this).packages
-          }
+      this,
+      object : DefaultReactNativeHost(this) {
+        override fun getPackages(): List<ReactPackage> =
+            PackageList(this).packages.apply {
+              // Packages that cannot be autolinked yet can be added manually here, for example:
+              // add(MyReactNativePackage())
+            }
 
           override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
 
           override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
 
           override val isNewArchEnabled: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
-          override val isHermesEnabled: Boolean = BuildConfig.IS_HERMES_ENABLED
       }
   )
 
   override val reactHost: ReactHost
-    get() = getDefaultReactHost(this.applicationContext, reactNativeHost)
+    get() = ReactNativeHostWrapper.createReactHost(applicationContext, reactNativeHost)
 
   override fun onCreate() {
     super.onCreate()
-    // AQUI, e não mais tarde. O OkHttpClientProvider guarda a fábrica num campo estático e
-    // cria o cliente por demanda: quem pedir o cliente ANTES deste ponto recebe o padrão do
-    // RN, sem erro nenhum — a fábrica seria ignorada em silêncio. Os dois que pedem são
-    // módulos nativos (NetworkingModule e FrescoModule), construídos junto com o
-    // ReactInstanceManager a partir da MainActivity, ou seja, sempre DEPOIS do onCreate da
-    // Application. Antes daqui só rodam ContentProviders (o FirebaseInitProvider do
-    // google-services), que têm transporte próprio e não passam por este cliente.
+// @generated begin protudo-okhttp-factory - expo prebuild (DO NOT MODIFY) sync-823096641c3864d082843ae62e1b3eb09288d159
+    // AQUI, e não mais tarde: o OkHttpClientProvider guarda a fábrica num campo estático e
+    // quem pedir o cliente antes deste ponto (NetworkingModule, FrescoModule) recebe o
+    // padrão do RN em silêncio. Ver native-overrides/java/.../PinturaProOkHttpFactory.kt.
     OkHttpClientProvider.setOkHttpClientFactory(PinturaProOkHttpFactory(this))
-    SoLoader.init(this, false)
-    if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
-      ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false
+// @generated end protudo-okhttp-factory
+    DefaultNewArchitectureEntryPoint.releaseLevel = try {
+      ReleaseLevel.valueOf(BuildConfig.REACT_NATIVE_RELEASE_LEVEL.uppercase())
+    } catch (e: IllegalArgumentException) {
+      ReleaseLevel.STABLE
     }
-    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
-      // If you opted-in for the New Architecture, we load the native entry point for this app.
-      load()
-    }
-    if (BuildConfig.DEBUG) {
-      ReactNativeFlipper.initializeFlipper(this, reactNativeHost.reactInstanceManager)
-    }
+    loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }
 
