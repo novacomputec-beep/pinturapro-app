@@ -45,7 +45,12 @@
     "plugins": [
       "expo-location",
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png"
+        }
+      ],
       [
         "expo-image-picker",
         {
