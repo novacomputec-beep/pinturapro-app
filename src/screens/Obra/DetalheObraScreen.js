@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'react-native'
-import { Video, ResizeMode } from 'expo-av'
+import { VideoView, useVideoPlayer } from 'expo-video'
 import api, { obrasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
@@ -247,6 +247,16 @@ const RelogioRegressivo = ({ expiraEm, onExpirar }) => {
       {!expirou && <Text style={[estilos.relogioTempo, urgente && { color: '#f44336' }]}>{tempo}</Text>}
     </View>
   )
+}
+
+
+// Player do modal de vídeo. Componente próprio porque useVideoPlayer é um hook e o
+// player só existe enquanto o modal está aberto: montar/desmontar este componente
+// cria e libera o player junto com o modal. Equivale ao <Video useNativeControls
+// resizeMode="contain" shouldPlay> do expo-av que ele substitui.
+function PlayerFullscreen({ uri }) {
+  const player = useVideoPlayer(uri, (p) => { p.play() })
+  return <VideoView player={player} style={{ width: '100%', height: '50%' }} nativeControls contentFit="contain" />
 }
 
 export default function DetalheObraScreen({ route, navigation }) {
@@ -1213,16 +1223,10 @@ export default function DetalheObraScreen({ route, navigation }) {
             <Text style={{ color: 'white', fontSize: 22, fontWeight: '900' }}>✕</Text>
           </TouchableOpacity>
           {videoFullscreen && (
-            <Video
-              /* videoOtimizado, e não a URL crua: este player é o único lugar que baixa
-                 o vídeo inteiro. O estado guarda a URL ORIGINAL de propósito — a
-                 transformação é de entrega, aplicada na leitura, e nada a persiste. */
-              source={{ uri: videoOtimizado(videoFullscreen) }}
-              style={{ width: '100%', height: '50%' }}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay
-            />
+            /* videoOtimizado, e não a URL crua: este player é o único lugar que baixa
+               o vídeo inteiro. O estado guarda a URL ORIGINAL de propósito — a
+               transformação é de entrega, aplicada na leitura, e nada a persiste. */
+            <PlayerFullscreen uri={videoOtimizado(videoFullscreen)} />
           )}
         </View>
       </Modal>
