@@ -68,7 +68,8 @@
             "targetSdkVersion": 36
           }
         }
-      ]
+      ],
+      "./plugins/withProTudoNative.js"
     ],
     "extra": {
       "eas": {
