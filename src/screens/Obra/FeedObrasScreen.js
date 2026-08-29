@@ -66,7 +66,7 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   // decide. Abaixo de um dia, duas: "1 hora" para 1h58 escondia quase uma hora inteira, e
   // nessa faixa a hora seguinte muda a decisão. Truncado, nunca arredondado — 6 dias e 20h
   // é 6 dias, 1h58 é "1 hora e 58min". As três unidades ficam para o detalhe.
-  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra', maxUnidades: 2, unidadeMinima: 'hora' })}`
+  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra', maxUnidades: 3, unidadeMinima: 'hora' })}`
   // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
   // sob sol forte, não recebe sinal nenhum de um pill só colorido. Aqui isso é ainda
   // mais crítico que no reparo — a obra não tem banner de urgência, então o pill é o
@@ -119,9 +119,9 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const extHoras = item.total_extensao_horas == null ? NaN : Number(item.total_extensao_horas)
   const temExtensao = Number.isFinite(extHoras) && extHoras > 0
   const labelJanela = temExtensao
-    ? `Iniciar em ${formatarDuracao((horasInicio + extHoras) * 3600000, { frente: 'obra' })}`
+    ? `Iniciar em ${formatarDuracao((horasInicio + extHoras) * 3600000, { frente: 'obra', maxUnidades: 2 })}`
     : (JANELA_INICIO_OBRA[horasInicio]
-      || `Iniciar em ${formatarDuracao(horasInicio * 3600000, { frente: 'obra' })}`)
+      || `Iniciar em ${formatarDuracao(horasInicio * 3600000, { frente: 'obra', maxUnidades: 2 })}`)
 
   return (
   <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>

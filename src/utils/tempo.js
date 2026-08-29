@@ -142,8 +142,8 @@ export const formatarDuracao = (ms, { frente, maxUnidades = 3, arredondar = 'bai
 // régua do reparo, para "168h" virar "7 dias" como o pill ao lado já diz.
 // Valor ausente/não numérico devolve null: quem chama decide o que mostrar, em vez de
 // este arquivo inventar um prazo ("expirado" seria mentira para um campo vazio).
-export const formatarPrazoAtendimento = (horas) => {
+export const formatarPrazoAtendimento = (horas, opcoes = {}) => {
   const h = Number(horas)
   if (horas == null || horas === '' || !Number.isFinite(h)) return null
-  return formatarDuracao(h * HORA, { frente: 'servico' })
+  return formatarDuracao(h * HORA, { frente: 'servico', ...opcoes })
 }

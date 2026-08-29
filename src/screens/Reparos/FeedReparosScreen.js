@@ -77,7 +77,7 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   // decide. Abaixo de um dia, duas: "1 hora" para 1h58 escondia quase uma hora inteira, e
   // nessa faixa a hora seguinte muda a decisão. Truncado, nunca arredondado — 6 dias e 20h
   // é 6 dias, 1h58 é "1 hora e 58min". As três unidades ficam para o detalhe.
-  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'servico', maxUnidades: 2 })}`
+  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'servico', maxUnidades: 3 })}`
   // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
   // sob sol forte, não recebe sinal nenhum de um pill só colorido. O banner de
   // urgência é exclusivo do reparo, então a palavra vai no próprio pill — assim os
@@ -116,8 +116,8 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
   const extHoras = item.total_extensao_horas == null ? NaN : Number(item.total_extensao_horas)
   const temExtensao = Number.isFinite(extHoras) && extHoras > 0 && Number.isFinite(prazoHoras)
   const textoAtender = temExtensao
-    ? formatarDuracao((prazoHoras + extHoras) * 3600000, { frente: 'servico' })
-    : (formatarPrazoAtendimento(item.prazo_atendimento_horas) ?? `${item.prazo_atendimento_horas}h`)
+    ? formatarDuracao((prazoHoras + extHoras) * 3600000, { frente: 'servico', maxUnidades: 2 })
+    : (formatarPrazoAtendimento(item.prazo_atendimento_horas, { maxUnidades: 2 }) ?? `${item.prazo_atendimento_horas}h`)
 
   return (
     <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
