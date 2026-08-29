@@ -1,7 +1,7 @@
 import React from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { cores, espacos } from '../../utils/tema'
+import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 const SECOES = [
   {
@@ -49,7 +49,7 @@ export default function TermosScreen({ navigation }) {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={estilos.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
         <Text style={estilos.atualizadoEm}>Atualizado em Janeiro de 2025</Text>
 
         {SECOES.map((s, i) => (

@@ -6,7 +6,7 @@ import {
   especialidadesPorLado, MAX_ESPECIALIDADES,
   normalizarEspecialidades, rotuloComEmoji,
 } from '../../utils/categorias'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 // Seleção das especialidades do prestador — de 1 a MAX_ESPECIALIDADES categorias da
 // lista fechada de CATEGORIAS_SERVICO. Substitui o campo de texto livre do cadastro,
@@ -59,7 +59,7 @@ export default function EspecialidadesScreen({ navigation, route }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <ScrollView contentContainerStyle={estilos.scroll}>
+      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]}>
         {/* Voltar comum: sai SEM devolver params, então o chamador mantém o que tinha. */}
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>

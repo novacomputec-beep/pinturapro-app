@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 
 export default function EsqueciSenhaScreen({ navigation }) {
   const [email, setEmail] = useState('')
@@ -35,7 +35,7 @@ export default function EsqueciSenhaScreen({ navigation }) {
   if (enviado) {
     return (
       <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
-        <ScrollView contentContainerStyle={[estilos.scroll, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}>
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima, { alignItems: 'center', justifyContent: 'center', flex: 1 }]}>
           <Text style={{ fontSize: 56, marginBottom: 20 }}>📧</Text>
           <Text style={estilos.titulo}>Verifique{'\n'}seu e-mail</Text>
           <Text style={[estilos.subtitulo, { textAlign: 'center' }]}>
@@ -57,7 +57,7 @@ export default function EsqueciSenhaScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>

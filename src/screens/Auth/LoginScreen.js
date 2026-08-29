@@ -8,7 +8,7 @@ import * as SecureStore from 'expo-secure-store'
 import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import api from '../../services/api'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 
 export default function LoginScreen({ navigation }) {
@@ -85,7 +85,7 @@ export default function LoginScreen({ navigation }) {
   if (linkPagamento) {
     return (
       <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
-        <ScrollView contentContainerStyle={[estilos.scroll, { alignItems: 'center', paddingTop: 60 }]}>
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima, { alignItems: 'center', paddingTop: 60 }]}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
           <Text style={[estilos.titulo, { textAlign: 'center' }]}>Pagamento pendente</Text>
           <Text style={[estilos.subtitulo, { textAlign: 'center', marginBottom: 32 }]}>
@@ -110,7 +110,7 @@ export default function LoginScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           <TouchableOpacity style={estilos.voltarBtn} onPress={() => navigation.goBack()}>
             <Text style={estilos.voltarIcone}>←</Text>

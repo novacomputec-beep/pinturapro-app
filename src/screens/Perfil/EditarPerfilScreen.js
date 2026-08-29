@@ -11,7 +11,7 @@ import { authService } from '../../services/api'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
 
 // Sobe a foto direto ao Cloudinary com retry resiliente e SILENCIOSO.
@@ -170,7 +170,7 @@ export default function EditarPerfilScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
