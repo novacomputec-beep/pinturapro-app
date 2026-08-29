@@ -15,7 +15,7 @@ import { recuperarMidiasPendentes } from '../../utils/midia'
 import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
 
@@ -942,7 +942,7 @@ export default function CadastroScreen({ navigation, route }) {
   if (passo === 0) {
     return (
       <SafeAreaView style={estilos.container}>
-        <ScrollView contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]}>
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima, { paddingTop: insets.top + 8 }]}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Splash')}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
@@ -1020,7 +1020,7 @@ export default function CadastroScreen({ navigation, route }) {
   return (
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>

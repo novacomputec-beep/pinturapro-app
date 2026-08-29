@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input } from '../../components'
 import api from '../../services/api'
-import { cores, espacos, alturas } from '../../utils/tema'
+import { cores, espacos, alturas, larguraMaxima } from '../../utils/tema'
 import { comRetry } from '../../utils/rede'
 
 // Teto do texto. O mesmo número vai no maxLength do campo e no contador, para que o
@@ -54,7 +54,7 @@ export default function SugestoesScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled">
           <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>

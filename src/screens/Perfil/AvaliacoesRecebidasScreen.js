@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 // Estrelas somente-leitura. Reproduz a MESMA renderização visual do ModalAvaliacao
 // (glifos ★/☆, laranja da marca), porque o modal não expõe as estrelas isoladamente e
@@ -142,7 +142,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
         // fazer e sem chaves a extrair. O RefreshControl segue igual — é ele que mantém o
         // puxar-para-atualizar que a lista trazia.
         <ScrollView
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, larguraMaxima]}
           refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
           showsVerticalScrollIndicator={false}
         >

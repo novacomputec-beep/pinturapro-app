@@ -8,7 +8,7 @@ import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useFocusEffect } from '@react-navigation/native'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
@@ -395,7 +395,7 @@ export default function CadastrarObraScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém
               esta rota (index 0) e não existe "voltar" — por isso a seta nem é renderizada.
               No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a mesma tela é

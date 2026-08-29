@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ScrollView, PixelRatio } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
-import { cores, espacos, raios } from '../../utils/tema'
+import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import api from '../../services/api'
 import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 
@@ -113,7 +113,7 @@ export default function SplashScreen({ navigation }) {
           folga antes, e não sobra nada para ele distribuir —, mas continua ali porque é o
           padrão da LoginScreen (:83) e porque voltaria a valer se os espaçadores saíssem.
           O SafeAreaView segue por fora, então as bordas seguras não rolam junto. */}
-      <ScrollView contentContainerStyle={estilos.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
 
         {/* Logo */}
         <View style={estilos.logoArea}>

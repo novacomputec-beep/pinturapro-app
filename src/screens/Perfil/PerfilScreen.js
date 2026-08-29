@@ -13,7 +13,7 @@ import { mascararTelefone } from '../../utils/telefone'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
@@ -298,7 +298,7 @@ export default function PerfilScreen({ navigation, route }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={larguraMaxima} showsVerticalScrollIndicator={false}>
 
         <View style={estilos.header}>
           {ehDonoReparo && (

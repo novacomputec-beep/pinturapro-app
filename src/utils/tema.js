@@ -83,3 +83,10 @@ export const sombra = {
   shadowRadius: 8,
   elevation: 4,
 }
+
+// Teto de largura para tablet: em telas de 10" o conteúdo de formulário/detalhe
+// deixaria de ocupar a tela inteira e passa a centrar numa coluna de 520px. Entra
+// como item extra no contentContainerStyle do ScrollView de topo; width: '100%'
+// mantém o comportamento atual no celular (nunca é mais estreito que a tela).
+export const LARGURA_MAXIMA = 520
+export const larguraMaxima = { width: '100%', maxWidth: LARGURA_MAXIMA, alignSelf: 'center' }

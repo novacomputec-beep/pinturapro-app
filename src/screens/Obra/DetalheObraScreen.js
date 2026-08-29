@@ -15,7 +15,7 @@ import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
@@ -1300,7 +1300,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       </Modal>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={estilos.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
           {/* !encerrada: o rótulo ("📅 Hoje") descreve o prazo CONFIGURADO, não o tempo que
