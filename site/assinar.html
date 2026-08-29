@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Assinatura — ProTudo</title>
+<link rel="icon" href="../logo.png">
+<style>
+:root{
+  --bg:#0F0F10;
+  --card:#17171A;
+  --linha:#2E2E33;
+  --texto:#EDEDEB;
+  --texto2:#A8A8A4;
+  --texto3:#7C7C78;
+  --azul:#4FB2FF;
+  --laranja:#E8833A;
+  --verde:#4FBF7F;
+  --amarelo:#E5B65C;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--texto);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  padding:24px 16px;
+}
+.caixa{width:100%;max-width:420px}
+.topo{text-align:center;margin-bottom:26px}
+.topo img{width:76px;height:76px;object-fit:contain;display:block;margin:0 auto 10px}
+.marca{font-size:27px;font-weight:600;letter-spacing:-.3px;margin:0}
+.marca .p{color:var(--azul)}
+.marca .t{color:var(--laranja)}
+.regua{width:88px;height:2px;background:var(--laranja);margin:6px auto 0}
+h1{font-size:17px;font-weight:600;margin:0 0 8px}
+p.sub{font-size:14px;color:var(--texto2);line-height:1.6;margin:0 0 18px}
+label{display:block;font-size:13px;color:var(--texto2);margin:0 0 7px}
+input[type=email]{
+  width:100%;background:#1E1E22;border:1px solid var(--linha);border-radius:9px;
+  padding:13px 14px;color:var(--texto);font-size:15px;font-family:inherit;
+}
+input[type=email]:focus{outline:none;border-color:var(--laranja)}
+input[type=email]::placeholder{color:#6B6B67}
+button{
+  width:100%;background:var(--laranja);color:#141414;border:0;border-radius:9px;
+  padding:14px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;margin-top:12px;
+}
+button:hover{filter:brightness(1.07)}
+button:disabled{opacity:.55;cursor:default}
+button:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+.rodape{font-size:12px;color:var(--texto3);line-height:1.6;margin:16px 0 0;text-align:center}
+.plano{
+  border:1px solid var(--linha);border-radius:11px;padding:14px 15px;
+  margin-bottom:10px;cursor:pointer;background:transparent;
+}
+.plano.sel{border:2px solid var(--laranja);padding:13px 14px}
+.plano-linha{display:flex;justify-content:space-between;align-items:baseline}
+.plano-nome{font-size:15px}
+.plano-valor{font-size:18px;font-weight:600;color:var(--verde)}
+.plano-obs{font-size:12px;color:var(--texto3);margin:5px 0 0}
+.aviso{border-left:3px solid var(--linha);padding:12px 14px;margin:0 0 16px;background:#1B1B1E}
+.aviso b{display:block;font-size:14px;font-weight:600;margin:0 0 3px}
+.aviso span{font-size:13px;color:var(--texto2);line-height:1.55}
+.aviso.alerta{border-left-color:var(--amarelo);background:#221E14}
+.aviso.alerta b{color:var(--amarelo)}
+.aviso.ok{border-left-color:var(--verde);background:#14201A}
+.aviso.ok b{color:var(--verde)}
+.aviso.info{border-left-color:var(--azul);background:#141C24}
+.aviso.info b{color:var(--azul)}
+.oculto{display:none}
+@media (prefers-reduced-motion:no-preference){button{transition:filter .15s}}
+</style>
+</head>
+<body>
+<main class="caixa">
+
+  <div class="topo">
+    <img src="../logo.png" alt="">
+    <p class="marca"><span class="p">P</span>ro<span class="t">T</span>udo</p>
+    <div class="regua"></div>
+  </div>
+
+  <div id="avisos"></div>
+
+  <section id="telaEmail">
+    <h1>Assinatura do profissional</h1>
+    <p class="sub">Informe o e-mail da sua conta. Enviaremos um link para você escolher o plano e concluir o pagamento.</p>
+    <label for="email">E-mail</label>
+    <input type="email" id="email" placeholder="seu@email.com" autocomplete="email" inputmode="email">
+    <button id="btnEnviar">Enviar link</button>
+    <p class="rodape">Trocou de e-mail? Atualize no aplicativo, em Perfil &rarr; Editar perfil.</p>
+  </section>
+
+  <section id="telaPlanos" class="oculto">
+    <h1 id="saudacao">Escolha seu plano</h1>
+    <p class="sub" id="subPlanos">Sua assinatura dá acesso às demandas da plataforma.</p>
+    <div class="plano sel" id="planoMensal" role="button" tabindex="0">
+      <div class="plano-linha"><span class="plano-nome">Mensal</span><span class="plano-valor" id="valMensal">—</span></div>
+    </div>
+    <div class="plano" id="planoAnual" role="button" tabindex="0">
+      <div class="plano-linha"><span class="plano-nome">Anual</span><span class="plano-valor" id="valAnual">—</span></div>
+      <p class="plano-obs" id="obsAnual"></p>
+    </div>
+    <button id="btnPagar">Ir para o pagamento</button>
+    <p class="rodape">Este link vale por 24 horas e só pode ser usado uma vez.</p>
+  </section>
+
+</main>
+
+<script>
+var API = "https://pinturapro-api-production.up.railway.app";
+
+var $ = function(id){ return document.getElementById(id); };
+var plano = "mensal";
+
+function aviso(tipo, titulo, texto){
+  $("avisos").innerHTML =
+    '<div class="aviso ' + tipo + '"><b></b><span></span></div>';
+  var d = $("avisos").firstChild;
+  d.querySelector("b").textContent = titulo;
+  d.querySelector("span").textContent = texto;
+}
+function limpaAviso(){ $("avisos").innerHTML = ""; }
+
+function reais(c){
+  return "R$ " + Number(c).toFixed(2).replace(".", ",");
+}
+
+function mostrarEmail(){
+  $("telaPlanos").className = "oculto";
+  $("telaEmail").className = "";
+}
+function mostrarPlanos(){
+  $("telaEmail").className = "oculto";
+  $("telaPlanos").className = "";
+}
+
+function selecionar(qual){
+  plano = qual;
+  $("planoMensal").className = qual === "mensal" ? "plano sel" : "plano";
+  $("planoAnual").className = qual === "anual" ? "plano sel" : "plano";
+}
+$("planoMensal").onclick = function(){ selecionar("mensal"); };
+$("planoAnual").onclick = function(){ selecionar("anual"); };
+$("planoMensal").onkeydown = function(e){ if(e.key===" "||e.key==="Enter"){e.preventDefault();selecionar("mensal");} };
+$("planoAnual").onkeydown = function(e){ if(e.key===" "||e.key==="Enter"){e.preventDefault();selecionar("anual");} };
+
+$("btnEnviar").onclick = function(){
+  var v = $("email").value.trim();
+  if(!v || v.indexOf("@") < 1 || v.indexOf(".") < 0){
+    aviso("alerta", "E-mail inválido", "Confira o endereço e tente de novo.");
+    return;
+  }
+  limpaAviso();
+  $("btnEnviar").disabled = true;
+  $("btnEnviar").textContent = "Enviando...";
+  fetch(API + "/api/assinatura/solicitar-link", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: v })
+  }).then(function(res){
+    if(!res.ok){ throw new Error("HTTP " + res.status); }
+    aviso("ok", "Verifique seu e-mail",
+      "Se este endereço estiver cadastrado, enviamos um link para continuar. Confira também a caixa de spam.");
+    $("btnEnviar").textContent = "Enviar de novo";
+    $("btnEnviar").disabled = false;
+  }).catch(function(){
+    aviso("alerta", "Não foi possível enviar", "Verifique sua conexão e tente de novo.");
+    $("btnEnviar").textContent = "Enviar link";
+    $("btnEnviar").disabled = false;
+  });
+};
+
+$("btnPagar").onclick = function(){
+  limpaAviso();
+  $("btnPagar").disabled = true;
+  $("btnPagar").textContent = "Abrindo pagamento...";
+  var token = new URLSearchParams(location.search).get("t");
+  fetch(API + "/api/assinatura/criar-checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token: token, plano: plano })
+  }).then(function(r){
+    return r.json().catch(function(){ return null; }).then(function(j){ return { s: r.status, ok: r.ok, j: j }; });
+  }).then(function(res){
+    if(res.ok && res.j && res.j.init_point){
+      location.href = res.j.init_point;
+      return;
+    }
+    $("btnPagar").disabled = false;
+    $("btnPagar").textContent = "Ir para o pagamento";
+    if(res.j && res.j.codigo === "ASSINATURA_ATIVA"){
+      mostrarEmail();
+      aviso("ok", "Sua assinatura já está ativa", "Não há nada a pagar agora.");
+    } else if(res.j && res.j.codigo === "PAGAMENTO_EM_VERIFICACAO"){
+      mostrarEmail();
+      aviso("info", "Pagamento em verificação", "Você receberá um e-mail assim que for aprovado.");
+    } else if(res.s === 410){
+      mostrarEmail();
+      aviso("alerta", "Link inválido ou expirado", "Informe seu e-mail acima para receber um novo.");
+    } else {
+      aviso("alerta", "Não foi possível continuar",
+        (res.j && res.j.erro) ? res.j.erro : "Tente de novo em alguns instantes.");
+    }
+  }).catch(function(){
+    $("btnPagar").disabled = false;
+    $("btnPagar").textContent = "Ir para o pagamento";
+    aviso("alerta", "Não foi possível continuar", "Verifique sua conexão e tente de novo.");
+  });
+};
+
+(function inicio(){
+  var token = new URLSearchParams(location.search).get("t");
+  if(!token){ mostrarEmail(); return; }
+  fetch(API + "/api/assinatura/link/" + encodeURIComponent(token))
+    .then(function(r){
+      return r.json().catch(function(){ return null; }).then(function(j){ return { s: r.status, ok: r.ok, j: j }; });
+    })
+    .then(function(res){
+      if(!res.ok || !res.j || !res.j.precos){
+        mostrarEmail();
+        aviso("alerta", "Link inválido ou expirado", "Informe seu e-mail acima para receber um novo.");
+        return;
+      }
+      if(res.j.nome){ $("saudacao").textContent = "Olá, " + res.j.nome; }
+      $("valMensal").textContent = reais(res.j.precos.mensal);
+      $("valAnual").textContent = reais(res.j.precos.anual);
+      $("obsAnual").textContent = "equivale a " + reais(Math.round(res.j.precos.anual/12)) + " por mês";
+      mostrarPlanos();
+    })
+    .catch(function(){
+      mostrarEmail();
+      aviso("alerta", "Não foi possível carregar", "Verifique sua conexão e recarregue a página.");
+    });
+})();
+</script>
+</body>
+</html>
