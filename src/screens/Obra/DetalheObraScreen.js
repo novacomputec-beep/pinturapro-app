@@ -1491,7 +1491,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                 >
                   {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
                       para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${esperaEstenderTexto})` : '⏳ Aumentar tempo para serviço'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${esperaEstenderTexto})` : '⏳ Aumentar tempo da Obra'}</Text>
                 </TouchableOpacity>
               )}
               <ModalEstenderPrazo
