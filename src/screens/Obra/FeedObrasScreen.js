@@ -66,7 +66,7 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   // decide. Abaixo de um dia, duas: "1 hora" para 1h58 escondia quase uma hora inteira, e
   // nessa faixa a hora seguinte muda a decisão. Truncado, nunca arredondado — 6 dias e 20h
   // é 6 dias, 1h58 é "1 hora e 58min". As três unidades ficam para o detalhe.
-  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra', maxUnidades: restante < 24 * 3600000 ? 2 : 1, unidadeMinima: 'hora' })}`
+  let texto = `Finaliza em ${formatarDuracao(restante, { frente: 'obra', maxUnidades: 2, unidadeMinima: 'hora' })}`
   // A urgência precisa existir fora da cor: quem não distingue o vermelho, ou está
   // sob sol forte, não recebe sinal nenhum de um pill só colorido. Aqui isso é ainda
   // mais crítico que no reparo — a obra não tem banner de urgência, então o pill é o
@@ -112,16 +112,16 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
   // reparo quando o campo falta). O mapa cobre as cinco janelas; o resto vira duração.
   const horasInicio = item.horas_para_expirar == null ? NaN : Number(item.horas_para_expirar)
   const temFaixa = Number.isFinite(horasInicio)
-  const labelJanela = JANELA_INICIO_OBRA[horasInicio]
-    || `Iniciar em ${formatarDuracao(horasInicio * 3600000, { frente: 'obra' })}`
-  // Extensão vem PRONTA do servidor: ultima_extensao_horas (STRING, null se nunca estendida).
-  // O cálculo antigo derivava de expira_em − criado_em, mas expira_em sai de publicado_em,
-  // não de criado_em — o descompasso inventava minutos e extensões falsas. Coage a string;
-  // null/ausente/não-finito/<=0 → nada. unidadeMinima 'hora': obra não mostra minuto.
-  const extHoras = item.ultima_extensao_horas == null ? NaN : Number(item.ultima_extensao_horas)
-  const textoExtensao = (Number.isFinite(extHoras) && extHoras > 0)
-    ? `+${formatarDuracao(extHoras * 3600000, { frente: 'obra', unidadeMinima: 'hora' })}`
-    : ''
+  // Extensão vem PRONTA do servidor: total_extensao_horas (STRING, null se nunca estendida).
+  // Com extensão, o rótulo canônico da janela deixa de valer — a obra não começa mais
+  // "mês que vem" — e o texto vira a duração real (janela + extensão). Sem extensão
+  // (null/ausente/não-finito/<=0), o rótulo canônico fica exatamente como antes.
+  const extHoras = item.total_extensao_horas == null ? NaN : Number(item.total_extensao_horas)
+  const temExtensao = Number.isFinite(extHoras) && extHoras > 0
+  const labelJanela = temExtensao
+    ? `Iniciar em ${formatarDuracao((horasInicio + extHoras) * 3600000, { frente: 'obra' })}`
+    : (JANELA_INICIO_OBRA[horasInicio]
+      || `Iniciar em ${formatarDuracao(horasInicio * 3600000, { frente: 'obra' })}`)
 
   return (
   <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
@@ -132,7 +132,6 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
     {temFaixa && (
       <View style={estilos.faixaPrazoObra}>
         <Text style={estilos.faixaPrazoTexto}>⚪ {labelJanela}</Text>
-        {!!textoExtensao && <Text style={estilos.faixaPrazoExtensao}>{textoExtensao}</Text>}
       </View>
     )}
 
@@ -670,7 +669,6 @@ const estilos = StyleSheet.create({
   // do ramo de menor urgência (#9e9e9e) fixado — obra não varia de cor.
   faixaPrazoObra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 0.5, backgroundColor: '#2a2a2a', borderBottomColor: '#9e9e9e44' },
   faixaPrazoTexto: { fontSize: 13, fontWeight: '700', color: '#9e9e9e' },
-  faixaPrazoExtensao: { fontSize: 11, fontWeight: '500', color: '#9e9e9e' },
 
   // Valor — label e número na mesma linha. O número caiu de 24px p/ 17px: abaixo
   // dos 18.66px o WCAG deixa de tratá-lo como "texto grande" (3:1) e passa a exigir
