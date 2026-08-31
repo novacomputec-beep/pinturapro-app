@@ -11,7 +11,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
@@ -481,7 +481,7 @@ export default function FeedReparosScreen({ navigation }) {
       <FlatList
         data={reparos}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={estilos.lista}
+        contentContainerStyle={[estilos.lista, larguraMaxima]}
         showsVerticalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChangedRef.current}
         viewabilityConfig={viewabilityConfigRef.current}

@@ -451,11 +451,6 @@ export default function CadastroScreen({ navigation, route }) {
         {
           text: '🖼️ Escolher da galeria',
           onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-            if (status !== 'granted') {
-              Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.')
-              return
-            }
             lancar('galeria', () => ImagePicker.launchImageLibraryAsync({
               mediaTypes: ['images'],
               allowsEditing: true,

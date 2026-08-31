@@ -138,8 +138,6 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
   const usarGaleria = async () => {
     Keyboard.dismiss()
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-      if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.'); return }
       const t0 = Date.now()
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images', 'videos'],

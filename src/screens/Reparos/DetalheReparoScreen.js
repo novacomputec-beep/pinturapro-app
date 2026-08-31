@@ -1425,16 +1425,20 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
 
           {valorPrincipal != null && Number(valorPrincipal) > 0 && (
-            <View style={estilos.valorDestaque}>
-              <View>
-                <Text style={estilos.valorDestaqueLabel}>💰 {valorEstaCombinado ? 'VALOR COMBINADO' : 'VALOR PROPOSTO'}</Text>
-                <Text style={estilos.valorDestaqueValor}>
-                  R$ {Number(valorPrincipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </Text>
+            <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
+              <View style={estilos.valorDestaqueLinha}>
+                <View>
+                  <Text style={estilos.valorDestaqueLabel}>💰 {valorEstaCombinado ? 'VALOR COMBINADO' : 'VALOR PROPOSTO'}</Text>
+                  <Text style={estilos.valorDestaqueValor}>
+                    R$ {Number(valorPrincipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Text>
+                </View>
+                <View style={estilos.categoriaPill}>
+                  <Text style={estilos.categoriaTexto}>{reparo.categoria}</Text>
+                </View>
               </View>
-              <View style={estilos.categoriaPill}>
-                <Text style={estilos.categoriaTexto}>{reparo.categoria}</Text>
-              </View>
+              <View style={estilos.valorDestaqueDivisor} />
+              <Text style={estilos.valorDestaqueNota}>Pagamento acertado direto com o profissional.{'\n'}O app não recebe valores.</Text>
             </View>
           )}
 
@@ -2198,6 +2202,9 @@ const estilos = StyleSheet.create({
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
   valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
   valorDestaqueValor: { fontSize: 24, fontWeight: '700', color: cores.sucesso },
+  valorDestaqueLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  valorDestaqueDivisor: { height: 1, backgroundColor: cores.sucesso, opacity: 0.2, marginTop: 12, marginBottom: 8 },
+  valorDestaqueNota: { fontSize: 11, color: cores.sucesso, fontWeight: '500', lineHeight: 16 },
   // Pill de categoria: mesmo padrão tintado dos cards do feed (laranja sobre o
   // próprio tom), para a categoria não trocar de cor entre feed e detalhe.
   // O #444444 sobre #1A1A1A dava 1.79:1 — o mesmo par que o redesign do feed já

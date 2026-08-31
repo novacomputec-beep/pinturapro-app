@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api, { candidaturasService, mensagensService } from '../../services/api'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleString('pt-BR', {
@@ -144,31 +144,33 @@ export default function MensagensScreen() {
       </View>
 
       {candidaturas.length > 1 && (
-        <FlatList
-          horizontal
-          data={candidaturas}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={estilos.obrasSeletorList}
-          renderItem={({ item }) => {
-            const obraId = item.obra_id || item.obras?.id
-            const obraTitulo = item.obra_titulo || item.obras?.titulo || 'Obra'
-            const ativo = obraSelecionada?.id === obraId
-            return (
-              <TouchableOpacity
-                style={[estilos.obraPill, ativo && estilos.obraPillAtivo]}
-                onPress={() => selecionarObra(item)}
-              >
-                <Text
-                  style={[estilos.obraPillTexto, ativo && estilos.obraPillTextoAtivo]}
-                  numberOfLines={1}
+        <View style={larguraMaxima}>
+          <FlatList
+            horizontal
+            data={candidaturas}
+            keyExtractor={(item) => item.id}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={estilos.obrasSeletorList}
+            renderItem={({ item }) => {
+              const obraId = item.obra_id || item.obras?.id
+              const obraTitulo = item.obra_titulo || item.obras?.titulo || 'Obra'
+              const ativo = obraSelecionada?.id === obraId
+              return (
+                <TouchableOpacity
+                  style={[estilos.obraPill, ativo && estilos.obraPillAtivo]}
+                  onPress={() => selecionarObra(item)}
                 >
-                  {obraTitulo}
-                </Text>
-              </TouchableOpacity>
-            )
-          }}
-        />
+                  <Text
+                    style={[estilos.obraPillTexto, ativo && estilos.obraPillTextoAtivo]}
+                    numberOfLines={1}
+                  >
+                    {obraTitulo}
+                  </Text>
+                </TouchableOpacity>
+              )
+            }}
+          />
+        </View>
       )}
 
       {obraSelecionada && (
@@ -186,7 +188,7 @@ export default function MensagensScreen() {
           data={mensagens}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <CardMensagem msg={item} />}
-          contentContainerStyle={[estilos.msgLista, mensagens.length === 0 && { flex: 1 }]}
+          contentContainerStyle={[estilos.msgLista, larguraMaxima, mensagens.length === 0 && { flex: 1 }]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={estilos.semMensagens}>
