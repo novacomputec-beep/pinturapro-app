@@ -1015,9 +1015,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert(
         action === 'aceitar' ? '✅ Contraproposta aceita!' : action === 'contraproposta' ? '💬 Contraproposta enviada!' : 'Proposta recusada.',
         action === 'aceitar'
-          ? 'Ótimo! O solicitante foi notificado. Confirme sua ida ao local quando estiver pronto.'
+          ? 'Ótimo! O solicitante foi notificado. Confirme sua ida ao local quando estiver pronto.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.'
           : action === 'contraproposta'
-          ? 'O solicitante foi notificado da sua contraproposta.'
+          ? 'O solicitante foi notificado da sua contraproposta.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.'
           : 'O solicitante foi notificado.'
       )
     } catch (err) {
