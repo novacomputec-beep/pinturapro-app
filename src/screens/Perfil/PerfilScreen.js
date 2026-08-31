@@ -440,7 +440,7 @@ export default function PerfilScreen({ navigation, route }) {
           {/* Navegação interna, e não Linking.openURL. As duas linhas abriam páginas no
               host do painel no Railway: marca PinturaPro antiga, fora do app, no Chrome e
               sem caminho de volta — quem tocasse aqui só regressava pelo botão do sistema.
-              As telas locais já existem, já estão com a marca ProLar e os endereços
+              As telas locais já existem, já estão com a marca ProTudo e os endereços
               @prolar.pro.br, e já trazem topbar com voltar; o que faltava era registro do
               lado logado, feito agora no PerfilStack (AppNavigator:534-556). São as MESMAS
               duas telas que a Splash abre — nenhuma cópia do texto legal foi criada.

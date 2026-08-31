@@ -505,7 +505,7 @@ export default function CadastroScreen({ navigation, route }) {
       const endereco = [dados.logradouro, dados.bairro, dados.localidade, dados.uf, 'Brasil'].filter(Boolean).join(', ')
       const geoResp = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'ProLar/1.0' } }
+        { headers: { 'User-Agent': 'ProTudo/1.0' } }
       )
       const geoData = await geoResp.json()
       if (geoData.length > 0 && montadoRef.current) {

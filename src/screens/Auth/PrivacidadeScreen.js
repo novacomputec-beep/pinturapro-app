@@ -22,7 +22,7 @@ const SECOES = [
   },
   {
     titulo: '5. Seus Direitos',
-    texto: 'Você pode solicitar acesso, correção ou exclusão dos seus dados pessoais a qualquer momento. Para exercer esses direitos, entre em contato: privacidade@prolar.pro.br'
+    texto: 'Você pode solicitar acesso, correção ou exclusão dos seus dados pessoais a qualquer momento. Para exercer esses direitos, entre em contato: privacidade@protudo.app.br'
   },
   {
     titulo: '6. Cookies e Rastreamento',
@@ -34,7 +34,7 @@ const SECOES = [
   },
   {
     titulo: '8. Contato',
-    texto: 'Dúvidas sobre privacidade? Entre em contato: privacidade@prolar.pro.br'
+    texto: 'Dúvidas sobre privacidade? Entre em contato: privacidade@protudo.app.br'
   },
 ]
 
@@ -50,7 +50,7 @@ export default function PrivacidadeScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <Text style={estilos.atualizadoEm}>Atualizado em Janeiro de 2025</Text>
+        <Text style={estilos.atualizadoEm}>Atualizado em Agosto de 2026</Text>
 
         {SECOES.map((s, i) => (
           <View key={i} style={estilos.secao}>
