@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
@@ -312,7 +312,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
         <FlatList
           data={dados}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, larguraMaxima]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
           renderItem={({ item }) => renderItem({ item, tipo: aba === 'obras' ? 'obra' : 'reparo' })}

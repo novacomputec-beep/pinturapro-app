@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { comRetry } from '../../utils/rede'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
@@ -280,7 +280,7 @@ export default function MeusInteressesScreen({ navigation }) {
           data={dados}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, larguraMaxima]}
           refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}

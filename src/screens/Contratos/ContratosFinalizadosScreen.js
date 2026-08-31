@@ -10,7 +10,7 @@ import { comRetry } from '../../utils/rede'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import ModalDenuncia from '../../components/ModalDenuncia'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
@@ -274,7 +274,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           data={contratos}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, larguraMaxima]}
           refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}

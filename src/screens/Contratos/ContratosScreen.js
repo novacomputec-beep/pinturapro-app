@@ -9,7 +9,7 @@ import { candidaturasService } from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { BadgeStatus, Card, Separador, STATUS_BADGE } from '../../components'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleDateString('pt-BR') : '—'
@@ -257,7 +257,7 @@ export default function ContratosScreen({ navigation }) {
           data={dadosFiltrados}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={estilos.lista}
+          contentContainerStyle={[estilos.lista, larguraMaxima]}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           showsVerticalScrollIndicator={false}
         />

@@ -10,7 +10,7 @@ import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
-import { cores, espacos, raios, alturas } from '../../utils/tema'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiObra, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
@@ -471,7 +471,7 @@ export default function FeedObrasScreen({ navigation }) {
       <FlatList
         data={obras}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={estilos.lista}
+        contentContainerStyle={[estilos.lista, larguraMaxima]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         ListHeaderComponent={
