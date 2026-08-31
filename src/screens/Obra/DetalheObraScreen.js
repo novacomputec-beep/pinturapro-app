@@ -1752,7 +1752,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                             <TouchableOpacity
                               style={[estilos.btnAceitar, { flex: 1 }]}
-                              onPress={() => handleResponderCandidatura(item.id, 'aceitar')}
+                              onPress={() => Alert.alert('Aceitar esta proposta?', 'O profissional será avisado e a demanda deixa de receber outras propostas.\n\nO pagamento do serviço é combinado e acertado diretamente com ele.', [
+                                { text: 'Cancelar', style: 'cancel' },
+                                { text: 'Aceitar', onPress: () => handleResponderCandidatura(item.id, 'aceitar') },
+                              ])}
                               disabled={enviandoResposta}
                             >
                               <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
