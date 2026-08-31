@@ -1864,7 +1864,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                             <TouchableOpacity
                               style={[estilos.btnAceitar, { flex: 1 }]}
-                              onPress={() => handleResponderInteresse(item.id, 'aceitar')}
+                              onPress={() => Alert.alert('Aceitar esta proposta?', 'O profissional será avisado e a demanda deixa de receber outras propostas.\n\nO pagamento do serviço é combinado e acertado diretamente com ele.', [
+                                { text: 'Cancelar', style: 'cancel' },
+                                { text: 'Aceitar', onPress: () => handleResponderInteresse(item.id, 'aceitar') },
+                              ])}
                               disabled={enviandoResposta}
                             >
                               <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
