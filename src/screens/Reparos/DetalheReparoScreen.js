@@ -438,7 +438,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await comRetry(() => api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico }))
       setMeuInteresse({ status: 'pendente' })
       setMostrarForm(false)
-      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       console.log('[DetalheReparo] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // Suspenso: sai antes da reconsulta — não há interesse novo a descobrir, e o
@@ -452,7 +452,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         if (atual?.meu_interesse) {
           setMeuInteresse(atual.meu_interesse)
           setMostrarForm(false)
-          Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+          Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.', [{ text: 'OK', onPress: () => navigation.goBack() }])
           return
         }
       } catch (e2) { console.log('[DetalheReparo] reconsulta pós-interesse falhou | code:', e2.code) }

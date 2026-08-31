@@ -424,7 +424,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       await comRetry(() => api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico }))
       setMinhaCandidatura({ status: 'pendente' })
       setMostrarForm(false)
-      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+      Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       console.log('[DetalheObra] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // Suspenso: sai antes da reconsulta — não há candidatura nova a descobrir, e o
@@ -438,7 +438,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         if (atual?.minha_candidatura) {
           setMinhaCandidatura(atual.minha_candidatura)
           setMostrarForm(false)
-          Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.', [{ text: 'OK', onPress: () => navigation.goBack() }])
+          Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.', [{ text: 'OK', onPress: () => navigation.goBack() }])
           return
         }
       } catch (e2) { console.log('[DetalheObra] reconsulta pós-interesse falhou | code:', e2.code) }
