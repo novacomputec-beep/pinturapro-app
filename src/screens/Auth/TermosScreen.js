@@ -10,7 +10,7 @@ const SECOES = [
   },
   {
     titulo: '2. Descrição do Serviço',
-    texto: 'O ProTudo é uma plataforma que conecta donos de obras e serviços a profissionais prestadores. Não somos parte nas negociações entre usuários.'
+    texto: 'O ProTudo é uma plataforma que conecta donos de obras e serviços a profissionais prestadores. Não somos parte nas negociações entre usuários. O pagamento pelo serviço contratado é acertado diretamente entre o dono da obra e o profissional; a plataforma não recebe, não retém nem intermedeia esses valores, e sua única cobrança é a assinatura do profissional.'
   },
   {
     titulo: '3. Cadastro e Conta',
@@ -34,7 +34,7 @@ const SECOES = [
   },
   {
     titulo: '8. Contato',
-    texto: 'Dúvidas sobre estes Termos? Entre em contato: suporte@prolar.pro.br'
+    texto: 'Dúvidas sobre estes Termos? Entre em contato: suporte@protudo.app.br'
   },
 ]
 
@@ -50,7 +50,7 @@ export default function TermosScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <Text style={estilos.atualizadoEm}>Atualizado em Janeiro de 2025</Text>
+        <Text style={estilos.atualizadoEm}>Atualizado em Agosto de 2026</Text>
 
         {SECOES.map((s, i) => (
           <View key={i} style={estilos.secao}>
