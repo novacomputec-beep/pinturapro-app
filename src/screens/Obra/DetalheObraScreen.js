@@ -1762,7 +1762,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={[estilos.btnRecusar, { flex: 1 }]}
-                              onPress={() => handleResponderCandidatura(item.id, 'recusar')}
+                              onPress={() => Alert.alert('Recusar esta proposta?', 'O profissional será avisado e não poderá se candidatar de novo a esta demanda.', [
+                                { text: 'Cancelar', style: 'cancel' },
+                                { text: 'Recusar', style: 'destructive', onPress: () => handleResponderCandidatura(item.id, 'recusar') },
+                              ])}
                               disabled={enviandoResposta}
                             >
                               <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>

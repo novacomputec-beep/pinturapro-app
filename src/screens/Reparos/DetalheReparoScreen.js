@@ -1874,7 +1874,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={[estilos.btnRecusar, { flex: 1 }]}
-                              onPress={() => handleResponderInteresse(item.id, 'recusar')}
+                              onPress={() => Alert.alert('Recusar esta proposta?', 'O profissional será avisado e não poderá se candidatar de novo a esta demanda.', [
+                                { text: 'Cancelar', style: 'cancel' },
+                                { text: 'Recusar', style: 'destructive', onPress: () => handleResponderInteresse(item.id, 'recusar') },
+                              ])}
                               disabled={enviandoResposta}
                             >
                               <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
