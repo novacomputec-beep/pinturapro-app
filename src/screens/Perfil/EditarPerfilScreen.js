@@ -195,7 +195,8 @@ export default function EditarPerfilScreen({ navigation }) {
               <Text style={estilos.avatarCameraIcone}>📷</Text>
             </View>
           </TouchableOpacity>
-          <Text style={estilos.avatarDica}>{uploadandoFoto ? '📤 Enviando foto, aguarde...' : 'Toque para alterar a foto'}</Text>
+          <Text style={[estilos.avatarDica, { marginBottom: 4 }]}>{uploadandoFoto ? '📤 Enviando foto, aguarde...' : 'Toque para alterar a foto'}</Text>
+          <Text style={estilos.avatarDica}>Ao recortar, toque em CORTAR no alto da tela para confirmar.</Text>
 
           <Input label="NOME COMPLETO" placeholder="Seu nome" value={nome} onChangeText={setNome} />
           <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
