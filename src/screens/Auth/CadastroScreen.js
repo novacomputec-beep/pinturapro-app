@@ -441,7 +441,7 @@ export default function CadastroScreen({ navigation, route }) {
               return
             }
             lancar('camera', () => ImagePicker.launchCameraAsync({
-              allowsEditing: true,
+              allowsEditing: false,
               quality: 0.6,
               maxWidth: 1200,
               maxHeight: 1200,
@@ -453,7 +453,7 @@ export default function CadastroScreen({ navigation, route }) {
           onPress: async () => {
             lancar('galeria', () => ImagePicker.launchImageLibraryAsync({
               mediaTypes: ['images'],
-              allowsEditing: true,
+              allowsEditing: false,
               quality: 0.6,
               maxWidth: 1200,
               maxHeight: 1200,
