@@ -18,7 +18,8 @@
         "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar obras próximas a você.",
         "NSCameraUsageDescription": "Precisamos da câmera para tirar fotos e gravar vídeos.",
         "NSMicrophoneUsageDescription": "Precisamos do microfone para gravar vídeos.",
-        "NSPhotoLibraryUsageDescription": "Precisamos acessar sua galeria para adicionar fotos e vídeos."
+        "NSPhotoLibraryUsageDescription": "Precisamos acessar sua galeria para adicionar fotos e vídeos.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
