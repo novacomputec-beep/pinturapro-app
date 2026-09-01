@@ -504,6 +504,12 @@ export default function CadastrarObraScreen({ navigation }) {
             onRemover={midia.remover}
             onReenviar={midia.reenviar}
           />
+          <View style={[estilos.avisoBanner, { backgroundColor: cores.primariaSuave, borderColor: cores.primaria }]}>
+            <Text style={estilos.avisoIcone}>🔍</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.avisoTitulo, { color: cores.primaria }]}>Confira os dados antes de publicar!</Text>
+            </View>
+          </View>
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           {/* Acima do botão, e não abaixo: embaixo o aviso ficava fora da dobra, em 11px
               apagados, e era lido depois de publicar — quando já não informa decisão nenhuma. */}

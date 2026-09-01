@@ -164,7 +164,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
 // progresso, nenhum novo gate. Só ao virar TRUE é que a mídia passa a subir em
 // segundo plano pelo endpoint próprio (POST /upload/midia) durante o
 // preenchimento do formulário. Vira apenas 1 linha; nada mais muda.
-export const USAR_UPLOAD_STREAMING = false
+export const USAR_UPLOAD_STREAMING = true
 
 // Config por vertical: ÚNICO ponto de divergência obra × reparo na camada de
 // mídia. Ambos os endpoints de registro já são idempotentes por (id, ordem).

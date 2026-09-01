@@ -84,7 +84,7 @@ export default function EspecialidadesScreen({ navigation, route }) {
                 disabled={bloqueada}
                 activeOpacity={0.7}
               >
-                <Text style={[estilos.categoriaPillTexto, ativa && estilos.categoriaPillTextoAtivo]} numberOfLines={1}>
+                <Text style={[estilos.categoriaPillTexto, ativa && estilos.categoriaPillTextoAtivo]}>
                   {rotuloComEmoji(c)}
                 </Text>
               </TouchableOpacity>
@@ -124,7 +124,7 @@ const estilos = StyleSheet.create({
   // Não há StyleSheet compartilhado neste app (o estilo já vivia duplicado em
   // CadastrarObra, CadastrarReparo, Cadastro e ModalDenuncia), então reaproveitar aqui é
   // copiar; extrair as quatro para components/ é outra tarefa.
-  categoriaPill: { width: '48%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
+  categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: cores.fundo, fontWeight: '600' },
