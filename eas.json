@@ -28,6 +28,9 @@
       "android": {
         "buildType": "app-bundle"
       },
+      "ios": {
+        "autoIncrement": true
+      },
       "env": {
         "GRADLE_OPTS": "-Dorg.gradle.jvmargs=-Xmx4096m"
       }
@@ -37,6 +40,11 @@
     "production": {
       "android": {
         "track": "internal"
+      },
+      "ios": {
+        "appleId": "pinturapro.oficial@gmail.com",
+        "ascAppId": "6807459250",
+        "appleTeamId": "5BB4V7AH2K"
       }
     }
   }
