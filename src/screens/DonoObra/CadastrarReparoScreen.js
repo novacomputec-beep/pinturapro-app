@@ -428,6 +428,12 @@ export default function CadastrarReparoScreen({ navigation }) {
             onRemover={midia.remover}
             onReenviar={midia.reenviar}
           />
+          <View style={[estilos.avisoBanner, { backgroundColor: cores.primariaSuave, borderColor: cores.primaria }]}>
+            <Text style={estilos.avisoIcone}>🔍</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.avisoTitulo, { color: cores.primaria }]}>Confira os dados antes de publicar!</Text>
+            </View>
+          </View>
           <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
           <BotaoPrimario titulo="Publicar serviço →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
           {carregando && <Text style={estilos.avisoUpload}>📤 Enviando mídias, aguarde... Seu serviço já está publicado; o envio das mídias pode levar alguns minutos em conexões lentas.</Text>}
