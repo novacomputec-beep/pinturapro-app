@@ -119,6 +119,7 @@ export default function CadastrarObraScreen({ navigation }) {
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
   // outra aba no meio de um POST que ainda pode falhar apagaria o formulário à toa.
   const submetidoRef = useRef(false)
+  const scrollRef = useRef(null)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
 
@@ -165,6 +166,13 @@ export default function CadastrarObraScreen({ navigation }) {
     setEnderecoEncontrado(false)
     setBuscandoCep(false)
     enviandoRef.current = false
+  }, []))
+
+  // Volta ao topo a cada foco: aba que fica montada preserva o scroll entre idas e
+  // vindas, e o formulário reaparecia no meio. Efeito separado do reset acima, que
+  // só roda pós-envio.
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, []))
 
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
@@ -395,7 +403,7 @@ export default function CadastrarObraScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém
               esta rota (index 0) e não existe "voltar" — por isso a seta nem é renderizada.
               No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a mesma tela é
