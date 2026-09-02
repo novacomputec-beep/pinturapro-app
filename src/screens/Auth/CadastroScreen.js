@@ -441,7 +441,7 @@ export default function CadastroScreen({ navigation, route }) {
               return
             }
             lancar('camera', () => ImagePicker.launchCameraAsync({
-              allowsEditing: false,
+              allowsEditing: true, aspect: [4, 3],
               quality: 0.6,
               maxWidth: 1200,
               maxHeight: 1200,
@@ -453,7 +453,7 @@ export default function CadastroScreen({ navigation, route }) {
           onPress: async () => {
             lancar('galeria', () => ImagePicker.launchImageLibraryAsync({
               mediaTypes: ['images'],
-              allowsEditing: false,
+              allowsEditing: true, aspect: [4, 3],
               quality: 0.6,
               maxWidth: 1200,
               maxHeight: 1200,
@@ -1231,6 +1231,7 @@ export default function CadastroScreen({ navigation, route }) {
 
               <Text style={[estilos.labelSecao, { marginTop: 16 }]}>DOCUMENTO DE IDENTIDADE</Text>
               <Text style={estilos.labelSecaoDesc}>RG, CNH ou outro documento oficial com foto</Text>
+              <Text style={{ fontSize: 11, color: cores.textoFraco, textAlign: 'center', marginBottom: 8 }}>Ao recortar, toque em CORTAR no alto da tela para confirmar.</Text>
 
               <View style={estilos.fotosRow}>
                 <View style={{ flex: 1 }}>
