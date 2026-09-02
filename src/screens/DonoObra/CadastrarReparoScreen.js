@@ -132,6 +132,13 @@ export default function CadastrarReparoScreen({ navigation }) {
     enviandoRef.current = false
   }, []))
 
+  // Volta ao topo a cada foco: aba que fica montada preserva o scroll entre idas e
+  // vindas, e o formulário reaparecia no meio. Efeito separado do reset acima (que só
+  // roda pós-envio) e sem conflito com o scroll de validação (que roda no submit).
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false })
+  }, []))
+
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
   // destruição da MainActivity (Android). Implementação única em utils/midia.
   const { usarCameraFoto, usarCameraVideo, usarGaleria } = useSelecaoMidia({

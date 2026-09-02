@@ -1819,15 +1819,20 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     </View>
                     {linhaQualif ? <Text style={estilos.candidatoLinha}>⏱ {linhaQualif}</Text> : null}
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
+                    {encerrada && valorPedidoReparo > 0 && (
+                      <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
+                        📋 Valor cadastrado: R$ {valorPedidoReparo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    )}
                     {item.valor_proposto != null && (
-                      <Text style={{ fontSize: 18, fontWeight: '700', color: cores.textoMedio, marginBottom: 4 }}>
+                      <Text style={{ fontSize: encerrada ? 13 : 18, fontWeight: encerrada ? '400' : '700', color: cores.textoMedio, marginBottom: 4 }}>
                         {aceitouValorPedido
                           ? `💰 Seu valor proposto (R$ ${propostoFmt}) foi aceito`
                           : `💰 ${propostoEhCombinado ? 'Valor combinado' : 'Valor proposto'}: R$ ${propostoFmt}`}
                       </Text>
                     )}
                     {item.valor_contraproposta != null && (
-                      <Text style={{ fontSize: 13, color: '#E8833A', marginBottom: 4 }}>
+                      <Text style={{ fontSize: encerrada ? 17 : 13, fontWeight: encerrada ? '500' : undefined, color: '#E8833A', marginBottom: 4 }}>
                         🤝 {ehMatch ? 'Valor combinado' : 'Minha contraproposta'}: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
@@ -1934,7 +1939,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     {foiAceito && ehMatch && (
                       <View style={{ marginTop: 8 }}>
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>
-                          {chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
+                          {encerrada ? '✅ Serviço finalizado' : chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
                         </Text>
                       </View>
                     )}

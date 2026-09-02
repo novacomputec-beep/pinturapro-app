@@ -1440,6 +1440,14 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           ) : null)}
 
+          {/* Paridade com DetalheReparo (B72-06): obra encerrada → banner verde de
+              conclusão no lugar da contagem */}
+          {obra.status === 'encerrada' && (
+            <View style={estilos.finalizadoBanner}>
+              <Text style={estilos.finalizadoBannerTexto}>✅ OBRA FINALIZADA COM SUCESSO!</Text>
+            </View>
+          )}
+
           {/* Paridade com DetalheReparo: a contagem NÃO deve renderizar quando encerrada
               (evita, inclusive, o onExpirar disparar /expirar-match numa obra concluída).
               (souPintorDoMatch || isDono): a contagem é das DUAS partes do match. Todo bloco
@@ -1707,15 +1715,20 @@ export default function DetalheObraScreen({ route, navigation }) {
                     </View>
                     {linhaQualif ? <Text style={estilos.candidatoLinha}>⏱ {linhaQualif}</Text> : null}
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
+                    {encerrada && valorPedidoObra > 0 && (
+                      <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
+                        📋 Valor cadastrado: R$ {valorPedidoObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </Text>
+                    )}
                     {item.valor_proposto != null && (
-                      <Text style={{ fontSize: 18, fontWeight: '700', color: cores.textoMedio, marginBottom: 4 }}>
+                      <Text style={{ fontSize: encerrada ? 13 : 18, fontWeight: encerrada ? '400' : '700', color: cores.textoMedio, marginBottom: 4 }}>
                         {aceitouValorPedido
                           ? `💰 Seu valor proposto (R$ ${propostoFmt}) foi aceito`
                           : `💰 ${propostoEhCombinado ? 'Valor combinado' : 'Valor proposto'}: R$ ${propostoFmt}`}
                       </Text>
                     )}
                     {item.valor_contraproposta != null && (
-                      <Text style={{ fontSize: 13, color: '#E8833A', marginBottom: 4 }}>
+                      <Text style={{ fontSize: encerrada ? 17 : 13, fontWeight: encerrada ? '500' : undefined, color: '#E8833A', marginBottom: 4 }}>
                         🤝 {ehMatch ? 'Valor combinado' : 'Minha contraproposta'}: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
@@ -1822,7 +1835,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                     {foiAceito && ehMatch && (
                       <View style={{ marginTop: 8 }}>
                         <Text style={{ fontSize: 12, color: '#4caf50', fontWeight: '600' }}>
-                          {chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
+                          {encerrada ? '✅ Obra finalizada' : chegadaConfirmada ? '▶️ Serviço em andamento' : '✅ Proposta aceita — profissional a caminho.'}
                         </Text>
                       </View>
                     )}
@@ -2137,6 +2150,8 @@ const estilos = StyleSheet.create({
   avisoMidiaRemovida: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 20 },
   avisoMidiaRemovidaIcone: { fontSize: 20 },
   avisoMidiaRemovidaTexto: { flex: 1, fontSize: 12, color: cores.textoFraco, lineHeight: 18 },
+  finalizadoBanner: { backgroundColor: '#1a3a1a', borderWidth: 1.5, borderColor: '#4caf50', borderRadius: raios.grande, padding: 20, alignItems: 'center', marginBottom: 16 },
+  finalizadoBannerTexto: { fontSize: 16, fontWeight: '700', color: '#4caf50', textAlign: 'center', letterSpacing: 0.5 },
   // Mesmo raio e mesmo padding do botão primário desta tela, para as duas barras terem a
   // MESMA altura; a diferença é o preenchimento — contorno aqui, sólido lá.
   relogioBarra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 16, marginBottom: 16 },
