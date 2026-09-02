@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, Alert, Linking } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import { cores, raios } from '../utils/tema'
@@ -26,16 +26,16 @@ export const softAskRef = { mostrar: null }
 // O soft-ask volta, respeitando um intervalo mínimo e um teto de exibições —
 // declinar NÃO gasta a tentativa do SO.
 const CHAVE_SOFTASK = 'softask_notificacao_respondido'
-// O orçamento de exibições foi ampliado: 3 exibições a cada 7 dias cobriam duas semanas,
-// e o slot é consumido na EXIBIÇÃO (:75), não numa decisão da pessoa — três aparições
-// apenas dispensadas, ignoradas ou cobertas por outro modal esgotavam o convite PARA
-// SEMPRE. Depois disso nada no app volta a levantar o diálogo do SO: o registrarPushToken
-// é prompt-free de propósito (AuthContext:186-188) e sobra só a linha do Perfil, que a
-// pessoa precisa procurar sozinha. Para um app cujo valor inteiro depende de avisar dono e
-// profissional, era barato demais perder as notificações de alguém em definitivo.
-// 8 exibições a cada 3 dias mantêm o convite vivo por ~3 semanas de uso em vez de 2.
-const ESPERA_MS = 3 * 24 * 60 * 60 * 1000 // 3 dias entre exibições
-const MAX_SHOWS = 8                        // após 8 exibições declinadas, para de vez
+// O orçamento de exibições foi ampliado (de novo): o slot é consumido na EXIBIÇÃO (:75),
+// não numa decisão da pessoa — aparições apenas dispensadas, ignoradas ou cobertas por
+// outro modal esgotavam o convite PARA SEMPRE. Depois disso nada no app volta a levantar
+// o diálogo do SO: o registrarPushToken é prompt-free de propósito (AuthContext:186-188)
+// e sobra só a linha do Perfil, que a pessoa precisa procurar sozinha. Para um app cujo
+// valor inteiro depende de avisar dono e profissional, era barato demais perder as
+// notificações de alguém em definitivo. 15 exibições a cada 2 dias mantêm o convite vivo
+// por ~1 mês de uso — e o soft-ask agora roda também no iOS, não só no Android.
+const ESPERA_MS = 2 * 24 * 60 * 60 * 1000 // 2 dias entre exibições
+const MAX_SHOWS = 15                       // após 15 exibições declinadas, para de vez
 
 const lerEstadoSoftAsk = async () => {
   try {
@@ -85,11 +85,10 @@ const SoftAskNotificacao = () => {
   // ignorarFrequencia: pula APENAS os dois portões de frequência (MAX_SHOWS e ESPERA_MS).
   // Existe para a tela de aguardando-aprovação, o único momento em que um prestador recém-
   // cadastrado pode conceder antes de chegar ao feed — e ali a contagem/intervalo não devem
-  // silenciar o pedido. Os TRÊS portões de elegibilidade continuam: Android, permissão ao
+  // silenciar o pedido. Os DOIS portões de elegibilidade continuam: permissão ao
   // vivo (granted / canAskAgain false) e o 'concedido' gravado. Ausente = comportamento de
   // sempre; nenhum outro chamador passa a flag.
   const mostrar = useCallback(async (v, { ignorarFrequencia = false } = {}) => {
-    if (Platform.OS !== 'android') { barrado('plataforma_nao_android'); return }
     if (!VARIANTES[v]) { barrado('variante_desconhecida'); return }
     try {
       // Check ao vivo PRIMEIRO: concedidos e bloqueados (canAskAgain false) retornam

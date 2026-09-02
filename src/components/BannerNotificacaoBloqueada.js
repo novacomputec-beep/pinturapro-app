@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Platform, AppState, Linking } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, AppState, Linking } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 // Aviso PERSISTENTE para quem bloqueou permanentemente as notificações
 // (canAskAgain === false): o app nunca mais consegue pedir permissão e a pessoa
 // deixa de receber qualquer push sem perceber — foi exatamente o caso de produção.
-// Só o dono do aparelho reverte isso, nas Configurações do Android. Espelha o
+// Só o dono do aparelho reverte isso, nas Configurações do sistema. Espelha o
 // GlobalVencimentoBanner: overlay condicional, sem props, lê useAuth() e devolve
 // null enquanto a condição não vale. NUNCA chama requestPermissionsAsync — apenas
 // consulta; pedir permissão é a Fase 2.
@@ -23,9 +23,8 @@ const BannerNotificacaoBloqueada = () => {
   const [bloqueada, setBloqueada] = useState(false)
 
   const verificar = useCallback(async () => {
-    // POST_NOTIFICATIONS só é permissão de runtime no Android 13+; fora do Android
-    // e sem sessão não há o que avisar.
-    if (Platform.OS !== 'android' || !usuario) {
+    // Sem sessão não há o que avisar.
+    if (!usuario) {
       setBloqueada(false)
       return
     }
