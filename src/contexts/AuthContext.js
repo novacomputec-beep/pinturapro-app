@@ -197,7 +197,7 @@ export const AuthProvider = ({ children }) => {
       canAskAgain = atual.canAskAgain
     } catch (err) {
       console.error('[Push] falha ao consultar permissão de notificação | msg:', err?.message, err)
-      reportarStatusPush('erro_registro')
+      reportarStatusPush('erro_consulta')
       return { ok: false, motivo: 'erro_consulta', detalhe: err?.message }
     }
     if (status !== 'granted') {
@@ -229,7 +229,7 @@ export const AuthProvider = ({ children }) => {
       pushToken = tokenData.data
     } catch (err) {
       console.error('[Push] getExpoPushTokenAsync FALHOU | projectId:', projectId, '| msg:', err?.message, err)
-      reportarStatusPush('erro_registro')
+      reportarStatusPush('erro_token')
       return { ok: false, motivo: 'erro_token', detalhe: err?.message }
     }
 
@@ -243,7 +243,7 @@ export const AuthProvider = ({ children }) => {
       return { ok: true, token: pushToken }
     } catch (err) {
       console.error('[Push] POST /auth/push-token FALHOU | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message, err)
-      reportarStatusPush('erro_registro')
+      reportarStatusPush('erro_envio')
       return { ok: false, motivo: 'erro_envio', detalhe: err?.mensagem || err?.message, status: err?.status }
     }
   }
