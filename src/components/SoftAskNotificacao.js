@@ -106,7 +106,10 @@ const SoftAskNotificacao = () => {
       await gravarEstadoSoftAsk({ ...estado, shows: estado.shows + 1, ultimoShowMs: Date.now() })
       setVariante(v)
     } catch (err) {
-      // Falha no check não deve exibir nada.
+      // Falha no check não deve exibir nada — mas também não pode sumir calada: sem o log,
+      // um throw no getPermissionsAsync, no lerEstadoSoftAsk ou no gravarEstadoSoftAsk era
+      // indistinguível de "porta barrou", só que sem a linha do barrado().
+      console.error('[SoftAsk] falha no mostrar() | variante:', v, '| msg:', err?.message, err)
     }
   }, [])
 

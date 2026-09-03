@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler'
-import React, { useEffect } from 'react'
+import React, { useEffect, useRef } from 'react'
 import { AppState } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -9,6 +9,7 @@ import GlobalVencimentoBanner from './src/components/GlobalVencimentoBanner'
 import BannerNotificacaoBloqueada from './src/components/BannerNotificacaoBloqueada'
 import BarraServicoEmAndamento from './src/components/BarraServicoEmAndamento'
 import { iniciarRastreamento, pararRastreamento } from './src/services/locationService'
+import { softAskRef } from './src/components/SoftAskNotificacao'
 import api from './src/services/api'
 
 function RastreamentoController() {
@@ -23,6 +24,41 @@ function RastreamentoController() {
     return () => {
       pararRastreamento()
     }
+  }, [usuario])
+
+  return null
+}
+
+// Soft-ask de notificação disparado pela SESSÃO, e não pela tela: mesmo desenho do
+// RastreamentoController acima. Assim que existe usuário com papel que mapeia para uma
+// variante conhecida, espera 4 s (a pessoa já vê a tela inicial) e chama o
+// softAskRef.mostrar UMA vez por sessão — o ref guarda o disparo, então trocas de
+// identidade do objeto `usuario` (refresh de perfil) não repetem o pedido. O logout
+// zera o guard: a próxima sessão é outra sessão. Todas as portas de elegibilidade e
+// frequência continuam dentro do próprio mostrar(); aqui só se decide QUANDO chamar.
+const varianteSoftAskDoUsuario = (u) => {
+  if (!u) return null
+  if (u.role === 'prestador') return u.tipo_prestador === 'pintor' ? 'pintor' : 'reparador'
+  if (u.role === 'dono_obra') return u.tipo_dono === 'reparo' ? 'dono_reparo' : 'dono_obra'
+  return null
+}
+
+function SoftAskController() {
+  const { usuario } = useAuth()
+  const disparadoNaSessao = useRef(false)
+
+  useEffect(() => {
+    if (!usuario) {
+      disparadoNaSessao.current = false
+      return
+    }
+    const variante = varianteSoftAskDoUsuario(usuario)
+    if (!variante || disparadoNaSessao.current) return
+    const timer = setTimeout(() => {
+      disparadoNaSessao.current = true
+      softAskRef.mostrar?.(variante)
+    }, 4000)
+    return () => clearTimeout(timer)
   }, [usuario])
 
   return null
@@ -63,6 +99,7 @@ export default function App() {
       <AuthProvider>
         <StatusBar style="light" backgroundColor="#0A0A0A" />
         <RastreamentoController />
+        <SoftAskController />
         <WarmupController />
         <BannerNotificacaoBloqueada />
         <GlobalVencimentoBanner />
