@@ -9,7 +9,6 @@ import GlobalVencimentoBanner from './src/components/GlobalVencimentoBanner'
 import BannerNotificacaoBloqueada from './src/components/BannerNotificacaoBloqueada'
 import BarraServicoEmAndamento from './src/components/BarraServicoEmAndamento'
 import { iniciarRastreamento, pararRastreamento } from './src/services/locationService'
-import { softAskRef } from './src/components/SoftAskNotificacao'
 import api from './src/services/api'
 
 function RastreamentoController() {
@@ -29,13 +28,16 @@ function RastreamentoController() {
   return null
 }
 
-// Soft-ask de notificação disparado pela SESSÃO, e não pela tela: mesmo desenho do
-// RastreamentoController acima. Assim que existe usuário com papel que mapeia para uma
-// variante conhecida, espera 4 s (a pessoa já vê a tela inicial) e chama o
-// softAskRef.mostrar UMA vez por sessão — o ref guarda o disparo, então trocas de
+// Pedido de permissão de notificação disparado pela SESSÃO, e não pela tela: mesmo
+// desenho do RastreamentoController acima. Assim que existe usuário com papel que mapeia
+// para uma variante conhecida, espera 4 s (a pessoa já vê a tela inicial) e chama
+// garantirPermissaoConcedida DIRETO, sem o modal intermediário do soft-ask — o diálogo
+// do SO aparece na hora. UMA vez por sessão: o ref guarda o disparo, então trocas de
 // identidade do objeto `usuario` (refresh de perfil) não repetem o pedido. O logout
-// zera o guard: a próxima sessão é outra sessão. Todas as portas de elegibilidade e
-// frequência continuam dentro do próprio mostrar(); aqui só se decide QUANDO chamar.
+// zera o guard: a próxima sessão é outra sessão. Concedidos e bloqueados (canAskAgain
+// false) já saem sem diálogo dentro do próprio garantirPermissaoConcedida. Se concedeu,
+// registra o token na hora: o registrarPushToken do login rodou 1 s após a sessão, ANTES
+// deste pedido, e sem esta chamada o token só nasceria na próxima abertura.
 const varianteSoftAskDoUsuario = (u) => {
   if (!u) return null
   if (u.role === 'prestador') return u.tipo_prestador === 'pintor' ? 'pintor' : 'reparador'
@@ -44,7 +46,7 @@ const varianteSoftAskDoUsuario = (u) => {
 }
 
 function SoftAskController() {
-  const { usuario } = useAuth()
+  const { usuario, garantirPermissaoConcedida, registrarPushToken } = useAuth()
   const disparadoNaSessao = useRef(false)
 
   useEffect(() => {
@@ -54,9 +56,14 @@ function SoftAskController() {
     }
     const variante = varianteSoftAskDoUsuario(usuario)
     if (!variante || disparadoNaSessao.current) return
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       disparadoNaSessao.current = true
-      softAskRef.mostrar?.(variante)
+      try {
+        const concedida = await garantirPermissaoConcedida()
+        if (concedida) registrarPushToken()
+      } catch (err) {
+        console.error('[SoftAsk] falha ao pedir permissão pela sessão | variante:', variante, '| msg:', err?.message, err)
+      }
     }, 4000)
     return () => clearTimeout(timer)
   }, [usuario])
