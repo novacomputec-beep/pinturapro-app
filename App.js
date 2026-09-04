@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler'
 import React, { useEffect, useRef } from 'react'
-import { AppState } from 'react-native'
+import { AppState, Alert } from 'react-native'
+import * as Notifications from 'expo-notifications' // DIAGNÓSTICO TEMPORÁRIO — remover junto com o Alert no SoftAskController
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './src/contexts/AuthContext'
@@ -59,7 +60,17 @@ function SoftAskController() {
     const timer = setTimeout(async () => {
       disparadoNaSessao.current = true
       try {
+        // ===== DIAGNÓSTICO TEMPORÁRIO (remover) — mostra na tela o que o SO reporta =====
+        const antes = await Notifications.getPermissionsAsync()
         const concedida = await garantirPermissaoConcedida()
+        const depois = await Notifications.getPermissionsAsync()
+        Alert.alert(
+          '[DIAG] permissão notificação',
+          `garantirPermissaoConcedida => ${JSON.stringify(concedida)}\n\n` +
+            `ANTES: status=${antes.status} canAskAgain=${antes.canAskAgain}\n` +
+            `DEPOIS: status=${depois.status} canAskAgain=${depois.canAskAgain}`
+        )
+        // ===== FIM DIAGNÓSTICO TEMPORÁRIO =====
         if (concedida) registrarPushToken()
       } catch (err) {
         console.error('[SoftAsk] falha ao pedir permissão pela sessão | variante:', variante, '| msg:', err?.message, err)
