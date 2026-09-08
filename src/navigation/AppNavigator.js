@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler'
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import { View, Text, ScrollView, TouchableOpacity, Linking, Alert, Image } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { NavigationContainer, useFocusEffect } from '@react-navigation/native'
@@ -806,9 +806,28 @@ const DonoObraNavigator = () => (
   </DonoStack.Navigator>
 )
 
+// Janela em que o toque lido no cold start ainda merece ser despachado. 60 s cobre a
+// restauração de sessão lenta-mas-normal (um timeout de 30 s do /auth/perfil mais um
+// retry que responde), durante a qual a pessoa está olhando para uma tela vazia e não
+// tem como ter "seguido em frente" dentro do app. Acima disso, ou a restauração exigiu
+// dois timeouts inteiros (e a pessoa quase certamente saiu), ou o app abriu deslogado e o
+// login levou mais de um minuto — em ambos os casos abrir o detalhe do nada, minutos
+// depois do toque, seria um salto sem contexto, então o toque é descartado com log.
+const LIMITE_REPLAY_COLD_START_MS = 60 * 1000
+
 export default function AppNavigator() {
   const { usuario, assinatura, carregando, mostrarBoasVindas } = useAuth()
   const respostaNotificacaoRef = useRef(null)
+  // Toque de notificação que ABRIU o app (cold start). Antes era despachado após 500 ms
+  // fixos — e o navigationRef só existe depois que a sessão restaura e o container monta,
+  // então uma restauração mais lenta que isso perdia o toque em silêncio (:82 devolve sem
+  // navegar). Agora ele fica guardado aqui até (a) o container avisar onReady e (b) a sessão
+  // estar restaurada com usuário e assinatura resolvidos, e é ZERADO antes do despacho —
+  // uma vez só, nunca duas. `toqueLido` só existe para reexecutar o efeito quando a leitura
+  // assíncrona termina; `navegacaoPronta` é o onReady do container.
+  const toquePendenteRef = useRef(null)
+  const [toqueLido, setToqueLido] = useState(false)
+  const [navegacaoPronta, setNavegacaoPronta] = useState(false)
   // Quem entra nas abas. Android: só assinatura ativa — quem deve vai para a tela de
   // pagamento. iOS: a tela de pagamento nunca é destino (3.1.1 + 2.1: sem cobrança no app,
   // ela seria um beco sem saída), então pendente/expirada/vencida entram nas abas com
@@ -822,8 +841,10 @@ export default function AppNavigator() {
 
   useEffect(() => {
     Notifications.getLastNotificationResponseAsync().then(resposta => {
-      if (resposta?.notification?.request?.content?.data) {
-        setTimeout(() => navegarParaNotificacao(resposta.notification.request.content.data), 500)
+      const data = resposta?.notification?.request?.content?.data
+      if (data) {
+        toquePendenteRef.current = { data, lidoEm: Date.now() }
+        setToqueLido(true)
       }
     }).catch(err => console.log('[AppNavigator] falha ao ler a última resposta de notificação | msg:', err?.message))
 
@@ -834,11 +855,30 @@ export default function AppNavigator() {
     return () => respostaNotificacaoRef.current?.remove()
   }, [])
 
+  // Despacho do toque do cold start. Declarado DEPOIS do efeito que preenche o
+  // usuarioContexto (:840): efeitos do mesmo componente rodam na ordem em que aparecem, então
+  // o roteador já enxerga o papel/subtipo ao decidir a aba. As condições espelham o gate
+  // de montagem do container logo abaixo (carregando / assinatura === null) e exigem usuário:
+  // deslogado, o container está de pé com a pilha de login, onde nenhuma rota resolve — o
+  // toque espera o login dentro da janela e depois é descartado.
+  useEffect(() => {
+    const pendente = toquePendenteRef.current
+    if (!pendente) return
+    if (!navegacaoPronta || carregando || !usuario || assinatura === null) return
+    toquePendenteRef.current = null
+    const esperaMs = Date.now() - pendente.lidoEm
+    if (esperaMs > LIMITE_REPLAY_COLD_START_MS) {
+      console.log('[AppNavigator] toque do cold start descartado: janela vencida | esperaMs:', esperaMs, '| tipo:', pendente.data?.tipo)
+      return
+    }
+    navegarParaNotificacao(pendente.data)
+  }, [toqueLido, navegacaoPronta, carregando, usuario, assinatura])
+
   if (carregando) return null
   if (usuario && assinatura === null) return null
 
   return (
-    <NavigationContainer ref={navigationRef}>
+    <NavigationContainer ref={navigationRef} onReady={() => setNavegacaoPronta(true)}>
       {/* ANTES do Stack.Navigator de propósito: o softAskRef só é preenchido no useEffect
           deste componente, e o React roda os efeitos na ordem da árvore (filhos primeiro,
           irmãos na ordem em que aparecem). Montado depois do navegador, o ref ainda era
