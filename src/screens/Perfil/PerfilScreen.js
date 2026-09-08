@@ -14,7 +14,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
+import { mostrarCobranca, mostrarAvisoCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
 
@@ -367,7 +367,7 @@ export default function PerfilScreen({ navigation, route }) {
             )}
           </View>
           {/* No iOS o CTA de pagamento vira a frase — sem botão, sem link (3.1.1). */}
-          {!isDono && assinatura?.tipo !== 'gratuito' && !mostrarCobranca && (
+          {!isDono && mostrarAvisoCobranca(assinatura) && (
             <Text style={[estilos.assinaturaLabel, { textAlign: 'center', marginTop: 12 }]}>{FRASE_ASSINATURA_EXTERNA}</Text>
           )}
           {!isDono && assinatura?.tipo !== 'gratuito' && mostrarCobranca && (

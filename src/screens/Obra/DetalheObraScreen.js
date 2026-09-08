@@ -20,7 +20,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra, rotulosEspecialidades } from '../../utils/categorias'
-import { FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
+import { mostrarAvisoCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 import { formatarDuracao } from '../../utils/tempo'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -261,7 +261,7 @@ function PlayerFullscreen({ uri }) {
 
 export default function DetalheObraScreen({ route, navigation }) {
   const { obra: obraInicial } = route.params
-  const { usuario, assinaturaAtiva } = useAuth()
+  const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const [obra, setObra] = useState(obraInicial)
   // Falha da RECARGA, não "obra inexistente": a tela segue mostrando o objeto semeado
   // pelo param da lista, que pode estar desatualizado — é isso que o banner avisa.
@@ -2006,10 +2006,13 @@ export default function DetalheObraScreen({ route, navigation }) {
                 ) : !assinaturaAtiva ? (
                   /* Sem assinatura ativa não há proposta. Só o iOS chega aqui assim (no
                      Android quem deve nem entra nas abas): leitura completa, ação não —
-                     e a única frase que a 3.1.1 permite. */
-                  <View style={estilos.formInteresse}>
-                    <Text style={estilos.aviso}>{FRASE_ASSINATURA_EXTERNA}</Text>
-                  </View>
+                     e a única frase que a 3.1.1 permite. Conta gratuita não tem cobrança
+                     a mencionar: fica sem painel. */
+                  mostrarAvisoCobranca(assinatura) ? (
+                    <View style={estilos.formInteresse}>
+                      <Text style={estilos.aviso}>{FRASE_ASSINATURA_EXTERNA}</Text>
+                    </View>
+                  ) : null
                 ) : mostrarForm ? (
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>

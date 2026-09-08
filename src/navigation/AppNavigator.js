@@ -8,7 +8,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, alturas } from '../utils/tema'
-import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../utils/plataforma'
+import { mostrarCobranca, mostrarAvisoCobranca, FRASE_ASSINATURA_EXTERNA } from '../utils/plataforma'
 import { TelaAviso, BotaoPrimario } from '../components'
 import { Feather } from '@expo/vector-icons'
 import api from '../services/api'
@@ -419,15 +419,15 @@ function PagamentoPendenteScreen() {
             ? (assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento')
             : (assinatura?.status === 'expirada' ? 'Assinatura vencida' : 'Assinatura pendente')}
         >
-          {mostrarCobranca ? (
-          <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
-            {valorMensal}/mês
-          </Text>
-          ) : (
+          {mostrarAvisoCobranca(assinatura) ? (
           <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>
             {FRASE_ASSINATURA_EXTERNA}
           </Text>
-          )}
+          ) : mostrarCobranca ? (
+          <Text style={{ fontSize: 22, fontWeight: '700', color: cores.primaria, marginBottom: 24 }}>
+            {valorMensal}/mês
+          </Text>
+          ) : null}
 
           {mostrarCobranca && carregando && (
             <Text style={{ fontSize: 14, color: cores.textoFraco, textAlign: 'center', lineHeight: 22, marginBottom: 24 }}>

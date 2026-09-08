@@ -9,7 +9,7 @@ import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
-import { mostrarCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
+import { mostrarCobranca } from '../../utils/plataforma'
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth()
