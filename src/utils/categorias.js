@@ -49,6 +49,9 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'dedetizacao',     rotulo: 'Dedetização',       emoji: '🐜' },
   { slug: 'montagem_moveis', rotulo: 'Montagem de móveis',  emoji: '🔩' },
   { slug: 'vigia',           rotulo: 'Vigia',              emoji: '👮' },
+  { slug: 'maquiagem',       rotulo: 'Maquiagem',          emoji: '💄' },
+  { slug: 'costura',         rotulo: 'Costura',            emoji: '🧵' },
+  { slug: 'seguranca',       rotulo: 'Segurança',          emoji: '🛡️' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
