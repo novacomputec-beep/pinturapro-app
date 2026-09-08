@@ -15,3 +15,16 @@ export const mostrarCobranca = Platform.OS !== 'ios'
 // Frase ÚNICA que substitui qualquer CTA de pagamento no iOS. Sem URL, sem preço, sem
 // marca, sem botão — é o máximo que a 3.1.1 permite dizer.
 export const FRASE_ASSINATURA_EXTERNA = 'Sua assinatura é gerenciada fora do aplicativo.'
+
+// Quando a frase acima deve aparecer: só no iOS e só para quem COMPROVADAMENTE tem
+// cobrança — assinatura presente, com tipo preenchido e diferente de 'gratuito'. Conta
+// gratuita (janela de lançamento) não paga nada, então não há assinatura "fora do app"
+// a mencionar; assinatura ausente ou sem tipo também cala, em vez de afirmar uma
+// cobrança que não sabemos existir. No Android é sempre false — lá a parte comercial
+// aparece por inteiro (mostrarCobranca). Decidido aqui, e não em cada tela, pelo mesmo
+// motivo do flag acima: a regra tem um dono só.
+export const mostrarAvisoCobranca = (assinatura) =>
+  Platform.OS === 'ios' &&
+  typeof assinatura?.tipo === 'string' &&
+  assinatura.tipo !== '' &&
+  assinatura.tipo !== 'gratuito'
