@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Alert, Linking } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
@@ -25,7 +25,13 @@ export const softAskRef = { mostrar: null }
 // "Agora não" NÃO grava nada permanente: declinar não pode virar um one-shot nosso.
 // O soft-ask volta, respeitando um intervalo mínimo e um teto de exibições —
 // declinar NÃO gasta a tentativa do SO.
+// A chave leva o id do usuário logado: em aparelho compartilhado, a contagem e o
+// 'concedido' de uma conta não podem valer para a conta seguinte. Sem id (não deveria
+// acontecer: todo chamador do mostrar() roda logado) cai na chave global antiga. Não há
+// migração — a chave antiga fica sem uso e a conta parte do zero na chave própria.
 const CHAVE_SOFTASK = 'softask_notificacao_respondido'
+const chaveSoftAsk = (usuarioId) =>
+  usuarioId != null ? `${CHAVE_SOFTASK}:${usuarioId}` : CHAVE_SOFTASK
 // O orçamento de exibições foi ampliado (de novo): o slot é consumido na EXIBIÇÃO (:75),
 // não numa decisão da pessoa — aparições apenas dispensadas, ignoradas ou cobertas por
 // outro modal esgotavam o convite PARA SEMPRE. Depois disso nada no app volta a levantar
@@ -37,15 +43,15 @@ const CHAVE_SOFTASK = 'softask_notificacao_respondido'
 const ESPERA_MS = 2 * 24 * 60 * 60 * 1000 // 2 dias entre exibições
 const MAX_SHOWS = 15                       // após 15 exibições declinadas, para de vez
 
-const lerEstadoSoftAsk = async () => {
+const lerEstadoSoftAsk = async (usuarioId) => {
   try {
-    const raw = await SecureStore.getItemAsync(CHAVE_SOFTASK)
+    const raw = await SecureStore.getItemAsync(chaveSoftAsk(usuarioId))
     if (raw) return JSON.parse(raw)
   } catch (e) {}
   return { concedido: false, shows: 0, ultimoShowMs: 0 }
 }
-const gravarEstadoSoftAsk = async (estado) => {
-  try { await SecureStore.setItemAsync(CHAVE_SOFTASK, JSON.stringify(estado)) } catch (e) {}
+const gravarEstadoSoftAsk = async (usuarioId, estado) => {
+  try { await SecureStore.setItemAsync(chaveSoftAsk(usuarioId), JSON.stringify(estado)) } catch (e) {}
 }
 
 // Diagnóstico: UM console.log, alcançado por TODAS as saídas antecipadas do mostrar().
@@ -74,8 +80,12 @@ const VARIANTES = {
 }
 
 const SoftAskNotificacao = () => {
-  const { garantirPermissaoConcedida, registrarPushToken } = useAuth()
+  const { usuario, garantirPermissaoConcedida, registrarPushToken } = useAuth()
   const [variante, setVariante] = useState(null) // null = escondido
+  // Ref, e não o state direto: mostrar() é um useCallback sem deps exposto pelo
+  // softAskRef, então precisa ler o id da sessão CORRENTE, não o do render em que nasceu.
+  const usuarioIdRef = useRef(null)
+  useEffect(() => { usuarioIdRef.current = usuario?.id ?? null }, [usuario])
 
   // Check AO VIVO antes de exibir: só aparece para quem ainda pode conceder
   // (status !== 'granted' && canAskAgain === true) e que ainda não respondeu.
@@ -97,13 +107,14 @@ const SoftAskNotificacao = () => {
       // A condição é a MESMA de sempre; só o rótulo separa os dois motivos que ela junta.
       if (granted || canAskAgain === false) { barrado(granted ? 'permissao_ja_concedida' : 'permissao_bloqueada'); return }
 
-      const estado = await lerEstadoSoftAsk()
+      const usuarioId = usuarioIdRef.current
+      const estado = await lerEstadoSoftAsk(usuarioId)
       if (estado.concedido) { barrado('concedido_gravado', estado); return }                                  // já disse "sim"
       if (!ignorarFrequencia && estado.shows >= MAX_SHOWS) { barrado('teto_de_exibicoes', estado); return }                         // teto de exibições
       if (!ignorarFrequencia && estado.shows > 0 && Date.now() - estado.ultimoShowMs < ESPERA_MS) { barrado('intervalo_minimo', estado); return }   // < 3 dias
 
       // Vai EXIBIR: conta o show AGORA (incrementa NO SHOW, não a cada mostrar()).
-      await gravarEstadoSoftAsk({ ...estado, shows: estado.shows + 1, ultimoShowMs: Date.now() })
+      await gravarEstadoSoftAsk(usuarioId, { ...estado, shows: estado.shows + 1, ultimoShowMs: Date.now() })
       setVariante(v)
     } catch (err) {
       // Falha no check não deve exibir nada — mas também não pode sumir calada: sem o log,
@@ -168,8 +179,9 @@ const SoftAskNotificacao = () => {
     // A releitura do estado acontece aqui, DEPOIS do await, e não antes: no meio do
     // diálogo do SO um novo mostrar() pode ter incrementado shows/ultimoShowMs, e
     // reaproveitar um objeto lido antes desfaria essa contagem.
-    const estado = await lerEstadoSoftAsk()
-    await gravarEstadoSoftAsk({ ...estado, concedido: true })
+    const usuarioId = usuarioIdRef.current
+    const estado = await lerEstadoSoftAsk(usuarioId)
+    await gravarEstadoSoftAsk(usuarioId, { ...estado, concedido: true })
     registrarPushToken()
   }
 

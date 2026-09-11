@@ -71,6 +71,41 @@ function SoftAskController() {
   return null
 }
 
+// Re-registro do push token ao voltar do 2º plano. Fecha o buraco de quem concede a
+// permissão nas configurações do SO com o app aberto atrás: nada no app voltava a chamar
+// registrarPushToken até o próximo cold start, login ou a linha do Perfil. Mesmo molde
+// do WarmupController abaixo, mas COM gate de sessão (sem usuário não há bearer) e com
+// throttle de 5 min: no iOS um simples banner/central de controle gera inactive→active,
+// e sem o throttle cada um custaria consulta de permissão, canal Android e um POST.
+// O registrarPushToken é prompt-free: este listener NUNCA levanta o diálogo do SO.
+// O usuário vai num ref para o listener ser um só, montado uma vez, e ainda assim ler a
+// sessão corrente — o mesmo motivo do disparadoNaSessao no SoftAskController.
+const INTERVALO_REREGISTRO_PUSH_MS = 5 * 60 * 1000
+
+function ReregistroPushController() {
+  const { usuario, registrarPushToken } = useAuth()
+  const usuarioRef = useRef(usuario)
+  const registrarRef = useRef(registrarPushToken)
+  const ultimoDisparoMs = useRef(0)
+
+  useEffect(() => { usuarioRef.current = usuario }, [usuario])
+  useEffect(() => { registrarRef.current = registrarPushToken }, [registrarPushToken])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado !== 'active' || !usuarioRef.current) return
+      const agora = Date.now()
+      if (agora - ultimoDisparoMs.current < INTERVALO_REREGISTRO_PUSH_MS) return
+      ultimoDisparoMs.current = agora
+      Promise.resolve(registrarRef.current?.())
+        .catch(err => console.error('[Push][resume] registrarPushToken falhou | msg:', err?.message, err))
+    })
+    return () => sub.remove()
+  }, [])
+
+  return null
+}
+
 // Warm-up ao voltar do 2º plano. NÃO é cold start do servidor: o Serverless está
 // desligado e a API fica de pé (15,6 h de uptime observadas). O que morre é a
 // CONEXÃO — enquanto o app está em 2º plano o SO/a rede derrubam o socket TCP
@@ -107,6 +142,7 @@ export default function App() {
         <StatusBar style="light" backgroundColor="#0A0A0A" />
         <RastreamentoController />
         <SoftAskController />
+        <ReregistroPushController />
         <WarmupController />
         <BannerNotificacaoBloqueada />
         <GlobalVencimentoBanner />
