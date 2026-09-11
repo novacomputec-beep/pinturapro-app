@@ -77,6 +77,22 @@ export const AuthProvider = ({ children }) => {
   const [mostrarBoasVindas, setMostrarBoasVindas] = useState(false)
   const notificacaoRecebidaRef = useRef(null)
   const notificacaoRespostaRef = useRef(null)
+  // Id do usuário da sessão CORRENTE, lido pelas funções de push. É um ref, e não o
+  // state `usuario`, porque registrarPushToken roda de closures antigas (setTimeout do
+  // login, retentativas, listener de AppState) que enxergariam o state de quando foram
+  // criadas. Atualizado NA HORA em cada troca de sessão (antes do registro disparar) e
+  // sincronizado do state como rede de segurança para o setUsuario exposto no contexto.
+  const usuarioIdRef = useRef(null)
+  // Retentativa em curso do registrarPushToken: { timer, usuarioId }. Uma só por vez —
+  // uma chamada nova (tentativa 0) cancela a agendada, e logout/unmount também.
+  const retentativaPushRef = useRef(null)
+
+  const cancelarRetentativaPush = () => {
+    if (retentativaPushRef.current?.timer) clearTimeout(retentativaPushRef.current.timer)
+    retentativaPushRef.current = null
+  }
+
+  useEffect(() => { usuarioIdRef.current = usuario?.id ?? null }, [usuario])
 
   useEffect(() => {
     configurarCanalAndroid()
@@ -89,6 +105,7 @@ export const AuthProvider = ({ children }) => {
             const perfil = await comRetry(() => authService.perfil())
             u = perfil.usuario
             a = perfil.assinatura
+            usuarioIdRef.current = u?.id ?? null
             registrarPushToken()
           } catch (err) {
             console.log('[AuthContext] falha ao restaurar sessão (perfil) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -119,6 +136,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       notificacaoRecebidaRef.current?.remove()
       notificacaoRespostaRef.current?.remove()
+      cancelarRetentativaPush()
     }
   }, [])
 
@@ -132,16 +150,24 @@ export const AuthProvider = ({ children }) => {
   // reportam: num aparelho compartilhado, o negativo do 2º usuário jamais pode ser
   // suprimido pelo 'concedida' do 1º (é a mentira que o report existe para evitar).
   // O guard é gravado SÓ DEPOIS do POST ok — um envio perdido nunca vira permanente.
+  // A chave leva o id do usuário: em aparelho compartilhado, o 'concedida' gravado por
+  // uma conta não pode suprimir o report da conta seguinte. Sem id (sessão ainda não
+  // resolvida) cai na chave global antiga — a chave antiga não é migrada, só fica sem uso.
   const CHAVE_STATUS_PUSH = 'push_status_reportado'
+  const chaveStatusPush = () => {
+    const id = usuarioIdRef.current
+    return id != null ? `${CHAVE_STATUS_PUSH}:${id}` : CHAVE_STATUS_PUSH
+  }
   const reportarStatusPush = (status) => {
     ;(async () => {
       try {
+        const chave = chaveStatusPush()
         if (status === 'concedida') {
-          const anterior = await SecureStore.getItemAsync(CHAVE_STATUS_PUSH)
+          const anterior = await SecureStore.getItemAsync(chave)
           if (anterior === 'concedida') return
         }
         await comRetry(() => api.post('/auth/push-status', { status }))
-        await SecureStore.setItemAsync(CHAVE_STATUS_PUSH, status)
+        await SecureStore.setItemAsync(chave, status)
       } catch (err) {
         console.error('[Push][status] falha ao reportar | status:', status, '| msg:', err?.mensagem || err?.message, err)
       }
@@ -180,7 +206,33 @@ export const AuthProvider = ({ children }) => {
     return true
   }
 
-  const registrarPushToken = async () => {
+  // Retentativa com backoff depois de erro_token / erro_envio: 3 tentativas no total
+  // (a original + 2), em 30 s e depois 60 s. Só esses dois motivos — os de permissão
+  // não mudam sozinhos, e erro_consulta é falha do próprio SO. A retentativa fica presa
+  // ao usuário que a agendou: se a sessão mudou (logout cancela, mas a checagem cobre
+  // uma troca rápida de conta), ela não dispara sob o bearer de outra pessoa.
+  const MAX_TENTATIVAS_PUSH = 3
+  const atrasoRetentativaPush = (tentativa) => 30000 * Math.pow(2, tentativa)
+  const agendarRetentativaPush = (tentativa, motivo) => {
+    const usuarioId = usuarioIdRef.current
+    if (usuarioId == null || tentativa + 1 >= MAX_TENTATIVAS_PUSH) return false
+    cancelarRetentativaPush()
+    const atraso = atrasoRetentativaPush(tentativa)
+    const timer = setTimeout(() => {
+      retentativaPushRef.current = null
+      if (usuarioIdRef.current !== usuarioId) return
+      registrarPushToken({ tentativa: tentativa + 1 })
+    }, atraso)
+    retentativaPushRef.current = { timer, usuarioId }
+    console.log('[Push] retentativa agendada | motivo:', motivo, '| tentativa:', tentativa + 2, 'de', MAX_TENTATIVAS_PUSH, '| em ms:', atraso)
+    return true
+  }
+
+  const registrarPushToken = async ({ tentativa = 0 } = {}) => {
+    // Uma chamada nova (login, soft-ask, Perfil, resume) supersede qualquer retentativa
+    // pendente: nunca duas cadeias em paralelo sobre o mesmo POST.
+    if (tentativa === 0) cancelarRetentativaPush()
+
     // O canal precisa existir ANTES de pedir o token no Android 8+.
     await configurarCanalAndroid()
 
@@ -228,9 +280,10 @@ export const AuthProvider = ({ children }) => {
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
       pushToken = tokenData.data
     } catch (err) {
-      console.error('[Push] getExpoPushTokenAsync FALHOU | projectId:', projectId, '| msg:', err?.message, err)
+      console.error('[Push] getExpoPushTokenAsync FALHOU | projectId:', projectId, '| tentativa:', tentativa + 1, '| msg:', err?.message, err)
       reportarStatusPush('erro_token')
-      return { ok: false, motivo: 'erro_token', detalhe: err?.message }
+      const retentativa = agendarRetentativaPush(tentativa, 'erro_token')
+      return { ok: false, motivo: 'erro_token', detalhe: err?.message, retentativa }
     }
 
     try {
@@ -242,9 +295,10 @@ export const AuthProvider = ({ children }) => {
       console.log('[Push] token registrado com sucesso | projectId:', projectId, '| token:', pushToken)
       return { ok: true, token: pushToken }
     } catch (err) {
-      console.error('[Push] POST /auth/push-token FALHOU | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message, err)
+      console.error('[Push] POST /auth/push-token FALHOU | status:', err?.status, '| code:', err?.code, '| tentativa:', tentativa + 1, '| msg:', err?.mensagem || err?.message, err)
       reportarStatusPush('erro_envio')
-      return { ok: false, motivo: 'erro_envio', detalhe: err?.mensagem || err?.message, status: err?.status }
+      const retentativa = agendarRetentativaPush(tentativa, 'erro_envio')
+      return { ok: false, motivo: 'erro_envio', detalhe: err?.mensagem || err?.message, status: err?.status, retentativa }
     }
   }
 
@@ -271,6 +325,7 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.log('[AuthContext] falha ao guardar o último e-mail (login segue) | msg:', err?.message)
     }
+    usuarioIdRef.current = resposta.usuario?.id ?? null
     setUsuario(resposta.usuario)
     setAssinatura(resposta.assinatura)
     setMostrarBoasVindas(deveExibirBoasVindas(resposta.usuario, resposta.assinatura))
@@ -281,6 +336,7 @@ export const AuthProvider = ({ children }) => {
   // Função usada após cadastro — recebe token e dados diretamente
   const loginComToken = async (token, usuarioDados, assinaturaDados) => {
     await SecureStore.setItemAsync('token', token)
+    usuarioIdRef.current = usuarioDados?.id ?? null
     setUsuario(usuarioDados)
     setAssinatura(assinaturaDados || null)
     setMostrarBoasVindas(deveExibirBoasVindas(usuarioDados, assinaturaDados || null))
@@ -288,6 +344,10 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = async () => {
+    // Retentativa pendente morreria sob o bearer errado (ou sem bearer): cancela ANTES
+    // de tocar no token, e zera o id para uma retentativa em voo não se agendar de novo.
+    cancelarRetentativaPush()
+    usuarioIdRef.current = null
     // Best-effort e NÃO bloqueante: limpa o push_token no servidor ANTES de
     // destruir o token local, fechando a colisão de token em aparelho compartilhado
     // (RELATORIO.txt #2). O header é fixado explicitamente porque o SecureStore é
@@ -332,6 +392,7 @@ export const AuthProvider = ({ children }) => {
   // em vez do refresh parcial antigo que exigia relogar (B72).
   const revalidarSessao = async () => {
     const { usuario, assinatura } = await comRetry(() => authService.perfil())
+    usuarioIdRef.current = usuario?.id ?? null
     setUsuario(usuario)
     setAssinatura(assinatura)
     setMostrarBoasVindas(deveExibirBoasVindas(usuario, assinatura))
