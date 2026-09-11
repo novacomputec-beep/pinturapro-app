@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, ScrollView,
@@ -72,27 +72,48 @@ export default function PerfilScreen({ navigation, route }) {
   // tela tem em mãos é a cópia carregada no último foco, e devolvê-la sobrescreveria com
   // valor velho qualquer campo alterado noutro lugar nesse meio-tempo.
   const [salvandoEsp, setSalvandoEsp] = useState(false)
+  //
+  // CORRIDA com o GET do foco (abaixo): ao voltar da EspecialidadesScreen, o foco dispara
+  // GET /auth/perfil e este efeito dispara o PUT, em paralelo. Se o GET saísse antes do
+  // PUT gravar e chegasse depois, o setDadosCompletos dele repunha a lista ANTIGA por
+  // cima da recém-salva. Dois refs fecham isso, sem serializar as requisições:
+  //   salvamentoEspRef — a promessa do PUT em voo (nunca rejeita). O GET a AGUARDA antes
+  //     de aplicar a resposta, então o PUT sempre termina primeiro.
+  //   espSalvasRef — { seq, lista } do último PUT bem-sucedido nesta montagem. O GET
+  //     compara o seq de quando PARTIU com o de quando vai aplicar: se um PUT concluiu
+  //     nesse intervalo, a resposta do GET é anterior à gravação e a lista salva
+  //     prevalece. Se o PUT falhou, seq não muda e o GET (que reflete o servidor) vale.
+  // montadoRef substitui o antigo `let vivo`: aquele flag era zerado pelo cleanup do
+  // efeito, e o setParams({ especialidades: undefined }) logo acima re-roda o efeito na
+  // hora — o cleanup virava vivo=false ANTES do PUT voltar, engolindo o setDadosCompletos
+  // do sucesso e o setSalvandoEsp(false). Só o desmonte real deve barrar esses sets.
+  const montadoRef = useRef(true)
+  useEffect(() => () => { montadoRef.current = false }, [])
+  const salvamentoEspRef = useRef(null)
+  const espSalvasRef = useRef({ seq: 0, lista: null })
   const espRetorno = route.params?.especialidades
   useEffect(() => {
     if (!espRetorno) return
     const lista = normalizarEspecialidades(espRetorno)
     navigation.setParams({ especialidades: undefined })
     if (!lista.length) return
-    let vivo = true
     const salvar = async () => {
       setSalvandoEsp(true)
       try {
         await comRetry(() => authService.atualizarPerfil({ especialidades: lista }), { timeout: true, servidor: true })
-        if (vivo) setDadosCompletos(d => (d ? { ...d, especialidades: lista } : d))
+        espSalvasRef.current = { seq: espSalvasRef.current.seq + 1, lista }
+        if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, especialidades: lista } : d))
       } catch (err) {
         console.log('[Perfil] falha ao salvar especialidades | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
         Alert.alert('Erro', err.mensagem || 'Não foi possível salvar suas especialidades.')
       } finally {
-        if (vivo) setSalvandoEsp(false)
+        if (montadoRef.current) setSalvandoEsp(false)
       }
     }
-    salvar()
-    return () => { vivo = false }
+    const promessa = salvar().finally(() => {
+      if (salvamentoEspRef.current === promessa) salvamentoEspRef.current = null
+    })
+    salvamentoEspRef.current = promessa
   }, [espRetorno])
 
   const handleRenovarAssinatura = async () => {
@@ -120,9 +141,17 @@ export default function PerfilScreen({ navigation, route }) {
   useFocusEffect(
     useCallback(() => {
       const buscar = async () => {
+        // seq de quando o GET PARTIU: qualquer PUT de especialidades que conclua daqui até
+        // a aplicação da resposta muda esse número (ver o efeito de salvamento acima).
+        const seqNoInicio = espSalvasRef.current.seq
         try {
           const resposta = await comRetry(() => authService.perfil())
-          setDadosCompletos(resposta.usuario)
+          // Um PUT ainda em voo termina ANTES de esta resposta ser aplicada.
+          if (salvamentoEspRef.current) await salvamentoEspRef.current
+          const salvas = espSalvasRef.current
+          setDadosCompletos(salvas.seq !== seqNoInicio
+            ? { ...resposta.usuario, especialidades: salvas.lista }
+            : resposta.usuario)
         } catch (err) {
           console.log('[Perfil] falha ao buscar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
           setDadosCompletos(usuario)
