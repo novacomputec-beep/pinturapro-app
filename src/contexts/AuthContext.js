@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import * as SecureStore from 'expo-secure-store'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
@@ -22,6 +23,37 @@ const AuthContext = createContext({})
 // recurso —, e por isso o logout continua apagando só o 'token'. A senha JAMAIS entra
 // aqui: o que é guardado é identificação, nunca credencial.
 export const CHAVE_ULTIMO_EMAIL = 'ultimo_email'
+
+// Cópia local do último { usuario, assinatura } de uma sessão válida, para o boot seguir
+// SEM rede. Antes só o token era guardado, então qualquer falha do GET /auth/perfil no
+// boot — inclusive avião, socket morto ou 5xx — apagava o token e mandava para o login:
+// falha de rede lida como falha de autenticação. Agora só 401/403 (o servidor REJEITANDO
+// o token) derruba a sessão; o resto segue com esta cópia até a próxima sincronização.
+//
+// AsyncStorage, e não SecureStore: perfil não é credencial (o token continua no
+// SecureStore), e o SecureStore avisa acima de 2 KB por valor — um perfil com
+// especialidades e endereço passa disso. Mesmo módulo do rascunhoCadastro.js.
+// Escrita best-effort: falhar aqui nunca pode derrubar um login que o servidor aceitou.
+const CHAVE_SESSAO_CACHE = 'sessao_cache'
+const gravarSessaoCache = async (usuario, assinatura) => {
+  try {
+    await AsyncStorage.setItem(CHAVE_SESSAO_CACHE, JSON.stringify({ usuario, assinatura: assinatura ?? null }))
+  } catch (err) {
+    console.log('[AuthContext] falha ao gravar cache da sessão | msg:', err?.message)
+  }
+}
+const lerSessaoCache = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(CHAVE_SESSAO_CACHE)
+    return raw ? JSON.parse(raw) : null
+  } catch (err) {
+    console.log('[AuthContext] falha ao ler cache da sessão | msg:', err?.message)
+    return null
+  }
+}
+const limparSessaoCache = async () => {
+  try { await AsyncStorage.removeItem(CHAVE_SESSAO_CACHE) } catch (e) {}
+}
 
 // Boas-vindas únicas para prestadores recém-aprovados: o backend devolve
 // boas_vindas_exibida no usuario (login e perfil). Mostra só uma vez, para
@@ -97,6 +129,14 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => { usuarioIdRef.current = usuario?.id ?? null }, [usuario])
 
+  // Mantém a cópia local em dia com QUALQUER caminho que mude a sessão — login, cadastro,
+  // revalidação, restore e os setUsuario/setAssinatura expostos às telas (boas-vindas,
+  // edição de perfil). Um só ponto de escrita, em vez de um em cada chamador. Com usuario
+  // nulo não grava: o logout é quem limpa, e nulo não é "sessão vazia" a preservar.
+  useEffect(() => {
+    if (usuario) gravarSessaoCache(usuario, assinatura)
+  }, [usuario, assinatura])
+
   useEffect(() => {
     configurarCanalAndroid()
     const restaurarSessao = async () => {
@@ -111,8 +151,29 @@ export const AuthProvider = ({ children }) => {
             usuarioIdRef.current = u?.id ?? null
             registrarPushToken()
           } catch (err) {
-            console.log('[AuthContext] falha ao restaurar sessão (perfil) | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-            await SecureStore.deleteItemAsync('token')
+            // Só 401/403 é o servidor dizendo que ESTE token não vale (expirado, revogado,
+            // conta suspensa): aí sim o token e a cópia local vão embora. Rede, timeout e
+            // 5xx não dizem nada sobre o token — a sessão segue com a última cópia válida,
+            // e o token fica para a próxima sincronização. Sem cópia (primeiro boot depois
+            // desta mudança, ou cache perdido) a tela de login aparece, mas o token NÃO é
+            // apagado: uma abertura com rede volta a restaurar a sessão sozinha.
+            const rejeitado = err.status === 401 || err.status === 403
+            if (rejeitado) {
+              console.log('[AuthContext] token rejeitado pelo servidor — sessão encerrada | status:', err.status, '| codigo:', err.codigo, '| msg:', err.mensagem)
+              await SecureStore.deleteItemAsync('token')
+              await limparSessaoCache()
+            } else {
+              const cache = await lerSessaoCache()
+              if (cache?.usuario) {
+                u = cache.usuario
+                a = cache.assinatura ?? null
+                usuarioIdRef.current = u?.id ?? null
+                console.log('[AuthContext] perfil indisponível no boot — seguindo com a sessão em cache | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+                registrarPushToken()
+              } else {
+                console.log('[AuthContext] perfil indisponível no boot e sem cache — token mantido, login exibido | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+              }
+            }
           }
         }
       } catch (err) {
@@ -367,6 +428,7 @@ export const AuthProvider = ({ children }) => {
     // a conta que acabou de sair. Aqui só se destrói a sessão local; o servidor continua
     // com o token da conta e o próximo login registra o mesmo token na conta seguinte.
     await SecureStore.deleteItemAsync('token')
+    await limparSessaoCache()
     setUsuario(null)
     setAssinatura(null)
     setMostrarBoasVindas(false)
