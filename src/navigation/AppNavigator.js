@@ -17,6 +17,7 @@ import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
 import RetomadaMatchHost from '../components/RetomadaMatchHost'
+import ModalSuporte from '../components/ModalSuporte'
 import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
 
 // Auth
@@ -330,6 +331,8 @@ function PagamentoPendenteScreen() {
   const [carregando, setCarregando] = React.useState(true)
   const [verificando, setVerificando] = React.useState(false)
   const [erro, setErro] = React.useState(null)
+  // Só no iOS (mostrarCobranca false): pedido de contato com o suporte, ver ModalSuporte.
+  const [suporteAberto, setSuporteAberto] = React.useState(false)
   const mountedRef = React.useRef(true)
   React.useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -473,8 +476,32 @@ function PagamentoPendenteScreen() {
           <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
             <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
           </TouchableOpacity>
+
+          {/* iOS: sem link nem instrução de pagamento na tela (3.1.1), a única saída que a
+              pessoa tem é a equipe. Texto neutro, sem citar o motivo do bloqueio. No
+              Android nada disto aparece — lá o fluxo de cobrança acima já resolve. */}
+          {!mostrarCobranca && (
+            <View style={{ width: '100%', alignItems: 'center', marginTop: 8, paddingTop: 20, borderTopWidth: 0.5, borderTopColor: cores.borda }}>
+              <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 12 }}>
+                Precisa de ajuda? Nossa equipe pode orientar você.
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: cores.fundoCard, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', borderWidth: 0.5, borderColor: cores.borda }}
+                onPress={() => setSuporteAberto(true)}
+              >
+                <Text style={{ fontSize: 14, color: cores.textoForte }}>Falar com o suporte</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </TelaAviso>
       </ScrollView>
+      {!mostrarCobranca && (
+        <ModalSuporte
+          visivel={suporteAberto}
+          telefoneInicial={usuario?.telefone}
+          onFechar={() => setSuporteAberto(false)}
+        />
+      )}
     </SafeAreaView>
   )
 }
