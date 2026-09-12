@@ -13,8 +13,9 @@ import { mascararTelefone } from '../../utils/telefone'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
+import ModalSuporte from '../../components/ModalSuporte'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { mostrarCobranca, mostrarAvisoCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
+import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
 
@@ -56,6 +57,8 @@ export default function PerfilScreen({ navigation, route }) {
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
   const [mostrarExcluir, setMostrarExcluir] = useState(false)
+  // Só no iOS (mostrarCobranca false): pedido de contato com o suporte, ver ModalSuporte.
+  const [suporteAberto, setSuporteAberto] = useState(false)
   const [permNotif, setPermNotif] = useState(null)
   // Resultado do ÚLTIMO registrarPushToken disparado por esta tela (null = ainda não
   // houve toque nesta montagem). Só o toque no item alimenta isto: os registros de
@@ -362,6 +365,9 @@ export default function PerfilScreen({ navigation, route }) {
           )}
         </View>
 
+        {/* No iOS o card de assinatura some inteiro — título, badge, plano e vencimento
+            (3.1.1) — e no lugar entra o pedido de contato com o suporte. */}
+        {mostrarCobranca ? (
         <View style={estilos.assinaturaCard}>
           <View style={estilos.assinaturaHeader}>
             <Text style={estilos.assinaturaTitulo}>{isDono ? 'Assinatura Gratuita' : 'Assinatura'}</Text>
@@ -395,11 +401,7 @@ export default function PerfilScreen({ navigation, route }) {
               </View>
             )}
           </View>
-          {/* No iOS o CTA de pagamento vira a frase — sem botão, sem link (3.1.1). */}
-          {!isDono && mostrarAvisoCobranca(assinatura) && (
-            <Text style={[estilos.assinaturaLabel, { textAlign: 'center', marginTop: 12 }]}>{FRASE_ASSINATURA_EXTERNA}</Text>
-          )}
-          {!isDono && assinatura?.tipo !== 'gratuito' && mostrarCobranca && (
+          {!isDono && assinatura?.tipo !== 'gratuito' && (
             <TouchableOpacity
               style={[estilos.btnRenovar, renovandoAssinatura && { opacity: 0.6 }]}
               onPress={handleRenovarAssinatura}
@@ -411,6 +413,14 @@ export default function PerfilScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
         </View>
+        ) : (
+        <View style={estilos.assinaturaCard}>
+          <Text style={estilos.suporteTexto}>Precisa de ajuda? Nossa equipe pode orientar você.</Text>
+          <TouchableOpacity style={estilos.btnSuporte} onPress={() => setSuporteAberto(true)}>
+            <Text style={estilos.btnSuporteTexto}>Falar com o suporte</Text>
+          </TouchableOpacity>
+        </View>
+        )}
 
         <View style={estilos.secaoCard}>
           <Text style={estilos.secaoTitulo}>{ehPrestador ? 'Dados profissionais' : 'Dados pessoais'}</Text>
@@ -514,6 +524,13 @@ export default function PerfilScreen({ navigation, route }) {
         onConfirmar={handleExcluirConta}
         onFechar={() => setMostrarExcluir(false)}
       />
+      {!mostrarCobranca && (
+        <ModalSuporte
+          visivel={suporteAberto}
+          telefoneInicial={usuario?.telefone}
+          onFechar={() => setSuporteAberto(false)}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -542,6 +559,11 @@ const estilos = StyleSheet.create({
   assinaturaValor: { fontSize: 13, fontWeight: '500', color: cores.textoForte },
   btnRenovar: { marginTop: 14, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, paddingTop: 12, alignItems: 'center' },
   btnRenovarTexto: { fontSize: 13, color: cores.primaria, fontWeight: '500' },
+  // Bloco de suporte do iOS, no lugar do card de assinatura: mesma linha e botão que
+  // existiam na tela de acesso bloqueado, no vestuário do card.
+  suporteTexto: { fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
+  btnSuporte: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: cores.borda },
+  btnSuporteTexto: { fontSize: 14, color: cores.textoForte },
   secaoCard: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
   secaoTitulo: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, marginBottom: 12 },
   linhaWrap: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca },
