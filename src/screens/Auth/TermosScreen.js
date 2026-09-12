@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
+import { mostrarCobranca } from '../../utils/plataforma'
 
 const SECOES = [
   {
@@ -10,15 +11,21 @@ const SECOES = [
   },
   {
     titulo: '2. Descrição do Serviço',
-    texto: 'O ProTudo é uma plataforma que conecta donos de obras e serviços a profissionais prestadores. Não somos parte nas negociações entre usuários. O pagamento pelo serviço contratado é acertado diretamente entre o dono da obra e o profissional; a plataforma não recebe, não retém nem intermedeia esses valores, e sua única cobrança é a assinatura do profissional.'
+    texto: 'O ProTudo é uma plataforma que conecta donos de obras e serviços a profissionais prestadores. Não somos parte nas negociações entre usuários. O pagamento pelo serviço contratado é acertado diretamente entre o dono da obra e o profissional; a plataforma não recebe, não retém nem intermedeia esses valores' + (mostrarCobranca
+      ? ', e sua única cobrança é a assinatura do profissional.'
+      : '. O aplicativo é gratuito: não há compras dentro nem fora do aplicativo.')
   },
   {
     titulo: '3. Cadastro e Conta',
     texto: 'Você é responsável pela veracidade das informações fornecidas no cadastro e pela segurança de suas credenciais de acesso.'
   },
   {
-    titulo: '4. Assinatura e Pagamento',
-    texto: 'Prestadores de serviço pagam uma assinatura para acesso à plataforma, nos planos mensal ou anual, escolhidos no cadastro. Os valores vigentes de cada plano são exibidos antes da contratação. O pagamento é processado de forma segura via PagBank.'
+    // Apple 3.1.1: no iOS esta seção não pode citar assinatura paga, planos, preços nem
+    // PagBank; diz só que o uso é gratuito. O Android mantém o texto original.
+    titulo: mostrarCobranca ? '4. Assinatura e Pagamento' : '4. Gratuidade',
+    texto: mostrarCobranca
+      ? 'Prestadores de serviço pagam uma assinatura para acesso à plataforma, nos planos mensal ou anual, escolhidos no cadastro. Os valores vigentes de cada plano são exibidos antes da contratação. O pagamento é processado de forma segura via PagBank.'
+      : 'O uso do aplicativo é gratuito. Não há compras dentro do aplicativo nem fora dele.'
   },
   {
     titulo: '5. Uso Aceitável',
