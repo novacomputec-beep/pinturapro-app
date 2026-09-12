@@ -20,7 +20,6 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
-import { mostrarAvisoCobranca, FRASE_ASSINATURA_EXTERNA } from '../../utils/plataforma'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -2110,13 +2109,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 ) : !assinaturaAtiva ? (
                   /* Sem assinatura ativa não há proposta. Só o iOS chega aqui assim (no
                      Android quem deve nem entra nas abas): leitura completa, ação não —
-                     e a única frase que a 3.1.1 permite. Conta gratuita não tem cobrança
-                     a mencionar: fica sem painel. */
-                  mostrarAvisoCobranca(assinatura) ? (
-                    <View style={estilos.formInteresse}>
-                      <Text style={estilos.aviso}>{FRASE_ASSINATURA_EXTERNA}</Text>
-                    </View>
-                  ) : null
+                     e nenhuma frase no lugar (3.1.1). */
+                  null
                 ) : mostrarForm ? (
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
