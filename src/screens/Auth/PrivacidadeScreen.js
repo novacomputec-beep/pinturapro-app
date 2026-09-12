@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
+import { mostrarCobranca } from '../../utils/plataforma'
 
 const SECOES = [
   {
@@ -10,11 +11,14 @@ const SECOES = [
   },
   {
     titulo: '2. Uso dos Dados',
-    texto: 'Usamos seus dados para criar e gerenciar sua conta, conectar prestadores com donos de obra, processar pagamentos, enviar notificações sobre oportunidades de serviço e comunicações do sistema.'
+    texto: 'Usamos seus dados para criar e gerenciar sua conta, conectar prestadores com donos de obra, ' + (mostrarCobranca ? 'processar pagamentos, ' : '') + 'enviar notificações sobre oportunidades de serviço e comunicações do sistema.'
   },
   {
     titulo: '3. Compartilhamento',
-    texto: 'Seus dados de contato (nome, telefone) são compartilhados com a outra parte quando um match de serviço é confirmado. Os dados necessários à cobrança da assinatura são compartilhados com o PagBank, operador de pagamento responsável por processá-la. Não vendemos seus dados para terceiros.'
+    texto: 'Seus dados de contato (nome, telefone) são compartilhados com a outra parte quando um match de serviço é confirmado. ' + (mostrarCobranca
+      // Apple 3.1.1: no iOS não se cita cobrança de assinatura nem PagBank.
+      ? 'Os dados necessários à cobrança da assinatura são compartilhados com o PagBank, operador de pagamento responsável por processá-la. '
+      : 'O aplicativo é gratuito, sem compras dentro nem fora dele, e nenhum dado seu é compartilhado com operadores de pagamento. ') + 'Não vendemos seus dados para terceiros.'
   },
   {
     titulo: '4. Armazenamento e Segurança',
