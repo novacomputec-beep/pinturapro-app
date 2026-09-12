@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
+import ModalAumentarValor from '../../components/ModalAumentarValor'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
@@ -307,6 +308,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // segundo ciclo por cima de um que ainda estivesse rodando. O ref é lido no INSTANTE do
   // toque, e não no do fechamento, e por isso é ele quem guarda a entrada do handler.
   const estendendoRef = useRef(false)
+  // Aumento de valor (só dono): mesmo par estado + ref do estender, pelo mesmo motivo.
+  const [modalAumentar, setModalAumentar] = useState(false)
+  const [aumentando, setAumentando] = useState(false)
+  const aumentandoRef = useRef(false)
   // Guarda a janela EM VOO (o id, não um boolean): trava as três opções de uma vez e
   // ainda permite marcar qual delas está sendo enviada.
   const [enviandoJanela, setEnviandoJanela] = useState(null)
@@ -904,6 +909,40 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível salvar o ponto de referência.')
     } finally {
       if (mountedRef.current) setSalvandoReferencia(false)
+    }
+  }
+
+  // Irmão do handleEstender logo abaixo: mesma trava em voo, mesma recarga em vez de
+  // remendo local, mesma leitura honesta de rede pura. A mensagem de recusa é a da
+  // própria API (err.mensagem), com um fallback genérico só se ela vier vazia.
+  const handleAumentarValor = async (valor) => {
+    if (aumentandoRef.current) return
+    aumentandoRef.current = true
+    setAumentando(true)
+    try {
+      await comRetry(() => api.post(`/reparos/${reparo.id}/aumentar-valor`, { valor }))
+      setModalAumentar(false)
+      await buscar()
+      Alert.alert('✅ Valor aumentado!', 'O novo valor já está valendo.')
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao aumentar valor | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { setModalAumentar(false); return }
+      const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+      if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível aumentar o valor. Verifique sua conexão.', [
+          { text: 'Tentar novamente', onPress: () => { if (!aumentandoRef.current) handleAumentarValor(valor) } },
+          { text: 'Cancelar', style: 'cancel' },
+        ])
+      } else if (err.status === 404) {
+        setModalAumentar(false)
+        Alert.alert('Não encontrado', err.mensagem || 'Serviço não encontrado.')
+      } else {
+        setModalAumentar(false)
+        Alert.alert('Não foi possível aumentar', err.mensagem || 'Este serviço não pode ter o valor aumentado agora.')
+      }
+    } finally {
+      aumentandoRef.current = false
+      if (mountedRef.current) setAumentando(false)
     }
   }
 
@@ -1611,6 +1650,24 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 unidade="horas"
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
+              />
+              {/* Ao lado do aumento de prazo, e só quando o detalhe diz que pode: a
+                  elegibilidade (pode_aumentar_valor) e o piso (valor_minimo_aumento) vêm
+                  do servidor, e a tela não os adivinha. */}
+              {reparo.pode_aumentar_valor === true && (
+                <TouchableOpacity
+                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, aumentando && { opacity: 0.5 }]}
+                  onPress={() => setModalAumentar(true)}
+                  disabled={aumentando}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>Aumentar o valor do serviço</Text>
+                </TouchableOpacity>
+              )}
+              <ModalAumentarValor
+                visivel={modalAumentar}
+                valorMinimo={reparo.valor_minimo_aumento}
+                onAumentar={handleAumentarValor}
+                onFechar={() => setModalAumentar(false)}
               />
               {/* Chegada PROPOSTA, aguardando a resposta do dono. Sem temMatch no gate,
                   de propósito: a janela é proposta ANTES de o profissional partir, e
