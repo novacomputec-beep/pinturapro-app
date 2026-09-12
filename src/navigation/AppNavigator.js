@@ -17,6 +17,7 @@ import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
 import RetomadaMatchHost from '../components/RetomadaMatchHost'
+import ModalSuporte from '../components/ModalSuporte'
 import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
 
 // Auth
@@ -330,6 +331,8 @@ function PagamentoPendenteScreen() {
   const [carregando, setCarregando] = React.useState(true)
   const [verificando, setVerificando] = React.useState(false)
   const [erro, setErro] = React.useState(null)
+  // Só no iOS (mostrarCobranca false): pedido de contato com o suporte, ver ModalSuporte.
+  const [suporteAberto, setSuporteAberto] = React.useState(false)
   const mountedRef = React.useRef(true)
   React.useEffect(() => () => { mountedRef.current = false }, [])
 
@@ -394,7 +397,7 @@ function PagamentoPendenteScreen() {
         mostrarCobranca ? 'Pagamento ainda não confirmado' : 'Acesso ainda não liberado',
         mostrarCobranca
           ? 'Ainda não identificamos seu pagamento. Se você acabou de pagar, aguarde alguns minutos e toque novamente em "Já paguei — verificar acesso".'
-          : 'Sua assinatura ainda não consta como ativa. Aguarde alguns minutos e toque novamente em "Verificar acesso".'
+          : 'Seu acesso ainda não foi liberado. Aguarde alguns minutos e toque novamente em "Verificar acesso".'
       )
     } catch (err) {
       console.log('[AppNavigator] falha ao verificar pagamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -413,11 +416,11 @@ function PagamentoPendenteScreen() {
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <TelaAviso
-          icone={<Feather name="credit-card" size={34} color={cores.primaria} />}
+          icone={<Feather name={mostrarCobranca ? "credit-card" : "lock"} size={34} color={cores.primaria} />}
           corIcone="primaria"
           titulo={mostrarCobranca
             ? (assinatura?.status === 'expirada' ? 'Renove sua assinatura' : 'Finalize seu pagamento')
-            : (assinatura?.status === 'expirada' ? 'Assinatura vencida' : 'Assinatura pendente')}
+            : 'Acesso não liberado'}
         >
           {/* No iOS não há frase alguma sobre assinatura aqui (3.1.1); só o título. */}
           {mostrarCobranca ? (
@@ -473,8 +476,32 @@ function PagamentoPendenteScreen() {
           <TouchableOpacity onPress={logout} style={{ padding: 14 }}>
             <Text style={{ fontSize: 13, color: cores.textoFraco }}>Sair da conta</Text>
           </TouchableOpacity>
+
+          {/* iOS: sem link nem instrução de cobrança na tela (3.1.1), a única saída que a
+              pessoa tem é a equipe. Mesma linha, botão e modal do Perfil. No Android nada
+              disto aparece — lá o fluxo acima já resolve. */}
+          {!mostrarCobranca && (
+            <View style={{ width: '100%', alignItems: 'center', marginTop: 8, paddingTop: 20, borderTopWidth: 0.5, borderTopColor: cores.borda }}>
+              <Text style={{ fontSize: 13, color: cores.textoFraco, textAlign: 'center', lineHeight: 20, marginBottom: 12 }}>
+                Precisa de ajuda? Nossa equipe pode orientar você.
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, width: '100%', alignItems: 'center', borderWidth: 0.5, borderColor: cores.borda }}
+                onPress={() => setSuporteAberto(true)}
+              >
+                <Text style={{ fontSize: 14, color: cores.textoForte }}>Falar com o suporte</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </TelaAviso>
       </ScrollView>
+      {!mostrarCobranca && (
+        <ModalSuporte
+          visivel={suporteAberto}
+          telefoneInicial={usuario?.telefone}
+          onFechar={() => setSuporteAberto(false)}
+        />
+      )}
     </SafeAreaView>
   )
 }
@@ -825,13 +852,11 @@ export default function AppNavigator() {
   const toquePendenteRef = useRef(null)
   const [toqueLido, setToqueLido] = useState(false)
   const [navegacaoPronta, setNavegacaoPronta] = useState(false)
-  // Quem entra nas abas. Android: só assinatura ativa — quem deve vai para a tela de
-  // pagamento. iOS: a tela de pagamento nunca é destino (3.1.1 + 2.1: sem cobrança no app,
-  // ela seria um beco sem saída), então pendente/expirada/vencida entram nas abas com
-  // leitura completa e ficam sem poder AGIR — os detalhes trocam o "Tenho interesse" pela
-  // frase única (assinaturaAtiva). 'pendente_verificacao' é análise do admin, não
-  // cobrança, e segue igual nas duas lojas.
-  const liberaAbas = assinatura?.status === 'ativa' || (!mostrarCobranca && assinatura?.status !== 'pendente_verificacao')
+  // Quem entra nas abas: só assinatura ativa, nas duas lojas. Quem deve vai para a tela
+  // de acesso bloqueado (PagamentoPendenteScreen), que no iOS não cobra nem cita cobrança
+  // (3.1.1) e oferece o contato com o suporte para a pessoa não ficar num beco sem saída.
+  // 'pendente_verificacao' é análise do admin e vai para a tela de verificação.
+  const liberaAbas = assinatura?.status === 'ativa'
 
   // Mantém o contexto do usuário disponível para o roteador de notificações (deep-links)
   useEffect(() => { setUsuarioContexto(usuario) }, [usuario])
