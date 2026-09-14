@@ -517,13 +517,13 @@ function VerificacaoPendenteScreen() {
   const [verificando, setVerificando] = React.useState(false)
 
   // Unico momento em que o prestador recem-cadastrado pode conceder notificacao antes de
-  // chegar ao feed (mesmo padrao de FeedReparosScreen.js:438). Passa ignorarFrequencia
-  // porque aqui o pedido nao pode ser silenciado pela contagem/intervalo: e a chance de
-  // gerar o push_token a tempo do aviso de aprovacao. Variante pela audiencia da tela.
+  // chegar ao feed (mesmo padrao de FeedReparosScreen.js:438). Respeita os MESMOS portoes
+  // de frequencia dos demais chamadores (intervalo de 2 dias e teto de 15 exibicoes):
+  // esta tela nao e mais excecao. Variante pela audiencia da tela.
   useFocusEffect(React.useCallback(() => {
     if (softAskAguardandoMostradoNaSessao) return
     softAskAguardandoMostradoNaSessao = true
-    softAskRef.mostrar?.(usuario?.tipo_prestador === 'pintor' ? 'pintor' : 'reparador', { ignorarFrequencia: true })
+    softAskRef.mostrar?.(usuario?.tipo_prestador === 'pintor' ? 'pintor' : 'reparador')
   }, [usuario?.tipo_prestador]))
   // Conta gratuita (janela de lançamento): a API marca assinatura.tipo === 'gratuito'.
   // Nesse caso a tela troca a copy de pagamento por "aguardando aprovação". Qualquer

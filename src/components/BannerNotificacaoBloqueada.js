@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, AppState, Linking } from 'react-native'
 import * as Notifications from 'expo-notifications'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -11,6 +12,30 @@ import { useAuth } from '../contexts/AuthContext'
 // GlobalVencimentoBanner: overlay condicional, sem props, lê useAuth() e devolve
 // null enquanto a condição não vale. NUNCA chama requestPermissionsAsync — apenas
 // consulta; pedir permissão é a Fase 2.
+//
+// Dispensável: o "✕" esconde a tarja por DISPENSA_MS e grava o instante da dispensa
+// por usuário (mesma convenção por-conta do celebracao.js e do SoftAskNotificacao —
+// em aparelho compartilhado a dispensa de uma conta não cala o aviso da seguinte).
+// Quando a permissão volta a ser concedida a marca é apagada: se a pessoa bloquear
+// de novo mais tarde, a tarja reaparece na hora e a regra dos 3 dias recomeça do zero.
+const CHAVE_DISPENSA = 'banner_notificacao_bloqueada_dispensado'
+const chaveDispensa = (usuarioId) => `${CHAVE_DISPENSA}:${usuarioId}`
+const DISPENSA_MS = 3 * 24 * 60 * 60 * 1000 // 3 dias sem mostrar após o "✕"
+
+const lerDispensaMs = async (usuarioId) => {
+  try {
+    const raw = await AsyncStorage.getItem(chaveDispensa(usuarioId))
+    const ms = Number(raw)
+    return raw != null && Number.isFinite(ms) ? ms : 0
+  } catch (e) { return 0 }
+}
+const gravarDispensaMs = async (usuarioId, ms) => {
+  try { await AsyncStorage.setItem(chaveDispensa(usuarioId), String(ms)) } catch (e) {}
+}
+const limparDispensa = async (usuarioId) => {
+  try { await AsyncStorage.removeItem(chaveDispensa(usuarioId)) } catch (e) {}
+}
+
 const BannerNotificacaoBloqueada = () => {
   const { usuario } = useAuth()
   // Inset do topo pelo MESMO caminho do BarraServicoEmAndamento (:25) e do
@@ -30,7 +55,19 @@ const BannerNotificacaoBloqueada = () => {
     }
     try {
       const { granted, canAskAgain } = await Notifications.getPermissionsAsync()
-      setBloqueada(!granted && canAskAgain === false)
+      if (granted) {
+        // Permissão concedida zera a dispensa: uma revogação futura volta a avisar.
+        await limparDispensa(usuario.id)
+        setBloqueada(false)
+        return
+      }
+      if (canAskAgain !== false) {
+        setBloqueada(false)
+        return
+      }
+      // Bloqueada: só mostra se a última dispensa já tem mais de DISPENSA_MS.
+      const dispensadoEm = await lerDispensaMs(usuario.id)
+      setBloqueada(Date.now() - dispensadoEm >= DISPENSA_MS)
     } catch (err) {
       // Falha ao consultar não deve virar aviso — melhor calar que mentir.
       setBloqueada(false)
@@ -48,15 +85,34 @@ const BannerNotificacaoBloqueada = () => {
     return () => sub.remove()
   }, [verificar])
 
+  const dispensar = useCallback(async () => {
+    // Esconde já, sem esperar o storage — a gravação falhar só faz a tarja voltar
+    // na próxima verificação, o que é o comportamento antigo (nunca pior que hoje).
+    setBloqueada(false)
+    if (usuario?.id != null) await gravarDispensaMs(usuario.id, Date.now())
+  }, [usuario])
+
   if (!usuario || !bloqueada) return null
 
   return (
     <View style={[estilos.banner, { top }]}>
-      <Text style={estilos.texto}>
-        🔕 Notificações bloqueadas — você não será avisado de novidades.
-      </Text>
-      <TouchableOpacity style={estilos.botao} onPress={() => Linking.openSettings()} activeOpacity={0.8}>
-        <Text style={estilos.botaoTexto}>Abrir Configurações</Text>
+      <View style={estilos.conteudo}>
+        <Text style={estilos.texto}>
+          🔕 Notificações bloqueadas — você não será avisado de novidades.
+        </Text>
+        <TouchableOpacity style={estilos.botao} onPress={() => Linking.openSettings()} activeOpacity={0.8}>
+          <Text style={estilos.botaoTexto}>Abrir Configurações</Text>
+        </TouchableOpacity>
+      </View>
+      <TouchableOpacity
+        style={estilos.fechar}
+        onPress={dispensar}
+        activeOpacity={0.6}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        accessibilityRole="button"
+        accessibilityLabel="Fechar aviso de notificações bloqueadas"
+      >
+        <Text style={estilos.fecharTexto}>✕</Text>
       </TouchableOpacity>
     </View>
   )
@@ -75,6 +131,14 @@ const estilos = StyleSheet.create({
     backgroundColor: '#FFC107',
     paddingVertical: 10,
     paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // Texto + CTA seguem centralizados entre si, como antes; o "✕" fica à direita, fora
+  // desse grupo, para não empurrar o conteúdo nem competir com o "Abrir Configurações".
+  conteudo: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -96,6 +160,15 @@ const estilos = StyleSheet.create({
   botaoTexto: {
     color: '#FFC107',
     fontSize: 12,
+    fontWeight: '700',
+  },
+  fechar: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  fecharTexto: {
+    color: '#0A0A0A',
+    fontSize: 16,
     fontWeight: '700',
   },
 })
