@@ -15,10 +15,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.pinturapro.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar obras próximas a você.",
-        "NSCameraUsageDescription": "Precisamos da câmera para tirar fotos e gravar vídeos.",
-        "NSMicrophoneUsageDescription": "Precisamos do microfone para gravar vídeos.",
-        "NSPhotoLibraryUsageDescription": "Precisamos acessar sua galeria para adicionar fotos e vídeos.",
+        "NSLocationWhenInUseUsageDescription": "O ProTudo usa sua localização para mostrar serviços e obras perto de você e calcular a distância até o endereço — por exemplo, exibir primeiro os serviços a menos de 5 km da sua posição.",
+        "NSCameraUsageDescription": "O ProTudo usa a câmera para você fotografar seu documento e tirar uma selfie na verificação do cadastro, e para registrar o serviço — por exemplo, fotografar a parede que precisa de pintura ao cadastrar uma demanda.",
+        "NSMicrophoneUsageDescription": "O ProTudo usa o microfone para gravar o áudio dos vídeos que você anexa a um serviço — por exemplo, um vídeo explicando o barulho que a máquina de lavar está fazendo.",
+        "NSPhotoLibraryUsageDescription": "O ProTudo acessa sua galeria para você anexar fotos e vídeos já salvos no celular — por exemplo, escolher a foto do vazamento na pia para ilustrar o serviço que está cadastrando.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -54,9 +54,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Precisamos acessar sua galeria para adicionar fotos e vídeos.",
-          "cameraPermission": "Precisamos da câmera para tirar fotos e gravar vídeos.",
-          "microphonePermission": "Precisamos do microfone para gravar vídeos."
+          "photosPermission": "O ProTudo acessa sua galeria para você anexar fotos e vídeos já salvos no celular — por exemplo, escolher a foto do vazamento na pia para ilustrar o serviço que está cadastrando.",
+          "cameraPermission": "O ProTudo usa a câmera para você fotografar seu documento e tirar uma selfie na verificação do cadastro, e para registrar o serviço — por exemplo, fotografar a parede que precisa de pintura ao cadastrar uma demanda.",
+          "microphonePermission": "O ProTudo usa o microfone para gravar o áudio dos vídeos que você anexa a um serviço — por exemplo, um vídeo explicando o barulho que a máquina de lavar está fazendo."
         }
       ],
       [
