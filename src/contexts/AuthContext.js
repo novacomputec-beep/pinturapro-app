@@ -348,22 +348,11 @@ export const AuthProvider = ({ children }) => {
     // de tocar no token, e zera o id para uma retentativa em voo não se agendar de novo.
     cancelarRetentativaPush()
     usuarioIdRef.current = null
-    // Best-effort e NÃO bloqueante: limpa o push_token no servidor ANTES de
-    // destruir o token local, fechando a colisão de token em aparelho compartilhado
-    // (RELATORIO.txt #2). O header é fixado explicitamente porque o SecureStore é
-    // apagado logo abaixo — o interceptor poderia não encontrar mais o token.
-    // Dispara e segue; qualquer falha só é logada e nunca impede o logout local.
-    try {
-      const token = await SecureStore.getItemAsync('token')
-      if (token) {
-        // comRetry pela mesma razão do registro acima, e { timeout } pela mesma: limpar é
-        // idempotente. Segue SEM await — o logout local não pode esperar pela rede.
-        comRetry(() => api.post('/auth/push-token/clear', {}, { headers: { Authorization: `Bearer ${token}` } }), { timeout: true })
-          .catch(err => console.error('[Push][logout] push_token NÃO foi limpo no servidor — em aparelho compartilhado o próximo usuário deste aparelho pode receber notificações da conta anterior | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem || err?.message))
-      }
-    } catch (err) {
-      console.log('[Push] erro ao ler token para limpar push_token no logout | msg:', err?.message)
-    }
+    // O push_token NÃO é limpo no servidor de propósito. O token identifica o APARELHO,
+    // não a sessão, e a mesma pessoa costuma ter mais de uma conta (dono e prestador,
+    // por exemplo) no mesmo celular: sair de uma para entrar na outra não pode silenciar
+    // a conta que acabou de sair. Aqui só se destrói a sessão local; o servidor continua
+    // com o token da conta e o próximo login registra o mesmo token na conta seguinte.
     await SecureStore.deleteItemAsync('token')
     setUsuario(null)
     setAssinatura(null)
