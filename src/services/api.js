@@ -231,8 +231,10 @@ api.uploadMidiaPublica = async (formData) => {
 
 // ─── AUTH ────────────────────────────────────────────────────
 export const authService = {
-  login: (email, senha) =>
-    comRetry(() => api.post('/auth/login', { email, senha })),
+  // `tipo` só entra no corpo quando informado (escolha do "Entrar como:", múltiplas contas
+  // no mesmo e-mail). Sem ele o payload é byte a byte o de sempre.
+  login: (email, senha, tipo) =>
+    comRetry(() => api.post('/auth/login', tipo ? { email, senha, tipo } : { email, senha })),
   cadastrar: (dados) =>
     comRetry(() => api.post('/auth/cadastro', dados)),
   perfil: () =>

@@ -10,6 +10,7 @@ import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
+import EntrarComoScreen from './EntrarComoScreen'
 
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth()
@@ -19,6 +20,8 @@ export default function LoginScreen({ navigation }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [linkPagamento, setLinkPagamento] = useState(null)
+  const [contas, setContas] = useState(null)               // 2+ contas no e-mail → tela "Entrar como:"
+  const [tipoCarregando, setTipoCarregando] = useState(null)
 
   // Semente do campo de e-mail: o do último login bem-sucedido. O SecureStore é assíncrono,
   // então não dá para ser o valor inicial do useState — o campo nasce vazio e recebe o valor
@@ -53,11 +56,20 @@ export default function LoginScreen({ navigation }) {
     return Object.keys(novosErros).length === 0
   }
 
-  const handleLogin = async () => {
+  // `tipo` só vem do "Entrar como:" (múltiplas contas no mesmo e-mail): repete o mesmo
+  // login com o tipo escolhido e cai no fluxo normal abaixo. Sem ele é o login de sempre.
+  const handleLogin = async (tipo) => {
     if (!validar()) return
-    setCarregando(true)
+    if (tipo) setTipoCarregando(tipo)
+    else setCarregando(true)
     try {
-      const resposta = await login(email.trim().toLowerCase(), senha)
+      const resposta = await login(email.trim().toLowerCase(), senha, tipo)
+      // 2+ contas e nenhum tipo escolhido ainda: o AuthContext NÃO gravou sessão. Mostra a
+      // escolha e para aqui. Sem `contas`, ou com 1 só, nada muda.
+      if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
+        setContas(resposta.contas)
+        return
+      }
       if (resposta?.assinatura?.status === 'pendente' || !resposta?.assinatura) {
         if (resposta?.usuario?.role === 'prestador' || resposta?.usuario?.role === 'assinante') {
           try {
@@ -79,7 +91,19 @@ export default function LoginScreen({ navigation }) {
       Alert.alert('Erro', err.mensagem || 'Erro ao fazer login')
     } finally {
       setCarregando(false)
+      setTipoCarregando(null)
     }
+  }
+
+  if (contas && !linkPagamento) {
+    return (
+      <EntrarComoScreen
+        contas={contas}
+        tipoCarregando={tipoCarregando}
+        onEscolher={(tipo) => handleLogin(tipo)}
+        onVoltar={() => setContas(null)}
+      />
+    )
   }
 
   if (linkPagamento) {
@@ -161,7 +185,7 @@ export default function LoginScreen({ navigation }) {
 
             <BotaoPrimario
               titulo="Entrar"
-              onPress={handleLogin}
+              onPress={() => handleLogin()}
               carregando={carregando}
               estilo={{ marginTop: 8 }}
             />

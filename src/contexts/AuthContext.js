@@ -302,8 +302,12 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const login = async (email, senha) => {
-    const resposta = await authService.login(email, senha)
+  const login = async (email, senha, tipo) => {
+    const resposta = await authService.login(email, senha, tipo)
+    // Múltiplas contas no mesmo e-mail: sem `tipo` e com 2+ itens em `contas`, a sessão NÃO
+    // é gravada — a LoginScreen mostra o "Entrar como:" e repete o login com o tipo
+    // escolhido. Sem o campo `contas`, ou com 1 conta só, segue o fluxo de sempre.
+    if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) return resposta
     // Defensivo: em aparelho compartilhado, um login (de qualquer usuário) descarta
     // um eventual rascunho de cadastro pré-auth que tenha ficado, para não ressurgir
     // para outra pessoa. Best-effort, não bloqueia o login.
