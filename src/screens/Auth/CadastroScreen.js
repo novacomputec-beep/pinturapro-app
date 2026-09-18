@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, AppState
+  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, AppState, BackHandler
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
@@ -18,6 +18,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
+
+// Cores da escolha de perfil (passo 0): laranja = trabalhar, azul = contratar.
+const COR_TRABALHAR = '#F0822E'
+const COR_CONTRATAR = '#6AA6F0'
 
 // ─── VALIDAÇÃO CPF/CNPJ ──────────────────────────────────────
 const validarCPF = (cpf) => {
@@ -194,6 +198,7 @@ export default function CadastroScreen({ navigation, route }) {
 
   const [tipoConta, setTipoConta] = useState(null)
   const [passo, setPasso] = useState(0)
+  const [lado, setLado] = useState(null)                  // passo 0: null = 1ª tela | 'trabalhar' | 'contratar'
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [lancamentoGratis, setLancamentoGratis] = useState(false)
@@ -402,6 +407,14 @@ export default function CadastroScreen({ navigation, route }) {
   const passoVisivel = modoLancamento && passo === 4 ? 3 : passo
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
+
+  // Escolha de perfil em 2 telas: na 2ª (lado escolhido), o voltar do Android retorna
+  // à 1ª em vez de sair do cadastro.
+  useEffect(() => {
+    if (passo !== 0 || !lado) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => { setLado(null); return true })
+    return () => sub.remove()
+  }, [passo, lado])
 
   const selecionarFoto = async (setter, tipo, setUrl, setUploadando, setErro) => {
     // Lança câmera/galeria com a MESMA proteção do fluxo de obra/reparo: try/catch para
@@ -935,10 +948,19 @@ export default function CadastroScreen({ navigation, route }) {
   const bloquearFinalizarPorFotos = isPrestador && passo === totalPassos && !fotosVerificacaoOk
 
   if (passo === 0) {
+    const corLado = lado === 'trabalhar' ? COR_TRABALHAR : COR_CONTRATAR
+    // 2ª tela: serviço primeiro. O tipo de cada opção é o mesmo de sempre; sem `preco` = dono (Gratuito).
+    const opcoesLado = lado === 'trabalhar' ? [
+      { tipo: 'prestador', icone: '🔧', titulo: 'Serviços gerais e domésticos', desc: 'Manicure, maquiagem, aula particular, montagem de móveis e muito mais', preco: 'R$ 49,90/mês' },
+      { tipo: 'pintor', icone: '🖌️', titulo: 'Obras, construção e pintura', desc: 'Pedreiro, pintor, construtor', preco: 'R$ 99,90/mês' },
+    ] : [
+      { tipo: 'dono_reparo', icone: '🛠️', titulo: 'Um serviço doméstico', desc: 'Conserto, montagem, aula, beleza e muito mais, com profissionais da minha região' },
+      { tipo: 'dono_obra', icone: '🏠', titulo: 'Uma obra, reforma ou pintura', desc: 'Cadastro a obra e recebo propostas de profissionais da minha região' },
+    ]
     return (
       <SafeAreaView style={estilos.container}>
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima, { paddingTop: insets.top + 8 }]}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Splash')}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => (lado ? setLado(null) : navigation.navigate('Splash'))}>
             <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
           </TouchableOpacity>
           <View style={estilos.logoWrap}>
@@ -948,64 +970,67 @@ export default function CadastroScreen({ navigation, route }) {
             </Text>
             <View style={estilos.logoRegua} />
           </View>
-          <Text style={[estilos.titulo, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>Como você quer usar?</Text>
-          <Text style={[estilos.subtitulo, { textAlign: 'center' }]}>Escolha o perfil que melhor descreve você</Text>
+          {!lado ? (
+            <>
+              <Text style={[estilos.titulo, { textAlign: 'center' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>O que você quer fazer?</Text>
+              <Text style={[estilos.subtitulo, { textAlign: 'center' }]}>Toque em uma das duas opções</Text>
 
-          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('pintor')} activeOpacity={0.8}>
-            <Text style={estilos.tipoIcone}>🖌️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Sou construtor, pedreiro ou pintor</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar obras disponíveis na minha região</Text>
-              {/* Preço de assinatura: nunca no iOS (3.1.1), nem riscado. */}
-              {mostrarCobranca && (lancamentoGratis ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 99,90/mês</Text>
-                  <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
+              <TouchableOpacity style={[estilos.ladoCard, { borderColor: COR_TRABALHAR, backgroundColor: COR_TRABALHAR + '22' }]} onPress={() => setLado('trabalhar')} activeOpacity={0.8}>
+                <View style={estilos.ladoTituloLinha}>
+                  <Text style={estilos.ladoIcone}>🔧</Text>
+                  <Text style={[estilos.ladoTitulo, { color: COR_TRABALHAR }]}>QUERO TRABALHAR</Text>
                 </View>
-              ) : (
-                <Text style={estilos.tipoPreco}>R$ 99,90/mês</Text>
-              ))}
-            </View>
-            <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
-          </TouchableOpacity>
+                <Text style={estilos.ladoDesc}>Sou profissional e quero receber pedidos de obras e serviços</Text>
+                {/* Mesma condição do "Grátis" dos preços: nunca no iOS (3.1.1), só na janela de lançamento. */}
+                {mostrarCobranca && lancamentoGratis && (
+                  <Text style={estilos.ladoGratis}>Grátis no lançamento</Text>
+                )}
+              </TouchableOpacity>
 
-          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('prestador')} activeOpacity={0.8}>
-            <Text style={estilos.tipoIcone}>🔧</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Sou prestador de serviços domésticos</Text>
-              <Text style={estilos.tipoDesc}>Quero encontrar serviços gerais na minha região</Text>
-              {/* Preço de assinatura: nunca no iOS (3.1.1), nem riscado. */}
-              {mostrarCobranca && (lancamentoGratis ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>R$ 49,90/mês</Text>
-                  <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
+              <TouchableOpacity style={[estilos.ladoCard, { borderColor: COR_CONTRATAR, backgroundColor: COR_CONTRATAR + '22' }]} onPress={() => setLado('contratar')} activeOpacity={0.8}>
+                <View style={estilos.ladoTituloLinha}>
+                  <Text style={estilos.ladoIcone}>🏠</Text>
+                  <Text style={[estilos.ladoTitulo, { color: COR_CONTRATAR }]}>QUERO CONTRATAR</Text>
                 </View>
-              ) : (
-                <Text style={estilos.tipoPreco}>R$ 49,90/mês</Text>
+                <Text style={estilos.ladoDesc}>Preciso de um profissional para uma obra ou um serviço</Text>
+                <Text style={estilos.ladoGratis}>Sempre gratuito</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={estilos.ladoPillLinha}>
+                <View style={[estilos.ladoPill, { borderColor: corLado, backgroundColor: corLado + '22' }]}>
+                  <Text style={[estilos.ladoPillTexto, { color: corLado }]}>{lado === 'trabalhar' ? 'QUERO TRABALHAR' : 'QUERO CONTRATAR'}</Text>
+                </View>
+                <TouchableOpacity onPress={() => setLado(null)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                  <Text style={estilos.ladoTrocar}>trocar</Text>
+                </TouchableOpacity>
+              </View>
+
+              {opcoesLado.map((op, i) => (
+                <TouchableOpacity key={op.tipo} style={[estilos.opcaoCard, { borderColor: corLado, backgroundColor: corLado + '22' }, i > 0 && { marginTop: 32 }]} onPress={() => escolherTipo(op.tipo)} activeOpacity={0.8}>
+                  <Text style={estilos.opcaoIcone}>{op.icone}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[estilos.opcaoTitulo, { color: corLado }]}>{op.titulo}</Text>
+                    <Text style={estilos.opcaoDesc}>{op.desc}</Text>
+                    {op.preco ? (
+                      /* Preço de assinatura: nunca no iOS (3.1.1), nem riscado. */
+                      mostrarCobranca && (lancamentoGratis ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={[estilos.tipoPreco, { color: cores.textoFraco, textDecorationLine: 'line-through' }]}>{op.preco}</Text>
+                          <Text style={[estilos.tipoPreco, { color: cores.sucesso, fontWeight: '700', marginLeft: 6 }]}>Grátis</Text>
+                        </View>
+                      ) : (
+                        <Text style={estilos.tipoPreco}>{op.preco}</Text>
+                      ))
+                    ) : (
+                      <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
               ))}
-            </View>
-            <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_obra')} activeOpacity={0.8}>
-            <Text style={estilos.tipoIcone}>🏠</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Tenho uma reforma, construção ou Pintura</Text>
-              <Text style={estilos.tipoDesc}>Quero cadastrar minha obra e encontrar profissionais qualificados na minha região</Text>
-              <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
-            </View>
-            <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={estilos.tipoCard} onPress={() => escolherTipo('dono_reparo')} activeOpacity={0.8}>
-            <Text style={estilos.tipoIcone}>🛠️</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.tipoNome}>Preciso de Serviços domésticos</Text>
-              <Text style={estilos.tipoDesc}>Tenho um serviço doméstico a ser feito e gostaria de encontrar profissionais capacitados na minha região</Text>
-              <Text style={[estilos.tipoPreco, { color: cores.sucesso }]}>Gratuito</Text>
-            </View>
-            <Text style={{ color: cores.textoFraco, fontSize: 18 }}>→</Text>
-          </TouchableOpacity>
+            </>
+          )}
 
         </ScrollView>
       </SafeAreaView>
@@ -1331,10 +1356,20 @@ const estilos = StyleSheet.create({
   duasColunas: { flexDirection: 'row', gap: 12 },
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
-  tipoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8 },
-  tipoIcone: { fontSize: 32 },
-  tipoNome: { fontSize: 15, fontWeight: '600', color: cores.textoForte, marginBottom: 4 },
-  tipoDesc: { fontSize: 12, color: cores.textoFraco, lineHeight: 18, marginBottom: 4 },
+  ladoCard: { borderWidth: 2, borderRadius: raios.grande, paddingVertical: 28, paddingHorizontal: 20, alignItems: 'center', marginBottom: 20 },
+  ladoTituloLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 10 },
+  ladoIcone: { fontSize: 38 },
+  ladoTitulo: { fontSize: 22, fontWeight: '800', letterSpacing: 0.5, textAlign: 'center', flexShrink: 1 },
+  ladoDesc: { fontSize: 15, color: cores.textoForte, lineHeight: 22, textAlign: 'center' },
+  ladoGratis: { fontSize: 14, fontWeight: '700', color: cores.sucesso, marginTop: 10 },
+  ladoPillLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24 },
+  ladoPill: { borderWidth: 2, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 16 },
+  ladoPillTexto: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  ladoTrocar: { fontSize: 14, color: cores.textoFraco, textDecorationLine: 'underline' },
+  opcaoCard: { borderWidth: 2, borderRadius: raios.grande, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  opcaoIcone: { fontSize: 40 },
+  opcaoTitulo: { fontSize: 18, fontWeight: '700', marginBottom: 6 },
+  opcaoDesc: { fontSize: 14, color: cores.textoForte, lineHeight: 20, marginBottom: 6 },
   tipoPreco: { fontSize: 12, fontWeight: '600', color: cores.primaria },
   planoSubtitulo: { fontSize: 13, color: cores.textoMedio, marginBottom: 16 },
   planoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
