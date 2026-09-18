@@ -23,6 +23,21 @@ import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } fro
 const COR_TRABALHAR = '#F0822E'
 const COR_CONTRATAR = '#6AA6F0'
 
+// ─── MÚLTIPLAS CONTAS POR E-MAIL ─────────────────────────────
+const MSG_OUTRO_TIPO = 'Você já tem cadastro no ProTudo com este e-mail. Use a mesma senha da sua conta.'
+// Erros novos do backend, pela chave estável `codigo`. Código fora do mapa → mensagem de sempre.
+const MSG_ERRO_CONTAS = {
+  senha_conta_existente: 'A senha não confere com a da sua conta já existente. Use a mesma senha.',
+  tipo_duplicado: 'Você já tem um cadastro deste tipo. Entre pelo login.',
+  limite_contas: 'Este e-mail já atingiu o limite de cadastros.',
+}
+// A verificar-disponibilidade "diz" outro tipo pelo `codigo` (no erro, é só o que o
+// interceptor repassa do corpo) ou por campo booleano no corpo de sucesso.
+// Lookup por chave PRÓPRIA: um codigo como 'constructor' não pode casar com o protótipo.
+const msgErroContas = (codigo) => (typeof codigo === 'string' && Object.prototype.hasOwnProperty.call(MSG_ERRO_CONTAS, codigo) ? MSG_ERRO_CONTAS[codigo] : null)
+const CODIGOS_OUTRO_TIPO = ['email_em_outro_tipo', 'cpf_em_outro_tipo']
+const ehOutroTipo = (r) => !!r && (CODIGOS_OUTRO_TIPO.includes(r.codigo) || r.email_em_outro_tipo === true || r.cpf_em_outro_tipo === true)
+
 // ─── VALIDAÇÃO CPF/CNPJ ──────────────────────────────────────
 const validarCPF = (cpf) => {
   const nums = cpf.replace(/\D/g, '')
@@ -173,6 +188,7 @@ export default function CadastroScreen({ navigation, route }) {
   const { loginComToken } = useAuth()
   const insets = useSafeAreaInsets()
   const montadoRef = useRef(true)
+  const multiplasContasRef = useRef(false)                // GET /config → multiplas_contas; false = cadastro de sempre
 
   useEffect(() => {
     // Warm-up ao ABRIR a tela. NÃO é cold start do servidor: o Serverless está
@@ -192,6 +208,11 @@ export default function CadastroScreen({ navigation, route }) {
     // default false (preço normal). Só "sobe" para o estado grátis se resolver gratis:true.
     api.get('/config/lancamento')
       .then(resp => { if (montadoRef.current) setLancamentoGratis(!!resp?.gratis) })
+      .catch(() => {})
+    // Chave de múltiplas contas por e-mail — mesmo molde: fire-and-forget, e qualquer
+    // erro/timeout/ausência do campo mantém false, que é o cadastro de sempre.
+    api.get('/config')
+      .then(resp => { multiplasContasRef.current = resp?.multiplas_contas === true })
       .catch(() => {})
     return () => { montadoRef.current = false }
   }, [])
@@ -564,17 +585,32 @@ export default function CadastroScreen({ navigation, route }) {
   // aoDuplicar: quando informado, o 409 vira aviso INLINE (erro sob o campo) em vez do
   // Alert. Usado pela checagem de CPF no onBlur, onde o usuário ainda está na tela do
   // campo e um popup atrapalharia mais do que ajudaria.
+  // tipo_conta só acompanha a checagem com a chave de múltiplas contas ligada; desligada,
+  // o payload é o de sempre.
+  const comTipoConta = (payload) => (multiplasContasRef.current && tipoConta ? { ...payload, tipo_conta: tipoConta } : payload)
+
   const checarDisponibilidadeBackground = (payload, { marcarOk = false, aoDuplicar = null } = {}) => {
-    comRetry(() => api.post('/auth/verificar-disponibilidade', payload), { timeout: true, servidor: true })
-      .then(() => {
+    // Mesmo aviso, mesmo estilo de cada chamador (inline no onBlur do CPF, Alert no resto).
+    const avisarOutroTipo = () => {
+      if (!montadoRef.current) return
+      if (aoDuplicar) aoDuplicar({ mensagem: MSG_OUTRO_TIPO })
+      else Alert.alert('Atenção', MSG_OUTRO_TIPO)
+    }
+    comRetry(() => api.post('/auth/verificar-disponibilidade', comTipoConta(payload)), { timeout: true, servidor: true })
+      .then((resp) => {
         // e-mail + CPF confirmados livres → handleCadastrar pula a re-checagem no submit.
         if (marcarOk) disponibilidadeOkRef.current = true
+        if (multiplasContasRef.current && ehOutroTipo(resp)) avisarOutroTipo()
       })
       .catch(err => {
-        if (err?.status === 409 && montadoRef.current) {
+        if (multiplasContasRef.current && ehOutroTipo(err)) {
+          // Já tem conta de OUTRO tipo com este e-mail/CPF: avisa e o cadastro segue.
+          if (marcarOk) disponibilidadeOkRef.current = true
+          avisarOutroTipo()
+        } else if (err?.status === 409 && montadoRef.current) {
           // Aviso não-bloqueante (codigo estável: cpf_duplicado / email_duplicado).
-          if (aoDuplicar) aoDuplicar(err)
-          else Alert.alert('Atenção', err?.mensagem || 'Estes dados já estão cadastrados.')
+          if (aoDuplicar) aoDuplicar({ ...err, mensagem: msgErroContas(err?.codigo) || err?.mensagem })
+          else Alert.alert('Atenção', msgErroContas(err?.codigo) || err?.mensagem || 'Estes dados já estão cadastrados.')
         } else {
           const kind = classificarErro(err)
           console.log(`[cadastro] ⚠ pré-checagem background ignorada | kind=${kind} | status=${err?.status} | code=${err?.code}`)
@@ -766,10 +802,10 @@ export default function CadastroScreen({ navigation, route }) {
         setProgresso('Verificando dados...')
         console.log('[cadastro] ▶ step1 POST /auth/verificar-disponibilidade', { email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() })
         try {
-          await comRetry(() => api.post('/auth/verificar-disponibilidade', {
+          await comRetry(() => api.post('/auth/verificar-disponibilidade', comTipoConta({
             email: email.trim().toLowerCase(),
             cpf_cnpj: cpfCnpj.trim(),
-          }), { timeout: true, servidor: true })
+          })), { timeout: true, servidor: true })
           disponibilidadeOkRef.current = true
           console.log('[cadastro] ✓ step1 disponibilidade ok')
         } catch (err) {
@@ -778,7 +814,9 @@ export default function CadastroScreen({ navigation, route }) {
           // FAIL-OPEN: só um 409 (duplicado EXPLÍCITO) bloqueia aqui. Erros não-definitivos
           // (timeout/rede/5xx) NÃO travam o cadastro — seguimos para o POST /auth/cadastro,
           // que é o backstop real e devolve 409 com a mensagem certa se de fato for duplicado.
-          if (err?.status === 409) throw err
+          // Múltiplas contas ligado: "já existe em OUTRO tipo" não é duplicado — segue.
+          const outroTipo = multiplasContasRef.current && ehOutroTipo(err)
+          if (err?.status === 409 && !outroTipo) throw err
           console.log('[cadastro] ↻ step1 falhou por erro não-definitivo — prosseguindo (POST /auth/cadastro é o backstop)')
         }
       } else {
@@ -915,6 +953,12 @@ export default function CadastroScreen({ navigation, route }) {
     } catch (err) {
       const kind = classificarErro(err)
       console.log(`[cadastro] ✗ handleCadastrar FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
+      // Erros novos de múltiplas contas (401 senha_conta_existente, 409 tipo_duplicado /
+      // limite_contas): mesmo Alert dos duplicados, com o texto do mapa.
+      if (msgErroContas(err?.codigo)) {
+        Alert.alert('Atenção', msgErroContas(err?.codigo))
+        return
+      }
       if (err.status === 409) {
         Alert.alert('Atenção', err.mensagem || 'Dados já cadastrados.')
         return
