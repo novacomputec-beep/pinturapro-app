@@ -291,7 +291,11 @@ export const AuthProvider = ({ children }) => {
       // sem retry, e uma falha transitória de rede derrubava as notificações em silêncio
       // até o próximo login. Gravar o token é idempotente — o destino é um ESTADO, não um
       // recurso novo —, então { timeout } também cobre a variante que some sem resposta.
-      await comRetry(() => api.post('/auth/push-token', { token: pushToken }), { timeout: true })
+      // `plataforma` diz ao painel em qual loja este token vive ('ios' | 'android'). Só esses
+      // dois valores entram no corpo: fora deles (web, por exemplo) o campo é omitido e o
+      // payload fica igual ao de sempre.
+      const plataforma = Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : undefined
+      await comRetry(() => api.post('/auth/push-token', plataforma ? { token: pushToken, plataforma } : { token: pushToken }), { timeout: true })
       console.log('[Push] token registrado com sucesso | projectId:', projectId, '| token:', pushToken)
       return { ok: true, token: pushToken }
     } catch (err) {
