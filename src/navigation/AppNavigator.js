@@ -270,6 +270,12 @@ const navegarParaNotificacao = (data) => {
       case 'candidatura_recusada':
       case 'candidatura_aprovada':
         navegar(tabEmAndamento); break
+      // Avisos do PAINEL (comunicado do admin e promoção): não apontam para nenhuma tela do
+      // app, então o toque só traz o app para a frente na tela inicial de sempre — nenhum
+      // navigate, de propósito. Casos explícitos para não caírem no log de "tipo sem rota".
+      case 'aviso_admin':
+      case 'promocao':
+        break
       // Tipo desconhecido: não navega, mas DEIXA RASTRO. 'reparo_proximo' e 'obra_proxima'
       // passaram meses sem rota nenhuma e ninguém percebeu, porque cair fora do switch era
       // silencioso — o toque simplesmente não fazia nada. Log, não erro ao usuário.

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator, Linking, Image
+  TouchableOpacity, Alert, ActivityIndicator, Linking, Image, Platform, Switch
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
@@ -220,6 +220,30 @@ export default function PerfilScreen({ navigation, route }) {
       setResultadoPush(resultado || null)
     }
     verificarPermissaoNotif()
+  }
+
+  // Preferência de PROMOÇÕES (só Android). `promoLocal` é a escolha feita nesta montagem:
+  // null = ainda não tocou, e o valor exibido vem do perfil carregado (ausente = true, o
+  // padrão do servidor). Otimista: o Switch vira na hora e só volta se o PATCH falhar.
+  // `salvandoPromo` trava o Switch durante a requisição, para dois toques rápidos não
+  // cruzarem duas gravações com desfechos fora de ordem.
+  const [promoLocal, setPromoLocal] = useState(null)
+  const [salvandoPromo, setSalvandoPromo] = useState(false)
+  const aceitaPromocoes = promoLocal !== null ? promoLocal : (dadosCompletos?.aceita_promocoes ?? usuario?.aceita_promocoes ?? true)
+  const handleAlternarPromocoes = async (valor) => {
+    const anterior = aceitaPromocoes
+    setPromoLocal(valor)
+    setSalvandoPromo(true)
+    try {
+      await comRetry(() => api.patch('/auth/preferencias', { aceita_promocoes: valor }), { timeout: true, servidor: true })
+      if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, aceita_promocoes: valor } : d))
+    } catch (err) {
+      console.log('[Perfil] falha ao salvar preferência de promoções | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (montadoRef.current) setPromoLocal(anterior)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível salvar sua preferência. Tente novamente.')
+    } finally {
+      if (montadoRef.current) setSalvandoPromo(false)
+    }
   }
 
   const confirmarLogout = () => {
@@ -440,6 +464,30 @@ export default function PerfilScreen({ navigation, route }) {
           )}
         </View>
 
+        {/* SÓ Android: no iOS a seção não é renderizada. Os avisos de serviço (interesse,
+            proposta, chegada, encerramento) não passam por este interruptor — ele governa
+            apenas os envios promocionais do painel. */}
+        {Platform.OS === 'android' && (
+          <View style={estilos.secaoCard}>
+            <Text style={estilos.secaoTitulo}>NOTIFICAÇÕES</Text>
+            <Separador estilo={{ marginBottom: 12 }} />
+            <View style={estilos.promoLinha}>
+              <Text style={estilos.promoEmoji}>🎁</Text>
+              <View style={estilos.promoTextos}>
+                <Text style={estilos.promoTitulo}>Receber promoções</Text>
+                <Text style={estilos.promoSubtitulo}>Novidades e ofertas do ProTudo. Os avisos de serviço continuam chegando normalmente.</Text>
+              </View>
+              <Switch
+                value={aceitaPromocoes}
+                onValueChange={handleAlternarPromocoes}
+                disabled={salvandoPromo}
+                trackColor={{ false: cores.textoFraco, true: '#F0822E' }}
+                thumbColor={cores.branco}
+              />
+            </View>
+          </View>
+        )}
+
         <View style={estilos.acoesWrap}>
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
@@ -569,6 +617,11 @@ const estilos = StyleSheet.create({
   linhaWrap: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca },
   linhaLabel: { fontSize: 12, color: cores.textoFraco },
   linhaValor: { fontSize: 13, color: cores.textoForte, textAlign: 'right', flex: 1, marginLeft: 16 },
+  promoLinha: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  promoEmoji: { fontSize: 22 },
+  promoTextos: { flex: 1 },
+  promoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
+  promoSubtitulo: { fontSize: 12, color: cores.textoMedio, lineHeight: 17 },
   acoesWrap: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, overflow: 'hidden', marginBottom: 16 },
   itemAcao: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },
