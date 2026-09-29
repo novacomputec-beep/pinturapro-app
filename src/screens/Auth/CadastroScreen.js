@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
 import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
+import { AppEventsLogger } from 'react-native-fbsdk-next'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
@@ -930,6 +931,16 @@ export default function CadastroScreen({ navigation, route }) {
       // (evita re-gravar durante a transição de tela disparada pelo loginComToken).
       restauradoRef.current = false
       await limparRascunho()
+
+      // Evento de cadastro concluído para o Meta SDK. Antes do loginComToken, que dispara
+      // a troca de tela. Nunca pode bloquear o cadastro: falha aqui só vai para o log.
+      try {
+        AppEventsLogger.logEvent(AppEventsLogger.AppEvents.CompletedRegistration, {
+          [AppEventsLogger.AppEventParams.RegistrationMethod]: String(resposta?.usuario?.role ?? ''),
+        })
+      } catch (err) {
+        console.log('[MetaSDK] falha ao registrar CompletedRegistration | msg:', err?.message)
+      }
 
       if (resposta?.token) {
         await loginComToken(resposta.token, resposta.usuario, resposta.assinatura)
