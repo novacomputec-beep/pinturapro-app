@@ -10,6 +10,7 @@ import AppNavigator from './src/navigation/AppNavigator'
 import GlobalVencimentoBanner from './src/components/GlobalVencimentoBanner'
 import BannerNotificacaoBloqueada from './src/components/BannerNotificacaoBloqueada'
 import BarraServicoEmAndamento from './src/components/BarraServicoEmAndamento'
+import AvisoAtualizacao from './src/components/AvisoAtualizacao'
 import { iniciarRastreamento, pararRastreamento } from './src/services/locationService'
 import api from './src/services/api'
 
@@ -197,6 +198,7 @@ export default function App() {
             árvore de telas, que não declara zIndex nenhum. */}
         <BarraServicoEmAndamento />
         <AppNavigator />
+        <AvisoAtualizacao />
       </AuthProvider>
     </SafeAreaProvider>
   )
