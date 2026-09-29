@@ -1038,7 +1038,7 @@ export default function CadastroScreen({ navigation, route }) {
                 <Text style={estilos.ladoDesc}>Sou profissional e quero receber pedidos de obras e serviços</Text>
                 {/* Mesma condição do "Grátis" dos preços: nunca no iOS (3.1.1), só na janela de lançamento. */}
                 {mostrarCobranca && lancamentoGratis && (
-                  <Text style={estilos.ladoGratis}>Grátis no lançamento</Text>
+                  <Text style={estilos.ladoGratis}>Gratuito</Text>
                 )}
               </TouchableOpacity>
 
