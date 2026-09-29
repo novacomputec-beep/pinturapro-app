@@ -1050,6 +1050,16 @@ export default function CadastroScreen({ navigation, route }) {
                 <Text style={estilos.ladoDesc}>Preciso de um profissional para uma obra ou um serviço</Text>
                 <Text style={estilos.ladoGratis}>Sempre gratuito</Text>
               </TouchableOpacity>
+
+              <View style={estilos.avisoCadastros}>
+                <Text style={estilos.avisoCadastrosIcone}>👥</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.avisoCadastrosTitulo}>Até 4 cadastros por pessoa</Text>
+                  <Text style={estilos.avisoCadastrosTexto}>
+                    Com o <Text style={estilos.avisoCadastrosDestaque}>mesmo e-mail, CPF e senha</Text> você pode ter um cadastro de cada tipo: profissional e cliente, de obra e de serviço.
+                  </Text>
+                </View>
+              </View>
             </>
           ) : (
             <>
@@ -1417,6 +1427,11 @@ const estilos = StyleSheet.create({
   ladoTitulo: { fontSize: 22, fontWeight: '800', letterSpacing: 0.5, textAlign: 'center', flexShrink: 1 },
   ladoDesc: { fontSize: 15, color: cores.textoForte, lineHeight: 22, textAlign: 'center' },
   ladoGratis: { fontSize: 14, fontWeight: '700', color: cores.sucesso, marginTop: 10 },
+  avisoCadastros: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#141417', borderWidth: 1, borderColor: '#2E2E34', borderRadius: raios.grande, padding: 16 },
+  avisoCadastrosIcone: { fontSize: 24 },
+  avisoCadastrosTitulo: { fontSize: 15, fontWeight: '700', color: cores.branco, marginBottom: 4 },
+  avisoCadastrosTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19 },
+  avisoCadastrosDestaque: { color: '#E8833A' },
   ladoPillLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 24 },
   ladoPill: { borderWidth: 2, borderRadius: 999, paddingVertical: 6, paddingHorizontal: 16 },
   ladoPillTexto: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
