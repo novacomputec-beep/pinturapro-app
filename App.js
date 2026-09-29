@@ -1,7 +1,9 @@
 import 'react-native-gesture-handler'
 import React, { useEffect, useRef } from 'react'
-import { AppState } from 'react-native'
+import { AppState, Platform } from 'react-native'
 import { StatusBar } from 'expo-status-bar'
+import { Settings } from 'react-native-fbsdk-next'
+import { getTrackingPermissionsAsync, requestTrackingPermissionsAsync } from 'expo-tracking-transparency'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { AuthProvider, useAuth } from './src/contexts/AuthContext'
 import AppNavigator from './src/navigation/AppNavigator'
@@ -135,6 +137,49 @@ function WarmupController() {
   return null
 }
 
+// Meta (Facebook) SDK: inicializa no boot, UMA vez por abertura. No iOS pede antes a
+// permissão de rastreamento (ATT) — só quando o status ainda é "undetermined", então o
+// diálogo do SO aparece uma única vez na vida da instalação. O iOS ignora o pedido se o
+// app ainda não estiver ativo, por isso a espera pelo estado 'active'. Tudo em try/catch:
+// medição nunca pode derrubar nem atrasar o app.
+function MetaSdkController() {
+  useEffect(() => {
+    let sub = null
+    const iniciar = async () => {
+      if (Platform.OS === 'ios') {
+        try {
+          let { status } = await getTrackingPermissionsAsync()
+          if (status === 'undetermined') {
+            ({ status } = await requestTrackingPermissionsAsync())
+          }
+          await Settings.setAdvertiserTrackingEnabled(status === 'granted')
+        } catch (err) {
+          console.log('[MetaSDK] falha na permissão de rastreamento | msg:', err?.message)
+        }
+      }
+      try {
+        Settings.initializeSDK()
+      } catch (err) {
+        console.log('[MetaSDK] falha ao inicializar | msg:', err?.message)
+      }
+    }
+
+    if (AppState.currentState === 'active') {
+      iniciar()
+    } else {
+      sub = AppState.addEventListener('change', (estado) => {
+        if (estado !== 'active') return
+        sub?.remove()
+        sub = null
+        iniciar()
+      })
+    }
+    return () => sub?.remove()
+  }, [])
+
+  return null
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -144,6 +189,7 @@ export default function App() {
         <SoftAskController />
         <ReregistroPushController />
         <WarmupController />
+        <MetaSdkController />
         <BannerNotificacaoBloqueada />
         <GlobalVencimentoBanner />
         {/* Ancorada ao RODAPÉ, ao contrário dos dois acima: não disputa espaço com eles.

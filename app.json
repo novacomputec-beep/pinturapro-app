@@ -68,7 +68,25 @@
           }
         }
       ],
-      "./plugins/withProTudoNative.js"
+      "./plugins/withProTudoNative.js",
+      [
+        "react-native-fbsdk-next",
+        {
+          "appID": "2084821765472712",
+          "clientToken": "330da26e43c6a061d4460c774ac32e3e",
+          "displayName": "ProTudo",
+          "scheme": "fb2084821765472712",
+          "autoLogAppEventsEnabled": true,
+          "advertiserIDCollectionEnabled": true,
+          "iosUserTrackingPermission": "Usamos para medir de onde vêm os cadastros do ProTudo."
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Usamos para medir de onde vêm os cadastros do ProTudo."
+        }
+      ]
     ],
     "extra": {
       "eas": {
