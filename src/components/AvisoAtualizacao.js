@@ -17,9 +17,10 @@ import { cores, raios } from '../utils/tema'
 const ANDROID_PACKAGE = 'com.pinturapro.app'
 const APP_STORE_ID = '6807459250'
 
+// Android vai DIRETO no link https da Play Store, sem tentar market:// antes: em aparelhos
+// Xiaomi/Oppo o market:// é capturado pela loja do fabricante em vez do Google Play.
 const LOJA = Platform.select({
   android: {
-    app: `market://details?id=${ANDROID_PACKAGE}`,
     web: `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`,
   },
   ios: {
@@ -84,9 +85,10 @@ export default function AvisoAtualizacao() {
   const fechar = () => { if (!obrigatoria) setTipo(null) }
 
   const abrirLoja = () => {
-    Linking.openURL(LOJA.app)
-      .catch(() => Linking.openURL(LOJA.web))
-      .catch(() => {})
+    const tentativa = LOJA.app
+      ? Linking.openURL(LOJA.app).catch(() => Linking.openURL(LOJA.web))
+      : Linking.openURL(LOJA.web)
+    tentativa.catch(() => {})
   }
 
   return (
