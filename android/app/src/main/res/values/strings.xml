@@ -2,4 +2,7 @@
   <string name="app_name">ProTudo</string>
   <string name="expo_splash_screen_resize_mode" translatable="false">contain</string>
   <string name="expo_splash_screen_status_bar_translucent" translatable="false">false</string>
+  <string name="facebook_app_id">2084821765472712</string>
+  <string name="facebook_client_token">330da26e43c6a061d4460c774ac32e3e</string>
+  <string name="fb_login_protocol_scheme">fb2084821765472712</string>
 </resources>
