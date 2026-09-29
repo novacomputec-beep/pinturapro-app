@@ -30,7 +30,7 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'eletrica',        rotulo: 'Elétrica',          emoji: '⚡' },
   { slug: 'marcenaria',      rotulo: 'Marcenaria',        emoji: '🪚' },
   { slug: 'alvenaria',       rotulo: 'Alvenaria',         emoji: '🧱' },
-  { slug: 'climatizacao',    rotulo: 'Climatização',      emoji: '❄️' },
+  { slug: 'climatizacao',    rotulo: 'Refrigeração/climatização', emoji: '❄️' },
   { slug: 'chaveiro',        rotulo: 'Chaveiro',          emoji: '🔑' },
   { slug: 'faxina',          rotulo: 'Faxina',            emoji: '🧹' },
   { slug: 'eletronica',      rotulo: 'Eletrônica',        emoji: '📱' },
@@ -64,6 +64,9 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'tatuagem',        rotulo: 'Tatuagem',           emoji: '🖋️' },
   { slug: 'depilacao',       rotulo: 'Depilação',          emoji: '🪒' },
   { slug: 'mecanica',        rotulo: 'Mecânica',           emoji: '🧰' },
+  { slug: 'pet',             rotulo: 'Pet',                emoji: '🐾' },
+  { slug: 'motociclista',    rotulo: 'Motociclista',       emoji: '🏍️' },
+  { slug: 'musico',          rotulo: 'Músico',             emoji: '🎸' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
