@@ -18,6 +18,7 @@ import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import ConviteCadastroServicos from '../../components/ConviteCadastroServicos'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -454,6 +455,9 @@ export default function FeedObrasScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         ListHeaderComponent={
           <>
+            {/* Convite "Também faz pequenos reparos?" — devolve null fora das condições
+                dele (só pintor, chave ligada, sem conta de reparador, não dispensado). */}
+            <ConviteCadastroServicos navigation={navigation} />
             <FlatList
               data={CATEGORIAS}
               horizontal

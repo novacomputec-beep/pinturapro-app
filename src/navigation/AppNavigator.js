@@ -32,6 +32,7 @@ import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 // App — Pintor
 import FeedObrasScreen     from '../screens/Obra/FeedObrasScreen'
 import DetalheObraScreen   from '../screens/Obra/DetalheObraScreen'
+import CadastroServicosScreen from '../screens/Obra/CadastroServicosScreen'
 import ContratosScreen     from '../screens/Contratos/ContratosScreen'
 import ContratosFinalizadosScreen from '../screens/Contratos/ContratosFinalizadosScreen'
 import MensagensScreen     from '../screens/Mensagens/MensagensScreen'
@@ -651,6 +652,8 @@ const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
     <FeedStack.Screen name="FeedMain"    component={FeedObrasScreen} />
     <FeedStack.Screen name="DetalheObra" component={DetalheObraScreen} />
+    {/* Conta irmã de reparador, a partir do convite no topo do feed (ConviteCadastroServicos). */}
+    <FeedStack.Screen name="CadastroServicos" component={CadastroServicosScreen} />
   </FeedStack.Navigator>
 )
 

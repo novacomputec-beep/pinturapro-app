@@ -544,16 +544,27 @@ export default function CadastrarReparoScreen({ navigation, route }) {
       <Modal visible={escolhaAlvenaria != null} transparent animationType="slide" onRequestClose={desistirDaEscolha}>
         <View style={estilos.modalOverlay}>
           <View style={estilos.modalSheet}>
-            <Text style={estilos.escolhaEmoji}>🧱</Text>
-            <Text style={estilos.modalTitulo}>Alvenaria</Text>
-            <Text style={estilos.escolhaSubtitulo}>O que você precisa? Escolha uma opção para continuar.</Text>
+            {/* Alça da folha: só visual (a folha não arrasta), como na arte. */}
+            <View style={estilos.escolhaAlca} />
+            <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
+            <Text style={estilos.escolhaSubtitulo}>Assim sua demanda chega aos profissionais certos</Text>
+            {/* Cada opção: emoji grande numa coluna à esquerda; à direita título, descrição
+                e a linha-link na cor da opção dizendo para onde ela leva. */}
             <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoVerde]} onPress={ficarNoReparo} activeOpacity={0.8}>
-              <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.sucesso }]}>🧱 Pequeno reparo</Text>
-              <Text style={estilos.escolhaOpcaoDesc}>Consertos rápidos: rachadura, reboco, assentar poucos tijolos ou pisos. Continua neste cadastro de serviço.</Text>
+              <Text style={estilos.escolhaOpcaoEmoji}>🧱</Text>
+              <View style={estilos.escolhaOpcaoTexto}>
+                <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.sucesso }]}>Pequeno reparo</Text>
+                <Text style={estilos.escolhaOpcaoDesc}>Tapar buraco, consertar muro, rachadura, reboco pontual</Text>
+                <Text style={[estilos.escolhaOpcaoLink, { color: cores.sucesso }]}>Continua aqui em Serviços →</Text>
+              </View>
             </TouchableOpacity>
             <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoAzul]} onPress={irParaObra} activeOpacity={0.8}>
-              <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.info }]}>🏗️ Pedreiro ou ajudante</Text>
-              <Text style={estilos.escolhaOpcaoDesc}>Obra ou serviço maior, com profissional por dia ou empreita. Levamos o que você já preencheu para o cadastro de obra.</Text>
+              <Text style={estilos.escolhaOpcaoEmoji}>🏗️</Text>
+              <View style={estilos.escolhaOpcaoTexto}>
+                <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.info }]}>Pedreiro ou ajudante</Text>
+                <Text style={estilos.escolhaOpcaoDesc}>Diária, reforma, construção, obra maior</Text>
+                <Text style={[estilos.escolhaOpcaoLink, { color: cores.info }]}>Vai para Construção civil, com seus dados já preenchidos →</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -609,11 +620,15 @@ const estilos = StyleSheet.create({
   // o que é próprio dela está aqui. As duas opções têm a MESMA forma e só trocam o par
   // fundo/borda (sucessoSuave+sucesso, infoSuave+info) — mesmo casamento Suave/sólida
   // que o TelaAviso usa, para o verde e o azul nunca saírem de tons diferentes do app.
-  escolhaEmoji: { fontSize: 40, textAlign: 'center', marginBottom: 4 },
-  escolhaSubtitulo: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20, marginTop: -8, marginBottom: 16 },
-  escolhaOpcao: { borderRadius: raios.grande, borderWidth: 1.5, padding: 16, marginBottom: 10 },
+  escolhaAlca: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: cores.textoFraco, marginTop: -8, marginBottom: 16 },
+  escolhaTitulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 4 },
+  escolhaSubtitulo: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
+  escolhaOpcao: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderRadius: raios.grande, borderWidth: 1.5, padding: 16, marginBottom: 12 },
   escolhaOpcaoVerde: { backgroundColor: cores.sucessoSuave, borderColor: cores.sucesso },
   escolhaOpcaoAzul: { backgroundColor: cores.infoSuave, borderColor: cores.info },
-  escolhaOpcaoTitulo: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  escolhaOpcaoDesc: { fontSize: 12, color: cores.textoForte, lineHeight: 18, opacity: 0.85 },
+  escolhaOpcaoEmoji: { fontSize: 36, lineHeight: 44 },
+  escolhaOpcaoTexto: { flex: 1 },
+  escolhaOpcaoTitulo: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  escolhaOpcaoDesc: { fontSize: 13, color: cores.textoForte, lineHeight: 19, opacity: 0.85, marginBottom: 8 },
+  escolhaOpcaoLink: { fontSize: 12, fontWeight: '700', lineHeight: 17 },
 })
