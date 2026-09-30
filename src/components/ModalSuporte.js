@@ -91,7 +91,7 @@ export default function ModalSuporte({ visivel, telefoneInicial, onFechar }) {
                 value={whatsapp}
                 onChangeText={(t) => { setWhatsapp(mascararTelefone(t)); if (erro) setErro('') }}
                 placeholder="(34) 99999-9999"
-                placeholderTextColor={cores.textoMutado}
+                placeholderTextColor={cores.placeholderCampo}
                 keyboardType="phone-pad"
                 editable={!enviando}
               />
@@ -102,7 +102,7 @@ export default function ModalSuporte({ visivel, telefoneInicial, onFechar }) {
                 value={mensagem}
                 onChangeText={setMensagem}
                 placeholder="Conte como podemos ajudar"
-                placeholderTextColor={cores.textoMutado}
+                placeholderTextColor={cores.placeholderCampo}
                 multiline
                 numberOfLines={4}
                 maxLength={MAX_MENSAGEM}
@@ -138,7 +138,7 @@ const estilos = StyleSheet.create({
   titulo:         { fontSize: 22, fontWeight: '800', color: cores.textoForte, textAlign: 'center', marginBottom: 8, letterSpacing: -0.3 },
   subtitulo:      { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
   label:          { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, marginBottom: 6, marginTop: 4 },
-  input:          { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: cores.textoForte, marginBottom: 12 },
+  input:          { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: cores.textoForte, marginBottom: 12 },
   inputMultiline: { minHeight: 92, fontSize: 13 },
   inputErro:      { borderColor: cores.perigo },
   erro:           { fontSize: 12, color: cores.perigo, textAlign: 'center', lineHeight: 18, marginBottom: 12 },

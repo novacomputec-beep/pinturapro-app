@@ -125,7 +125,7 @@ export default function SeletorLocalidade({
             <TextInput
               style={estilos.buscaInput}
               placeholder={modalAberto === 'estado' ? 'Buscar estado...' : 'Buscar cidade...'}
-              placeholderTextColor={cores.textoMutado}
+              placeholderTextColor={cores.placeholderCampo}
               value={busca}
               onChangeText={setBusca}
               autoCorrect={false}
@@ -177,9 +177,9 @@ const estilos = StyleSheet.create({
   seletor: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: cores.fundoInput,
-    borderWidth: 0.5,
-    borderColor: cores.borda,
+    backgroundColor: cores.fundoCampo,
+    borderWidth: 1.5,
+    borderColor: cores.bordaCampo,
     borderRadius: raios.medio,
     paddingHorizontal: espacos.lg,
     paddingVertical: 13,
@@ -187,7 +187,7 @@ const estilos = StyleSheet.create({
   },
   seletorErro: { borderColor: cores.perigo },
   seletorValor: { flex: 1, fontSize: 14, color: cores.textoForte },
-  placeholder: { flex: 1, fontSize: 14, color: cores.textoMutado },
+  placeholder: { flex: 1, fontSize: 14, color: cores.placeholderCampo },
   nota: { fontSize: 10, color: cores.textoMutado },
   chevron: { fontSize: 11, color: cores.textoFraco, marginLeft: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginTop: 4, marginBottom: 2 },
@@ -217,9 +217,9 @@ const estilos = StyleSheet.create({
   buscaInput: {
     marginHorizontal: 16,
     marginBottom: 8,
-    backgroundColor: cores.fundoInput,
-    borderWidth: 0.5,
-    borderColor: cores.borda,
+    backgroundColor: cores.fundoCampo,
+    borderWidth: 1.5,
+    borderColor: cores.bordaCampo,
     borderRadius: raios.medio,
     paddingHorizontal: 14,
     paddingVertical: 10,

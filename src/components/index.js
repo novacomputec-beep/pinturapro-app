@@ -42,7 +42,7 @@ export const Input = ({ label, erro, estilo, estiloInput, ...props }) => (
     {label && <Text style={estilos.inputLabel}>{label}</Text>}
     <TextInput
       style={[estilos.input, estiloInput, erro && estilos.inputErro]}
-      placeholderTextColor={cores.textoMutado}
+      placeholderTextColor={cores.placeholderCampo}
       {...props}
     />
     {erro && <Text style={estilos.inputErroTexto}>{erro}</Text>}
@@ -181,9 +181,9 @@ const estilos = StyleSheet.create({
     textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: cores.fundoInput,
-    borderWidth: 0.5,
-    borderColor: cores.borda,
+    backgroundColor: cores.fundoCampo,
+    borderWidth: 1.5,
+    borderColor: cores.bordaCampo,
     borderRadius: raios.medio,
     paddingHorizontal: espacos.lg,
     paddingVertical: 13,

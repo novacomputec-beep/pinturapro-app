@@ -73,7 +73,7 @@ export default function ModalAumentarValor({ visivel, valorMinimo, onAumentar, o
               onChangeText={(t) => setValor(mascararValor(t))}
               keyboardType="number-pad"
               placeholder="0,00"
-              placeholderTextColor={cores.textoFraco}
+              placeholderTextColor={cores.placeholderCampo}
               maxLength={16}
               editable={!enviando}
               autoFocus
@@ -111,7 +111,7 @@ const estilos = StyleSheet.create({
   titulo:          { fontSize: 22, fontWeight: '800', color: cores.primaria, textAlign: 'center', marginBottom: 20, letterSpacing: -0.3 },
   campoWrap:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 8 },
   prefixo:         { fontSize: 16, fontWeight: '700', color: cores.textoMedio, marginRight: 10 },
-  input:           { backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 16, paddingVertical: 12, fontSize: 24, fontWeight: '800', color: cores.textoForte, minWidth: 160, textAlign: 'center' },
+  input:           { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: 16, paddingVertical: 12, fontSize: 24, fontWeight: '800', color: cores.textoForte, minWidth: 160, textAlign: 'center' },
   ajuda:           { fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginBottom: 16 },
   opcao:           { backgroundColor: cores.primaria, borderRadius: raios.grande, paddingVertical: 16, paddingHorizontal: 28, width: '100%', alignItems: 'center', marginBottom: 10 },
   opcaoDesabilitada:{ opacity: 0.5 },

@@ -50,7 +50,7 @@ export default function ModalExcluirConta({ visivel, onConfirmar, onFechar }) {
             <TextInput
               style={[estilos.input, erro && estilos.inputErro]}
               placeholder="••••••••"
-              placeholderTextColor={cores.textoMutado}
+              placeholderTextColor={cores.placeholderCampo}
               value={senha}
               onChangeText={(t) => { setSenha(t); if (erro) setErro('') }}
               secureTextEntry={!mostrar}
@@ -89,7 +89,7 @@ const estilos = StyleSheet.create({
   subtitulo:      { fontSize: 14, color: cores.textoMedio, textAlign: 'center', lineHeight: 21, marginBottom: 18 },
   destaque:       { color: cores.perigo, fontWeight: '700' },
   instrucao:      { fontSize: 13, color: cores.textoForte, marginBottom: 8 },
-  input:          { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 13, paddingRight: 70, fontSize: 14, color: cores.textoForte },
+  input:          { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 13, paddingRight: 70, fontSize: 14, color: cores.textoForte },
   inputErro:      { borderColor: cores.perigo },
   olhoBtn:        { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   olhoTexto:      { fontSize: 12, color: cores.textoFraco },

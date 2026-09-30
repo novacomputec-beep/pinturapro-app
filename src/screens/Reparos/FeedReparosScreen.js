@@ -532,7 +532,7 @@ export default function FeedReparosScreen({ navigation }) {
                       <TextInput
                         style={estilos.inputBuscaCidade}
                         placeholder="Buscar cidade..."
-                        placeholderTextColor={cores.textoMutado}
+                        placeholderTextColor={cores.placeholderCampo}
                         value={buscaCidade}
                         onChangeText={setBuscaCidade}
                         autoCapitalize="words"
@@ -719,7 +719,7 @@ const estilos = StyleSheet.create({
   itemListaTxt: { fontSize: 14, color: cores.textoMedio },
   itemListaTxtAtivo: { color: cores.primaria, fontWeight: '700' },
   txtCarregando: { fontSize: 13, color: cores.textoFraco, padding: 14, textAlign: 'center' },
-  inputBuscaCidade: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: cores.textoForte, marginBottom: 8 },
+  inputBuscaCidade: { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: cores.textoForte, marginBottom: 8 },
   btnConfirmar: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginTop: 20 },
   btnConfirmarTxt: { fontSize: 15, fontWeight: '700', color: '#0A0A0A' },
   btnCancelarModal: { padding: 14, alignItems: 'center', marginTop: 8 },

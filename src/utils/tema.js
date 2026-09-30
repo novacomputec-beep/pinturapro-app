@@ -6,6 +6,13 @@ export const cores = {
   borda:         '#222222',
   bordaFraca:    '#1A1A1A',
 
+  // CAMPOS de entrada (Input, seletores, TextInput) — tokens PRÓPRIOS, mais claros que o
+  // card, para o campo se destacar do fundo e o placeholder ser legível. Só campos usam
+  // estes três; fundoInput/fundoElevado/borda/textoMutado seguem valendo para o resto.
+  fundoCampo:       '#1E1E23',
+  bordaCampo:       '#4A4A55',
+  placeholderCampo: '#9A9AA3',
+
   primaria:      '#E8833A',  // laranja — cor principal
   primariaSuave: '#E8833A22',
   primariaBorda: '#E8833A44',

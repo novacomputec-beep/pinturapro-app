@@ -206,7 +206,7 @@ export default function MensagensScreen() {
           <TextInput
             style={estilos.inputDuvida}
             placeholder="Digite sua dúvida sobre esta obra..."
-            placeholderTextColor={cores.textoMutado}
+            placeholderTextColor={cores.placeholderCampo}
             value={novaDuvida}
             onChangeText={setNovaDuvida}
             multiline
@@ -253,7 +253,7 @@ const estilos = StyleSheet.create({
   aguardandoDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: cores.primaria, opacity: 0.5 },
   aguardandoTexto: { fontSize: 11, color: cores.textoMutado, fontStyle: 'italic' },
   inputArea: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: espacos.tela, paddingVertical: 12, borderTopWidth: 0.5, borderTopColor: cores.bordaFraca, backgroundColor: cores.fundo },
-  inputDuvida: { flex: 1, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: cores.textoForte, maxHeight: 100 },
+  inputDuvida: { flex: 1, backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.grande, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: cores.textoForte, maxHeight: 100 },
   btnEnviar: { width: 42, height: 42, backgroundColor: cores.primaria, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   btnEnviarDesabilitado: { opacity: 0.4 },
   btnEnviarTexto: { fontSize: 18, color: '#0A0A0A', fontWeight: '700' },

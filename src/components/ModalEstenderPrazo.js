@@ -53,7 +53,7 @@ export default function ModalEstenderPrazo({ visivel, unidade = 'horas', onEsten
               onChangeText={(t) => setValor(t.replace(/\D/g, ''))}
               keyboardType="number-pad"
               placeholder="0"
-              placeholderTextColor={cores.textoFraco}
+              placeholderTextColor={cores.placeholderCampo}
               maxLength={4}
               editable={!enviando}
               autoFocus
@@ -89,7 +89,7 @@ const estilos = StyleSheet.create({
   card:            { width: '100%', maxWidth: 380, backgroundColor: cores.fundoCard, borderRadius: 24, borderWidth: 1, borderColor: cores.primaria, padding: 28, alignItems: 'center' },
   titulo:          { fontSize: 22, fontWeight: '800', color: cores.primaria, textAlign: 'center', marginBottom: 20, letterSpacing: -0.3 },
   campoWrap:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 8 },
-  input:           { backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 16, paddingVertical: 12, fontSize: 24, fontWeight: '800', color: cores.textoForte, textAlign: 'center', minWidth: 110 },
+  input:           { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: 16, paddingVertical: 12, fontSize: 24, fontWeight: '800', color: cores.textoForte, textAlign: 'center', minWidth: 110 },
   unidadeTexto:    { fontSize: 16, fontWeight: '700', color: cores.textoMedio, marginLeft: 10 },
   ajuda:           { fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginBottom: 16 },
   opcao:           { backgroundColor: cores.primaria, borderRadius: raios.grande, paddingVertical: 16, paddingHorizontal: 28, width: '100%', alignItems: 'center', marginBottom: 10 },

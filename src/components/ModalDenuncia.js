@@ -79,7 +79,7 @@ export default function ModalDenuncia({ visivel, nomeDenunciado, onEnviar, onFec
               value={descricao}
               onChangeText={setDescricao}
               placeholder="Descreva o que aconteceu"
-              placeholderTextColor={cores.textoMutado}
+              placeholderTextColor={cores.placeholderCampo}
               multiline
               numberOfLines={4}
               maxLength={1000}
@@ -116,7 +116,7 @@ const estilos = StyleSheet.create({
   opcaoAtiva:      { borderColor: cores.perigo, backgroundColor: cores.perigo + '15' },
   opcaoTexto:      { fontSize: 13, color: cores.textoMedio, fontWeight: '500' },
   opcaoTextoAtivo: { color: cores.perigo, fontWeight: '700' },
-  input:           { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: cores.textoForte, minHeight: 92, marginTop: 4 },
+  input:           { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: 14, paddingVertical: 12, fontSize: 13, color: cores.textoForte, minHeight: 92, marginTop: 4 },
   cta:             { backgroundColor: cores.perigo, borderRadius: raios.grande, paddingVertical: 16, paddingHorizontal: 28, width: '100%', alignItems: 'center', marginBottom: 8 },
   ctaDesabilitado: { opacity: 0.5 },
   ctaTexto:        { color: '#FFFFFF', fontSize: 16, fontWeight: '800' },
