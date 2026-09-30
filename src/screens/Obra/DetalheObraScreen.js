@@ -22,6 +22,7 @@ import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra, rotulosEspecialidades } from '../../utils/categorias'
 import { formatarDuracao } from '../../utils/tempo'
+import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -133,7 +134,9 @@ const alertouSuspensao = (err) => {
   return false
 }
 
-const ContadorExpiracaoObra = ({ expiraEm }) => {
+// `cor`: a da faixa do banner em que o contador mora (utils/urgencia.js), para a contagem
+// não ficar vermelha numa tarja cinza. EXPIRADO segue vermelho: é estado, não faixa.
+const ContadorExpiracaoObra = ({ expiraEm, cor = '#f44336' }) => {
   const [restante, setRestante] = useState(null)
   const expiradoRef = useRef(false)
 
@@ -167,7 +170,7 @@ const ContadorExpiracaoObra = ({ expiraEm }) => {
   const { d, h, m } = restante
   const texto = `Expira em: ${formatarDuracao(restante.ms, { frente: 'obra' })}`
   const urgente = d === 0 && h === 0 && m < 10
-  return <Text style={{ fontSize: 12, color: '#f44336', fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
+  return <Text style={{ fontSize: 12, color: cor, fontWeight: urgente ? '700' : '500' }}>{texto}</Text>
 }
 
 const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
@@ -1151,6 +1154,18 @@ export default function DetalheObraScreen({ route, navigation }) {
   // justamente o sinal de urgência que o faz decidir.
   const minhaRecusada = minhaCandidatura?.status === 'recusado' || minhaCandidatura?.status === 'recusada'
   const foraDaDisputa = !isDono && (minhaRecusada || (temMatch && !souPintorDoMatch))
+  // Tarja de prazo do topo: mesma régua do card do feed (utils/urgencia.js). O detalhe
+  // mantém o seu fallback: sem horas_para_expirar, a janela sai de prazo_execucao_horas.
+  // Prazo ausente/zero/vazio NÃO vai à régua (ela leria 0 como "Iniciar em expirado"): aqui
+  // isso é "sem prazo", como sempre foi neste detalhe. Sem faixa da régua (sem prazo, ou
+  // valor não numérico), a tarja sai na faixa neutra ⚪ "Sem urgência" em dois casos, para
+  // o detalhe nunca perder o que já mostrava:
+  //   · ainda há contagem a mostrar (expira_em, e quem vê está na disputa) → "Expira em";
+  //   · o campo veio preenchido mas não numérico → a tarja existia antes da régua única.
+  // Sem prazo e sem contagem → sem tarja. O card do feed não tem esse fallback.
+  const horasJanela = obra?.horas_para_expirar || obra?.prazo_execucao_horas
+  const faixaPrazo = (horasJanela ? urgenciaObra(horasJanela, obra?.total_extensao_horas) : null)
+    || ((obra?.expira_em && !foraDaDisputa) || horasJanela ? SEM_URGENCIA : null)
   // As duas grafias do aceite (ver STATUS_GRUPO em ContratosScreen.js:24), derivadas uma vez
   // porque agora dois blocos dependem do mesmo teste: o que oferece a ida ao local e o que
   // explica por que ela não está sendo oferecida. Espelha DetalheReparoScreen:1045.
@@ -1350,14 +1365,12 @@ export default function DetalheObraScreen({ route, navigation }) {
               Dono e demais profissionais seguem vendo. */}
           {/* !(isDono && temMatch): fechado o match, o prazo do ANÚNCIO parou de valer
               também para o dono — o que corre agora é o cronômetro da chegada. */}
-          {!encerrada && !souPintorDoMatch && !(isDono && temMatch) && (obra.horas_para_expirar || obra.prazo_execucao_horas) && (
-            <View style={estilos.urgenciaBanner}>
-              <Text style={estilos.urgenciaTexto}>
-                {(obra.horas_para_expirar || obra.prazo_execucao_horas) <= 24 ? '📅 Hoje'
-                  : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 168 ? '📆 Esta semana'
-                  : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 720 ? '🗓️ Este mês'
-                  : (obra.horas_para_expirar || obra.prazo_execucao_horas) <= 1440 ? '📋 Mês que vem'
-                  : '⏳ Mais de um mês'}
+          {/* Rótulo, emoji e cor vêm de utils/urgencia.js — a mesma régua do card do feed.
+              O estilo guarda só o layout; fundo, borda (cor + 44) e texto seguem a faixa. */}
+          {!encerrada && !souPintorDoMatch && !(isDono && temMatch) && faixaPrazo && (
+            <View style={[estilos.urgenciaBanner, { backgroundColor: faixaPrazo.bg, borderColor: faixaPrazo.borda }]}>
+              <Text style={[estilos.urgenciaTexto, { color: faixaPrazo.cor }]}>
+                {faixaPrazo.label}
               </Text>
               {/* Contagem pré-match: some para quem está fora da disputa (recusado ou
                   dono já escolheu outro) e em obra encerrada — ali não há mais prazo a
@@ -1365,8 +1378,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                   cravado em EXPIRADO) numa obra já concluída. Cai no texto neutro em vez
                   de deixar buraco no banner. */}
               {obra.expira_em && !foraDaDisputa && !encerrada
-                ? <ContadorExpiracaoObra expiraEm={obra.expira_em} />
-                : <Text style={estilos.urgenciaHoras}>Prazo de execução informado</Text>
+                ? <ContadorExpiracaoObra expiraEm={obra.expira_em} cor={faixaPrazo.cor} />
+                : <Text style={[estilos.urgenciaHoras, { color: faixaPrazo.cor }]}>Prazo de execução informado</Text>
               }
             </View>
           )}
@@ -2150,9 +2163,10 @@ const estilos = StyleSheet.create({
   // +barraServico: espelha DetalheReparoScreen — a barra do rodapé flutua sobre esta tela e
   // cobriria o último botão da rolagem, que aqui é sempre um botão de ação.
   scroll: { flexGrow: 1, paddingBottom: 40 + alturas.barraServico },
-  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria + '44', borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
-  urgenciaTexto: { fontSize: 14, fontWeight: '700', color: cores.primaria },
-  urgenciaHoras: { fontSize: 12, color: cores.primaria },
+  // Só layout: fundo, borda e cor do texto vêm da faixa de utils/urgencia.js, inline.
+  urgenciaBanner: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderWidth: 1, borderRadius: raios.grande, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 12 },
+  urgenciaTexto: { fontSize: 14, fontWeight: '700' },
+  urgenciaHoras: { fontSize: 12 },
   valorDestaque: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: cores.sucessoSuave, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
   valorDestaqueLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
   valorDestaqueValor: { fontSize: 24, fontWeight: '700', color: cores.sucesso },
