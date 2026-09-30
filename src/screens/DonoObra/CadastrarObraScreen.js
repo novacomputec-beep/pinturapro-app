@@ -90,7 +90,10 @@ const fusoDoAparelho = () => {
   }
 }
 
-export default function CadastrarObraScreen({ navigation }) {
+export default function CadastrarObraScreen({ navigation, route }) {
+  // Chegada a partir de CadastrarReparoScreen (Alvenaria → "Pedreiro ou ajudante"): traz
+  // o que já foi preenchido lá e o nome da rota de origem. undefined nos outros caminhos.
+  const deReparo = route?.params?.deReparo
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
@@ -132,6 +135,45 @@ export default function CadastrarObraScreen({ navigation }) {
   // registro pós-criação. O caminho antigo (direto ao Cloudinary) segue ativo
   // enquanto a flag está desligada.
   const midia = useUploadMidiaDemanda({ vertical: 'obra', montadoRef, logPrefix: '[CadastrarObra]' })
+
+  // Pré-preenchimento vindo do formulário de serviço. Só os campos que existem igual nas
+  // duas telas: título, descrição, endereço e mídias. Categoria da obra, prazo e valor
+  // ficam para a pessoa escolher aqui — são outras escalas. Roda por efeito, e não como
+  // valor inicial do useState, para valer também quando esta tela já estiver montada e
+  // receber um novo deReparo (mesmo comportamento nos dois casos).
+  useEffect(() => {
+    if (!deReparo) return
+    setTitulo(deReparo.titulo || '')
+    setDescricao(deReparo.descricao || '')
+    setCep(deReparo.cep || '')
+    setLogradouro(deReparo.logradouro || '')
+    setNumero(deReparo.numero || '')
+    setComplemento(deReparo.complemento || '')
+    setBairro(deReparo.bairro || '')
+    setCidade(deReparo.cidade || '')
+    setUf(deReparo.uf || '')
+    setPontoReferencia(deReparo.pontoReferencia || '')
+    setEnderecoEncontrado(!!deReparo.enderecoEncontrado)
+    midia.importar(deReparo.midias)
+    // midia.importar é estável (useCallback sem deps).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deReparo])
+
+  // Para onde ir depois de publicar. No caminho normal, a aba "Minhas Obras" do dono de
+  // obra. Vindo do serviço, a conta é de dono_reparo e essa aba NÃO existe: primeiro
+  // volta à rota de origem com { obraPublicada: true } (o navigate a uma rota já na pilha
+  // volta até ela e atualiza os params — é isso que desempilha esta tela e limpa o
+  // formulário de lá), depois abre a lista onde a obra aparece. Qual lista depende do
+  // navegador: nas abas do dono_reparo é "Meus Reparos" (ListaReparos, na aba de obras);
+  // no stack legado (tipo_dono indefinido) é a MinhasObras do próprio stack. A pilha é
+  // lida ANTES do primeiro navigate, enquanto esta tela ainda está nela.
+  const irParaLista = () => {
+    if (!deReparo?.rotaOrigem) { navigation.navigate('Minhas Obras'); return }
+    const legado = navigation.getState()?.routeNames?.includes('MinhasObras')
+    navigation.navigate(deReparo.rotaOrigem, { obraPublicada: true })
+    if (legado) navigation.navigate('MinhasObras', { aba: 'obras' })
+    else navigation.navigate('Meus Reparos', { screen: 'ListaReparos', params: { aba: 'obras' } })
+  }
 
   // Reset APÓS ENVIO BEM-SUCEDIDO — espelha CadastrarReparoScreen para que ambas se
   // comportem de forma idêntica. Após um envio bem-sucedido navegamos para 'Minhas
@@ -299,7 +341,7 @@ export default function CadastrarObraScreen({ navigation }) {
         jaAprovada
           ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
           : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
-        [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
+        [{ text: 'OK', onPress: () => { irParaLista(); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
       const dicaVideo = temVideoFalho
@@ -316,7 +358,7 @@ export default function CadastrarObraScreen({ navigation }) {
         `${fraseAprovacao} Mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
           { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(obraId, falhas, statusAprovacao) } },
-          { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Minhas Obras') },
+          { text: 'Continuar assim mesmo', onPress: irParaLista },
         ],
         { cancelable: false }
       )
@@ -394,7 +436,7 @@ export default function CadastrarObraScreen({ navigation }) {
         jaAprovada
           ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
           : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
-        [{ text: 'OK', onPress: () => { navigation.navigate('Minhas Obras'); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
+        [{ text: 'OK', onPress: () => { irParaLista(); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
       return
     }
     await finalizarPublicacao(obra.id, undefined, statusAprovacao)

@@ -55,6 +55,18 @@ export const perfilDe = (u) => {
     idDemanda: (x) => x.id,
     tab: 'Meus Reparos', detalhe: 'DetalheReparo', param: 'reparo',
     telaInicial: 'CadastrarReparoMain',
+    // Fontes ADICIONAIS do mesmo perfil: o dono_reparo também pode ter obras (saída
+    // "Pedreiro ou ajudante" de Alvenaria), e um match de obra merece a mesma retomada.
+    // Cada extra traz seu próprio destino porque a tela de detalhe muda; a aba é a mesma
+    // "Meus Reparos", onde DetalheObra está registrado. Só a retomada lê `extras`; a
+    // BarraServicoEmAndamento ignora a chave e segue como antes.
+    extras: [{
+      url: '/obras/minhas',
+      linhas: (r) => r.obras || [],
+      emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
+      idDemanda: (x) => x.id,
+      tab: 'Meus Reparos', detalhe: 'DetalheObra', param: 'obra',
+    }],
   }
   if (u.role === 'dono_obra' && u.tipo_dono === 'pintura') return {
     url: '/obras/minhas',
@@ -154,8 +166,12 @@ export default function RetomadaMatchHost() {
         if (respostaNotificacao) return
       }
 
-      const resp = await api.get(cfg.url)
-      const abertos = cfg.linhas(resp).filter(cfg.emAndamento)
+      // O perfil principal mais as fontes extras (só o dono_reparo as tem). Sem extras a
+      // lista tem um item e o caminho é o de sempre: uma requisição, uma resposta. Cada
+      // linha aberta carrega a fonte de onde veio, porque é a fonte que sabe o destino.
+      const fontes = [cfg, ...(cfg.extras || [])]
+      const respostas = await Promise.all(fontes.map(f => api.get(f.url)))
+      const abertos = fontes.flatMap((f, i) => f.linhas(respostas[i]).filter(f.emAndamento).map(x => ({ f, x })))
       if (abertos.length === 0) return
 
       const nav = navigationRef.current
@@ -167,10 +183,11 @@ export default function RetomadaMatchHost() {
 
       if (abertos.length > 1) { nav.navigate(cfg.tab); return }
 
-      const id = cfg.idDemanda(abertos[0])
+      const { f, x } = abertos[0]
+      const id = f.idDemanda(x)
       // Sem id não dá para abrir o detalhe; a lista ainda é melhor que a aba inicial.
-      if (id == null) { nav.navigate(cfg.tab); return }
-      nav.navigate(cfg.tab, { screen: cfg.detalhe, params: { [cfg.param]: { id } }, initial: false })
+      if (id == null) { nav.navigate(f.tab); return }
+      nav.navigate(f.tab, { screen: f.detalhe, params: { [f.param]: { id } }, initial: false })
     } catch (err) {
       // Silencioso: isto é uma comodidade, não um fluxo. Falhando, a pessoa fica onde
       // estava — que é exatamente o comportamento anterior a este componente.
