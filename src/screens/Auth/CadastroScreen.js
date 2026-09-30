@@ -1464,10 +1464,10 @@ const estilos = StyleSheet.create({
   labelSecao: { fontSize: 11, fontWeight: '600', color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   // Mesma caixa do Input (fundo, borda, raio, padding) para o campo não parecer de outra
   // família só por abrir uma tela em vez de aceitar digitação.
-  campoEspecialidades: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 13, marginTop: 7 },
+  campoEspecialidades: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 13, marginTop: 7 },
   campoEspecialidadesErro: { borderColor: cores.perigo },
   campoEspTexto: { fontSize: 14, color: cores.textoForte },
-  campoEspPlaceholder: { fontSize: 14, color: cores.textoMutado },
+  campoEspPlaceholder: { fontSize: 14, color: cores.placeholderCampo },
   campoEspSeta: { fontSize: 14, color: cores.textoFraco },
   erroEspecialidades: { color: cores.perigo, fontSize: 11, marginTop: 4 },
   espPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 4 },

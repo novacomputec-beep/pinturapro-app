@@ -1370,11 +1370,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
             <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>🔎 Ponto de referência</Text>
             <Text style={{ fontSize: 13, color: cores.textoFraco, marginBottom: 16 }}>Ajuda o profissional a chegar. Deixe em branco para remover.</Text>
             <TextInput
-              style={{ backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, fontSize: 14, color: cores.textoForte, marginBottom: 16, minHeight: 80, textAlignVertical: 'top' }}
+              style={{ backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: 10, padding: 14, fontSize: 14, color: cores.textoForte, marginBottom: 16, minHeight: 80, textAlignVertical: 'top' }}
               value={textoReferencia}
               onChangeText={setTextoReferencia}
               placeholder="Ex: portão azul, ao lado da padaria"
-              placeholderTextColor={cores.textoMutado}
+              placeholderTextColor={cores.placeholderCampo}
               multiline
               maxLength={200}
               editable={!salvandoReferencia}
@@ -1406,12 +1406,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
             <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>⏱ Quantos minutos você precisa?</Text>
             <Text style={{ fontSize: 13, color: cores.textoFraco, marginBottom: 16 }}>Digite o tempo em minutos</Text>
             <TextInput
-              style={{ backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, fontSize: 18, color: cores.textoForte, textAlign: 'center', marginBottom: 16 }}
+              style={{ backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: 10, padding: 14, fontSize: 18, color: cores.textoForte, textAlign: 'center', marginBottom: 16 }}
               keyboardType="numeric"
               value={minutosTempo}
               onChangeText={setMinutosTempo}
               placeholder="Ex: 15"
-              placeholderTextColor={cores.textoMutado}
+              placeholderTextColor={cores.placeholderCampo}
               autoFocus
             />
             <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -1911,7 +1911,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             <TextInput
                               style={[estilos.input, { marginBottom: 8 }]}
                               placeholder="Valor da contraproposta (ex: 350,00)"
-                              placeholderTextColor={cores.textoMutado}
+                              placeholderTextColor={cores.placeholderCampo}
                               keyboardType="numeric"
                               value={valorContraproposta}
                               onChangeText={v => setValorContraproposta(mascararValor(v))}
@@ -2081,7 +2081,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             <TextInput
                               style={[estilos.input, { marginBottom: 8 }]}
                               placeholder="Sua contraproposta (ex: 350,00)"
-                              placeholderTextColor={cores.textoMutado}
+                              placeholderTextColor={cores.placeholderCampo}
                               keyboardType="numeric"
                               value={valorContraPrestador}
                               onChangeText={v => setValorContraPrestador(mascararValor(v))}
@@ -2199,7 +2199,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <TextInput
                           style={estilos.input}
                           placeholder="Ex: 350,00"
-                          placeholderTextColor={cores.textoMutado}
+                          placeholderTextColor={cores.placeholderCampo}
                           keyboardType="numeric"
                           value={valorProposto}
                           onChangeText={v => setValorProposto(mascararValor(v))}
@@ -2215,11 +2215,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     <PerguntaOpcoes label="🔧 Possui todas as ferramentas necessárias?" opcoes={['Sim, todas', 'A maioria', 'Preciso de algumas']} valor={possuiFerramentas} onChange={setPossuiFerramentas} />
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
-                      <TextInput style={estilos.textarea} placeholder="Ex: Recomendo usar vedante específico..." placeholderTextColor={cores.textoMutado} value={sugestaoDurabilidade} onChangeText={setSugestaoDurabilidade} multiline numberOfLines={3} />
+                      <TextInput style={estilos.textarea} placeholder="Ex: Recomendo usar vedante específico..." placeholderTextColor={cores.placeholderCampo} value={sugestaoDurabilidade} onChangeText={setSugestaoDurabilidade} multiline numberOfLines={3} />
                     </View>
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
-                      <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.textoMutado} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
+                      <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.placeholderCampo} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
                     </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
@@ -2350,8 +2350,8 @@ const estilos = StyleSheet.create({
   opcaoPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   opcaoTexto: { fontSize: 12, color: cores.textoMedio },
   opcaoTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  textarea: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 13, color: cores.textoForte, minHeight: 80, textAlignVertical: 'top' },
-  input: { backgroundColor: cores.fundoInput, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, fontSize: 15, color: cores.textoForte },
+  textarea: { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, padding: 14, fontSize: 13, color: cores.textoForte, minHeight: 80, textAlignVertical: 'top' },
+  input: { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, padding: 14, fontSize: 15, color: cores.textoForte },
   aviso: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 10, lineHeight: 18 },
   vazioInteressados: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, borderWidth: 0.5, borderColor: cores.borda, padding: 24, alignItems: 'center', marginBottom: 16 },
   vazioInteressadosTexto: { fontSize: 13, color: cores.textoMutado, textAlign: 'center', lineHeight: 20 },
