@@ -17,6 +17,7 @@ import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
+import { urgenciaReparo } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
@@ -31,15 +32,6 @@ const DISTANCIAS = [
 ]
 
 const CATEGORIAS = paraFiltro(CATEGORIAS_SERVICO)
-
-const getUrgenciaInfo = (horas) => {
-  if (!horas) return null
-  if (horas <= 1)  return { label: '🔴 URGENTE',       cor: '#f44336', bg: '#3a1a1a' }
-  if (horas <= 4)  return { label: '🟠 Muito urgente', cor: '#FF6B35', bg: '#3a2a1a' }
-  if (horas <= 24) return { label: '🟡 Urgente',       cor: '#FFC107', bg: '#3a3a1a' }
-  if (horas <= 72) return { label: '🟢 Normal',        cor: '#4caf50', bg: '#1a3a1a' }
-  return               { label: '⚪ Sem urgência',    cor: '#9e9e9e', bg: '#2a2a2a' }
-}
 
 const formatarValor = (v) =>
   v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
@@ -98,7 +90,8 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 
 // Defined outside to prevent re-creation on every parent render (which resets timer state)
 const CardReparo = ({ item, onPress, onExpirar, coords }) => {
-  const urgencia = getUrgenciaInfo(item.prazo_atendimento_horas)
+  // Rótulo, emoji e cor vêm de utils/urgencia.js — a mesma régua do detalhe.
+  const urgencia = urgenciaReparo(item.prazo_atendimento_horas)
   const emoji = emojiReparo(item.categoria)
   const dist = distanciaItemKm(coords, item)
   // Rede de segurança do thumbnail: a capa pode não renderizar (URL quebrada,
@@ -126,7 +119,7 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
 
       {/* Urgency banner */}
       {urgencia && (
-        <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.cor + '44' }]}>
+        <View style={[estilos.urgenciaBanner, { backgroundColor: urgencia.bg, borderBottomColor: urgencia.borda }]}>
           <Text style={[estilos.urgenciaTexto, { color: urgencia.cor }]}>{urgencia.label}</Text>
           <Text style={[estilos.urgenciaHoras, { color: urgencia.cor }]}>Atender em até {textoAtender}</Text>
         </View>

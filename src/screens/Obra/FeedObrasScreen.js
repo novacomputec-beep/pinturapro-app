@@ -16,6 +16,7 @@ import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiObra, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao } from '../../utils/tempo'
+import { urgenciaObra } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 
 const DISTANCIAS = [
@@ -85,17 +86,6 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   )
 }
 
-// Janela de início que o dono escolheu, por horas_para_expirar (a mesma tabela do
-// CadastrarObraScreen). Fora da tabela cai no genérico "Iniciar em <duração>". É rótulo,
-// não escala de urgência: a obra tem sempre o MESMO cinza, ao contrário do reparo.
-const JANELA_INICIO_OBRA = {
-  24: 'Iniciar hoje',
-  168: 'Iniciar esta semana',
-  720: 'Iniciar este mês',
-  1440: 'Iniciar mês que vem',
-  2160: 'Sem urgência',
-}
-
 const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const dist = distanciaItemKm(coords, item)
   const emoji = emojiObra(item.categoria)
@@ -107,21 +97,9 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
   const capa = thumbnailDeCapa(item.foto_capa)
   const temFoto = !!capa && !fotoFalhou
 
-  // horas_para_expirar chega como STRING ("168"): coage para número antes de qualquer
-  // conta ou lookup. Ausente/não-numérico → sem faixa (mesmo comportamento da faixa do
-  // reparo quando o campo falta). O mapa cobre as cinco janelas; o resto vira duração.
-  const horasInicio = item.horas_para_expirar == null ? NaN : Number(item.horas_para_expirar)
-  const temFaixa = Number.isFinite(horasInicio)
-  // Extensão vem PRONTA do servidor: total_extensao_horas (STRING, null se nunca estendida).
-  // Com extensão, o rótulo canônico da janela deixa de valer — a obra não começa mais
-  // "mês que vem" — e o texto vira a duração real (janela + extensão). Sem extensão
-  // (null/ausente/não-finito/<=0), o rótulo canônico fica exatamente como antes.
-  const extHoras = item.total_extensao_horas == null ? NaN : Number(item.total_extensao_horas)
-  const temExtensao = Number.isFinite(extHoras) && extHoras > 0
-  const labelJanela = temExtensao
-    ? `Iniciar em ${formatarDuracao((horasInicio + extHoras) * 3600000, { frente: 'obra', maxUnidades: 2 })}`
-    : (JANELA_INICIO_OBRA[horasInicio]
-      || `Iniciar em ${formatarDuracao(horasInicio * 3600000, { frente: 'obra', maxUnidades: 2 })}`)
+  // Janela de início (rótulo, emoji e cinza) vem de utils/urgencia.js — a mesma régua do
+  // detalhe. null quando horas_para_expirar falta ou não é numérico → sem faixa.
+  const faixa = urgenciaObra(item.horas_para_expirar, item.total_extensao_horas)
 
   return (
   <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
@@ -129,9 +107,9 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
 
     {/* Faixa de prazo — espelha a urgenciaBanner do reparo (mesma altura, tipografia e
         borda), mas cinza fixo: obra não tem escala de urgência. */}
-    {temFaixa && (
-      <View style={estilos.faixaPrazoObra}>
-        <Text style={estilos.faixaPrazoTexto}>⚪ {labelJanela}</Text>
+    {faixa && (
+      <View style={[estilos.faixaPrazoObra, { backgroundColor: faixa.bg, borderBottomColor: faixa.borda }]}>
+        <Text style={[estilos.faixaPrazoTexto, { color: faixa.cor }]}>{faixa.label}</Text>
       </View>
     )}
 
@@ -665,10 +643,10 @@ const estilos = StyleSheet.create({
   prazoTexto: { fontSize: 12, fontWeight: '700' },
   prazoTextoNormal: { color: '#FFC107' },
   prazoTextoUrgente: { color: '#FF6B6B' },
-  // Espelho exato da urgenciaBanner/urgenciaTexto/urgenciaHoras do reparo, com o cinza
-  // do ramo de menor urgência (#9e9e9e) fixado — obra não varia de cor.
-  faixaPrazoObra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 0.5, backgroundColor: '#2a2a2a', borderBottomColor: '#9e9e9e44' },
-  faixaPrazoTexto: { fontSize: 13, fontWeight: '700', color: '#9e9e9e' },
+  // Espelho exato da urgenciaBanner/urgenciaTexto/urgenciaHoras do reparo. Só layout: o
+  // cinza fixo da obra (texto, fundo e borda) vem de utils/urgencia.js.
+  faixaPrazoObra: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 0.5 },
+  faixaPrazoTexto: { fontSize: 13, fontWeight: '700' },
 
   // Valor — label e número na mesma linha. O número caiu de 24px p/ 17px: abaixo
   // dos 18.66px o WCAG deixa de tratá-lo como "texto grande" (3:1) e passa a exigir
