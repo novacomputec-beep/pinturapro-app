@@ -687,7 +687,7 @@ const estilos = StyleSheet.create({
   listaScrollCidade: { maxHeight: 280, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio },
   itemLista: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: cores.bordaFraca },
   itemListaAtivo: { backgroundColor: cores.primaria + '22' },
-  itemListaTxt: { fontSize: 14, color: cores.textoMedio },
+  itemListaTxt: { fontSize: 14, color: cores.textoForte },
   itemListaTxtAtivo: { color: cores.primaria, fontWeight: '700' },
   txtCarregando: { fontSize: 13, color: cores.textoFraco, padding: 14, textAlign: 'center' },
   inputBuscaCidade: { backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: cores.textoForte, marginBottom: 8 },

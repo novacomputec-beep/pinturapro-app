@@ -231,6 +231,6 @@ const estilos = StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: cores.fundoElevado,
   },
   opcaoAtiva: { backgroundColor: cores.primariaSuave },
-  opcaoTexto: { fontSize: 14, color: cores.textoMedio },
+  opcaoTexto: { fontSize: 14, color: cores.textoForte },
   opcaoTextoAtivo: { color: cores.primaria, fontWeight: '600' },
 })
