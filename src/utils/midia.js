@@ -307,6 +307,22 @@ export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
     }))])
   }, [])
 
+  // Importa itens de OUTRA instância deste hook (o formulário de reparo que vira obra em
+  // CadastrarReparoScreen → CadastrarObraScreen). Difere de `adicionar` em dois pontos:
+  // recebe itens já no formato interno (não assets do picker) e PRESERVA o upload já
+  // feito — o POST /upload/midia não é por vertical, só o registro é, então uma URL
+  // enviada pelo reparo serve à obra sem subir o arquivo de novo. O que ainda não subiu
+  // (pendente/enviando/falha) volta a 'pendente' e o efeito de streaming desta instância
+  // assume. Ids novos: a outra instância continua viva com os dela.
+  const importar = useCallback((origem) => {
+    if (!Array.isArray(origem) || origem.length === 0) return
+    setItens(prev => [...prev, ...origem
+      .filter(o => o && o.localUri)
+      .map(o => (o.status === 'enviada' && o.secureUrl)
+        ? { id: gerarIdMidia(), localUri: o.localUri, tipo: o.tipo, status: 'enviada', progresso: 1, secureUrl: o.secureUrl, publicId: o.publicId }
+        : { id: gerarIdMidia(), localUri: o.localUri, tipo: o.tipo, status: 'pendente', progresso: 0 })])
+  }, [])
+
   const remover = useCallback((id) => setItens(prev => prev.filter(i => i.id !== id)), [])
   const reenviar = useCallback((id) => setItens(prev => prev.map(i =>
     i.id === id ? { ...i, status: 'pendente', progresso: 0, erro: undefined } : i)), [])
@@ -385,5 +401,5 @@ export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
     return falhas
   }, [itens, config, logPrefix, montadoRef])
 
-  return { itens, adicionar, remover, reenviar, resetar, algumEnviando, publicarMidias }
+  return { itens, adicionar, importar, remover, reenviar, resetar, algumEnviando, publicarMidias }
 }

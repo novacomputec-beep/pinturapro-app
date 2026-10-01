@@ -171,9 +171,24 @@ const detectar = async (usuario) => {
         navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
       }
     }
+    // Nenhum evento de reparo: as OBRAS desta conta (se houver) entram por último, com
+    // o DetalheObra hospedado em "Meus Reparos". Custa uma requisição a mais por
+    // verificação para todo dono_reparo, mesmo sem obra nenhuma.
+    return celebrarObrasDono('Meus Reparos', 'obra_')
   }
-  // dono_obra — um pintor/construtor se candidatou
-  if (ehDonoObra) {
+  // Eventos das OBRAS de um dono. Era o corpo inline do ramo dono_obra; virou função
+  // porque o dono_reparo também pode ter obras (saída "Pedreiro ou ajudante" de
+  // Alvenaria) e os eventos são os mesmos — só muda a aba que hospeda o DetalheObra.
+  // DECLARAÇÃO de função, não const, de propósito: é içada, então o ramo dono_reparo
+  // acima a chama antes desta linha sem cair na zona morta; uid/naoVisto são lidos só na
+  // chamada, quando já existem.
+  //   abaObra: 'Minhas Obras' (dono_obra) ou 'Meus Reparos' (dono_reparo).
+  //   pc: prefixo da marca `concluido:`. Vazio para o dono_obra — as chaves gravadas nos
+  //       aparelhos continuam valendo byte a byte. 'obra_' para o dono_reparo, cuja marca
+  //       d'água é compartilhada com os reparos: sem prefixo, `concluido:7` do reparo 7
+  //       silenciaria para sempre a obra 7. As demais chaves já distinguem o tipo ou são
+  //       semMarca (não gravadas).
+  async function celebrarObrasDono(abaObra, pc) {
     const resp = await api.get('/obras/minhas')
     const o = (resp.obras || []).find(x =>
       x.candidatura_pendente_recente_id != null && naoVisto(`candidatura:${x.candidatura_pendente_recente_id}`)
@@ -183,7 +198,7 @@ const detectar = async (usuario) => {
       titulo: 'Sua obra recebeu uma proposta!',
       subtitulo: `"${o.titulo}" tem profissional(is) interessado(s). Veja e escolha o melhor!`,
       ctaTexto: 'Ver proposta',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: o }, initial: false }),
+      navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: o }, initial: false }),
     }
     const matched = (resp.obras || []).find(x =>
       x.match_feito_em && x.match_usuario_id && naoVisto(`obra_match:${x.id}`)
@@ -193,17 +208,17 @@ const detectar = async (usuario) => {
       titulo: 'Sua obra vai ser realizada!',
       subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
+      navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
     // Obra CONCLUÍDA — espelha o ramo do dono_reparo, mesma posição (depois do match,
     // antes dos semMarca) e mesmo prefixo de marca d'água. Fecha a transição que não
     // avisava nada quando quem confirma por último é a outra parte, e aponta para o único
     // lugar onde o dono avalia e bloqueia: o card em Contratos Finalizados.
     const fins = (resp.obras || []).filter(x =>
-      x.status === 'encerrada' && x.match_feito_em && naoVisto(`concluido:${x.id}`)
+      x.status === 'encerrada' && x.match_feito_em && naoVisto(`${pc}concluido:${x.id}`)
     )
     if (fins.length) return {
-      chaves: fins.map(x => `concluido:${x.id}`), emoji: '🏁',
+      chaves: fins.map(x => `${pc}concluido:${x.id}`), emoji: '🏁',
       titulo: fins.length === 1 ? 'Obra concluída!' : 'Obras concluídas!',
       subtitulo: fins.length === 1
         ? 'A obra foi concluída pelas duas partes. Em Contratos Finalizados você pode avaliar o profissional e, se quiser, bloqueá-lo para futuras obras.'
@@ -223,7 +238,7 @@ const detectar = async (usuario) => {
       titulo: 'Confirme a chegada',
       subtitulo: `O profissional de "${cheg.titulo}" aguarda a sua confirmação de que ele chegou ao local do serviço.`,
       ctaTexto: 'Confirmar chegada',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: cheg }, initial: false }),
+      navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: cheg }, initial: false }),
     }
     const enc = (resp.obras || []).find(x =>
       x.encerramento_solicitado_por != null && String(x.encerramento_solicitado_por) !== String(uid)
@@ -234,7 +249,7 @@ const detectar = async (usuario) => {
       titulo: 'Confirme o encerramento',
       subtitulo: `O profissional marcou "${enc.titulo}" como concluída. A obra só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: enc }, initial: false }),
+      navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: enc }, initial: false }),
     }
     // Espelha o lembrete de avaliação do ramo do dono_reparo — mesma posição (último dos
     // semMarca), mesma gate de requisição e mesmo um-por-vez.
@@ -254,7 +269,10 @@ const detectar = async (usuario) => {
         navegar: () => navigationRef.current?.navigate('Contratos Finalizados'),
       }
     }
+    return null
   }
+  // dono_obra — um pintor/construtor se candidatou
+  if (ehDonoObra) return celebrarObrasDono('Minhas Obras', '')
   // reparador — o dono aceitou sua proposta
   if (ehReparador) {
     const resp = await api.get('/reparos/meus-interesses')

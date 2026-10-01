@@ -29,7 +29,10 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'hidraulica',      rotulo: 'Hidráulica',        emoji: '🔧' },
   { slug: 'eletrica',        rotulo: 'Elétrica',          emoji: '⚡' },
   { slug: 'marcenaria',      rotulo: 'Marcenaria',        emoji: '🪚' },
-  { slug: 'alvenaria',       rotulo: 'Alvenaria',         emoji: '🧱' },
+  // Rótulo diz "pequenos reparos" porque o lado doméstico é isto: obra de pedreiro vai
+  // para a vertical de OBRA, e é o CadastrarReparoScreen que oferece essa saída quando a
+  // pessoa toca aqui. O slug não muda (contrato com o banco).
+  { slug: 'alvenaria',       rotulo: 'Alvenaria – pequenos reparos', emoji: '🧱' },
   { slug: 'climatizacao',    rotulo: 'Refrigeração/climatização', emoji: '❄️' },
   { slug: 'chaveiro',        rotulo: 'Chaveiro',          emoji: '🔑' },
   { slug: 'faxina',          rotulo: 'Faxina',            emoji: '🧹' },
@@ -67,6 +70,9 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'pet',             rotulo: 'Pet',                emoji: '🐾' },
   { slug: 'motociclista',    rotulo: 'Motociclista',       emoji: '🏍️' },
   { slug: 'musico',          rotulo: 'Músico',             emoji: '🎸' },
+  { slug: 'churrasqueiro',   rotulo: 'Churrasqueiro',      emoji: '🍖' },
+  { slug: 'lavajato',        rotulo: 'Lava-jato',          emoji: '🧽' },
+  { slug: 'tradutor',        rotulo: 'Tradutor/intérprete', emoji: '🌐' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 

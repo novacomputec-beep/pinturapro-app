@@ -20,6 +20,11 @@ const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
 // da lista, acompanha qualquer reordenação ou categoria nova sem ninguém lembrar daqui.
 const CATEGORIA_INICIAL = CATEGORIAS[0].id
 
+// Alvenaria é a única categoria com bifurcação: "pequeno reparo" fica aqui, "pedreiro ou
+// ajudante" é OBRA e segue para CadastrarObraScreen com o que já foi preenchido. Slug, e
+// não rótulo: o rótulo é apresentação e pode mudar; o slug é o contrato.
+const SLUG_ALVENARIA = 'alvenaria'
+
 const URGENCIAS = [
   { id: 1,   label: '🔴 1 hora',      desc: 'Urgência máxima' },
   { id: 2,   label: '🟠 2 horas',     desc: 'Muito urgente'   },
@@ -54,7 +59,7 @@ const gerarRequestId = () =>
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
   })
 
-export default function CadastrarReparoScreen({ navigation }) {
+export default function CadastrarReparoScreen({ navigation, route }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
@@ -77,6 +82,10 @@ export default function CadastrarReparoScreen({ navigation }) {
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
   const [showMediaPicker, setShowMediaPicker] = useState(false)
+  // Folha de escolha de Alvenaria. null = fechada; { anterior } = aberta, guardando a
+  // categoria que estava selecionada antes do toque, para o "voltar" do Android desfazer
+  // a seleção: a escolha é obrigatória, então sair sem escolher NÃO deixa Alvenaria marcada.
+  const [escolhaAlvenaria, setEscolhaAlvenaria] = useState(null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -110,9 +119,9 @@ export default function CadastrarReparoScreen({ navigation }) {
   // O foco sozinho não diz POR QUE a tela foi focada: sem a trava abaixo, uma simples
   // ida-e-volta de aba era indistinguível do retorno pós-envio e apagava um formulário
   // já preenchido. Só a criação confirmada arma o reset, e ele se desarma ao rodar.
-  useFocusEffect(useCallback(() => {
-    if (!submetidoRef.current) return
-    submetidoRef.current = false
+  // Extraído para uma função porque tem DOIS gatilhos: o foco pós-envio (abaixo) e a obra
+  // publicada a partir deste formulário (efeito seguinte). midia.resetar é estável.
+  const limparFormulario = useCallback(() => {
     setTitulo('')
     setCategoria(CATEGORIA_INICIAL)
     setDescricao('')
@@ -132,8 +141,27 @@ export default function CadastrarReparoScreen({ navigation }) {
     setErros({})
     setEnderecoEncontrado(false)
     setBuscandoCep(false)
+    setEscolhaAlvenaria(null)
     enviandoRef.current = false
-  }, []))
+  }, [midia.resetar])
+
+  useFocusEffect(useCallback(() => {
+    if (!submetidoRef.current) return
+    submetidoRef.current = false
+    limparFormulario()
+  }, [limparFormulario]))
+
+  // A OBRA nascida deste formulário (escolha "Pedreiro ou ajudante") foi publicada:
+  // CadastrarObraScreen volta para cá com este parâmetro antes de ir para a lista. O
+  // conteúdo já virou obra, então mantê-lo aqui seria convidar a publicar a mesma coisa
+  // duas vezes — e os arquivos de mídia locais foram apagados pelo upload da obra, o que
+  // deixaria previews quebrados. Se a pessoa só VOLTAR (seta) sem publicar, nada disto
+  // roda e o formulário está intacto. O parâmetro é consumido para não disparar de novo.
+  useEffect(() => {
+    if (!route?.params?.obraPublicada) return
+    navigation.setParams({ obraPublicada: undefined })
+    limparFormulario()
+  }, [route?.params?.obraPublicada, navigation, limparFormulario])
 
   // Volta ao topo a cada foco: aba que fica montada preserva o scroll entre idas e
   // vindas, e o formulário reaparecia no meio. Efeito separado do reset acima (que só
@@ -235,6 +263,47 @@ export default function CadastrarReparoScreen({ navigation }) {
   }
 
   const selecionarMidia = () => setShowMediaPicker(true)
+
+  // Toque numa pill de categoria. Alvenaria abre a folha de escolha obrigatória; a pill
+  // já fica marcada para a folha aparecer sobre o estado que a pessoa acabou de pedir, e
+  // o "voltar" sem escolher desmarca (ver escolhaAlvenaria). As demais selecionam direto.
+  const selecionarCategoria = (id) => {
+    if (id === SLUG_ALVENARIA) setEscolhaAlvenaria({ anterior: categoria })
+    setCategoria(id)
+  }
+
+  // "🧱 Pequeno reparo": fica aqui, com Alvenaria selecionada.
+  const ficarNoReparo = () => setEscolhaAlvenaria(null)
+
+  // Voltar do Android com a folha aberta: nenhuma escolha feita, então a categoria volta
+  // à anterior. A folha não fecha por toque fora — a escolha é obrigatória.
+  const desistirDaEscolha = () => {
+    if (escolhaAlvenaria) setCategoria(escolhaAlvenaria.anterior)
+    setEscolhaAlvenaria(null)
+  }
+
+  // "🏗️ Pedreiro ou ajudante": é obra. Leva o que já foi preenchido para
+  // CadastrarObraScreen — título, descrição, endereço completo (CEP, rua, número,
+  // complemento, bairro, cidade, UF, ponto de referência) e as mídias, inclusive as já
+  // enviadas (o upload não é por vertical) — na MESMA conta. Valor e prazo ficam de fora:
+  // as escalas de obra são outras (a lista de prazos nem coincide) e um valor de reparo
+  // pré-preenchido numa obra induziria a publicar barato sem perceber.
+  // `rotaOrigem` é o nome desta rota (muda entre o stack da aba e o legado): é por ele
+  // que a obra publicada volta para cá com { obraPublicada: true } e limpa o formulário.
+  // A categoria selecionada NÃO volta à anterior: a pessoa pediu Alvenaria e, se voltar
+  // pela seta, encontra o formulário como o deixou.
+  const irParaObra = () => {
+    setEscolhaAlvenaria(null)
+    Keyboard.dismiss()
+    navigation.navigate('CadastrarObra', {
+      deReparo: {
+        rotaOrigem: route?.name,
+        titulo, descricao,
+        cep, logradouro, numero, complemento, bairro, cidade, uf, pontoReferencia, enderecoEncontrado,
+        midias: midia.itens,
+      },
+    })
+  }
 
   // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes).
   // O upload/registro em si vive no hook compartilhado (useUploadMidiaDemanda);
@@ -360,7 +429,7 @@ export default function CadastrarReparoScreen({ navigation }) {
           <Text style={estilos.labelCategoria}>CATEGORIA</Text>
           <View style={estilos.categoriasRow}>
             {CATEGORIAS.map(c => (
-              <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => setCategoria(c.id)}>
+              <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => selecionarCategoria(c.id)}>
                 <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
               </TouchableOpacity>
             ))}
@@ -465,6 +534,41 @@ export default function CadastrarReparoScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Escolha OBRIGATÓRIA ao tocar em Alvenaria. O overlay é uma View, não um
+          TouchableOpacity como o do picker acima: não há "tocar fora para fechar" nem
+          botão Cancelar — as duas saídas são as duas opções. O botão voltar do Android
+          (onRequestClose) desfaz a seleção em vez de deixar Alvenaria marcada sem
+          escolha. Verde = fica (mesmo token de aprovação do app); azul = vai para a obra
+          (token informativo) — a cor diz de longe qual opção muda de tela. */}
+      <Modal visible={escolhaAlvenaria != null} transparent animationType="slide" onRequestClose={desistirDaEscolha}>
+        <View style={estilos.modalOverlay}>
+          <View style={estilos.modalSheet}>
+            {/* Alça da folha: só visual (a folha não arrasta), como na arte. */}
+            <View style={estilos.escolhaAlca} />
+            <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
+            <Text style={estilos.escolhaSubtitulo}>Assim sua demanda chega aos profissionais certos</Text>
+            {/* Cada opção: emoji grande numa coluna à esquerda; à direita título, descrição
+                e a linha-link na cor da opção dizendo para onde ela leva. */}
+            <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoVerde]} onPress={ficarNoReparo} activeOpacity={0.8}>
+              <Text style={estilos.escolhaOpcaoEmoji}>🧱</Text>
+              <View style={estilos.escolhaOpcaoTexto}>
+                <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.sucesso }]}>Pequeno reparo</Text>
+                <Text style={estilos.escolhaOpcaoDesc}>Tapar buraco, consertar muro, rachadura, reboco pontual</Text>
+                <Text style={[estilos.escolhaOpcaoLink, { color: cores.sucesso }]}>Continua aqui em Serviços →</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoAzul]} onPress={irParaObra} activeOpacity={0.8}>
+              <Text style={estilos.escolhaOpcaoEmoji}>🏗️</Text>
+              <View style={estilos.escolhaOpcaoTexto}>
+                <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.info }]}>Pedreiro ou ajudante</Text>
+                <Text style={estilos.escolhaOpcaoDesc}>Diária, reforma, construção, obra maior</Text>
+                <Text style={[estilos.escolhaOpcaoLink, { color: cores.info }]}>Vai para Construção civil, com seus dados já preenchidos →</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -512,4 +616,19 @@ const estilos = StyleSheet.create({
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
   modalOpcao: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginBottom: 8 },
   modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, fontWeight: '500' },
+  // Folha de escolha de Alvenaria. Reusa modalOverlay/modalSheet/modalTitulo do picker;
+  // o que é próprio dela está aqui. As duas opções têm a MESMA forma e só trocam o par
+  // fundo/borda (sucessoSuave+sucesso, infoSuave+info) — mesmo casamento Suave/sólida
+  // que o TelaAviso usa, para o verde e o azul nunca saírem de tons diferentes do app.
+  escolhaAlca: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: cores.textoFraco, marginTop: -8, marginBottom: 16 },
+  escolhaTitulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 4 },
+  escolhaSubtitulo: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
+  escolhaOpcao: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderRadius: raios.grande, borderWidth: 1.5, padding: 16, marginBottom: 12 },
+  escolhaOpcaoVerde: { backgroundColor: cores.sucessoSuave, borderColor: cores.sucesso },
+  escolhaOpcaoAzul: { backgroundColor: cores.infoSuave, borderColor: cores.info },
+  escolhaOpcaoEmoji: { fontSize: 36, lineHeight: 44 },
+  escolhaOpcaoTexto: { flex: 1 },
+  escolhaOpcaoTitulo: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
+  escolhaOpcaoDesc: { fontSize: 13, color: cores.textoForte, lineHeight: 19, opacity: 0.85, marginBottom: 8 },
+  escolhaOpcaoLink: { fontSize: 12, fontWeight: '700', lineHeight: 17 },
 })

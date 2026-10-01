@@ -32,6 +32,7 @@ import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 // App — Pintor
 import FeedObrasScreen     from '../screens/Obra/FeedObrasScreen'
 import DetalheObraScreen   from '../screens/Obra/DetalheObraScreen'
+import CadastroServicosScreen from '../screens/Obra/CadastroServicosScreen'
 import ContratosScreen     from '../screens/Contratos/ContratosScreen'
 import ContratosFinalizadosScreen from '../screens/Contratos/ContratosFinalizadosScreen'
 import MensagensScreen     from '../screens/Mensagens/MensagensScreen'
@@ -89,6 +90,10 @@ const navegarParaNotificacao = (data) => {
   // Donos com navegador de abas (reparo/pintura) possuem a aba "Contratos Finalizados".
   // O fallback (tipo_dono indefinido) usa um stack sem essa aba.
   const ehDonoComAba     = u.role === 'dono_obra' && (u.tipo_dono === 'reparo' || u.tipo_dono === 'pintura')
+  // Aba que hospeda o DetalheObra. O dono_reparo não tem "Minhas Obras" — sua obra (saída
+  // "Pedreiro ou ajudante" de Alvenaria) vive em "Meus Reparos", onde DetalheObra está
+  // registrado. Todos os outros papéis seguem com o literal de sempre.
+  const abaObra          = ehDonoReparo ? 'Meus Reparos' : 'Minhas Obras'
 
   // Aba de itens em andamento conforme o navegador montado para este usuário
   const tabEmAndamento =
@@ -104,7 +109,7 @@ const navegarParaNotificacao = (data) => {
     // Só navega com o id presente; sem id, cai no switch (que não trata estes tipos)
     // e não faz nada, em vez de abrir o detalhe com id indefinido.
     if (data.tipo.startsWith('obra_expirando') && data.obra_id) {
-      navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+      navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
       return
     }
     if (data.tipo.startsWith('reparo_expirando') && data.reparo_id) {
@@ -123,10 +128,23 @@ const navegarParaNotificacao = (data) => {
         break
       // Mensagens
       case 'nova_mensagem':
+        // dono_reparo não tem a aba Mensagens: com id, abre a obra; sem id, a lista.
+        if (ehDonoReparo) {
+          if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+          else navegar(tabEmAndamento)
+          break
+        }
         navegar('Mensagens'); break
       // Itens finalizados (encerrados): prestador e dono (com aba) veem em "Contratos Finalizados";
       // o dono fallback (sem a aba) cai na lista em andamento.
       case 'obra_encerrada':
+        // A aba "Contratos Finalizados" do dono_reparo só lista reparos: a obra encerrada
+        // fica inalcançável por lá. Com id, abre o detalhe; sem id, cai no destino de sempre.
+        if (ehDonoReparo && data.obra_id) {
+          navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+          break
+        }
+        // falls through
       case 'reparo_encerrado':
         navegar((ehPrestador || ehDonoComAba) ? 'Contratos Finalizados' : tabEmAndamento); break
       // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe.
@@ -134,7 +152,7 @@ const navegarParaNotificacao = (data) => {
       // isso compartilham o destino: um id só, da vertical certa, sem probe cruzado.
       case 'candidatura_aceita':
       case 'match_obra':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'interesse_aceito':
@@ -147,7 +165,7 @@ const navegarParaNotificacao = (data) => {
       // único indício é o contador "N profissional(is) interessado(s)": não diz QUAL
       // demanda recebeu a proposta nem leva até ela. Mesma forma de 'candidatura_aceita'.
       case 'nova_candidatura':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'novo_interesse':
@@ -157,7 +175,7 @@ const navegarParaNotificacao = (data) => {
       // Contraproposta do dono — deep-link direto ao detalhe (reparo ou obra) p/ o prestador responder
       case 'contraproposta_dono':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Demanda próxima: quem recebe ainda NÃO está envolvido com ela, então o item vive
@@ -176,7 +194,7 @@ const navegarParaNotificacao = (data) => {
       // sem o id o dono não tem como abrir o motivo da recusa.
       case 'obra_aprovada':
       case 'obra_recusada':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
@@ -187,7 +205,7 @@ const navegarParaNotificacao = (data) => {
       // Mesmo marco do lado da obra: o dono decide entre aumentar o prazo e esperar, e as
       // duas coisas estão no detalhe.
       case 'obra_5min_restantes':
-        if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Negociação da CHEGADA (janela proposta → aceita/recusada → chegada declarada →
@@ -233,7 +251,7 @@ const navegarParaNotificacao = (data) => {
       case 'tempo_recusado':
       case 'contra_oferta':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else if (data.obra_id) navigationRef.current.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Estado da CONTA, não de uma demanda: o que se faz a respeito (ler o motivo,
@@ -634,6 +652,8 @@ const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
     <FeedStack.Screen name="FeedMain"    component={FeedObrasScreen} />
     <FeedStack.Screen name="DetalheObra" component={DetalheObraScreen} />
+    {/* Conta irmã de reparador, a partir do convite no topo do feed (ConviteCadastroServicos). */}
+    <FeedStack.Screen name="CadastroServicos" component={CadastroServicosScreen} />
   </FeedStack.Navigator>
 )
 
@@ -761,6 +781,11 @@ const TabsPrestadorNavigator = () => {
 const NovoReparoTabStack = () => (
   <NovoReparoStack.Navigator screenOptions={{ headerShown: false }}>
     <NovoReparoStack.Screen name="CadastrarReparoMain" component={CadastrarReparoScreen} />
+    {/* Destino da escolha "Pedreiro ou ajudante" em Alvenaria: a obra é cadastrada pela
+        MESMA conta (dono_reparo), empilhada sobre o formulário de serviço para que a
+        seta de voltar devolva a pessoa ao que ela estava preenchendo. Mesmo nome de
+        rota do stack legado (DonoObraNavigator), então o navigate é um só na tela. */}
+    <NovoReparoStack.Screen name="CadastrarObra"        component={CadastrarObraScreen} />
   </NovoReparoStack.Navigator>
 )
 
@@ -769,6 +794,9 @@ const MeusReparosTabStack = () => (
   <MeusReparosStack.Navigator screenOptions={{ headerShown: false }}>
     <MeusReparosStack.Screen name="ListaReparos" component={MinhasObrasScreen} initialParams={{ soAba: 'reparos' }} />
     <MeusReparosStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
+    {/* O dono_reparo pode ter obras (saída "Pedreiro ou ajudante" de Alvenaria); a lista
+        as mostra e o toque no card precisa ter para onde ir. */}
+    <MeusReparosStack.Screen name="DetalheObra"   component={DetalheObraScreen} />
   </MeusReparosStack.Navigator>
 )
 

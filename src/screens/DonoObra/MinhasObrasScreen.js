@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
@@ -76,6 +76,25 @@ export default function MinhasObrasScreen({ navigation, route }) {
   }
 
   useFocusEffect(useCallback(() => { buscarDados() }, []))
+
+  // Pedido explícito de aba vindo da navegação (CadastrarObraScreen, depois de publicar
+  // uma obra a partir do formulário de serviço, manda { aba: 'obras' } para a pessoa
+  // cair em cima do que acabou de publicar). Consumido para não prender a aba: o próximo
+  // foco sem o parâmetro respeita o que a pessoa escolher no seletor.
+  useEffect(() => {
+    const pedida = route?.params?.aba
+    if (pedida !== 'obras' && pedida !== 'reparos') return
+    navigation.setParams({ aba: undefined })
+    setAba(pedida)
+  }, [route?.params?.aba, navigation])
+
+  // O dono_reparo (soAba 'reparos') pode ter obras — a saída "Pedreiro ou ajudante" de
+  // Alvenaria as cadastra na MESMA conta. Sem obra nenhuma a tela é a de sempre; com
+  // alguma, o seletor Obras/Serviços aparece para elas não ficarem invisíveis. Os
+  // botões "Nova obra/Novo serviço" seguem só no stack legado (sem soAba).
+  const temObras = obras.length > 0 || obrasHistorico.length > 0
+  const mostrarSeletorAba = !soAba || (soAba === 'reparos' && temObras)
+
   // Soft-ask de notificação no momento de relevância do dono: ver a própria lista de
   // demandas. Espelha os feeds do profissional (FeedObrasScreen/FeedReparosScreen) —
   // mostrar() faz o próprio check ao vivo e respeita teto e intervalo, então chamar a
@@ -249,7 +268,7 @@ export default function MinhasObrasScreen({ navigation, route }) {
         </View>
       )}
 
-      {!soAba && (
+      {mostrarSeletorAba && (
         <View style={estilos.abas}>
           <TouchableOpacity
             style={[estilos.abaBtn, aba === 'obras' && estilos.abaBtnAtivo]}
@@ -263,8 +282,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
             style={[estilos.abaBtn, aba === 'reparos' && estilos.abaBtnAtivo]}
             onPress={() => setAba('reparos')}
           >
+            {/* "Serviços" no vocabulário do dono_reparo (título da tela e aba do rodapé
+                já dizem assim); "Reparos" segue no stack legado, como sempre foi. */}
             <Text style={[estilos.abaTexto, aba === 'reparos' && estilos.abaTextoAtivo]}>
-              🔧 Reparos ({reparos.length})
+              🔧 {soAba === 'reparos' ? 'Serviços' : 'Reparos'} ({reparos.length})
             </Text>
           </TouchableOpacity>
         </View>
