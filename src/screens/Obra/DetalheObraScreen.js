@@ -15,6 +15,7 @@ import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ModalAumentarValor from '../../components/ModalAumentarValor'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
+import VerificacaoIdentidadeSheet, { useVerificacaoIdentidade } from '../../components/VerificacaoIdentidadeSheet'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -265,6 +266,7 @@ function PlayerFullscreen({ uri }) {
 export default function DetalheObraScreen({ route, navigation }) {
   const { obra: obraInicial } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
+  const verificacao = useVerificacaoIdentidade()
   const [obra, setObra] = useState(obraInicial)
   // Falha da RECARGA, não "obra inexistente": a tela segue mostrando o objeto semeado
   // pelo param da lista, que pode estar desatualizado — é isso que o banner avisa.
@@ -415,6 +417,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const handleInteresse = async () => {
     if (!tempoExperiencia) { Alert.alert('Atenção', 'Informe há quanto tempo realiza esse tipo de serviço.'); return }
     if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui os materiais e equipamentos necessários.'); return }
+    // Identidade só é pedida aqui, na primeira proposta: quem ainda não enviou
+    // documentos abre a sheet; quem está em análise recebe o aviso.
+    if (!(await verificacao.liberada())) return
     setEnviando(true)
     try {
       const mensagem = [
@@ -437,6 +442,9 @@ export default function DetalheObraScreen({ route, navigation }) {
       // Suspenso: sai antes da reconsulta — não há candidatura nova a descobrir, e o
       // motivo real precisa aparecer no lugar do "não foi possível registrar".
       if (alertouSuspensao(err)) return
+      // Rede de segurança: o servidor recusou por falta de verificação (403
+      // VERIFICACAO_NECESSARIA) mesmo com o usuario local dizendo o contrário.
+      if (await verificacao.tratouErro(err)) return
       // A 1ª tentativa pode ter sido aceita no servidor mas a resposta se perdeu (troca
       // de rede), ou o retry recebeu 409 "já se candidatou". Reconsulta: se a candidatura
       // já existir para este usuário, trata como sucesso em vez de erro confuso.
@@ -2147,6 +2155,11 @@ export default function DetalheObraScreen({ route, navigation }) {
         nomeAvaliado={pintorMatch?.nome || 'o profissional'}
         onEnviar={enviarAvaliacaoEncerrar}
         onFechar={finalizarPosEncerrar}
+      />
+      <VerificacaoIdentidadeSheet
+        visivel={verificacao.aberta}
+        onFechar={verificacao.fechar}
+        onConcluido={() => navigation.goBack()}
       />
     </SafeAreaView>
   )

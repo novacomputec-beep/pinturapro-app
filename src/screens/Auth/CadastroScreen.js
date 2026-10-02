@@ -5,15 +5,13 @@ import {
 } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
-import * as ImagePicker from 'expo-image-picker'
 import { Image } from 'react-native'
 import { AppEventsLogger } from 'react-native-fbsdk-next'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
-import { recuperarMidiasPendentes } from '../../utils/midia'
-import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_FOTOS_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
+import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
@@ -109,74 +107,6 @@ const IndicadorPassos = ({ passo, total }) => (
   </View>
 )
 
-// Slot de foto com estado explícito de upload: enviando / enviada ✓ / erro (+ "Tentar
-// novamente"). Em erro NÃO reverte para "Tirar foto" — mostra a falha e o botão de retry.
-const UploadFoto = ({ label, valor, uploadando, enviada, erro, onPress, onRetry }) => (
-  <View>
-    <TouchableOpacity style={estilos.uploadFotoBtn} onPress={onPress} activeOpacity={0.8}>
-      {valor ? (
-        <Image source={{ uri: valor }} style={estilos.uploadFotoPreview} resizeMethod="resize" resizeMode="cover" />
-      ) : (
-        <View style={estilos.uploadFotoVazio}>
-          <Text style={estilos.uploadFotoIcone}>📷</Text>
-          <Text style={estilos.uploadFotoTexto}>{label}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-    {uploadando ? (
-      <Text style={[estilos.fotoStatus, { color: cores.textoFraco }]}>Enviando…</Text>
-    ) : erro ? (
-      <TouchableOpacity onPress={onRetry} activeOpacity={0.7}>
-        <Text style={[estilos.fotoStatus, { color: cores.perigo }]}>⚠ Falha no envio — tentar novamente</Text>
-      </TouchableOpacity>
-    ) : enviada ? (
-      <Text style={[estilos.fotoStatus, { color: cores.sucesso }]}>✓ Enviada</Text>
-    ) : valor ? (
-      <Text style={[estilos.fotoStatus, { color: cores.textoFraco }]}>Adicionada</Text>
-    ) : null}
-  </View>
-)
-
-// Sobe a mídia direto ao Cloudinary com retry resiliente e SILENCIOSO.
-// Até 3 tentativas (1 + MAX_UPLOAD_RETRIES) com backoff exponencial + jitter,
-// cobrindo falhas de transporte (onerror/ontimeout) E respostas de erro HTTP do
-// Cloudinary (4xx/5xx com corpo { error }) — que antes furavam o retry. Nenhum
-// alerta aparece enquanto restam tentativas; só rejeita após esgotar todas.
-const MAX_UPLOAD_RETRIES = 2
-const UPLOAD_TIMEOUT = 45000
-
-// Cutover das 3 fotos de verificação para o NOSSO endpoint (POST /upload/midia).
-// true  = tenta o endpoint e, se falhar, cai no direto-Cloudinary (fallback).
-// false = usa só o direto-Cloudinary (comportamento antigo — revert instantâneo, sem rebuild).
-const USAR_UPLOAD_ENDPOINT = true
-const backoffUpload = (n) => Math.min(1000 * Math.pow(2, n) + Math.random() * 1000, 15000)
-const xhrUpload = (url, form) => new Promise((resolve, reject) => {
-  const attempt = (n) => {
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', url)
-    xhr.timeout = UPLOAD_TIMEOUT
-    const retryOu = (rejeitar) => { if (n < MAX_UPLOAD_RETRIES) setTimeout(() => attempt(n + 1), backoffUpload(n)); else rejeitar() }
-    xhr.onload = () => {
-      let parsed = null
-      try { parsed = JSON.parse(xhr.responseText) }
-      catch (e) {
-        console.log('[xhrUpload] falha ao parsear resposta JSON | tentativa:', n, '| status:', xhr.status)
-        return retryOu(() => reject(new Error('Resposta inválida do servidor de upload')))
-      }
-      // Cloudinary devolve 4xx/5xx com corpo { error: {...} }; trata como falha retentável
-      if (xhr.status >= 400 || parsed?.error) {
-        console.log('[xhrUpload] erro HTTP do Cloudinary | tentativa:', n, '| status:', xhr.status, '| msg:', parsed?.error?.message)
-        return retryOu(() => reject(new Error(parsed?.error?.message || `Erro ${xhr.status} no upload da mídia`)))
-      }
-      resolve(parsed)
-    }
-    xhr.onerror   = () => retryOu(() => reject(new Error('Falha na conexão com o servidor de upload')))
-    xhr.ontimeout = () => retryOu(() => reject(new Error('Tempo esgotado no upload da mídia')))
-    xhr.send(form)
-  }
-  attempt(0)
-})
-
 const classificarErro = (err) => {
   if (err?.code === 'ECONNABORTED' || err?.message?.toLowerCase().includes('timeout')) return 'TIMEOUT'
   if (err?.status >= 500) return `SERVER_ERROR(HTTP ${err?.status})`
@@ -269,42 +199,22 @@ export default function CadastroScreen({ navigation, route }) {
   const [rgOrgao, setRgOrgao] = useState('SSP')
   const [rgEstado, setRgEstado] = useState('')
 
-  // Campos de verificação (só para prestadores)
+  // PIX e referências (só para prestadores). As fotos de documento/selfie saíram do
+  // cadastro: são pedidas na primeira proposta (VerificacaoIdentidadeSheet).
   const [pixReembolso, setPixReembolso] = useState('')
   const [ref1Nome, setRef1Nome] = useState('')
   const [ref1Tel, setRef1Tel] = useState('')
   const [ref2Nome, setRef2Nome] = useState('')
   const [ref2Tel, setRef2Tel] = useState('')
-  const [docFrente, setDocFrente] = useState(null)
-  const [docVerso, setDocVerso] = useState(null)
-  const [selfie, setSelfie] = useState(null)
-  // Pré-upload em background: assim que o usuário seleciona cada foto, ela já começa
-  // a subir; ao tocar "Finalizar" as URLs costumam já estar prontas.
-  const [docFrenteUrl, setDocFrenteUrl] = useState(null)
-  const [docVersoUrl, setDocVersoUrl] = useState(null)
-  const [selfieUrl, setSelfieUrl] = useState(null)
-  const [uploadandoDocFrente, setUploadandoDocFrente] = useState(false)
-  const [uploadandoDocVerso, setUploadandoDocVerso] = useState(false)
-  const [uploadandoSelfie, setUploadandoSelfie] = useState(false)
-  // Erro por foto (endpoint + fallback falharam): a UI mostra "Tentar novamente"
-  // em vez de reverter silenciosamente para "Tirar foto".
-  const [erroDocFrente, setErroDocFrente] = useState(false)
-  const [erroDocVerso, setErroDocVerso] = useState(false)
-  const [erroSelfie, setErroSelfie] = useState(false)
-  const [enviandoDocs, setEnviandoDocs] = useState(false)
   const [progresso, setProgresso] = useState('')          // texto de fase exibido durante o cadastro
   const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
   const disponibilidadeOkRef = useRef(false)              // verificar-disponibilidade roda só 1x por sessão
-  // Slot de foto em captura (frente/verso/selfie): a recuperação pós-destruição da
-  // Activity (getPendingResultAsync) usa isto para rotear a foto perdida ao slot certo.
-  const slotFotoPendenteRef = useRef(null)
 
   // ─── A4: Persistência do rascunho de cadastro ─────────────────────────────
   // O Android pode reciclar a Activity quando o app vai a segundo plano (tela
   // apaga / troca de app) no meio do cadastro — isso zerava todo o formulário e
   // devolvia o usuário à home. Persistimos os campos + o passo atual para
-  // restaurar exatamente onde parou. NÃO persistimos as imagens (arquivos locais
-  // file://): se perdidas, são re-selecionadas (rápido). A senha vai no SecureStore
+  // restaurar exatamente onde parou. A senha vai no SecureStore
   // (cifrado, mesmo mecanismo do token); o resto no AsyncStorage. Limpamos o
   // rascunho ao concluir o cadastro ou ao sair da tela (cancelar).
   // A ScrollView do formulário é UMA só para os 4 passos (sem key por passo, logo não
@@ -313,7 +223,6 @@ export default function CadastroScreen({ navigation, route }) {
   const restauradoRef = useRef(false)   // trava saves até a restauração inicial terminar
   const snapshotRef = useRef({})        // campos NÃO sensíveis (AsyncStorage) — sempre atual
   const senhaRef = useRef('')           // senha (SecureStore) — sempre atual
-  const fotosRef = useRef({})           // secure_urls das fotos (SecureStore) — sempre atual
   snapshotRef.current = {
     tipoConta, passo, nome, sobrenome, email, telefone, cidade, uf, cep,
     latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
@@ -321,7 +230,6 @@ export default function CadastroScreen({ navigation, route }) {
     rg, rgOrgao, rgEstado, pixReembolso, ref1Nome, ref1Tel, ref2Nome, ref2Tel,
   }
   senhaRef.current = senha
-  fotosRef.current = { docFrenteUrl, docVersoUrl, selfieUrl }
 
   // Lê refs (nunca closures) → seguro chamar de listeners com deps [].
   const salvarRascunho = async () => {
@@ -333,13 +241,6 @@ export default function CadastroScreen({ navigation, route }) {
       await AsyncStorage.setItem(RASCUNHO_KEY, JSON.stringify({ ...s, _ts: Date.now() }))
       if (senhaRef.current) await SecureStore.setItemAsync(RASCUNHO_SENHA_KEY, senhaRef.current)
       else await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY).catch(() => {})
-      // Fotos de verificação (PII) → SecureStore, apenas secure_urls (nunca file://).
-      const f = fotosRef.current
-      if (f.docFrenteUrl || f.docVersoUrl || f.selfieUrl) {
-        await SecureStore.setItemAsync(RASCUNHO_FOTOS_KEY, JSON.stringify(f))
-      } else {
-        await SecureStore.deleteItemAsync(RASCUNHO_FOTOS_KEY).catch(() => {})
-      }
     } catch (err) {
       console.log('[CadastroScreen] falha ao salvar rascunho | msg:', err.message)
     }
@@ -371,18 +272,6 @@ export default function CadastroScreen({ navigation, route }) {
           setRef2Nome(s.ref2Nome ?? ''); setRef2Tel(s.ref2Tel ?? '')
           const senhaSalva = await SecureStore.getItemAsync(RASCUNHO_SENHA_KEY)
           if (senhaSalva && montadoRef.current) setSenha(senhaSalva)
-          // Fotos de verificação já enviadas (secure_urls): restaura para o slot
-          // aparecer como "✓ Enviada" sem re-upload. Só URLs — o preview local
-          // file:// não sobrevive ao process kill, mas a foto já está no Cloudinary.
-          try {
-            const fotosBrutas = await SecureStore.getItemAsync(RASCUNHO_FOTOS_KEY)
-            if (fotosBrutas && montadoRef.current) {
-              const f = JSON.parse(fotosBrutas)
-              if (f.docFrenteUrl) setDocFrenteUrl(f.docFrenteUrl)
-              if (f.docVersoUrl) setDocVersoUrl(f.docVersoUrl)
-              if (f.selfieUrl) setSelfieUrl(f.selfieUrl)
-            }
-          } catch (e) { /* fotos corrompidas: ignora — usuário re-tira */ }
           setPasso(s.passo ?? 0)   // por último: renderiza direto a tela onde parou
         }
       } catch (err) {
@@ -409,9 +298,6 @@ export default function CadastroScreen({ navigation, route }) {
     salvarRascunho()
     scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, [passo])
-  // Salva também logo após cada upload de foto concluído: as novas secure_urls
-  // entram no estado *Url, então persistimos na hora (mesmo idioma do save-por-passo).
-  useEffect(() => { salvarRascunho() }, [docFrenteUrl, docVersoUrl, selfieUrl])
 
   const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
   const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'
@@ -437,68 +323,6 @@ export default function CadastroScreen({ navigation, route }) {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { setLado(null); return true })
     return () => sub.remove()
   }, [passo, lado])
-
-  const selecionarFoto = async (setter, tipo, setUrl, setUploadando, setErro) => {
-    // Lança câmera/galeria com a MESMA proteção do fluxo de obra/reparo: try/catch para
-    // não falhar em silêncio, marca o slot em captura (para a recuperação pós-retorno)
-    // e distingue um cancelamento involuntário (retorno quase instantâneo, sem asset —
-    // Activity morta por falta de memória) de um cancelamento real do usuário.
-    const lancar = async (origem, abrir) => {
-      slotFotoPendenteRef.current = { setter, tipo, setUrl, setUploadando, setErro }
-      const t0 = Date.now()
-      try {
-        const resultado = await abrir()
-        if (!resultado.canceled && resultado.assets?.length) {
-          setter(resultado.assets[0].uri)
-          if (tipo && setUrl) preUploadFoto(resultado.assets[0].uri, tipo, setUrl, setUploadando, setErro)
-        } else if (resultado.canceled && Date.now() - t0 < 1000) {
-          Alert.alert('Não foi possível abrir', 'O app pode estar com pouca memória neste momento. Se as fotos pararem de abrir, feche o aplicativo completamente e abra de novo.')
-        }
-      } catch (err) {
-        console.log(`[Cadastro] launch ${origem} (${tipo}) rejeitou | msg:`, err?.message)
-        Alert.alert('Não foi possível abrir', 'Tente novamente. Se o problema continuar, feche o aplicativo completamente e abra de novo.')
-      } finally {
-        // Só limpa se a promessa retornou de fato; se a Activity foi morta, ela nunca
-        // resolve e o ref permanece p/ a recuperação via getPendingResultAsync.
-        slotFotoPendenteRef.current = null
-      }
-    }
-    Alert.alert(
-      'Adicionar foto',
-      'Como deseja adicionar a foto?',
-      [
-        {
-          text: '📷 Tirar foto agora',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync()
-            if (status !== 'granted') {
-              Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.')
-              return
-            }
-            lancar('camera', () => ImagePicker.launchCameraAsync({
-              allowsEditing: true, aspect: [4, 3],
-              quality: 0.6,
-              maxWidth: 1200,
-              maxHeight: 1200,
-            }))
-          }
-        },
-        {
-          text: '🖼️ Escolher da galeria',
-          onPress: async () => {
-            lancar('galeria', () => ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ['images'],
-              allowsEditing: true, aspect: [4, 3],
-              quality: 0.6,
-              maxWidth: 1200,
-              maxHeight: 1200,
-            }))
-          }
-        },
-        { text: 'Cancelar', style: 'cancel' }
-      ]
-    )
-  }
 
   const validarPasso1 = () => {
     const novos = {}
@@ -570,9 +394,6 @@ export default function CadastroScreen({ navigation, route }) {
     if (!pixReembolso.trim()) novos.pixReembolso = 'Informe sua chave PIX para eventual reembolso'
     if (!ref1Nome.trim()) novos.ref1Nome = 'Informe o nome da referência 1'
     if (!ref1Tel.trim()) novos.ref1Tel = 'Informe o telefone da referência 1'
-    if (!docFrente) novos.docFrente = 'Envie a frente do seu documento'
-    if (!docVerso) novos.docVerso = 'Envie o verso do seu documento'
-    if (!selfie) novos.selfie = 'Envie uma selfie segurando o documento'
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -651,7 +472,7 @@ export default function CadastroScreen({ navigation, route }) {
 
     // Chegou aqui = vai avançar de tela (não é submit). Dispara o aviso cedo,
     // não-bloqueante, no ponto em que o dado passa a existir: e-mail ao sair do
-    // passo 1, CPF ao sair do passo 2 (antes das fotos do prestador, no passo 4).
+    // passo 1, CPF ao sair do passo 2 (antes do passo 4 do prestador).
     // Vale p/ dono E prestador (mesma tela, mesmos passos 1 e 2).
     if (passo === 1) {
       checarDisponibilidadeBackground({ email: email.trim().toLowerCase() })
@@ -674,110 +495,13 @@ export default function CadastroScreen({ navigation, route }) {
     }
   }
 
-  const uploadFotoVerificacao = async (uri, tipo) => {
-    console.log(`[upload][${tipo}] ▶ step2 GET /upload/assinatura-publica`)
-    let params
-    try {
-      params = await comRetry(() => api.get('/upload/assinatura-publica'), { timeout: true, servidor: true })
-      console.log(`[upload][${tipo}] ✓ step2 assinatura ok | timestamp=${params.timestamp} folder=${params.folder}`)
-    } catch (err) {
-      const kind = classificarErro(err)
-      console.log(`[upload][${tipo}] ✗ step2 assinatura FALHOU | kind=${kind} | status=${err?.status} | msg="${err?.mensagem || err?.message}" | code=${err?.code}`)
-      throw err
-    }
-    const cloudForm = new FormData()
-    cloudForm.append('file', { uri, type: 'image/jpeg', name: `${tipo}.jpg` })
-    cloudForm.append('timestamp', String(params.timestamp))
-    cloudForm.append('signature', params.signature)
-    cloudForm.append('api_key', params.api_key)
-    cloudForm.append('folder', params.folder)
-    // O Cloudinary recalcula a assinatura sobre TUDO que o cliente manda (menos file/
-    // api_key), então cada parâmetro extra só pode ir se o servidor o assinou — e a
-    // presença dele na resposta é o único sinal disso. Condicional para a app seguir
-    // funcionando contra a API atual, que ainda não assina os dois; quando a API nova
-    // passar a mandá-los, o eco é obrigatório ou o upload cai com 401.
-    if (params.allowed_formats != null) cloudForm.append('allowed_formats', String(params.allowed_formats))
-    if (params.max_file_size != null) cloudForm.append('max_file_size', String(params.max_file_size))
-    console.log(`[upload][${tipo}] ▶ step3 XHR Cloudinary | cloud=${params.cloud_name} folder=${params.folder}`)
-    let cloudData
-    try {
-      cloudData = await xhrUpload(`https://api.cloudinary.com/v1_1/${params.cloud_name}/image/upload`, cloudForm)
-      if (cloudData.error || !cloudData.secure_url) throw new Error(cloudData.error?.message || `Erro no upload de ${tipo}`)
-      console.log(`[upload][${tipo}] ✓ step3 Cloudinary ok | url=${cloudData.secure_url}`)
-    } catch (err) {
-      console.log(`[upload][${tipo}] ✗ step3 Cloudinary FALHOU | msg="${err?.message}" | code=${err?.code} | cloudinary_error=${JSON.stringify(cloudData?.error ?? null)}`)
-      throw err
-    }
-    return cloudData.secure_url
-  }
-
-  // NOVO caminho: sobe a foto para o NOSSO backend (POST /upload/midia, multipart,
-  // campo "arquivo"), que repassa ao Cloudinary. Pré-auth (sem token no cadastro).
-  // Retorna secure_url de { secure_url, public_id, resource_type }.
-  const uploadViaEndpoint = async (uri, tipo) => {
-    const form = new FormData()
-    form.append('arquivo', { uri, type: 'image/jpeg', name: `${tipo}.jpg` })
-    const resp = await api.uploadMidiaPublica(form)
-    if (!resp?.secure_url) throw new Error(resp?.erro || `Resposta sem secure_url no upload de ${tipo}`)
-    return resp.secure_url
-  }
-
-  // Sobe uma foto e guarda a URL (fire-and-start: não bloqueia a UI). Tenta o NOVO
-  // endpoint e, em QUALQUER falha, cai no método direto-Cloudinary (uploadFotoVerificacao)
-  // — nunca pior que antes. Só marca erro por foto se AMBOS falharem; nesse caso a UI
-  // mostra "Tentar novamente" e o handleCadastrar ainda refaz o upload no envio (rede de segurança).
-  const preUploadFoto = async (uri, tipo, setUrl, setUploadando, setErro) => {
-    setUploadando(true)
-    if (setErro) setErro(false)
-    try {
-      let url
-      if (USAR_UPLOAD_ENDPOINT) {
-        try {
-          url = await uploadViaEndpoint(uri, tipo)
-        } catch (errEndpoint) {
-          console.log(`[CadastroScreen] endpoint /upload/midia falhou p/ ${tipo} — fallback direto-Cloudinary | msg:`, errEndpoint?.message)
-          url = await uploadFotoVerificacao(uri, tipo)
-        }
-      } else {
-        url = await uploadFotoVerificacao(uri, tipo)
-      }
-      if (montadoRef.current) { setUrl(url); if (setErro) setErro(false) }
-    } catch (err) {
-      console.log(`[CadastroScreen] pre-upload falhou (endpoint + fallback) p/ ${tipo} | msg:`, err.message)
-      if (montadoRef.current) { setUrl(null); if (setErro) setErro(true) }
-    } finally {
-      if (montadoRef.current) setUploadando(false)
-    }
-  }
-
-  // Recuperação pós-destruição da Activity (Android sob pressão de memória): se a
-  // câmera/galeria foi morta durante a captura, o expo-image-picker guarda o resultado
-  // e o entrega via getPendingResultAsync. Reusa a MESMA lógica da criação de obra/reparo
-  // (src/utils/midia.js, sem duplicar), roteando a foto recuperada ao slot em captura.
-  useEffect(() => {
-    const aoReceber = (assets) => {
-      const uri = assets?.[0]?.uri
-      const slot = slotFotoPendenteRef.current
-      if (!uri || !slot || !montadoRef.current) return
-      slot.setter(uri)
-      slotFotoPendenteRef.current = null
-      if (slot.tipo && slot.setUrl) preUploadFoto(uri, slot.tipo, slot.setUrl, slot.setUploadando, slot.setErro)
-    }
-    recuperarMidiasPendentes({ logPrefix: '[Cadastro]', montadoRef, aoReceber })
-    const sub = AppState.addEventListener('change', (estado) => {
-      if (estado === 'active') recuperarMidiasPendentes({ logPrefix: '[Cadastro]', montadoRef, aoReceber })
-    })
-    return () => sub.remove()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   const handleCadastrar = async () => {
     // Rede de segurança do passo 2, e não uma segunda regra: validarPasso2 continua sendo
     // quem valida: `avancar` o executa em toda transição 2→3. O buraco é OUTRO — a
     // restauração de rascunho faz setPasso(s.passo ?? 0) (:358) e cai direto no passo 3 ou
     // 4 sem passar por `avancar`, então um rascunho gravado antes desta mudança (cujo texto
     // livre a normalização descarta) chegava ao submit com a lista vazia. validarPasso4 só
-    // olha PIX/referências/fotos e não pegaria isso.
+    // olha PIX/referências e não pegaria isso.
     //
     // Volta ao passo 2 com o erro no campo em vez de só recusar: o useEffect de [passo]
     // rola ao topo, então o campo aparece já em vermelho e a ação fica óbvia. O alerta
@@ -794,10 +518,9 @@ export default function CadastroScreen({ navigation, route }) {
     if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
     emAndamentoRef.current = true
     setCarregando(true)
-    let timeoutId = null
     try {
       // step1 — Pré-checagem de CPF/e-mail. Roda UMA ÚNICA VEZ por sessão: se já passou,
-      // re-tentativas (após falha de upload) pulam direto para os uploads. Isso evita a
+      // re-tentativas pulam direto para o cadastro. Isso evita a
       // cascata de chamadas que estourava o rate limit (429 "Muitas tentativas").
       if (!disponibilidadeOkRef.current) {
         setProgresso('Verificando dados...')
@@ -822,58 +545,6 @@ export default function CadastroScreen({ navigation, route }) {
         }
       } else {
         console.log('[cadastro] ↻ step1 verificar-disponibilidade já validado nesta sessão — pulando')
-      }
-
-      // Usa as URLs pré-enviadas (background) quando disponíveis; só sobe no envio
-      // as fotos cujo pré-upload ainda não concluiu (fallback / degradação graciosa).
-      let uploadedDocFrenteUrl = docFrenteUrl
-      let uploadedDocVersoUrl = docVersoUrl
-      let uploadedSelfieUrl = selfieUrl
-
-      // Se for prestador, faz upload dos documentos primeiro
-      if (isPrestador && docFrente) {
-        const precisaUpload = !uploadedDocFrenteUrl || !uploadedDocVersoUrl || !uploadedSelfieUrl
-        if (precisaUpload) {
-          setEnviandoDocs(true)
-          timeoutId = setTimeout(() => {
-            emAndamentoRef.current = false
-            setCarregando(false)
-            setEnviandoDocs(false)
-            setProgresso('')
-            Alert.alert(
-              'Tempo esgotado',
-              'O envio demorou muito. Verifique sua conexão e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.',
-              [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-            )
-          }, 300000)
-          // Rede de segurança final (5 min) — não deve disparar no caso comum: o
-          // retry silencioso do xhrUpload (até 3 tentativas/foto) cobre quedas transitórias.
-          console.log('[cadastro] ▶ iniciando uploads de documentos (300s timeout de segurança ativo)')
-          try {
-            if (!uploadedDocFrenteUrl) {
-              setProgresso('Enviando documentos (1/3)...')
-              uploadedDocFrenteUrl = await uploadFotoVerificacao(docFrente, 'doc_frente')
-            }
-            if (!uploadedDocVersoUrl) {
-              setProgresso('Enviando documentos (2/3)...')
-              uploadedDocVersoUrl = await uploadFotoVerificacao(docVerso, 'doc_verso')
-            }
-            if (!uploadedSelfieUrl) {
-              setProgresso('Enviando documentos (3/3)...')
-              uploadedSelfieUrl = await uploadFotoVerificacao(selfie, 'selfie')
-            }
-            console.log('[cadastro] ✓ todos os uploads concluídos', { docFrenteUrl: uploadedDocFrenteUrl, docVersoUrl: uploadedDocVersoUrl, selfieUrl: uploadedSelfieUrl })
-          } catch (err) {
-            const kind = classificarErro(err)
-            console.log(`[cadastro] ✗ upload de documento FALHOU | kind=${kind} | msg="${err?.message}" | code=${err?.code}`)
-            throw err
-          }
-          clearTimeout(timeoutId)
-          timeoutId = null
-          setEnviandoDocs(false)
-        } else {
-          setProgresso('Fotos já enviadas ✅')
-        }
       }
 
       const referencias = []
@@ -905,9 +576,6 @@ export default function CadastroScreen({ navigation, route }) {
         especialidades: isPrestador ? especialidades : [],
         pix_reembolso: pixReembolso.trim() || null,
         referencias,
-        verificacao_doc_frente_url: uploadedDocFrenteUrl,
-        verificacao_doc_verso_url: uploadedDocVersoUrl,
-        verificacao_selfie_url: uploadedSelfieUrl,
         rg: isPrestador ? rg.trim() || null : null,
         rg_orgao: isPrestador ? rgOrgao : null,
         rg_estado: isPrestador ? rgEstado || null : null,
@@ -945,12 +613,15 @@ export default function CadastroScreen({ navigation, route }) {
       if (resposta?.token) {
         await loginComToken(resposta.token, resposta.usuario, resposta.assinatura)
 
-        // Se for prestador, mostra aviso de verificação pendente
-        if (isPrestador) {
+        // Prestador já entra com acesso: o loginComToken acima troca a pilha para o
+        // feed (AppNavigator), então o botão só precisa fechar o alerta. Só quando a
+        // assinatura veio ativa — sem isso a tela seguinte é a de pagamento/análise, e
+        // prometer "já pode ver os serviços" seria mentira.
+        if (isPrestador && resposta.assinatura?.status === 'ativa') {
           Alert.alert(
-            'Cadastro enviado!',
-            'Seus dados estão em análise. Você receberá a confirmação por e-mail em até 1 hora. O acesso será liberado após a aprovação.',
-            [{ text: 'Entendi!' }]
+            'Cadastro concluído!',
+            'Você já pode ver os serviços disponíveis na sua região e começar a trabalhar! Quando enviar sua primeira proposta, pediremos a confirmação da sua identidade.',
+            [{ text: 'Ver serviços disponíveis' }]
           )
         }
       } else {
@@ -980,10 +651,8 @@ export default function CadastroScreen({ navigation, route }) {
         Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
       }
     } finally {
-      if (timeoutId) clearTimeout(timeoutId)
       emAndamentoRef.current = false
       setCarregando(false)
-      setEnviandoDocs(false)
       setProgresso('')
     }
   }
@@ -994,13 +663,6 @@ export default function CadastroScreen({ navigation, route }) {
   }
 
   const valores = getValorPlano()
-
-  // "Finalizar cadastro" só habilita quando as 3 fotos de verificação têm URL enviada
-  // (não apenas escolhida). Só se aplica ao prestador no último passo; dono não tem fotos.
-  // O re-upload no submit (handleCadastrar) permanece como rede de segurança; a saída
-  // para o usuário em caso de falha é o "Tentar novamente" por foto.
-  const fotosVerificacaoOk = !!docFrenteUrl && !!docVersoUrl && !!selfieUrl
-  const bloquearFinalizarPorFotos = isPrestador && passo === totalPassos && !fotosVerificacaoOk
 
   if (passo === 0) {
     const corLado = lado === 'trabalhar' ? COR_TRABALHAR : COR_CONTRATAR
@@ -1120,14 +782,14 @@ export default function CadastroScreen({ navigation, route }) {
             {passo === 1 ? 'Criar\nsua conta'
               : passo === 2 ? (isDono ? 'Seus\ndados' : 'Perfil\nprofissional')
               : passo === 3 ? 'Escolha\nseu plano'
-              : 'Verificação\nde identidade'}
+              : 'Pagamento\ne referências'}
           </Text>
           <Text style={estilos.subtitulo}>
             {`Passo ${passoVisivel} de ${totalPassosVisivel} — ${
               passo === 1 ? 'dados pessoais'
               : passo === 2 ? (isDono ? 'localização e documento' : 'informações profissionais')
               : passo === 3 ? 'assinatura'
-              : 'documentos e referências'}`}
+              : 'pagamento e referências'}`}
           </Text>
           <IndicadorPassos passo={passoVisivel} total={totalPassosVisivel} />
 
@@ -1284,16 +946,10 @@ export default function CadastroScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* PASSO 4 — Verificação de identidade (só prestadores) */}
+          {/* PASSO 4 — PIX e referências (só prestadores). Sem documento nem selfie: a
+              verificação de identidade acontece na primeira proposta. */}
           {passo === 4 && isPrestador && (
             <View>
-              <View style={estilos.verificacaoBanner}>
-                <Text style={estilos.verificacaoBannerTitulo}>🔐 Para sua segurança e dos solicitantes</Text>
-                <Text style={estilos.verificacaoBannerTexto}>
-                  Verificamos a identidade de todos os prestadores antes de liberar o acesso. O processo leva menos de 1 hora!
-                </Text>
-              </View>
-
               <Text style={estilos.labelSecao}>CHAVE PIX PARA REEMBOLSO</Text>
               <Text style={estilos.labelSecaoDesc}>Necessária caso sua conta não seja aprovada</Text>
               <Input
@@ -1319,51 +975,12 @@ export default function CadastroScreen({ navigation, route }) {
                 <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={(t) => setRef2Tel(mascararTelefone(t))} keyboardType="phone-pad" />
               </View>
 
-              <Text style={[estilos.labelSecao, { marginTop: 16 }]}>DOCUMENTO DE IDENTIDADE</Text>
-              <Text style={estilos.labelSecaoDesc}>RG, CNH ou outro documento oficial com foto</Text>
-              <Text style={{ fontSize: 11, color: cores.textoFraco, textAlign: 'center', marginBottom: 8 }}>Ao recortar, toque em CORTAR no alto da tela para confirmar.</Text>
-
-              <View style={estilos.fotosRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={estilos.fotoLabel}>Frente *</Text>
-                  <UploadFoto
-                    label="Tirar foto"
-                    valor={docFrente}
-                    uploadando={uploadandoDocFrente}
-                    enviada={!!docFrenteUrl}
-                    erro={erroDocFrente}
-                    onPress={() => selecionarFoto(setDocFrente, 'doc_frente', setDocFrenteUrl, setUploadandoDocFrente, setErroDocFrente)}
-                    onRetry={() => preUploadFoto(docFrente, 'doc_frente', setDocFrenteUrl, setUploadandoDocFrente, setErroDocFrente)}
-                  />
-                  {erros.docFrente && <Text style={estilos.erroTexto}>{erros.docFrente}</Text>}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={estilos.fotoLabel}>Verso *</Text>
-                  <UploadFoto
-                    label="Tirar foto"
-                    valor={docVerso}
-                    uploadando={uploadandoDocVerso}
-                    enviada={!!docVersoUrl}
-                    erro={erroDocVerso}
-                    onPress={() => selecionarFoto(setDocVerso, 'doc_verso', setDocVersoUrl, setUploadandoDocVerso, setErroDocVerso)}
-                    onRetry={() => preUploadFoto(docVerso, 'doc_verso', setDocVersoUrl, setUploadandoDocVerso, setErroDocVerso)}
-                  />
-                  {erros.docVerso && <Text style={estilos.erroTexto}>{erros.docVerso}</Text>}
-                </View>
+              <View style={estilos.verificacaoBanner}>
+                <Text style={estilos.verificacaoBannerTexto}>
+                  <Text style={estilos.verificacaoBannerTitulo}>✅ Sem foto de documento agora.</Text>
+                  {' Você entra e já vê os serviços da sua região. A verificação só é pedida quando você for enviar sua primeira proposta.'}
+                </Text>
               </View>
-
-              <Text style={[estilos.fotoLabel, { marginTop: 16 }]}>Selfie com documento *</Text>
-              <Text style={estilos.labelSecaoDesc}>Segure seu documento ao lado do rosto</Text>
-              <UploadFoto
-                label="Tirar selfie com documento"
-                valor={selfie}
-                uploadando={uploadandoSelfie}
-                enviada={!!selfieUrl}
-                erro={erroSelfie}
-                onPress={() => selecionarFoto(setSelfie, 'selfie', setSelfieUrl, setUploadandoSelfie, setErroSelfie)}
-                onRetry={() => preUploadFoto(selfie, 'selfie', setSelfieUrl, setUploadandoSelfie, setErroSelfie)}
-              />
-              {erros.selfie && <Text style={estilos.erroTexto}>{erros.selfie}</Text>}
             </View>
           )}
 
@@ -1373,21 +990,11 @@ export default function CadastroScreen({ navigation, route }) {
             </View>
           )}
           <View style={estilos.acoesRow}>
-            {carregando && passo === totalPassos && isPrestador && (
-              <Text style={{ fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginBottom: 12, lineHeight: 18 }}>
-                ⏳ Aguarde — o envio das fotos pode levar até 1 minuto. Não feche o app.
-              </Text>
-            )}
-            {bloquearFinalizarPorFotos && (
-              <Text style={{ fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginBottom: 8, lineHeight: 18 }}>
-                Envie as 3 fotos (frente, verso e selfie) — aguarde cada uma marcar “✓ Enviada”.
-              </Text>
-            )}
             <BotaoPrimario
               titulo={carregando && progresso ? progresso : (passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →')}
               onPress={avancar}
               carregando={carregando && !progresso}
-              desabilitado={carregando || bloquearFinalizarPorFotos}
+              desabilitado={carregando}
             />
           </View>
 
@@ -1457,10 +1064,10 @@ const estilos = StyleSheet.create({
   segurancaIcone: { fontSize: 14 },
   segurancaTexto: { flex: 1, fontSize: 11, color: cores.textoFraco, lineHeight: 17 },
   acoesRow: { marginTop: 24 },
-  // Verificação
-  verificacaoBanner: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
-  verificacaoBannerTitulo: { fontSize: 13, fontWeight: '700', color: cores.sucesso, marginBottom: 6 },
-  verificacaoBannerTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
+  // Nota verde do passo 4
+  verificacaoBanner: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginTop: 6 },
+  verificacaoBannerTitulo: { fontWeight: '700', color: cores.sucesso },
+  verificacaoBannerTexto: { fontSize: 12, color: cores.textoForte, lineHeight: 18 },
   labelSecao: { fontSize: 11, fontWeight: '600', color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   // Mesma caixa do Input (fundo, borda, raio, padding) para o campo não parecer de outra
   // família só por abrir uma tela em vez de aceitar digitação.
@@ -1481,18 +1088,8 @@ const estilos = StyleSheet.create({
   labelSecaoDesc: { fontSize: 11, color: cores.textoMutado, marginBottom: 10 },
   referenciaBox: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 14, marginBottom: 10 },
   referenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
-  fotosRow: { flexDirection: 'row', gap: 12 },
-  fotoLabel: { fontSize: 13, color: cores.textoForte, marginBottom: 6 },
-  fotoStatus: { fontSize: 11, fontWeight: '600', textAlign: 'center', marginTop: 4 },
-  uploadFotoBtn: { backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, overflow: 'hidden', height: 100 },
-  uploadFotoVazio: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  uploadFotoIcone: { fontSize: 24 },
-  uploadFotoTexto: { fontSize: 11, color: cores.textoFraco, textAlign: 'center' },
-  uploadFotoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
-  uploadFotoOk: { position: 'absolute', bottom: 6, left: 0, right: 0, alignItems: 'center' },
   enviandoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
   enviandoTexto: { fontSize: 13, color: cores.textoMedio },
-  erroTexto: { fontSize: 11, color: cores.perigo, marginTop: 4 },
   cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
   dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: 12 },
