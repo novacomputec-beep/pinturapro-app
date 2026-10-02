@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable, AppState } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable, AppState, KeyboardAvoidingView, Platform } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { BotaoPrimario } from './index'
+import { BotaoPrimario, BotaoSecundario, Input } from './index'
 import api, { authService } from '../services/api'
 import { comRetry } from '../utils/rede'
+import { mascararTelefone } from '../utils/telefone'
 import { recuperarMidiasPendentes } from '../utils/midia'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 
 // Verificação de identidade NA PRIMEIRA PROPOSTA. As três fotos (documento frente, verso
-// e selfie) saíram do cadastro: o prestador entra, vê o feed e só é chamado a se
+// e selfie), a chave PIX e as referências saíram do cadastro: o prestador entra, vê o feed e só é chamado a se
 // identificar quando vai enviar a primeira proposta/interesse. Este arquivo concentra o
 // que era do passo 4 do CadastroScreen (seletor de foto + upload) e o portão usado pelas
 // telas de detalhe.
@@ -96,7 +97,7 @@ const OPCOES_FOTO = { allowsEditing: true, aspect: [4, 3], quality: 0.6, maxWidt
 const SLOTS = [
   { tipo: 'doc_frente', campo: 'verificacao_doc_frente_url', icone: '📷', rotulo: 'Documento\nfrente' },
   { tipo: 'doc_verso',  campo: 'verificacao_doc_verso_url',  icone: '📷', rotulo: 'Documento\nverso' },
-  { tipo: 'selfie',     campo: 'verificacao_selfie_url',     icone: '🤳', rotulo: 'Selfie segurando o documento' },
+  { tipo: 'selfie',     campo: 'verificacao_selfie_url',     icone: '🤳', rotulo: 'Selfie com o documento' },
 ]
 
 const MSG_EM_ANALISE = 'Seus documentos estão em análise. Assim que aprovarmos, você recebe um aviso e já pode enviar sua proposta.'
@@ -190,13 +191,26 @@ const SlotFoto = ({ slot, estado, largo, onPress }) => {
 
 const SLOT_VAZIO = { uri: null, url: null, uploadando: false, erro: false }
 
-export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConcluido }) {
+// Espera pela aprovação depois do envio: relê o perfil a cada 4 s, por até 60 s.
+const INTERVALO_CONFERENCIA_MS = 4000
+const LIMITE_CONFERENCIA_MS = 60000
+
+// `onConcluido`: "Voltar aos serviços". `onAprovado`: "Enviar minha proposta" — a tela
+// que abriu a sheet retoma ali a proposta/interesse que o usuário tinha começado.
+export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConcluido, onAprovado }) {
   const { setUsuario } = useAuth()
   const insets = useSafeAreaInsets()
   const montadoRef = useRef(true)
   const [fotos, setFotos] = useState({ doc_frente: SLOT_VAZIO, doc_verso: SLOT_VAZIO, selfie: SLOT_VAZIO })
+  const [pixReembolso, setPixReembolso] = useState('')
+  const [ref1Nome, setRef1Nome] = useState('')
+  const [ref1Tel, setRef1Tel] = useState('')
+  const [ref2Nome, setRef2Nome] = useState('')
+  const [ref2Tel, setRef2Tel] = useState('')
+  const [erros, setErros] = useState({})
   const [enviando, setEnviando] = useState(false)
-  const [enviado, setEnviado] = useState(false)
+  // 'form' → 'conferindo' → 'aprovado' | 'reprovado' | 'demorou'
+  const [fase, setFase] = useState('form')
   // Slot de foto em captura (frente/verso/selfie): a recuperação pós-destruição da
   // Activity (getPendingResultAsync) usa isto para rotear a foto perdida ao slot certo.
   const slotFotoPendenteRef = useRef(null)
@@ -290,47 +304,121 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
 
   const prontas = SLOTS.every(s => !!fotos[s.tipo].url)
 
+  // Mesmas exigências do antigo passo 4 do cadastro: PIX e referência 1 obrigatórios.
+  const validarCampos = () => {
+    const novos = {}
+    if (!pixReembolso.trim()) novos.pixReembolso = 'Informe sua chave PIX para eventual reembolso'
+    if (!ref1Nome.trim()) novos.ref1Nome = 'Informe o nome da referência 1'
+    if (!ref1Tel.trim()) novos.ref1Tel = 'Informe o telefone da referência 1'
+    setErros(novos)
+    return Object.keys(novos).length === 0
+  }
+
   const enviar = async () => {
     if (enviando || !prontas) return
+    if (!validarCampos()) return
     setEnviando(true)
     try {
-      const corpo = {}
+      const referencias = [{ nome: ref1Nome.trim(), telefone: ref1Tel.trim() }]
+      if (ref2Nome.trim()) referencias.push({ nome: ref2Nome.trim(), telefone: ref2Tel.trim() })
+      const corpo = { pix_reembolso: pixReembolso.trim(), referencias }
       SLOTS.forEach(s => { corpo[s.campo] = fotos[s.tipo].url })
       const resp = await comRetry(() => api.post('/auth/verificacao', corpo))
       const status = resp?.usuario?.verificacao_status || resp?.verificacao_status || 'pendente'
       setUsuario(prev => (prev ? { ...prev, verificacao_status: status } : prev))
-      if (montadoRef.current) setEnviado(true)
+      if (montadoRef.current) setFase(status === 'aprovado' || status === 'reprovado' ? status : 'conferindo')
     } catch (err) {
-      console.log('[Verificacao] POST /auth/verificacao FALHOU | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem)
+      console.log('[Verificacao] POST /auth/verificacao FALHOU | status:', err?.status, '| code:', err?.code, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
+      // Recusas de campo do servidor voltam para o próprio campo, não para um alerta.
+      if (err?.codigo === 'PIX_OBRIGATORIO') setErros(e => ({ ...e, pixReembolso: err?.mensagem || 'Informe sua chave PIX para eventual reembolso' }))
+      else if (err?.codigo === 'REFERENCIAS_OBRIGATORIAS') setErros(e => ({ ...e, ref1Nome: err?.mensagem || 'Informe ao menos uma referência com nome e telefone' }))
       // 409: o servidor não aceita novo envio (reprovado). Fecha a sheet e aponta o suporte.
-      if (err?.status === 409) { onFechar(); alertarReprovado(err?.mensagem) }
+      else if (err?.status === 409) { onFechar(); alertarReprovado(err?.mensagem) }
       else Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar seus documentos. Tente novamente.')
     } finally {
       if (montadoRef.current) setEnviando(false)
     }
   }
 
+  // Enquanto a tela "Conferindo seus dados…" está aberta, relê o perfil até o status sair
+  // de 'pendente' ou o prazo acabar. Uma falha de leitura não encerra nada: só passa a vez
+  // para a próxima volta. Fechar a sheet (ou sair da tela) cancela.
+  useEffect(() => {
+    if (fase !== 'conferindo' || !visivel) return
+    let ativo = true
+    let timer = null
+    const inicio = Date.now()
+    const conferir = async () => {
+      let status
+      try {
+        status = (await authService.perfil())?.usuario?.verificacao_status
+      } catch (err) {
+        console.log('[Verificacao] falha ao conferir o status | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem)
+      }
+      if (!ativo) return
+      if (status === 'aprovado' || status === 'reprovado') {
+        setUsuario(prev => (prev ? { ...prev, verificacao_status: status } : prev))
+        setFase(status)
+        return
+      }
+      if (Date.now() - inicio >= LIMITE_CONFERENCIA_MS) { setFase('demorou'); return }
+      timer = setTimeout(conferir, INTERVALO_CONFERENCIA_MS)
+    }
+    timer = setTimeout(conferir, INTERVALO_CONFERENCIA_MS)
+    return () => { ativo = false; if (timer) clearTimeout(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fase, visivel])
+
   const fechar = () => { if (!enviando) onFechar() }
   const concluir = () => { onFechar(); onConcluido?.() }
+  const seguirComProposta = () => { onFechar(); onAprovado?.() }
 
-  if (enviado) {
+  if (fase !== 'form') {
+    const aprovado = fase === 'aprovado'
     return (
       <Modal visible={visivel} animationType="fade" statusBarTranslucent onRequestClose={concluir}>
         <View style={[estilos.enviadoTela, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }]}>
-          <View style={estilos.enviadoMiolo}>
-            <Text style={estilos.enviadoIcone}>⏳</Text>
-            <Text style={estilos.titulo}>Documentos enviados!</Text>
-            <Text style={estilos.texto}>
-              Estamos conferindo seus dados. Assim que aprovarmos, você recebe um aviso e já pode enviar sua proposta.
-            </Text>
-            <View style={estilos.pill}>
-              <Text style={estilos.pillTexto}>🟠 Em análise · geralmente em instantes</Text>
+          {fase === 'conferindo' && (
+            <View style={estilos.enviadoMiolo}>
+              <ActivityIndicator size="large" color={cores.primaria} style={estilos.enviadoSpinner} />
+              <Text style={estilos.titulo}>Conferindo seus dados…</Text>
+              <Text style={estilos.texto}>Leva poucos segundos. Não precisa sair desta tela.</Text>
+              <View style={estilos.pill}>
+                <Text style={estilos.pillTexto}>🟠 Em análise</Text>
+              </View>
+              <Text style={estilos.textoFraco}>Se demorar, avisamos por notificação e você pode voltar aos serviços.</Text>
             </View>
-            <View style={estilos.notaVerde}>
-              <Text style={estilos.notaVerdeTexto}>Enquanto isso, você continua vendo todos os serviços e obras da sua região.</Text>
+          )}
+          {fase === 'demorou' && (
+            <View style={estilos.enviadoMiolo}>
+              <Text style={estilos.enviadoIcone}>⏳</Text>
+              <Text style={estilos.titulo}>Ainda estamos conferindo</Text>
+              <View style={estilos.pill}>
+                <Text style={estilos.pillTexto}>🟠 Em análise</Text>
+              </View>
+              <Text style={estilos.textoFraco}>Está demorando mais que o normal. Avisamos por notificação e você pode voltar aos serviços.</Text>
             </View>
-          </View>
-          <BotaoPrimario titulo="Voltar aos serviços" onPress={concluir} estilo={estilos.botao} />
+          )}
+          {aprovado && (
+            <View style={estilos.enviadoMiolo}>
+              <Text style={estilos.enviadoIcone}>✅</Text>
+              <Text style={estilos.titulo}>Identidade confirmada!</Text>
+              <Text style={estilos.texto}>Tudo certo. Agora é só enviar sua proposta para o cliente.</Text>
+              <View style={[estilos.pill, estilos.pillVerde]}>
+                <Text style={[estilos.pillTexto, { color: cores.sucesso }]}>✓ Profissional verificado</Text>
+              </View>
+            </View>
+          )}
+          {fase === 'reprovado' && (
+            <View style={estilos.enviadoMiolo}>
+              <Text style={estilos.enviadoIcone}>⚠️</Text>
+              <Text style={estilos.titulo}>Verificação não aprovada</Text>
+              <Text style={estilos.texto}>{'Sua verificação de identidade não foi aprovada.\n\nFale com o suporte.'}</Text>
+            </View>
+          )}
+          {aprovado
+            ? <BotaoPrimario titulo="Enviar minha proposta" onPress={seguirComProposta} estilo={estilos.botao} />
+            : <BotaoSecundario titulo="Voltar aos serviços" onPress={concluir} estilo={estilos.botao} />}
         </View>
       </Modal>
     )
@@ -338,21 +426,35 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
 
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
-      <View style={estilos.backdrop}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
         <View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }]}>
           <View style={estilos.alca} />
-          <ScrollView contentContainerStyle={estilos.sheetScroll} showsVerticalScrollIndicator={false}>
-            <Text style={estilos.sheetIcone}>🪪</Text>
-            <Text style={estilos.titulo}>Confirme sua identidade</Text>
-            <Text style={estilos.texto}>
-              Para enviar propostas, precisamos verificar quem você é. É rápido e é o que dá segurança aos clientes do ProTudo.
-            </Text>
+          <ScrollView contentContainerStyle={estilos.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Text style={estilos.titulo}>🪪 Confirme sua identidade</Text>
+            <Text style={estilos.texto}>Só na sua primeira proposta. É o que dá segurança aos clientes.</Text>
             <View style={estilos.slotsRow}>
               <SlotFoto slot={SLOTS[0]} estado={fotos.doc_frente} onPress={() => aoTocarSlot('doc_frente')} />
               <SlotFoto slot={SLOTS[1]} estado={fotos.doc_verso} onPress={() => aoTocarSlot('doc_verso')} />
             </View>
             <SlotFoto slot={SLOTS[2]} estado={fotos.selfie} largo onPress={() => aoTocarSlot('selfie')} />
+
+            <View style={estilos.campos}>
+              <Input
+                label="CHAVE PIX (CPF, e-mail, telefone ou chave aleatória)"
+                placeholder="Ex: 000.000.000-00"
+                value={pixReembolso}
+                onChangeText={setPixReembolso}
+                erro={erros.pixReembolso}
+              />
+              <Text style={estilos.campoLabel}>Referência 1 *</Text>
+              <Input label="NOME" placeholder="Nome completo" value={ref1Nome} onChangeText={setRef1Nome} erro={erros.ref1Nome} />
+              <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref1Tel} onChangeText={(t) => setRef1Tel(mascararTelefone(t))} keyboardType="phone-pad" erro={erros.ref1Tel} />
+              <Text style={estilos.campoLabel}>Referência 2 (opcional)</Text>
+              <Input label="NOME" placeholder="Nome completo" value={ref2Nome} onChangeText={setRef2Nome} />
+              <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={(t) => setRef2Tel(mascararTelefone(t))} keyboardType="phone-pad" />
+            </View>
+
             <View style={estilos.lgpd}>
               <Text style={estilos.lgpdTexto}>🔒 Usado só para verificação. Protegido pela LGPD.</Text>
             </View>
@@ -365,7 +467,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
             estilo={estilos.botao}
           />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
@@ -375,7 +477,8 @@ const estilos = StyleSheet.create({
   sheet:          { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, maxHeight: '92%', ...larguraMaxima },
   alca:           { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo, marginBottom: 16 },
   sheetScroll:    { alignItems: 'center', paddingBottom: 16 },
-  sheetIcone:     { fontSize: 36, marginBottom: 8 },
+  campos:         { width: '100%', marginTop: 16 },
+  campoLabel:     { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginTop: 8, marginBottom: 8 },
   titulo:         { fontSize: 20, fontWeight: '700', color: cores.textoForte, textAlign: 'center', letterSpacing: -0.3, marginBottom: 8 },
   texto:          { fontSize: 13, color: cores.textoForte, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
   slotsRow:       { flexDirection: 'row', gap: 12, width: '100%', marginBottom: 12 },
@@ -394,6 +497,7 @@ const estilos = StyleSheet.create({
   enviadoIcone:   { fontSize: 52, marginBottom: 16 },
   pill:           { backgroundColor: cores.primariaSuave, borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 24 },
   pillTexto:      { fontSize: 12, fontWeight: '700', color: cores.primaria },
-  notaVerde:      { width: '100%', backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16 },
-  notaVerdeTexto: { fontSize: 12, color: cores.textoForte, lineHeight: 18 },
+  pillVerde:      { backgroundColor: cores.sucessoSuave, borderColor: cores.sucesso },
+  enviadoSpinner: { marginBottom: 20, transform: [{ scale: 1.4 }] },
+  textoFraco:     { fontSize: 12, color: cores.textoMedio, textAlign: 'center', lineHeight: 18 },
 })

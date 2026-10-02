@@ -2160,6 +2160,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         visivel={verificacao.aberta}
         onFechar={verificacao.fechar}
         onConcluido={() => navigation.goBack()}
+        onAprovado={handleInteresse}
       />
     </SafeAreaView>
   )

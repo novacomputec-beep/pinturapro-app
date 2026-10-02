@@ -199,13 +199,6 @@ export default function CadastroScreen({ navigation, route }) {
   const [rgOrgao, setRgOrgao] = useState('SSP')
   const [rgEstado, setRgEstado] = useState('')
 
-  // PIX e referências (só para prestadores). As fotos de documento/selfie saíram do
-  // cadastro: são pedidas na primeira proposta (VerificacaoIdentidadeSheet).
-  const [pixReembolso, setPixReembolso] = useState('')
-  const [ref1Nome, setRef1Nome] = useState('')
-  const [ref1Tel, setRef1Tel] = useState('')
-  const [ref2Nome, setRef2Nome] = useState('')
-  const [ref2Tel, setRef2Tel] = useState('')
   const [progresso, setProgresso] = useState('')          // texto de fase exibido durante o cadastro
   const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
   const disponibilidadeOkRef = useRef(false)              // verificar-disponibilidade roda só 1x por sessão
@@ -217,7 +210,7 @@ export default function CadastroScreen({ navigation, route }) {
   // restaurar exatamente onde parou. A senha vai no SecureStore
   // (cifrado, mesmo mecanismo do token); o resto no AsyncStorage. Limpamos o
   // rascunho ao concluir o cadastro ou ao sair da tela (cancelar).
-  // A ScrollView do formulário é UMA só para os 4 passos (sem key por passo, logo não
+  // A ScrollView do formulário é UMA só para todos os passos (sem key por passo, logo não
   // remonta): sem este handle não há como devolver o scroll ao topo na troca de passo.
   const scrollRef = useRef(null)
   const restauradoRef = useRef(false)   // trava saves até a restauração inicial terminar
@@ -227,7 +220,7 @@ export default function CadastroScreen({ navigation, route }) {
     tipoConta, passo, nome, sobrenome, email, telefone, cidade, uf, cep,
     latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
     cpfCnpj, anosExp, equipe, especialidades, planoSelecionado,
-    rg, rgOrgao, rgEstado, pixReembolso, ref1Nome, ref1Tel, ref2Nome, ref2Tel,
+    rg, rgOrgao, rgEstado,
   }
   senhaRef.current = senha
 
@@ -267,12 +260,10 @@ export default function CadastroScreen({ navigation, route }) {
           setCpfCnpj(s.cpfCnpj ?? ''); setAnosExp(s.anosExp ?? ''); setEquipe(s.equipe ?? '')
           setEspecialidades(normalizarEspecialidades(s.especialidades)); setPlanoSelecionado(s.planoSelecionado ?? 'mensal')
           setRg(s.rg ?? ''); setRgOrgao(s.rgOrgao ?? 'SSP'); setRgEstado(s.rgEstado ?? '')
-          setPixReembolso(s.pixReembolso ?? '')
-          setRef1Nome(s.ref1Nome ?? ''); setRef1Tel(s.ref1Tel ?? '')
-          setRef2Nome(s.ref2Nome ?? ''); setRef2Tel(s.ref2Tel ?? '')
           const senhaSalva = await SecureStore.getItemAsync(RASCUNHO_SENHA_KEY)
           if (senhaSalva && montadoRef.current) setSenha(senhaSalva)
-          setPasso(s.passo ?? 0)   // por último: renderiza direto a tela onde parou
+          // Rascunho antigo podia estar no passo 4 (PIX/referências), que não existe mais.
+          setPasso(s.passo === 4 ? 2 : (s.passo ?? 0))   // por último: renderiza direto a tela onde parou
         }
       } catch (err) {
         console.log('[CadastroScreen] falha ao restaurar rascunho | msg:', err.message)
@@ -301,18 +292,13 @@ export default function CadastroScreen({ navigation, route }) {
 
   const isPrestador = tipoConta === 'pintor' || tipoConta === 'prestador'
   const isDono = tipoConta === 'dono_obra' || tipoConta === 'dono_reparo'
-  // Prestador tem 4 passos: dados pessoais, profissional, plano, verificação
-  const totalPassos = isDono ? 2 : 4
-  // Lançamento grátis: o prestador pula a etapa de plano (passo 3). O fluxo VISÍVEL
-  // vira 3 etapas [1, 2, verificação]; internamente a verificação continua sendo o
-  // passo 4 (mesmos gates de render/submit/validação intactos), então o caminho pago
-  // fica byte-idêntico. Só a navegação (2→4) e a numeração exibida são remapeadas.
-  // No iOS o passo de plano também some (Apple 3.1.1: nada de preço de assinatura) e o
-  // plano vai fixo em 'mensal' — o mesmo desvio 2→4 do lançamento, pela mesma variável,
-  // para os gates de render/validação/submit continuarem intactos.
+  // Lançamento grátis: o prestador não vê a etapa de plano (passo 3). No iOS ela também
+  // some (Apple 3.1.1: nada de preço de assinatura) e o plano vai fixo em 'mensal'.
   const modoLancamento = (lancamentoGratis || !mostrarCobranca) && isPrestador
-  const totalPassosVisivel = modoLancamento ? 3 : totalPassos
-  const passoVisivel = modoLancamento && passo === 4 ? 3 : passo
+  // Prestador: dados pessoais, perfil profissional e, só no caminho pago, plano. PIX,
+  // referências e fotos saíram do cadastro — são pedidos na primeira proposta
+  // (VerificacaoIdentidadeSheet). Dono: 2 passos, como sempre.
+  const totalPassos = isDono || modoLancamento ? 2 : 3
 
   const escolherTipo = (tipo) => { setTipoConta(tipo); setPasso(1) }
 
@@ -389,15 +375,6 @@ export default function CadastroScreen({ navigation, route }) {
     return Object.keys(novos).length === 0
   }
 
-  const validarPasso4 = () => {
-    const novos = {}
-    if (!pixReembolso.trim()) novos.pixReembolso = 'Informe sua chave PIX para eventual reembolso'
-    if (!ref1Nome.trim()) novos.ref1Nome = 'Informe o nome da referência 1'
-    if (!ref1Tel.trim()) novos.ref1Tel = 'Informe o telefone da referência 1'
-    setErros(novos)
-    return Object.keys(novos).length === 0
-  }
-
   // Pré-checagem de duplicidade em BACKGROUND — pura conveniência, NÃO trava o fluxo.
   // Fix 1 garante que um duplicado é pego no submit final como 409 com a mensagem
   // certa, então não precisamos de gate aqui: fire-and-forget, sem await, sem
@@ -464,15 +441,16 @@ export default function CadastroScreen({ navigation, route }) {
   const avancar = () => {
     if (passo === 1 && !validarPasso1()) return
     if (passo === 2 && !validarPasso2()) return
-    if (passo === 4 && isPrestador && !validarPasso4()) return
 
-    if (passo === totalPassos) { handleCadastrar(); return }
+    // >= e não ===: se o lançamento grátis resolver com o usuário já no passo de plano,
+    // totalPassos cai para 2 e o passo 3 vira o último.
+    if (passo >= totalPassos) { handleCadastrar(); return }
     // Para dono, passo 2 já é o último antes de cadastrar
     if (isDono && passo === 2) { handleCadastrar(); return }
 
     // Chegou aqui = vai avançar de tela (não é submit). Dispara o aviso cedo,
     // não-bloqueante, no ponto em que o dado passa a existir: e-mail ao sair do
-    // passo 1, CPF ao sair do passo 2 (antes do passo 4 do prestador).
+    // passo 1, CPF ao sair do passo 2.
     // Vale p/ dono E prestador (mesma tela, mesmos passos 1 e 2).
     if (passo === 1) {
       checarDisponibilidadeBackground({ email: email.trim().toLowerCase() })
@@ -480,12 +458,11 @@ export default function CadastroScreen({ navigation, route }) {
       checarDisponibilidadeBackground({ email: email.trim().toLowerCase(), cpf_cnpj: cpfCnpj.trim() }, { marcarOk: true })
     }
 
-    // Free: do passo 2 salta direto para a verificação (passo 4), pulando o plano.
-    setPasso(p => (modoLancamento && p === 2) ? 4 : p + 1)
+    setPasso(p => p + 1)
   }
 
   const voltar = () => {
-    if (passo > 1) setPasso(p => (modoLancamento && p === 4) ? 2 : p - 1)
+    if (passo > 1) setPasso(p => p - 1)
     else if (passo === 1) { setTipoConta(null); setPasso(0) }
     else {
       // Saiu da tela de cadastro (cancelou): descarta o rascunho para não restaurar depois.
@@ -498,10 +475,9 @@ export default function CadastroScreen({ navigation, route }) {
   const handleCadastrar = async () => {
     // Rede de segurança do passo 2, e não uma segunda regra: validarPasso2 continua sendo
     // quem valida: `avancar` o executa em toda transição 2→3. O buraco é OUTRO — a
-    // restauração de rascunho faz setPasso(s.passo ?? 0) (:358) e cai direto no passo 3 ou
-    // 4 sem passar por `avancar`, então um rascunho gravado antes desta mudança (cujo texto
-    // livre a normalização descarta) chegava ao submit com a lista vazia. validarPasso4 só
-    // olha PIX/referências e não pegaria isso.
+    // restauração de rascunho faz setPasso(s.passo ?? 0) (:358) e cai direto no passo 3
+    // sem passar por `avancar`, então um rascunho gravado antes desta mudança (cujo texto
+    // livre a normalização descarta) chegava ao submit com a lista vazia.
     //
     // Volta ao passo 2 com o erro no campo em vez de só recusar: o useEffect de [passo]
     // rola ao topo, então o campo aparece já em vermelho e a ação fica óbvia. O alerta
@@ -547,10 +523,6 @@ export default function CadastroScreen({ navigation, route }) {
         console.log('[cadastro] ↻ step1 verificar-disponibilidade já validado nesta sessão — pulando')
       }
 
-      const referencias = []
-      if (ref1Nome.trim()) referencias.push({ nome: ref1Nome.trim(), telefone: ref1Tel.trim() })
-      if (ref2Nome.trim()) referencias.push({ nome: ref2Nome.trim(), telefone: ref2Tel.trim() })
-
       const dados = {
         nome: `${nome.trim()} ${sobrenome.trim()}`.trim(),
         email: email.trim().toLowerCase(),
@@ -574,8 +546,9 @@ export default function CadastroScreen({ navigation, route }) {
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
         especialidades: isPrestador ? especialidades : [],
-        pix_reembolso: pixReembolso.trim() || null,
-        referencias,
+        // PIX e referências do prestador não vão mais no cadastro (POST /auth/verificacao).
+        // O dono segue mandando os mesmos vazios de sempre.
+        ...(isDono ? { pix_reembolso: null, referencias: [] } : {}),
         rg: isPrestador ? rg.trim() || null : null,
         rg_orgao: isPrestador ? rgOrgao : null,
         rg_estado: isPrestador ? rgEstado || null : null,
@@ -781,17 +754,15 @@ export default function CadastroScreen({ navigation, route }) {
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
               : passo === 2 ? (isDono ? 'Seus\ndados' : 'Perfil\nprofissional')
-              : passo === 3 ? 'Escolha\nseu plano'
-              : 'Pagamento\ne referências'}
+              : 'Escolha\nseu plano'}
           </Text>
           <Text style={estilos.subtitulo}>
-            {`Passo ${passoVisivel} de ${totalPassosVisivel} — ${
+            {`Passo ${Math.min(passo, totalPassos)} de ${totalPassos} — ${
               passo === 1 ? 'dados pessoais'
               : passo === 2 ? (isDono ? 'localização e documento' : 'informações profissionais')
-              : passo === 3 ? 'assinatura'
-              : 'pagamento e referências'}`}
+              : 'assinatura'}`}
           </Text>
-          <IndicadorPassos passo={passoVisivel} total={totalPassosVisivel} />
+          <IndicadorPassos passo={Math.min(passo, totalPassos)} total={totalPassos} />
 
           {/* PASSO 1 — Dados pessoais */}
           {passo === 1 && (
@@ -946,44 +917,6 @@ export default function CadastroScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* PASSO 4 — PIX e referências (só prestadores). Sem documento nem selfie: a
-              verificação de identidade acontece na primeira proposta. */}
-          {passo === 4 && isPrestador && (
-            <View>
-              <Text style={estilos.labelSecao}>CHAVE PIX PARA REEMBOLSO</Text>
-              <Text style={estilos.labelSecaoDesc}>Necessária caso sua conta não seja aprovada</Text>
-              <Input
-                label="CHAVE PIX (CPF, e-mail, telefone ou chave aleatória)"
-                placeholder="Ex: 000.000.000-00"
-                value={pixReembolso}
-                onChangeText={setPixReembolso}
-                erro={erros.pixReembolso}
-              />
-
-              <Text style={[estilos.labelSecao, { marginTop: 16 }]}>REFERÊNCIAS DE TRABALHOS ANTERIORES</Text>
-              <Text style={estilos.labelSecaoDesc}>Informe pelo menos 1 pessoa que possa confirmar seu trabalho</Text>
-
-              <View style={estilos.referenciaBox}>
-                <Text style={estilos.referenciaLabel}>Referência 1 *</Text>
-                <Input label="NOME" placeholder="Nome completo" value={ref1Nome} onChangeText={setRef1Nome} erro={erros.ref1Nome} />
-                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref1Tel} onChangeText={(t) => setRef1Tel(mascararTelefone(t))} keyboardType="phone-pad" erro={erros.ref1Tel} />
-              </View>
-
-              <View style={estilos.referenciaBox}>
-                <Text style={estilos.referenciaLabel}>Referência 2 (opcional)</Text>
-                <Input label="NOME" placeholder="Nome completo" value={ref2Nome} onChangeText={setRef2Nome} />
-                <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={(t) => setRef2Tel(mascararTelefone(t))} keyboardType="phone-pad" />
-              </View>
-
-              <View style={estilos.verificacaoBanner}>
-                <Text style={estilos.verificacaoBannerTexto}>
-                  <Text style={estilos.verificacaoBannerTitulo}>✅ Sem foto de documento agora.</Text>
-                  {' Você entra e já vê os serviços da sua região. A verificação só é pedida quando você for enviar sua primeira proposta.'}
-                </Text>
-              </View>
-            </View>
-          )}
-
           {!!progresso && (
             <View style={estilos.enviandoBox}>
               <Text style={estilos.enviandoTexto}>📤 {progresso}</Text>
@@ -991,7 +924,7 @@ export default function CadastroScreen({ navigation, route }) {
           )}
           <View style={estilos.acoesRow}>
             <BotaoPrimario
-              titulo={carregando && progresso ? progresso : (passo === totalPassos ? 'Finalizar cadastro →' : 'Continuar →')}
+              titulo={carregando && progresso ? progresso : (passo >= totalPassos ? 'Finalizar cadastro →' : 'Continuar →')}
               onPress={avancar}
               carregando={carregando && !progresso}
               desabilitado={carregando}
@@ -1064,10 +997,6 @@ const estilos = StyleSheet.create({
   segurancaIcone: { fontSize: 14 },
   segurancaTexto: { flex: 1, fontSize: 11, color: cores.textoFraco, lineHeight: 17 },
   acoesRow: { marginTop: 24 },
-  // Nota verde do passo 4
-  verificacaoBanner: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginTop: 6 },
-  verificacaoBannerTitulo: { fontWeight: '700', color: cores.sucesso },
-  verificacaoBannerTexto: { fontSize: 12, color: cores.textoForte, lineHeight: 18 },
   labelSecao: { fontSize: 11, fontWeight: '600', color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   // Mesma caixa do Input (fundo, borda, raio, padding) para o campo não parecer de outra
   // família só por abrir uma tela em vez de aceitar digitação.
@@ -1085,9 +1014,6 @@ const estilos = StyleSheet.create({
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  labelSecaoDesc: { fontSize: 11, color: cores.textoMutado, marginBottom: 10 },
-  referenciaBox: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 14, marginBottom: 10 },
-  referenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
   enviandoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
   enviandoTexto: { fontSize: 13, color: cores.textoMedio },
   cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
