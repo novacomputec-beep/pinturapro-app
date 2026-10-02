@@ -115,11 +115,15 @@ const alertarReprovado = (mensagem) => Alert.alert(
 // servidor é a fonte da verdade, e o usuario local pode estar velho.
 // O perfil é relido sem revalidarSessao de propósito: aqui só interessa o status da
 // verificação, sem reavaliar boas-vindas nem reagendar o registro de push.
+const SEM_RESPOSTA = Symbol('sem_resposta')
+
 export const useVerificacaoIdentidade = () => {
   const { usuario, setUsuario } = useAuth()
   const [aberta, setAberta] = useState(false)
 
-  const statusAtualizado = async () => {
+  // `seFalhar`: o que devolver quando o GET /auth/perfil não responde. Por omissão, o
+  // status em cache.
+  const statusAtualizado = async (seFalhar = usuario?.verificacao_status) => {
     try {
       const perfil = await comRetry(() => authService.perfil())
       const status = perfil?.usuario?.verificacao_status
@@ -127,7 +131,7 @@ export const useVerificacaoIdentidade = () => {
       return status
     } catch (err) {
       console.log('[Verificacao] falha ao reler o perfil | status:', err?.status, '| code:', err?.code, '| msg:', err?.mensagem)
-      return usuario?.verificacao_status
+      return seFalhar
     }
   }
 
@@ -135,7 +139,15 @@ export const useVerificacaoIdentidade = () => {
     let status = usuario?.verificacao_status
     // 'pendente'/'reprovado' podem já ter mudado no servidor desde o último perfil.
     if (status === 'pendente' || status === 'reprovado') status = await statusAtualizado()
-    // Sem status (null/undefined) vale como 'nao_solicitada': nunca enviou documentos.
+    // Cache sem status (sessão anterior a este campo): quem decide é o perfil FRESCO, que
+    // também fica salvo no usuario local — assim quem já está aprovado nunca vê a sheet.
+    // Se o perfil não respondeu, não dá para afirmar nada: libera, e o servidor decide
+    // (o 403 VERIFICACAO_NECESSARIA cai no tratouErro).
+    else if (status == null) {
+      status = await statusAtualizado(SEM_RESPOSTA)
+      if (status === SEM_RESPOSTA) return true
+    }
+    // Só quando a API também não devolve status vale como 'nao_solicitada'.
     if (status == null || status === 'nao_solicitada') { setAberta(true); return false }
     if (status === 'pendente') { Alert.alert('Verificação em análise', MSG_EM_ANALISE); return false }
     if (status === 'reprovado') { alertarReprovado(); return false }
