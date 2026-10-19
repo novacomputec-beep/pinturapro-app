@@ -3,6 +3,7 @@
     "name": "ProTudo",
     "slug": "pinturapro",
     "version": "1.0.7",
+    "scheme": "protudo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -29,6 +30,16 @@
       },
       "package": "com.pinturapro.app",
       "allowBackup": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "https", "host": "protudo.app.br", "pathPrefix": "/p/" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ],
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_FINE_LOCATION",

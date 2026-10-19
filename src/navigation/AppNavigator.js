@@ -13,6 +13,7 @@ import { TelaAviso, BotaoPrimario } from '../components'
 import { Feather } from '@expo/vector-icons'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
+import { codigoDoLink, resolverDemandaPorCodigo, mostrarAviso } from '../utils/deepLink'
 import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
@@ -288,6 +289,22 @@ const navegarParaNotificacao = (data) => {
       case 'candidatura_recusada':
       case 'candidatura_aprovada':
         navegar(tabEmAndamento); break
+      // Link compartilhado (protudo://p/CODIGO | https://protudo.app.br/p/CODIGO), já
+      // resolvido em id pelo utils/deepLink. Não é notificação, mas entra aqui para seguir
+      // o MESMO caminho de navegação dos toques: o profissional ainda não está envolvido
+      // com a demanda, então ela vive no feed (como 'reparo_proximo'/'obra_proxima'); o
+      // dono abre a própria demanda na aba dela (como 'novo_interesse'/'nova_candidatura').
+      // Vertical que o profissional não atende (reparador ↔ obra, pintor ↔ reparo): a aba
+      // não existe neste navegador e o navigate cairia no catch em silêncio — avisa.
+      case 'link_demanda':
+        if (data.reparo_id) {
+          if (usaTabsPintor) { mostrarAviso('Este link é de um serviço doméstico, fora da sua área.'); break }
+          navigationRef.current.navigate(ehPrestador ? 'Reparos' : 'Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        } else if (data.obra_id) {
+          if (usaTabsReparador) { mostrarAviso('Este link é de uma obra, fora da sua área.'); break }
+          navigationRef.current.navigate(ehPrestador ? 'Obras' : abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        }
+        break
       // Avisos do PAINEL (comunicado do admin e promoção): não apontam para nenhuma tela do
       // app, então o toque só traz o app para a frente na tela inicial de sempre — nenhum
       // navigate, de propósito. Casos explícitos para não caírem no log de "tipo sem rota".
@@ -886,6 +903,13 @@ export default function AppNavigator() {
   const toquePendenteRef = useRef(null)
   const [toqueLido, setToqueLido] = useState(false)
   const [navegacaoPronta, setNavegacaoPronta] = useState(false)
+  // Código do link de demanda que abriu o app (cold start, Linking.getInitialURL) ou chegou
+  // com ele aberto (evento 'url'). Mesmo desenho do toque acima, com UMA diferença: não
+  // há janela de descarte. Quem abre um link deslogado vai ver o login, e o pedido foi
+  // "abra logo depois do login" — descartar por demora seria perder o motivo da abertura.
+  // `linkLido` alterna a cada link para reexecutar o efeito de despacho.
+  const linkPendenteRef = useRef(null)
+  const [linkLido, setLinkLido] = useState(false)
   // Quem entra nas abas: só assinatura ativa, nas duas lojas. Quem deve vai para a tela
   // de acesso bloqueado (PagamentoPendenteScreen), que no iOS não cobra nem cita cobrança
   // (3.1.1) e oferece o contato com o suporte para a pessoa não ficar num beco sem saída.
@@ -929,6 +953,41 @@ export default function AppNavigator() {
     }
     navegarParaNotificacao(pendente.data)
   }, [toqueLido, navegacaoPronta, carregando, usuario, assinatura])
+
+  // Leitura dos links. Cold start: getInitialURL devolve o URL que lançou o app (ou null).
+  // App já aberto: o evento 'url' (no Android o MainActivity é singleTask, então a mesma
+  // instância recebe o intent). Os dois só guardam o código; quem despacha é o efeito
+  // abaixo, com as mesmas condições do toque de notificação.
+  useEffect(() => {
+    const guardar = (url) => {
+      const codigo = codigoDoLink(url)
+      if (!codigo) return
+      linkPendenteRef.current = codigo
+      setLinkLido(l => !l)
+    }
+    Linking.getInitialURL().then(guardar)
+      .catch(err => console.log('[AppNavigator] falha ao ler o URL inicial | msg:', err?.message))
+    const sub = Linking.addEventListener('url', ({ url }) => guardar(url))
+    return () => sub.remove()
+  }, [])
+
+  // Despacho do link: espera o container pronto e a sessão resolvida com usuário (deslogado,
+  // fica guardado até o login). Zera ANTES do GET para nunca despachar duas vezes. Código
+  // inválido/demanda fechada: só o aviso — no cold start o app já está na tela inicial, e
+  // com o app aberto tirar a pessoa de onde estava por um link morto seria pior que nada.
+  useEffect(() => {
+    const codigo = linkPendenteRef.current
+    if (!codigo) return
+    if (!navegacaoPronta || carregando || !usuario || assinatura === null) return
+    linkPendenteRef.current = null
+    let cancelado = false
+    resolverDemandaPorCodigo(codigo).then(demanda => {
+      if (cancelado) return
+      if (!demanda) { mostrarAviso('Este link não está mais disponível.'); return }
+      navegarParaNotificacao({ tipo: 'link_demanda', ...demanda })
+    })
+    return () => { cancelado = true }
+  }, [linkLido, navegacaoPronta, carregando, usuario, assinatura])
 
   if (carregando) return null
   if (usuario && assinatura === null) return null
