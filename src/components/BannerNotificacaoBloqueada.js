@@ -4,6 +4,17 @@ import * as Notifications from 'expo-notifications'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext'
+import { navigationRef } from '../navigation/navigationRef'
+
+// Telas em que o BannerAtivarNotificacoes (cartão fixo no topo dos feeds do profissional)
+// já cobre o mesmo aviso, com botão para as Configurações: lá esta tarja seria um segundo
+// aviso em cima do primeiro. Nomes de rota dos feeds (AppNavigator: FeedStack e
+// ReparoStack). Em qualquer outra tela — e para o dono, que não tem esses feeds — a tarja
+// continua como sempre.
+const ROTAS_COBERTAS = new Set(['FeedMain', 'FeedReparosMain'])
+const rotaAtual = () => {
+  try { return navigationRef.current?.getCurrentRoute?.()?.name ?? null } catch (e) { return null }
+}
 
 // Aviso PERSISTENTE para quem bloqueou permanentemente as notificações
 // (canAskAgain === false): o app nunca mais consegue pedir permissão e a pessoa
@@ -46,6 +57,18 @@ const BannerNotificacaoBloqueada = () => {
   // Começa false: durante a consulta assíncrona a barra não aparece, para nunca
   // exibir um aviso falso antes de sabermos o estado real da permissão.
   const [bloqueada, setBloqueada] = useState(false)
+  // Rota focada, para ceder a vez ao cartão dos feeds. Atualizada a cada mudança de estado
+  // da navegação; o container pode ainda não existir na montagem (App.js monta esta tarja
+  // antes do AppNavigator), por isso o listener é (re)preso quando o usuário ou a
+  // condição mudam — mesmo molde do CelebracaoMatchHost.
+  const [rota, setRota] = useState(null)
+  useEffect(() => {
+    setRota(rotaAtual())
+    const nav = navigationRef.current
+    if (!nav?.addListener) return
+    const unsub = nav.addListener('state', () => setRota(rotaAtual()))
+    return unsub
+  }, [usuario, bloqueada])
 
   const verificar = useCallback(async () => {
     // Sem sessão não há o que avisar.
@@ -93,6 +116,7 @@ const BannerNotificacaoBloqueada = () => {
   }, [usuario])
 
   if (!usuario || !bloqueada) return null
+  if (ROTAS_COBERTAS.has(rota)) return null
 
   return (
     <View style={[estilos.banner, { top }]}>
