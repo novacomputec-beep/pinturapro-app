@@ -2,7 +2,7 @@
   "expo": {
     "name": "ProTudo",
     "slug": "pinturapro",
-    "version": "1.0.9",
+    "version": "1.1.0",
     "scheme": "protudo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
