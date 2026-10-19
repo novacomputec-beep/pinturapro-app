@@ -445,6 +445,13 @@ export default function DetalheObraScreen({ route, navigation }) {
       // Rede de segurança: o servidor recusou por falta de verificação (403
       // VERIFICACAO_NECESSARIA) mesmo com o usuario local dizendo o contrário.
       if (await verificacao.tratouErro(err)) return
+      // Obra PRÓPRIA (a mesma pessoa, noutra conta, chegou aqui por link ou pelo feed):
+      // o servidor recusa com um `codigo` estável e a mensagem certa. Sai antes da
+      // reconsulta — não há candidatura a descobrir — e mostra a mensagem como veio.
+      if (typeof err.codigo === 'string' && /propri/i.test(err.codigo)) {
+        Alert.alert('Aviso', err.mensagem || 'Você não pode se candidatar à sua própria obra.')
+        return
+      }
       // A 1ª tentativa pode ter sido aceita no servidor mas a resposta se perdeu (troca
       // de rede), ou o retry recebeu 409 "já se candidatou". Reconsulta: se a candidatura
       // já existir para este usuário, trata como sucesso em vez de erro confuso.

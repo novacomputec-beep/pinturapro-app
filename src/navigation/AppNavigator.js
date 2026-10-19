@@ -910,6 +910,12 @@ export default function AppNavigator() {
   // `linkLido` alterna a cada link para reexecutar o efeito de despacho.
   const linkPendenteRef = useRef(null)
   const [linkLido, setLinkLido] = useState(false)
+  // Só o desmonte cancela uma consulta de link em voo. O efeito de despacho depende de
+  // `usuario`, cuja identidade muda a cada refresh de perfil — se o cancelamento vivesse
+  // na limpeza do efeito, um refresh durante o GET engolia o link em silêncio (o código
+  // já tinha sido zerado, e a navegação nunca acontecia).
+  const montadoRef = useRef(true)
+  useEffect(() => () => { montadoRef.current = false }, [])
   // Quem entra nas abas: só assinatura ativa, nas duas lojas. Quem deve vai para a tela
   // de acesso bloqueado (PagamentoPendenteScreen), que no iOS não cobra nem cita cobrança
   // (3.1.1) e oferece o contato com o suporte para a pessoa não ficar num beco sem saída.
@@ -980,13 +986,11 @@ export default function AppNavigator() {
     if (!codigo) return
     if (!navegacaoPronta || carregando || !usuario || assinatura === null) return
     linkPendenteRef.current = null
-    let cancelado = false
     resolverDemandaPorCodigo(codigo).then(demanda => {
-      if (cancelado) return
+      if (!montadoRef.current) return
       if (!demanda) { mostrarAviso('Este link não está mais disponível.'); return }
       navegarParaNotificacao({ tipo: 'link_demanda', ...demanda })
     })
-    return () => { cancelado = true }
   }, [linkLido, navegacaoPronta, carregando, usuario, assinatura])
 
   if (carregando) return null
