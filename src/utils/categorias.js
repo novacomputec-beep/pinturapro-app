@@ -73,6 +73,9 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'churrasqueiro',   rotulo: 'Churrasqueiro',      emoji: '🍖' },
   { slug: 'lavajato',        rotulo: 'Lava-jato',          emoji: '🧽' },
   { slug: 'tradutor',        rotulo: 'Tradutor/intérprete', emoji: '🌐' },
+  { slug: 'dj',              rotulo: 'DJ',                 emoji: '🎧' },
+  { slug: 'panfletagem',     rotulo: 'Panfletagem',        emoji: '📰' },
+  { slug: 'social_midia',    rotulo: 'Social Mídia',       emoji: '📱' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
