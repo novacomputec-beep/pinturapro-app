@@ -1,8 +1,22 @@
 import axios from 'axios'
+import { Platform } from 'react-native'
+import * as Application from 'expo-application'
 import * as SecureStore from 'expo-secure-store'
 import { comRetry, registrarSucesso, configurarAquecimento, aquecerSeOcioso } from '../utils/rede'
 
 const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
+
+// Versão e plataforma em TODA requisição da instância, como defaults do axios: o servidor
+// passa a saber qual build fala com ele sem depender de nenhum chamador. A versão é a
+// nativa instalada (a mesma que o AvisoAtualizacao compara); quando o runtime não a tem
+// (null em alguns ambientes de desenvolvimento), o header simplesmente não vai — um
+// header com "null" dentro seria pior que nenhum.
+const HEADERS_APP = {
+  'X-App-Platform': Platform.OS,
+  ...(typeof Application.nativeApplicationVersion === 'string' && Application.nativeApplicationVersion
+    ? { 'X-App-Version': Application.nativeApplicationVersion }
+    : {}),
+}
 
 // 304 entra junto com a faixa 2xx. O default do axios é `status >= 200 && status < 300`,
 // que joga o Not Modified no ramo de ERRO — e o código que ele carrega ali é lixo: o
@@ -44,7 +58,7 @@ const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 const api = axios.create({
   baseURL: API_URL,
   timeout: 30000,
-  headers: { 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json', ...HEADERS_APP },
   validateStatus: (status) => (status >= 200 && status < 300) || status === 304,
 })
 
@@ -212,7 +226,8 @@ api.uploadFotoPerfil = async (formData) => {
     timeout: 60000,
     headers: {
       'Content-Type': 'multipart/form-data',
-      'Authorization': `Bearer ${token}`
+      'Authorization': `Bearer ${token}`,
+      ...HEADERS_APP,
     }
   })
   return resposta.data
@@ -224,7 +239,7 @@ api.uploadFotoPerfil = async (formData) => {
 api.uploadMidiaPublica = async (formData) => {
   const resposta = await axios.post(`${API_URL}/upload/midia`, formData, {
     timeout: 60000,
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data', ...HEADERS_APP }
   })
   return resposta.data
 }
