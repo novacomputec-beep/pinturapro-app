@@ -19,6 +19,7 @@ import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -461,6 +462,10 @@ export default function FeedReparosScreen({ navigation }) {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Fora da FlatList de propósito: fica fixo no topo enquanto a permissão de
+          notificação não existe, e devolve null assim que ela é concedida. */}
+      <BannerAtivarNotificacoes />
 
       {erro && (
         <View style={estilos.erroBox}>
