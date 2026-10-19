@@ -103,9 +103,9 @@ const ImagemComBrilho = ({ imagem, tamanho, cor }) => (
 // O fundo é um gradiente diagonal: canto superior esquerdo com um toque da cor do lado,
 // escurecendo até o canto oposto. A borda e o raio ficam no Touchable, que recorta o
 // gradiente; o gradiente só carrega o padding.
-const CartaoEscolha = ({ cor, imagem, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18 }) => (
+const CartaoEscolha = ({ cor, imagem, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18, compacto = false }) => (
   <TouchableOpacity
-    style={[s.card, { borderColor: cor + '99' }]}
+    style={[s.card, compacto && s.cardCompacto, { borderColor: cor + '99' }]}
     onPress={onPress}
     activeOpacity={0.8}
     accessibilityRole="button"
@@ -116,9 +116,9 @@ const CartaoEscolha = ({ cor, imagem, tamanhoImagem = 80, rotulo, titulo, desc, 
       locations={[0, 0.55, 1]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={s.cardMiolo}
+      style={[s.cardMiolo, compacto && s.cardMioloCompacto]}
     >
-    <View style={s.cardTopo}>
+    <View style={[s.cardTopo, compacto && s.cardTopoCompacto]}>
       <ImagemComBrilho imagem={imagem} tamanho={tamanhoImagem} cor={cor} />
       <View style={s.cardTitulos}>
         <Text style={[s.cardRotulo, { color: cor }]} maxFontSizeMultiplier={1.5}>{rotulo}</Text>
@@ -128,7 +128,7 @@ const CartaoEscolha = ({ cor, imagem, tamanhoImagem = 80, rotulo, titulo, desc, 
         <Feather name="arrow-right" size={18} color={cor} />
       </View>
     </View>
-    <Text style={s.cardDesc}>{desc}</Text>
+    <Text style={[s.cardDesc, compacto && s.cardDescCompacto]}>{desc}</Text>
     <View style={s.chips}>
       {chips.map(c => <Chip key={c} texto={c} />)}
     </View>
@@ -152,24 +152,30 @@ const RodapePreco = ({ preco, mostrarCobranca, lancamentoGratis }) => {
 
 export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, paddingTop, mostrarCobranca, lancamentoGratis }) {
   if (!lado) {
+    // Tela 1 cabe SEM rolar num celular comum (~640-780dp úteis): cabeçalho compacto (o
+    // mesmo das telas 2/3, em vez do logo grande), título numa linha só, cards com imagem
+    // de 72 e respiros curtos. O ScrollView fica só como rede para tela muito pequena ou
+    // fonte do sistema muito grande — aí rola, nunca corta.
     return (
       <View style={s.tela}>
       <FundoBrilhos corTopo={COR_TRABALHAR} corBaixo={COR_CONTRATAR} />
-      <ScrollView contentContainerStyle={[s.scroll, larguraMaxima, { paddingTop }]} showsVerticalScrollIndicator={false}>
-        <BotaoVoltar onPress={onVoltar} />
-        <View style={s.logoWrap}>
-          <Image source={require('../../../assets/logo.png')} style={s.logo} resizeMode="contain" />
-          <Wordmark tamanho={26} />
+      <ScrollView contentContainerStyle={[s.scroll, s.scrollTela1, larguraMaxima, { paddingTop }]} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
+        <View style={s.cabecalho}>
+          <BotaoVoltar onPress={onVoltar} estilo={s.btnVoltarCabecalho} />
+          <View style={s.cabecalhoMarca}>
+            <Image source={require('../../../assets/logo.png')} style={s.logoPequeno} resizeMode="contain" />
+            <Wordmark tamanho={20} />
+          </View>
         </View>
 
-        <Text style={s.tituloCentro}>O que você quer{'\n'}fazer hoje?</Text>
+        <Text style={s.tituloCentro} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>O que você quer fazer hoje?</Text>
         <Text style={s.subtituloCentro}>Escolha um caminho — dá para trocar depois</Text>
 
         <CartaoEscolha
           cor={COR_TRABALHAR}
           imagem={IMG.escolhaTrabalhar}
-          tamanhoImagem={88}
-          tamanhoTitulo={20}
+          tamanhoImagem={72}
+          tamanhoTitulo={19}
           rotulo="SOU PROFISSIONAL"
           titulo="Quero trabalhar"
           desc="Receba pedidos de clientes perto de você, direto no celular."
@@ -177,19 +183,21 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           // Mesma condição do "Grátis" dos preços: nunca no iOS (3.1.1), só na janela de lançamento.
           rodape={mostrarCobranca && lancamentoGratis ? <View style={s.rodapeLinha}><Chip texto="Gratuito" verde /></View> : null}
           onPress={() => setLado('trabalhar')}
+          compacto
         />
 
         <CartaoEscolha
           cor={COR_CONTRATAR}
           imagem={IMG.escolhaContratar}
-          tamanhoImagem={88}
-          tamanhoTitulo={20}
+          tamanhoImagem={72}
+          tamanhoTitulo={19}
           rotulo="PRECISO DE ALGUÉM"
           titulo="Quero contratar"
           desc="Publique o que precisa e receba propostas de profissionais da região."
           chips={['Serviços', 'Obras', 'Reformas']}
           rodape={<View style={s.rodapeLinha}><Chip texto="Sempre gratuito" verde /></View>}
           onPress={() => setLado('contratar')}
+          compacto
         />
 
         <View style={s.avisoCadastros}>
@@ -274,13 +282,12 @@ const s = StyleSheet.create({
   brilhoTopo:  { position: 'absolute', width: 460, height: 460, top: -200, left: -200, opacity: 0.32 },
   brilhoBaixo: { position: 'absolute', width: 460, height: 460, bottom: -220, right: -200, opacity: 0.26 },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  // Tela 1: rodapé curto — o objetivo é caber sem rolar.
+  scrollTela1: { paddingBottom: 16 },
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 10 },
-  // Tela 1: logo grande centrado, como nas outras telas de autenticação.
-  logoWrap: { alignItems: 'center', marginBottom: 14 },
-  logo: { width: 170, height: 64 },
   wordmark: { fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
-  tituloCentro: { fontSize: 24, lineHeight: 30, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, textAlign: 'center', marginBottom: 6 },
-  subtituloCentro: { fontSize: 13, lineHeight: 18, color: TEXTO_SUB, textAlign: 'center', marginBottom: 18 },
+  tituloCentro: { fontSize: 23, lineHeight: 29, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, textAlign: 'center', marginBottom: 2 },
+  subtituloCentro: { fontSize: 13, lineHeight: 18, color: TEXTO_SUB, textAlign: 'center', marginBottom: 12 },
   // Telas 2/3: voltar à esquerda e marca pequena centrada na mesma linha. O botão fica
   // absoluto para a marca centrar na tela, e não no espaço que sobra.
   cabecalho: { minHeight: 44, justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 14 },
@@ -294,13 +301,17 @@ const s = StyleSheet.create({
   titulo: { fontSize: 22, lineHeight: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 4 },
   subtitulo: { fontSize: 13, lineHeight: 18, color: TEXTO_SUB, marginBottom: 16 },
   card: { backgroundColor: FUNDO_CARD, borderWidth: 1.5, borderRadius: raios.grande, overflow: 'hidden', marginBottom: 16 },
+  cardCompacto: { marginBottom: 10 },
   cardMiolo: { padding: 14 },
+  cardMioloCompacto: { padding: 12 },
   cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  cardTopoCompacto: { marginBottom: 6 },
   cardTitulos: { flex: 1 },
   cardRotulo: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 2 },
   cardTitulo: { fontWeight: '700', color: cores.textoForte, letterSpacing: -0.3 },
   seta: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   cardDesc: { fontSize: 14, lineHeight: 20, color: TEXTO_DESC, marginBottom: 10 },
+  cardDescCompacto: { fontSize: 13, lineHeight: 18, marginBottom: 8 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { backgroundColor: FUNDO_CHIP, borderWidth: 1, borderColor: BORDA_CHIP, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 5 },
   chipTexto: { fontSize: 12, fontWeight: '600', color: TEXTO_DESC },
@@ -309,9 +320,9 @@ const s = StyleSheet.create({
   rodapeLinha: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 },
   preco: { fontSize: 12, fontWeight: '600', color: cores.primaria, marginTop: 10 },
   precoRiscado: { fontSize: 12, fontWeight: '600', color: TEXTO_SUB, textDecorationLine: 'line-through' },
-  avisoCadastros: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#141417', borderWidth: 1, borderColor: '#2E2E34', borderStyle: 'dashed', borderRadius: raios.grande, padding: 14, marginTop: 4 },
-  avisoIcone: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: COR_CONTRATAR + '99', backgroundColor: COR_CONTRATAR + '22', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  avisoTitulo: { fontSize: 14, fontWeight: '700', color: cores.branco, marginBottom: 2 },
-  avisoTexto: { fontSize: 12, lineHeight: 17, color: cores.textoMedio },
+  avisoCadastros: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#141417', borderWidth: 1, borderColor: '#2E2E34', borderStyle: 'dashed', borderRadius: raios.grande, padding: 10, marginTop: 2 },
+  avisoIcone: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: COR_CONTRATAR + '99', backgroundColor: COR_CONTRATAR + '22', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  avisoTitulo: { fontSize: 13, fontWeight: '700', color: cores.branco, marginBottom: 1 },
+  avisoTexto: { fontSize: 11.5, lineHeight: 16, color: cores.textoMedio },
   avisoDestaque: { color: cores.primaria },
 })
