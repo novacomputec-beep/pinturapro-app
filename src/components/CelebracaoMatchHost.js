@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet, AppState } from 'react-native'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
+import { pedirAvaliacaoLoja } from '../services/avaliacaoLoja'
 import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
@@ -291,6 +292,9 @@ const detectar = async (usuario) => {
     // era parabenizado pelo serviço que ganhou.
     const it = (resp.ativos || []).find(x => (x.status === 'aceito' || x.status === 'aprovada') && naoVisto(`interesse:${x.id}`))
     if (it) return {
+      // avaliarLoja: o match conquistado é o momento alto do profissional — o host pede
+      // a avaliação NA LOJA 1,5 s depois de mostrar este card (ver useEffect no host).
+      avaliarLoja: true,
       chave: `interesse:${it.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu o serviço!',
       subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
@@ -381,6 +385,8 @@ const detectar = async (usuario) => {
     }
     const c = (resp.candidaturas || []).find(x => (x.status === 'aceito' || x.status === 'aprovada') && naoVisto(`candidatura:${x.id}`))
     if (c) return {
+      // Mesmo motivo do ramo do reparador: match conquistado → pedido de avaliação na loja.
+      avaliarLoja: true,
       chave: `candidatura:${c.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu a obra!',
       subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
@@ -505,6 +511,15 @@ export default function CelebracaoMatchHost() {
     const unsub = nav.addListener('state', () => { if (!evento) verificar() })
     return unsub
   }, [usuario, evento, verificar])
+
+  // Match conquistado pelo profissional (eventos `avaliarLoja`): pede a avaliação NA LOJA
+  // 1,5 s depois de o card aparecer. Sem cancelar no cleanup, de propósito: o pedido é
+  // pela conquista, não pelo card, então vale mesmo se a pessoa tocar "Ver detalhes"
+  // antes. pedirAvaliacaoLoja() nunca lança e respeita o cooldown de 60 dias.
+  useEffect(() => {
+    if (!evento?.avaliarLoja) return
+    setTimeout(() => { pedirAvaliacaoLoja() }, 1500)
+  }, [evento])
 
   if (!evento) return null
 

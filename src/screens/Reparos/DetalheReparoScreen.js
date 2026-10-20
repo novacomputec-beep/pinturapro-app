@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
 import api from '../../services/api'
+import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario } from '../../components'
@@ -298,6 +299,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [enviandoResposta, setEnviandoResposta] = useState(false)
   const [encerrando, setEncerrando] = useState(false)
   const [avaliarVisivel, setAvaliarVisivel] = useState(false)
+  // Armado por enviarAvaliacaoEncerrar (dono, nota 4-5); consumido em finalizarPosEncerrar.
+  const pedirLojaRef = useRef(false)
   const [modalTempo, setModalTempo] = useState(false)
   const [minutosTempo, setMinutosTempo] = useState('')
   // Edição do ponto de referência (só dono). Mesmo molde do modalTempo logo acima: um
@@ -729,6 +732,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // avaliador_id) do servidor já barra avaliação dupla se ele já avaliou por outro caminho.
   const finalizarPosEncerrar = () => {
     setAvaliarVisivel(false)
+    // Pedido de avaliação NA LOJA, só se a nota alta o armou. Daqui, e não do envio da
+    // nota: todo caminho que fecha o Alert "Bloquear para futuros serviços?" (qualquer
+    // botão) passa por aqui, então o diálogo nativo nunca sobe com o Alert aberto. O
+    // Alert não é cancelável, logo não há saída por fora dele. 1,5 s depois, já na tela
+    // anterior; a função nunca lança nem mexe nesta tela, então sobrevive ao goBack.
+    if (pedirLojaRef.current) {
+      pedirLojaRef.current = false
+      setTimeout(() => { pedirAvaliacaoLoja() }, 1500)
+    }
     if (navigation.canGoBack()) navigation.goBack()
   }
 
@@ -767,6 +779,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const enviarAvaliacaoEncerrar = async (estrelas) => {
     try {
       await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'reparo', contrato_id: reparo.id, estrelas }))
+      // Nota alta enviada pelo dono = o melhor momento para pedir a avaliação NA LOJA. Só
+      // ARMA aqui: o pedido em si sai de finalizarPosEncerrar, 1,5 s depois de o Alert de
+      // bloqueio ser respondido, para nunca cair em cima dele.
+      if (isDono && estrelas >= 4) pedirLojaRef.current = true
     } catch (err) {
       console.log('[DetalheReparo] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // SEM recarregarSeFalhaDeRede, mesma razão do bloqueio logo acima: a avaliação não

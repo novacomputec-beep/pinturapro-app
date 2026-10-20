@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
+import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { comRetry } from '../../utils/rede'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import ModalDenuncia from '../../components/ModalDenuncia'
@@ -94,6 +95,9 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       }))
       setAvaliandoContrato(null)
       buscar()  // refresh list so ja_avaliei updates
+      // Nota alta enviada pelo dono = o melhor momento para pedir a avaliação NA LOJA.
+      // 1,5 s depois, com o modal já fechado; a função nunca lança nem mexe na tela.
+      if (ehDono && estrelas >= 4) setTimeout(() => { pedirAvaliacaoLoja() }, 1500)
     } catch (err) {
       setAvaliandoContrato(null)
       // O interceptor de api.js rejeita com { mensagem, status, code }.
