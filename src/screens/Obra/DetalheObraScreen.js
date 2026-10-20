@@ -307,6 +307,11 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Teto POR EXTENSÃO (GET /obras/:id devolve extensao_maxima_horas ao LADO de `obra`,
   // não dentro dela — por isso tem estado próprio). null = servidor não informou.
   const [extensaoMaximaHoras, setExtensaoMaximaHoras] = useState(null)
+  // Advisory do aumento de valor. Mesmo motivo: GET /obras/:id devolve pode_aumentar_valor
+  // e valor_minimo_aumento ao LADO de `obra` (advisoryAumentoValor na API). A leitura
+  // antiga, dentro de `obra`, nunca achava nada e o botão nunca aparecia; ela fica como
+  // fallback caso alguma versão da API os coloque na linha.
+  const [aumentoValor, setAumentoValor] = useState({ pode: false, minimo: null })
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
   const [candidatos, setCandidatos] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -430,6 +435,11 @@ export default function DetalheObraScreen({ route, navigation }) {
       setMinhaCandidatura(resposta.minha_candidatura)
       setCandidatos(resposta.candidatos || [])
       setExtensaoMaximaHoras(resposta.extensao_maxima_horas ?? null)
+      const linha = resposta.obra || resposta
+      setAumentoValor({
+        pode:   resposta.pode_aumentar_valor  ?? linha?.pode_aumentar_valor  ?? false,
+        minimo: resposta.valor_minimo_aumento ?? linha?.valor_minimo_aumento ?? null,
+      })
     }
   }
 
@@ -1007,7 +1017,9 @@ export default function DetalheObraScreen({ route, navigation }) {
       // deduplicação da qual este código não quer depender por projeto.
       if (await recarregarSeFalhaDeRede(err, recarregarObra)) { setModalEstender(false); return }
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
-      if (err.status === 422) {
+      // 400 junto do 422: é o status que POST /estender usa hoje para "acima do teto" e
+      // "horas inválidas", já com a mensagem em pt-BR (e extensao_maxima_horas) no corpo.
+      if (err.status === 422 || err.status === 400) {
         setModalEstender(false)
         Alert.alert('Não foi possível aumentar', err.mensagem || 'Esta obra já está no prazo máximo permitido.')
       } else if (err.status === 409) {
@@ -1665,7 +1677,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               {/* Ao lado do aumento de prazo, e só quando o detalhe diz que pode: a
                   elegibilidade (pode_aumentar_valor) e o piso (valor_minimo_aumento) vêm
                   do servidor, e a tela não os adivinha. */}
-              {obra.pode_aumentar_valor === true && (
+              {aumentoValor.pode === true && (
                 <TouchableOpacity
                   style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, aumentando && { opacity: 0.5 }]}
                   onPress={() => setModalAumentar(true)}
@@ -1676,7 +1688,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               )}
               <ModalAumentarValor
                 visivel={modalAumentar}
-                valorMinimo={obra.valor_minimo_aumento}
+                valorMinimo={aumentoValor.minimo}
                 onAumentar={handleAumentarValor}
                 onFechar={() => setModalAumentar(false)}
               />
