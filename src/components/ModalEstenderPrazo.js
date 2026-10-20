@@ -14,14 +14,19 @@ import { cores, raios } from '../utils/tema'
 // aqui — quem recusa é a API, e o pai já traduz a recusa em alerta.
 // O POST real fica a cargo do pai via onEstender(horas); aqui só controlamos a
 // digitação e o estado local de "enviando" (trava toque duplo).
-export default function ModalEstenderPrazo({ visivel, unidade = 'horas', onEstender, onFechar }) {
-  const [enviando, setEnviando] = useState(false)
+// `enviando` (prop, opcional) é o envio EM VOO do pai: o POST só sai depois de a pessoa
+// confirmar num Alert que o pai levanta, então onEstender resolve antes do envio real e
+// o estado local, sozinho, voltaria a "Aumentar tempo" enquanto a requisição corre.
+// Enquanto o Alert está aberto nada está em voo e o modal fica livre e editável.
+export default function ModalEstenderPrazo({ visivel, unidade = 'horas', onEstender, onFechar, enviando: enviandoPai = false }) {
+  const [enviandoLocal, setEnviandoLocal] = useState(false)
   const [valor, setValor] = useState('')
+  const enviando = enviandoLocal || enviandoPai
 
   // Zera envio e campo sempre que o modal reabre: o número anterior não pode
   // reaparecer numa nova tentativa.
   useEffect(() => {
-    if (visivel) { setEnviando(false); setValor('') }
+    if (visivel) { setEnviandoLocal(false); setValor('') }
   }, [visivel])
 
   const emDias = unidade === 'dias'
@@ -32,11 +37,11 @@ export default function ModalEstenderPrazo({ visivel, unidade = 'horas', onEsten
 
   const confirmar = async () => {
     if (enviando || !valido) return
-    setEnviando(true)
+    setEnviandoLocal(true)
     try {
       await onEstender(emDias ? quantidade * 24 : quantidade)
     } finally {
-      setEnviando(false)
+      setEnviandoLocal(false)
     }
   }
 
@@ -57,6 +62,9 @@ export default function ModalEstenderPrazo({ visivel, unidade = 'horas', onEsten
               maxLength={4}
               editable={!enviando}
               autoFocus
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
             />
             <Text style={estilos.unidadeTexto}>{emDias ? 'dia(s)' : 'hora(s)'}</Text>
           </View>

@@ -112,6 +112,34 @@ const formatarChegadaPrevista = (iso) => {
   return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} às ${hora}`
 }
 
+// Data absoluta com dia da semana, para o Alert de confirmação do aumento de prazo:
+// "terça-feira, 21/10 às 14:30". Tabela fixa em vez de Intl: o texto não pode depender
+// do que o motor JS do aparelho sabe de pt-BR. Instante ilegível devolve '—'.
+const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado']
+const formatarVencimento = (ms) => {
+  if (!Number.isFinite(ms)) return '—'
+  const d = new Date(ms)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${DIAS_SEMANA[d.getDay()]}, ${p(d.getDate())}/${p(d.getMonth() + 1)} às ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+// Prévia do novo vencimento, espelhando o CASE de POST /obras/:id/estender:
+//   faixa "Hoje" (prazo_modo='hoje') → o prazo é FIM DE DIA: soma dias inteiros
+//     (ceil(horas/24), mínimo 1) ao dia mais tardio entre o do prazo e o de hoje, e volta
+//     ao fim desse dia (23:59 na tela; o servidor grava 1 µs antes da meia-noite);
+//   demais faixas → GREATEST(expira_em, NOW()) + horas.
+// A zona é a do aparelho: é a mesma que o dono tinha ao gravar prazo_timezone.
+const preverNovoVencimento = (expiraEm, horas, prazoModo) => {
+  const agoraMs = Date.now()
+  const atualMs = expiraEm ? new Date(expiraEm).getTime() : NaN
+  const baseMs = Number.isFinite(atualMs) ? Math.max(atualMs, agoraMs) : agoraMs
+  if (prazoModo !== 'hoje') return { atualMs, novoMs: baseMs + horas * 3600000 }
+  const dias = Math.max(1, Math.ceil(horas / 24))
+  const b = new Date(baseMs)
+  const fimDoDia = new Date(b.getFullYear(), b.getMonth(), b.getDate() + dias + 1, 0, 0, 0, 0)
+  return { atualMs, novoMs: fimDoDia.getTime() - 60000 }
+}
+
 // Texto de exibição de um instante de chegada: o formato amigável quando a data dá para
 // ler, e o valor CRU quando não dá. Antes os blocos eram condicionados ao retorno de
 // formatarChegadaPrevista, que é null em data ilegível — e aí sumia o bloco inteiro,
@@ -276,6 +304,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Armado por enviarAvaliacaoEncerrar (dono, nota 4-5); consumido em finalizarPosEncerrar.
   const pedirLojaRef = useRef(false)
   const [midias, setMidias] = useState([])
+  // Teto POR EXTENSÃO (GET /obras/:id devolve extensao_maxima_horas ao LADO de `obra`,
+  // não dentro dela — por isso tem estado próprio). null = servidor não informou.
+  const [extensaoMaximaHoras, setExtensaoMaximaHoras] = useState(null)
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
   const [candidatos, setCandidatos] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -398,6 +429,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       setMidias(resposta.midias || [])
       setMinhaCandidatura(resposta.minha_candidatura)
       setCandidatos(resposta.candidatos || [])
+      setExtensaoMaximaHoras(resposta.extensao_maxima_horas ?? null)
     }
   }
 
@@ -910,7 +942,38 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
+  // Porta de entrada do modal (onEstender). O modal entrega HORAS (dias × 24, inteiro
+  // ≥ 24); aqui entram as duas verificações que só a tela tem como fazer, ANTES do POST:
+  //   1. Teto local: extensao_maxima_horas vem do detalhe quando o servidor o expõe. Sem
+  //      ele (ausente/nulo) nada é barrado aqui — o 422 segue sendo a palavra final.
+  //   2. Confirmação com o novo vencimento, calculado como o servidor calcula
+  //      (preverNovoVencimento: GREATEST(expira_em, NOW()) + horas, ou fim de dia na faixa
+  //      "Hoje"). É uma PRÉVIA pelo relógio do aparelho; o que vale é o buscar() depois.
+  // Não espera a resposta do Alert, de propósito: devolver já libera o botão do modal em
+  // vez de deixá-lo em "Aumentando…" atrás da pergunta. O envio real (executarEstender)
+  // tem a trava em voo de sempre, então um toque extra enquanto ele corre é ignorado.
   const handleEstender = async (horas) => {
+    if (estendendoRef.current) return
+    const teto = Number(extensaoMaximaHoras)
+    if (Number.isFinite(teto) && teto > 0 && horas > teto) {
+      Alert.alert('Valor acima do permitido', `O aumento máximo permitido para esta obra é de ${formatarDuracao(teto * 3600000, { frente: 'obra' })}. Informe um valor menor.`)
+      return
+    }
+    const dias = Math.round(horas / 24)
+    const { atualMs, novoMs } = preverNovoVencimento(obra.expira_em, horas, obra.prazo_modo)
+    Alert.alert(
+      'Confirmar novo prazo?',
+      `Você está aumentando o tempo desta obra em ${dias} ${dias === 1 ? 'dia' : 'dias'}.\n\nO pedido passará a vencer em:\n${formatarVencimento(novoMs)}\n(antes: ${formatarVencimento(atualMs)})`,
+      [
+        { text: 'Voltar', style: 'cancel' },
+        { text: 'Confirmar', onPress: () => executarEstender(horas) },
+      ],
+      // Voltar pelo botão físico (Android) vale como Voltar: nada foi enviado.
+      { cancelable: true },
+    )
+  }
+
+  const executarEstender = async (horas) => {
     if (estendendoRef.current) return
     estendendoRef.current = true
     setEstendendo(true)
@@ -958,7 +1021,8 @@ export default function DetalheObraScreen({ route, navigation }) {
           // Passa pela trava em vez de reentrar direto: o alerta é levantado DENTRO do
           // catch, o finally que libera o ref roda logo depois, e nada impede um segundo
           // toque enquanto um ciclo ainda corre. Ler o ref no toque resolve as duas pontas.
-          { text: 'Tentar novamente', onPress: () => { if (!estendendoRef.current) handleEstender(horas) } },
+          // executarEstender, não handleEstender: a pessoa já confirmou este prazo.
+          { text: 'Tentar novamente', onPress: () => { if (!estendendoRef.current) executarEstender(horas) } },
           { text: 'Cancelar', style: 'cancel' },
         ])
       } else {
@@ -1362,6 +1426,9 @@ export default function DetalheObraScreen({ route, navigation }) {
               maxLength={200}
               editable={!salvandoReferencia}
               autoFocus
+              autoComplete="off"
+              importantForAutofill="no"
+              textContentType="none"
             />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <TouchableOpacity
@@ -1591,6 +1658,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               <ModalEstenderPrazo
                 visivel={modalEstender}
                 unidade="dias"
+                enviando={estendendo}
                 onEstender={handleEstender}
                 onFechar={() => setModalEstender(false)}
               />
