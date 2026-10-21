@@ -7,6 +7,7 @@ import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
 import { comRetry } from '../utils/rede'
+import { CaixaAtencaoApp } from './Agendamento'
 
 // Título entre aspas da PRIMEIRA linha de um aviso agrupado, ou null quando ela não traz
 // título — o ramo do pintor já convivia com isso, ver os guardas em :298 e :329. Só o
@@ -92,12 +93,14 @@ const detectar = async (usuario) => {
       x.match_feito_em && x.match_usuario_id && naoVisto(`reparo_match:${x.id}`)
     )
     if (matched) return {
+      // avisoApp: a caixa âmbar "agende e conclua pelo app" entra em todo match, dos dois lados.
+      avisoApp: true,
       chave: `reparo_match:${matched.id}`, emoji: '🎉',
       titulo: 'Seu serviço vai ser realizado!',
       // A regra do encerramento vem junto: era uma tarja âmbar permanente ao lado do botão
       // nas duas telas de detalhe. Dita UMA vez, no momento em que o combinado nasce e às
       // duas partes, informa o mesmo sem ocupar a tela pelo resto do serviço.
-      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
+      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Agora combinem o dia e o horário aqui no app.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
@@ -205,9 +208,10 @@ const detectar = async (usuario) => {
       x.match_feito_em && x.match_usuario_id && naoVisto(`obra_match:${x.id}`)
     )
     if (matched) return {
+      avisoApp: true,
       chave: `obra_match:${matched.id}`, emoji: '🎉',
       titulo: 'Sua obra vai ser realizada!',
-      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
+      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Agora combinem o dia e o horário aqui no app.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
@@ -295,9 +299,10 @@ const detectar = async (usuario) => {
       // avaliarLoja: o match conquistado é o momento alto do profissional — o host pede
       // a avaliação NA LOJA 1,5 s depois de mostrar este card (ver useEffect no host).
       avaliarLoja: true,
+      avisoApp: true,
       chave: `interesse:${it.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu o serviço!',
-      subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
+      subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Agora combinem o dia e o horário aqui no app.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
     }
@@ -387,9 +392,10 @@ const detectar = async (usuario) => {
     if (c) return {
       // Mesmo motivo do ramo do reparador: match conquistado → pedido de avaliação na loja.
       avaliarLoja: true,
+      avisoApp: true,
       chave: `candidatura:${c.id}`, emoji: '🎉',
       titulo: 'Parabéns! Você conseguiu a obra!',
-      subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Combine os detalhes agora! Encerrem apenas depois que os dois confirmarem a chegada.`,
+      subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Agora combinem o dia e o horário aqui no app.`,
       ctaTexto: 'Ver detalhes',
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
     }
@@ -568,6 +574,9 @@ export default function CelebracaoMatchHost() {
           {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
           <Text style={estilos.titulo}>{evento.titulo}</Text>
           <Text style={estilos.subtitulo}>{evento.subtitulo || evento.mensagem}</Text>
+          {/* Só nos matches (avisoApp): a regra de agendar e concluir pelo app, dita no
+              momento em que o combinado nasce — a mesma caixa dos cards de agendamento. */}
+          {evento.avisoApp ? <CaixaAtencaoApp compacta /> : null}
           <TouchableOpacity style={estilos.cta} onPress={irParaDetalhe} activeOpacity={0.85}>
             <Text style={estilos.ctaTexto}>{evento.ctaTexto || 'Ver proposta'} →</Text>
           </TouchableOpacity>
