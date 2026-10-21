@@ -41,6 +41,7 @@ import PerfilScreen        from '../screens/Perfil/PerfilScreen'
 import EditarPerfilScreen  from '../screens/Perfil/EditarPerfilScreen'
 import AlterarSenhaScreen  from '../screens/Perfil/AlterarSenhaScreen'
 import SugestoesScreen     from '../screens/Perfil/SugestoesScreen'
+import RespostasEquipeScreen from '../screens/Perfil/RespostasEquipeScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
 
@@ -275,6 +276,13 @@ const navegarParaNotificacao = (data) => {
       case 'assinatura_expirada':
       case 'assinatura_vence_amanha':
         navegar((ehPrestador || ehDonoComAba) ? 'Perfil' : tabEmAndamento); break
+      // Resposta da equipe a uma sugestão/pedido de suporte: a caixa de entrada vive no
+      // PerfilStack (RespostasEquipe), que existe nos quatro navegadores de abas. Mesma
+      // ressalva do bloco acima para o dono sem abas, que não tem Perfil.
+      case 'resposta_equipe':
+        if (ehPrestador || ehDonoComAba) navigationRef.current.navigate('Perfil', { screen: 'RespostasEquipe', initial: false })
+        else navegar(tabEmAndamento)
+        break
       // Boas-vindas não pede resposta: pede começar a usar. O prestador cai no feed de
       // demandas disponíveis, que é onde ele age; o dono cai na própria lista. (Se o flag
       // de boas-vindas ainda estiver ligado, quem está montado é BoasVindasPrestador e o
@@ -658,6 +666,7 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
     <PerfilStack.Screen name="Especialidades" component={EspecialidadesScreen} />
     <PerfilStack.Screen name="Sugestoes"    component={SugestoesScreen} />
+    <PerfilStack.Screen name="RespostasEquipe" component={RespostasEquipeScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
     <PerfilStack.Screen name="Termos"       component={TermosScreen} />
     <PerfilStack.Screen name="Privacidade"  component={PrivacidadeScreen} />

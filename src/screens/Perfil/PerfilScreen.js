@@ -185,6 +185,19 @@ export default function PerfilScreen({ navigation, route }) {
 
   useFocusEffect(useCallback(() => { verificarPermissaoNotif() }, [verificarPermissaoNotif]))
 
+  // Contador de respostas da equipe NÃO lidas, reconsultado a cada foco: ao voltar da
+  // RespostasEquipeScreen (que marca tudo como lido ao mostrar) o número precisa cair.
+  // Falha vira 0 em silêncio — o item continua abrindo a tela, que tem o próprio banner.
+  const [naoLidasEquipe, setNaoLidasEquipe] = useState(0)
+  useFocusEffect(useCallback(() => {
+    comRetry(() => api.get('/respostas-equipe')).then(data => {
+      if (!montadoRef.current) return
+      setNaoLidasEquipe((data.respostas || []).filter(r => !r.lida_em).length)
+    }).catch(err => {
+      console.log('[Perfil] falha ao contar respostas da equipe | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+    })
+  }, []))
+
   const handleAtivarNotificacoes = async () => {
     // Reconsulta no toque: o estado em memória pode ser de minutos atrás.
     let estado = permNotif
@@ -523,6 +536,15 @@ export default function PerfilScreen({ navigation, route }) {
           <ItemAcao titulo="🔒 Alterar senha" onPress={() => navigation.navigate('AlterarSenha')} />
           <Separador />
           <ItemAcao titulo="💡 Sugestões" onPress={() => navigation.navigate('Sugestoes')} />
+          <Separador />
+          {/* Todos os papéis: sugestão e suporte existem para os quatro, logo a resposta
+              também. O rótulo de estado é o contador de não lidas (some em zero). */}
+          <ItemAcao
+            titulo="💬 Respostas da equipe"
+            estado={naoLidasEquipe > 0 ? String(naoLidasEquipe) : ''}
+            estadoCor={cores.primaria}
+            onPress={() => navigation.navigate('RespostasEquipe')}
+          />
           <Separador />
           {/* Navegação interna, e não Linking.openURL. As duas linhas abriam páginas no
               host do painel no Railway: marca PinturaPro antiga, fora do app, no Chrome e
