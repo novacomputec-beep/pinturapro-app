@@ -12,6 +12,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
+import PilulaComoFunciona from '../../components/PilulaComoFunciona'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -235,7 +236,12 @@ export default function MinhasObrasScreen({ navigation, route }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <View>
-          <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
+          <View style={estilos.saudacaoRow}>
+            <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
+            {/* Só nas abas (soAba): o stack legado do dono sem tipo_dono não tem a aba
+                Perfil, e a pílula não teria para onde navegar. */}
+            {!!soAba && <PilulaComoFunciona navigation={navigation} />}
+          </View>
           <Text style={estilos.titulo}>
             {soAba === 'reparos' ? 'Meus ' : 'Minhas '}
             <Text style={{ color: cores.primaria }}>{soAba === 'reparos' ? 'Serviços' : 'Obras'}</Text>
@@ -347,6 +353,7 @@ const estilos = StyleSheet.create({
   container:            { flex: 1, backgroundColor: cores.fundo },
   header:               { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 16, paddingBottom: 12 },
   saudacao:             { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
+  saudacaoRow:          { flexDirection: 'row', alignItems: 'center', gap: 8 },
   titulo:               { fontSize: 26, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   btnSair:              { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 7 },
   btnSairTexto:         { fontSize: 12, color: cores.textoMedio },

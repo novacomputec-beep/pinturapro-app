@@ -18,6 +18,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
+import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
 // o versionCode é gerado pelo EAS e não existe em nenhum arquivo do repositório, então
@@ -41,9 +42,10 @@ const LinhaPerfil = ({ label, valor }) => (
 
 // `estado` é opcional: só as linhas que refletem uma condição do aparelho (hoje, a
 // permissão de notificação) mostram um rótulo antes da seta. As demais seguem idênticas.
-const ItemAcao = ({ titulo, onPress, perigo, estado, estadoCor }) => (
+// `destaque` pinta o título de laranja (convite, não alerta) — par do `perigo` vermelho.
+const ItemAcao = ({ titulo, onPress, perigo, destaque, estado, estadoCor }) => (
   <TouchableOpacity style={estilos.itemAcao} onPress={onPress} activeOpacity={0.7}>
-    <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }]}>{titulo}</Text>
+    <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }, destaque && { color: cores.primaria }]}>{titulo}</Text>
     <View style={estilos.itemAcaoDireita}>
       {!!estado && <Text style={[estilos.itemAcaoEstado, estadoCor && { color: estadoCor }]}>{estado}</Text>}
       <Text style={estilos.itemAcaoSeta}>→</Text>
@@ -197,6 +199,13 @@ export default function PerfilScreen({ navigation, route }) {
       console.log('[Perfil] falha ao contar respostas da equipe | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
     })
   }, []))
+
+  // Vídeo "Como funciona": a entrada só existe com video_id publicado. Uma leitura por
+  // processo (promise compartilhada no serviço); falha = sem entrada, o lado seguro.
+  const [temVideoComoFunciona, setTemVideoComoFunciona] = useState(false)
+  useEffect(() => {
+    carregarVideoComoFunciona().then(v => { if (montadoRef.current) setTemVideoComoFunciona(!!v.video_id) })
+  }, [])
 
   const handleAtivarNotificacoes = async () => {
     // Reconsulta no toque: o estado em memória pode ser de minutos atrás.
@@ -502,6 +511,13 @@ export default function PerfilScreen({ navigation, route }) {
         )}
 
         <View style={estilos.acoesWrap}>
+          {/* Todos os papéis, em laranja (convite): some quando não há vídeo publicado. */}
+          {temVideoComoFunciona && (
+            <>
+              <ItemAcao titulo="🎬 Como funciona o ProTudo" destaque onPress={() => navigation.navigate('ComoFunciona')} />
+              <Separador />
+            </>
+          )}
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
           {ehPrestador && (

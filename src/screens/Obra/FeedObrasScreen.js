@@ -20,6 +20,7 @@ import { urgenciaObra } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import ConviteCadastroServicos from '../../components/ConviteCadastroServicos'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
+import PilulaComoFunciona from '../../components/PilulaComoFunciona'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -423,7 +424,10 @@ export default function FeedObrasScreen({ navigation }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <View>
-          <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🎨</Text>
+          <View style={estilos.saudacaoRow}>
+            <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🎨</Text>
+            <PilulaComoFunciona navigation={navigation} />
+          </View>
           <Text style={estilos.titulo}>
             Obras <Text style={{ color: cores.primaria }}>disponíveis</Text>
           </Text>
@@ -610,6 +614,7 @@ const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: espacos.tela, paddingTop: 8, paddingBottom: 12 },
   saudacao: { fontSize: 13, color: cores.textoFraco, marginBottom: 2 },
+  saudacaoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   titulo: { fontSize: 24, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
   avatar: { width: 34, height: 34, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   avatarTexto: { color: cores.primaria, fontSize: 12, fontWeight: '700' },
