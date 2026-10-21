@@ -253,8 +253,21 @@ const navegarParaNotificacao = (data) => {
       case 'tempo_aceito':
       case 'tempo_recusado':
       case 'contra_oferta':
+      // Agendamento (dia + hora): contraproposta de horário a responder, pedido de remarcar
+      // (o profissional propõe outro horário) e o "está a caminho" ao dono (o telefone do
+      // profissional passa a aparecer). Tudo vive no card de agendamento do detalhe.
+      case 'chegada_contraproposta':
+      case 'chegada_remarcar':
+      case 'a_caminho':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(tabEmAndamento)
+        break
+      // Vigia do comparecimento ("o profissional veio?"): mesmo destino, com o param que abre
+      // o modal de resposta assim que o detalhe carrega.
+      case 'confirmar_comparecimento':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirComparecimento: true }, initial: false })
+        else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id }, abrirComparecimento: true }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Estado da CONTA, não de uma demanda: o que se faz a respeito (ler o motivo,

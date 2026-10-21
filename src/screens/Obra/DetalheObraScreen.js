@@ -25,6 +25,7 @@ import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra, rotulosEspecialidades } from '../../utils/categorias'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
+import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -85,14 +86,9 @@ const formatarExperiencia = (v) => {
   return EXPERIENCIA_LABELS[s] || s.replace(/_/g, ' ')    // bucket conhecido, ou fallback limpo
 }
 
-// Janelas de chegada oferecidas ao profissional depois que sua proposta é aceita. O
-// rótulo aqui é só o que ELE lê; quem converte a janela num instante é o servidor, que
-// devolve chegada_prevista_em. Nada nesta lista vira horário no aparelho.
-const JANELAS_CHEGADA = [
-  { id: 'hoje',         label: '🕐 Ainda hoje' },
-  { id: 'amanha_manha', label: '🌅 Amanhã de manhã' },
-  { id: 'amanha_tarde', label: '🌇 Amanhã à tarde' },
-]
+// As três janelas fixas ('hoje' | 'amanha_manha' | 'amanha_tarde') saíram daqui: o
+// profissional agora propõe dia + hora (components/Agendamento), e a API continua aceitando
+// os rótulos antigos só para os apps já nas lojas.
 
 // Chegada prometida, SEMPRE derivada do timestamp que o servidor calculou — nunca do
 // rótulo da janela escolhida. O rótulo é o pedido ("amanhã de manhã"); o timestamp é o
@@ -293,7 +289,9 @@ function PlayerFullscreen({ uri }) {
 }
 
 export default function DetalheObraScreen({ route, navigation }) {
-  const { obra: obraInicial } = route.params
+  // abrirComparecimento: vem do toque no push 'confirmar_comparecimento' (AppNavigator) e
+  // abre o modal "O profissional veio?" assim que o detalhe confirma que a pergunta vale.
+  const { obra: obraInicial, abrirComparecimento } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const verificacao = useVerificacaoIdentidade()
   const [obra, setObra] = useState(obraInicial)
@@ -360,6 +358,13 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [enviandoJanela, setEnviandoJanela] = useState(null)
   const [respondendoChegada, setRespondendoChegada] = useState(false)
   const [declarandoChegada, setDeclarandoChegada] = useState(false)
+  // Telefone do solicitante: a API só o devolve ao pintor do match depois do "Estou a
+  // caminho" (a_caminho_em); antes vem null e o botão de WhatsApp não existe.
+  const [donoTelefone, setDonoTelefone] = useState(null)
+  // "O profissional veio?" (vigia do comparecimento): modal e envio da resposta.
+  const [modalCompareceu, setModalCompareceu] = useState(false)
+  const [comparecendo, setComparecendo] = useState(false)
+  const comparecimentoAbertoRef = useRef(false)
   // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
   // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
   // futuro nem vale abrir o modal — o envio só voltaria recusado (409). Mesmo molde de
@@ -434,6 +439,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       setMidias(resposta.midias || [])
       setMinhaCandidatura(resposta.minha_candidatura)
       setCandidatos(resposta.candidatos || [])
+      setDonoTelefone(resposta.dono_telefone ?? null)
       setExtensaoMaximaHoras(resposta.extensao_maxima_horas ?? null)
       const linha = resposta.obra || resposta
       setAumentoValor({
@@ -515,21 +521,22 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
-  // Janela de chegada: o profissional promete QUANDO chega, antes de partir. Grava um
-  // ESTADO (a mesma janela duas vezes dá o mesmo resultado) e não cria recurso novo, que
-  // é exatamente o caso do { timeout: true } descrito em rede.js:16-19 — o socket ocioso
-  // que trava até o timeout de 30 s é o mesmo evento do ERR_NETWORK e merece o retry.
+  // Proposta de horário (dia + hora, ISO com fuso): o profissional propõe QUANDO faz o
+  // serviço e o dono confirma. Grava um ESTADO (write-once no servidor: a mesma proposta
+  // duas vezes dá o mesmo resultado) e não cria recurso novo, que é exatamente o caso do
+  // { timeout: true } descrito em rede.js:16-19 — o socket ocioso que trava até o timeout
+  // de 30 s é o mesmo evento do ERR_NETWORK e merece o retry.
   // { servidor } fica FORA: um 5xx prova que a requisição chegou.
-  const handleEscolherJanela = async (janela) => {
+  const handleProporHorario = async (dataHora) => {
     if (enviandoJanela) return
     // Estado ANTES do envio, para a reconsulta do catch saber o que é novidade. Sem esta
     // foto, "existe uma janela" não distingue a que acabou de ser gravada de uma que já
     // estava lá antes do toque.
     const previstaAntes = obra?.chegada_prevista_em
     const pendenteAntes = obra?.chegada_pendente_em
-    setEnviandoJanela(janela)
+    setEnviandoJanela('agendado')
     try {
-      const resp = await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista`, { janela }), { timeout: true, persistir: true })
+      const resp = await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista`, { data_hora: dataHora }), { timeout: true, persistir: true })
       // O horário exibido vem SEMPRE do servidor. Se a resposta não trouxer o campo,
       // buscar() reidrata a obra — em nenhuma hipótese derivamos um instante do rótulo
       // escolhido aqui, que é um pedido ("amanhã de manhã"), não um horário.
@@ -566,16 +573,17 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
-  // Resposta do DONO à janela proposta. Vai de comRetry SEM { timeout }, ao contrário do
-  // envio da janela: isto é uma RESPOSTA DE NEGOCIAÇÃO, o caso que rede.js:20-22 manda
-  // deixar de fora — o servidor pode ter processado a 1ª tentativa e o retry duplicaria
-  // o efeito. Só o ERR_NETWORK duro, onde a requisição não chegou, é reexecutado.
+  // Resposta à proposta pendente — do dono OU do profissional, quem não a fez: 'aceitar' ou
+  // 'contraproposta' com data_hora. Vai de comRetry SEM { timeout }, ao contrário do envio
+  // da proposta: isto é uma RESPOSTA DE NEGOCIAÇÃO, o caso que rede.js:20-22 manda deixar
+  // de fora — o servidor pode ter processado a 1ª tentativa e o retry duplicaria o efeito.
+  // Só o ERR_NETWORK duro, onde a requisição não chegou, é reexecutado.
   // Mesmo tratamento de handleResponderTempo, a negociação vizinha.
-  const handleResponderChegada = async (aceito) => {
+  const handleResponderAgendamento = async (acao, dataHora) => {
     if (respondendoChegada) return
     setRespondendoChegada(true)
     try {
-      await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista/responder`, { aceito }))
+      await comRetry(() => api.post(`/obras/${obra.id}/chegada-prevista/responder`, { acao, ...(dataHora ? { data_hora: dataHora } : {}) }))
       // buscar() em vez de remendar o estado local: é o servidor que decide se a
       // pendente vira combinada ou simplesmente some, e a tela toda depende disso.
       await buscar()
@@ -662,8 +670,11 @@ export default function DetalheObraScreen({ route, navigation }) {
 
   const handleMatch = async () => {
     const MSG_SUCESSO = 'O solicitante foi notificado. Dirija-se ao local!\n\nUm contrato simples, de prestação de serviços, foi enviado para seu e-mail e também para a outra parte. Vocês podem ou não utilizar e assinar, é facultativo para tarefas simples. Contudo, se quiserem se proteger, basta utilizá-lo. Imprima e assinem.\n\nBom trabalho para vocês! 🤝'
-    const aplicarSucesso = (matchFeitoEm) => {
-      setObra(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id }))
+    // a_caminho_em junto: é o que troca o botão por "você avisou que está a caminho" e o
+    // buscar() em seguida traz dono_telefone, que a API só libera a partir daqui.
+    const aplicarSucesso = (matchFeitoEm, aCaminhoEm) => {
+      setObra(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id, a_caminho_em: aCaminhoEm || prev.a_caminho_em || new Date().toISOString() }))
+      buscar()
       Alert.alert('✅ Confirmado!', MSG_SUCESSO)
     }
     Alert.alert('🎨 Confirmar ida ao local?', 'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.', [
@@ -675,7 +686,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           // repetido sobre um match já gravado, o servidor responde 409, que é 4xx e
           // nunca reexecuta. Quem transforma esse 409 em sucesso é a reconsulta abaixo.
           const resposta = await comRetry(() => api.post(`/obras/${obra.id}/match`, {}), { persistir: true })
-          aplicarSucesso(resposta.match_feito_em)
+          aplicarSucesso(resposta.match_feito_em, resposta.a_caminho_em)
         } catch (err) {
           console.log('[DetalheObra] falha ao confirmar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
           // Antes da reconsulta: suspenso, o match não saiu, e insistir só trocaria o
@@ -692,7 +703,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             // como de outro pintor — a reconsulta não salvava nada e o alerta de erro subia
             // mesmo assim. Os != null vêm antes porque dois ids ausentes casariam.
             const matchId = obraAtual?.match_usuario_id
-            if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(obraAtual.match_feito_em); return }
+            if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(obraAtual.match_feito_em, obraAtual.a_caminho_em); return }
           } catch (e2) { console.log('[DetalheObra] reconsulta pós-match falhou | code:', e2.code) }
           Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
         }
@@ -1286,10 +1297,6 @@ export default function DetalheObraScreen({ route, navigation }) {
   const pintorMatch = temMatch
     ? candidatos.find(c => c.usuario_id != null && String(c.usuario_id) === String(obra.match_usuario_id))
     : null
-  // Texto único da chegada prometida, lido do timestamp do servidor e reusado pelos dois
-  // lados (dono e pintor). Null quando não há promessa — ou quando a data não deu para
-  // ler —, e aí os blocos que dependem dele não renderizam.
-  const chegadaPrevistaTexto = textoChegada(obra?.chegada_prevista_em)
   // Chegada PROPOSTA e ainda não respondida. Mesmo formatador do combinado, pela mesma
   // razão: o dono decide sobre um horário, não sobre o rótulo "amanhã de manhã".
   const chegadaPendenteTexto = textoChegada(obra?.chegada_pendente_em)
@@ -1318,6 +1325,52 @@ export default function DetalheObraScreen({ route, navigation }) {
   // servidor já resolve a ordem devolvendo `encerramento: 'pendente'` quando falta a
   // confirmação da outra parte.
   const distancia = distanciaItemKm(coords, obra)
+
+  // "Estou a caminho" já dado (POST /match grava a_caminho_em): é o que libera a troca de
+  // telefones nos dois lados — antes dele a API devolve telefone/dono_telefone nulos.
+  const aCaminho = !!obra?.a_caminho_em
+  // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
+  // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
+  const podeDizerACaminho = !!obra?.chegada_prevista_em && diaAgendadoChegou(obra.chegada_prevista_em, agora)
+  // Vigia do comparecimento: horário AGENDADO vencido, sem chegada confirmada e sem resposta
+  // — as mesmas condições do 409 de POST /confirmar-comparecimento. O servidor pergunta por
+  // push (vigia_comparecimento_em) 1h depois do horário; a tela também aceita o estado
+  // derivado, para quem abre o detalhe antes do tique do cron.
+  const comparecimentoPendente = isDono && temMatch && !encerrada &&
+    obra?.chegada_janela === 'agendado' && !!obra?.chegada_prevista_em &&
+    new Date(obra.chegada_prevista_em).getTime() <= agora &&
+    !obra?.chegada_confirmada_em && !obra?.comparecimento_resposta
+  // Abre o modal UMA vez por montagem: ao chegar pelo push, ou quando o servidor já perguntou.
+  useEffect(() => {
+    if (!comparecimentoPendente || comparecimentoAbertoRef.current) return
+    if (abrirComparecimento || obra?.vigia_comparecimento_em) {
+      comparecimentoAbertoRef.current = true
+      setModalCompareceu(true)
+    }
+  }, [comparecimentoPendente, abrirComparecimento, obra?.vigia_comparecimento_em])
+
+  // Resposta do dono à vigia. Negociação (sem { timeout }), como handleResponderAgendamento:
+  // o servidor decide o desfecho ('sim' confirma a chegada, 'nao' desfaz o match pelo cron,
+  // 'remarcar' libera o horário) e o buscar() traz o estado novo.
+  const handleComparecimento = async (resposta) => {
+    if (comparecendo) return
+    setComparecendo(true)
+    try {
+      await comRetry(() => api.post(`/obras/${obra.id}/confirmar-comparecimento`, { resposta }))
+      if (mountedRef.current) setModalCompareceu(false)
+      await buscar()
+      if (resposta === 'sim') Alert.alert('✅ Chegada confirmada', 'O serviço está em andamento. Quando terminar, encerrem pelo app.')
+      else if (resposta === 'nao') Alert.alert('Registrado', 'Registramos que o profissional não veio. A obra volta a ficar disponível para outros profissionais.')
+      else Alert.alert('Horário liberado', 'O profissional vai propor um novo horário, e você recebe um aviso para confirmar.')
+    } catch (err) {
+      console.log('[DetalheObra] falha ao registrar comparecimento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarObra)) { if (mountedRef.current) setModalCompareceu(false); return }
+      Alert.alert('Erro', err.mensagem || 'Não foi possível registrar sua resposta.')
+      if (err.status != null) recarregarObra().catch(e => console.log('[DetalheObra] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setComparecendo(false)
+    }
+  }
 
   const abrirWhatsApp = (telefone) => {
     const digitos = (telefone || '').replace(/\D/g, '')
@@ -1656,6 +1709,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isDono && (
             <>
+              {temMatch && !encerrada && <CaixaConcluaPeloApp />}
               {obra.status === 'aberta' && !obra.match_usuario_id && (
                 <TouchableOpacity
                   style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (obra.expirada || emEsperaEstender) && { opacity: 0.6 }]}
@@ -1692,41 +1746,42 @@ export default function DetalheObraScreen({ route, navigation }) {
                 onAumentar={handleAumentarValor}
                 onFechar={() => setModalAumentar(false)}
               />
-              {/* Chegada PROPOSTA, aguardando a resposta do dono. Sem temMatch no gate,
-                  de propósito: a janela é proposta ANTES de o profissional partir, e
-                  exigir o match aqui esconderia justamente a pergunta cuja resposta
-                  destrava o combinado. Reusa a caixa do pedido de tempo — é a mesma
-                  situação: o profissional pede, o dono decide. */}
-              {obra.chegada_pendente_em && !encerrada && (
+              {/* Agendamento (dia + hora) negociado entre as partes — proposta a responder,
+                  aguardando o profissional ou AGENDADO: um card só, ver components/Agendamento.
+                  O aceite já casa o profissional (API), então temMatch vale desde a proposta.
+                  Some com a chegada confirmada: daí em diante o marco é "em andamento". */}
+              {temMatch && !encerrada && !chegadaConfirmada && (
+                <CardAgendamento
+                  demanda={obra}
+                  usuarioId={usuario?.id}
+                  souDono
+                  nomeOutro={primeiroNome(pintorMatch?.nome)}
+                  frente="obra"
+                  podePropor={false}
+                  enviando={!!enviandoJanela}
+                  respondendo={respondendoChegada}
+                  onPropor={handleProporHorario}
+                  onResponder={handleResponderAgendamento}
+                />
+              )}
+              {comparecimentoPendente && (
                 <View style={estilos.pedidoAlertaBox}>
-                  <Text style={estilos.pedidoAlertaTitulo}>🕐 Chegada proposta: {chegadaPendenteTexto}</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>O profissional propôs este horário para chegar ao local.</Text>
-                  <View style={estilos.pedidoBotoesRow}>
-                    <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderChegada(true)} disabled={respondendoChegada}>
-                      <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderChegada(false)} disabled={respondendoChegada}>
-                      <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <Text style={estilos.pedidoAlertaTitulo}>🤔 O profissional veio?</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>O horário combinado já passou. Conte para a gente o que aconteceu.</Text>
+                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={() => setModalCompareceu(true)}>
+                    <Text style={estilos.btnPerguntarTempoTexto}>Responder</Text>
+                  </TouchableOpacity>
                 </View>
               )}
-              {/* Chegada prometida, para o DONO. Renderiza o horário calculado pelo
-                  servidor (chegada_prevista_em), nunca o rótulo da janela: "amanhã de
-                  manhã" é o que o profissional escolheu, não uma hora com que o dono
-                  possa se organizar. Sem o campo, chegadaPrevistaTexto é null e o bloco
-                  some — nada de placeholder prometendo um horário que não existe.
-                  Sem temMatch no gate, pelo mesmo motivo do bloco pendente acima: o
-                  combinado nasce quando o dono aceita a janela, ANTES de o profissional
-                  partir. Exigindo o match, o dono aceitava o horário e via a caixa
-                  pendente sumir sem nada no lugar até a partida — justo o intervalo em
-                  que ele precisa lembrar do que combinou. */}
-              {obra.chegada_prevista_em && !encerrada && (
-                <View style={estilos.chegadaBox}>
-                  <Text style={estilos.chegadaTexto}>🚚 Chegada prometida: {chegadaPrevistaTexto}</Text>
-                </View>
-              )}
-              {temMatch && pintorMatch?.telefone && !encerrada && (
+              <ModalCompareceu
+                visivel={modalCompareceu}
+                enviando={comparecendo}
+                onResponder={handleComparecimento}
+                onFechar={() => setModalCompareceu(false)}
+              />
+              {/* WhatsApp do profissional SÓ depois do "Estou a caminho" (a_caminho_em) — a
+                  API já devolve o telefone nulo antes disso; o gate local acompanha. */}
+              {temMatch && aCaminho && pintorMatch?.telefone && !encerrada && (
                 <TouchableOpacity
                   style={estilos.btnWhatsApp}
                   onPress={() => abrirWhatsApp(pintorMatch.telefone)}
@@ -2028,6 +2083,14 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
+              {souPintorDoMatch && !encerrada && <CaixaReputacao />}
+              {/* WhatsApp do solicitante: dono_telefone só vem da API depois do "Estou a
+                  caminho" (a_caminho_em) e só para o pintor do match. */}
+              {souPintorDoMatch && aCaminho && donoTelefone && !encerrada && (
+                <TouchableOpacity style={estilos.btnWhatsApp} onPress={() => abrirWhatsApp(donoTelefone)}>
+                  <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do solicitante: {donoTelefone}</Text>
+                </TouchableOpacity>
+              )}
               {/* Rótulo na 1ª pessoa: aqui quem toca é o próprio profissional anunciando a
                   própria chegada. O botão do DONO (mesmo endpoint, logo acima na seção dele)
                   segue em 3ª pessoa — "Profissional chegou" —, porque lá o toque fala de
@@ -2137,39 +2200,32 @@ export default function DetalheObraScreen({ route, navigation }) {
                       <>
                         <Text style={{ color: '#4caf50', fontWeight: '600', marginBottom: 6 }}>✅ Proposta aceita!</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 12 }}>Parabéns! Você foi selecionado. Confirme sua ida ao local:</Text>
-                        {/* Janela de chegada, ACIMA do botão de partida: prometer o horário
-                            é o passo anterior a "estou a caminho". Some assim que houver
-                            promessa — trocada pelo horário que o servidor calculou, para o
-                            profissional ver o mesmo compromisso que o dono lê. */}
-                        {obra.chegada_prevista_em ? (
-                          <Text style={estilos.chegadaConfirmada}>✅ Você prometeu chegar {chegadaPrevistaTexto}</Text>
-                        ) : obra.chegada_pendente_em ? (
-                          /* Proposta no ar: nada de reabrir o seletor por baixo, senão o
-                             profissional reenviaria por cima de uma janela que o dono
-                             ainda está decidindo. O horário sai do timestamp pendente. */
-                          <View style={estilos.pedidoBox}>
-                            <Text style={estilos.pedidoTexto}>⏳ Sua chegada para {chegadaPendenteTexto} aguarda a confirmação do solicitante...</Text>
-                          </View>
+                        {/* Agendamento ACIMA do botão de partida: combinar o dia e a hora é o
+                            passo anterior a "estou a caminho". O card cobre os três estados
+                            (propor, aguardando, agendado) — ver components/Agendamento. */}
+                        <CardAgendamento
+                          demanda={obra}
+                          usuarioId={usuario?.id}
+                          souDono={false}
+                          limite={obra.expira_em}
+                          frente="obra"
+                          podePropor={souPintorDoMatch}
+                          enviando={!!enviandoJanela}
+                          respondendo={respondendoChegada}
+                          onPropor={handleProporHorario}
+                          onResponder={handleResponderAgendamento}
+                        />
+                        {/* "Estou a caminho" só libera no DIA agendado; dado uma vez, vira a
+                            linha de confirmação (a_caminho_em é write-once no servidor). */}
+                        {aCaminho ? (
+                          <Text style={estilos.chegadaConfirmada}>✅ Você avisou que está a caminho</Text>
                         ) : (
-                          <View style={estilos.janelaWrap}>
-                            <Text style={estilos.janelaLabel}>Quando você pretende chegar?</Text>
-                            <View style={estilos.janelaOpcoes}>
-                              {JANELAS_CHEGADA.map(j => (
-                                <TouchableOpacity
-                                  key={j.id}
-                                  style={[estilos.janelaOpcao, enviandoJanela === j.id && estilos.janelaOpcaoAtiva]}
-                                  onPress={() => handleEscolherJanela(j.id)}
-                                  disabled={!!enviandoJanela}
-                                >
-                                  <Text style={estilos.janelaOpcaoTexto}>{enviandoJanela === j.id ? 'Enviando…' : j.label}</Text>
-                                </TouchableOpacity>
-                              ))}
-                            </View>
-                          </View>
+                          <TouchableOpacity style={[estilos.btnMatch, !podeDizerACaminho && { opacity: 0.5 }]} onPress={handleMatch} disabled={!podeDizerACaminho}>
+                            <Text style={estilos.btnMatchTexto}>
+                              {podeDizerACaminho ? '🚗 Estou a caminho!' : obra.chegada_prevista_em ? '🚗 Estou a caminho (libera no dia agendado)' : '🚗 Estou a caminho (agende o horário primeiro)'}
+                            </Text>
+                          </TouchableOpacity>
                         )}
-                        <TouchableOpacity style={estilos.btnMatch} onPress={handleMatch}>
-                          <Text style={estilos.btnMatchTexto}>🎨 Estou a caminho! Iniciar contagem →</Text>
-                        </TouchableOpacity>
                       </>
                     )}
                     {/* Reusa o MESMO flag do foraDaDisputa: antes este painel testava só
@@ -2421,9 +2477,6 @@ const estilos = StyleSheet.create({
   janelaWrap: { marginBottom: 4 },
   janelaLabel: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, marginBottom: 8 },
   janelaOpcoes: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  janelaOpcao: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  janelaOpcaoAtiva: { borderColor: cores.primaria, opacity: 0.6 },
-  janelaOpcaoTexto: { fontSize: 13, fontWeight: '600', color: cores.textoForte },
   chegadaConfirmada: { fontSize: 13, fontWeight: '600', color: '#4caf50', marginBottom: 4 },
   // Chegada prometida (dono). Mesma família visual do banner de contrato.
   chegadaBox: { backgroundColor: '#1a2a3a', borderWidth: 1, borderColor: '#4a90d9', borderRadius: raios.medio, padding: 12, marginBottom: 12 },
