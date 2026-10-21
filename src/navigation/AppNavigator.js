@@ -42,6 +42,7 @@ import EditarPerfilScreen  from '../screens/Perfil/EditarPerfilScreen'
 import AlterarSenhaScreen  from '../screens/Perfil/AlterarSenhaScreen'
 import SugestoesScreen     from '../screens/Perfil/SugestoesScreen'
 import RespostasEquipeScreen from '../screens/Perfil/RespostasEquipeScreen'
+import ComoFuncionaScreen  from '../screens/Perfil/ComoFuncionaScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
 
@@ -667,6 +668,7 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="Especialidades" component={EspecialidadesScreen} />
     <PerfilStack.Screen name="Sugestoes"    component={SugestoesScreen} />
     <PerfilStack.Screen name="RespostasEquipe" component={RespostasEquipeScreen} />
+    <PerfilStack.Screen name="ComoFunciona" component={ComoFuncionaScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
     <PerfilStack.Screen name="Termos"       component={TermosScreen} />
     <PerfilStack.Screen name="Privacidade"  component={PrivacidadeScreen} />
