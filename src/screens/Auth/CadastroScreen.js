@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as SecureStore from 'expo-secure-store'
 import { Image } from 'react-native'
 import { AppEventsLogger } from 'react-native-fbsdk-next'
+import { pareceEmail, MSG_NOME_NAO_EMAIL } from '../../utils/nome'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
@@ -310,6 +311,8 @@ export default function CadastroScreen({ navigation, route }) {
   const validarPasso1 = () => {
     const novos = {}
     if (!nome.trim()) novos.nome = 'Informe o nome'
+    // Nome ou sobrenome com cara de e-mail: o erro sai no campo NOME, o único com `erro`.
+    else if (pareceEmail(nome) || pareceEmail(sobrenome)) novos.nome = MSG_NOME_NAO_EMAIL
     if (!email.trim()) novos.email = 'Informe o e-mail'
     if (!senha.trim()) novos.senha = 'Informe a senha'
     if (senha.length < 8) novos.senha = 'Mínimo 8 caracteres'

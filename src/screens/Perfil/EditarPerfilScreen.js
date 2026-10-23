@@ -11,6 +11,7 @@ import { authService } from '../../services/api'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
+import { pareceEmail, MSG_NOME_NAO_EMAIL } from '../../utils/nome'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { avatar } from '../../utils/imagemOtimizada'
 
@@ -138,6 +139,10 @@ export default function EditarPerfilScreen({ navigation }) {
   const handleSalvar = async () => {
     if (!nome.trim()) {
       Alert.alert('Atenção', 'Informe seu nome.')
+      return
+    }
+    if (pareceEmail(nome)) {
+      Alert.alert('Atenção', MSG_NOME_NAO_EMAIL)
       return
     }
     setCarregando(true)
