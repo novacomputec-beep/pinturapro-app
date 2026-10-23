@@ -12,6 +12,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
+import BannerComoFunciona from '../../components/BannerComoFunciona'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_OBRA)
 // Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'residencial'
@@ -459,6 +460,9 @@ export default function CadastrarObraScreen({ navigation, route }) {
           )}
           <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
           <Text style={estilos.subtitulo}>Descreva a obra e encontre um profissional qualificado</Text>
+          {/* Só na raiz da aba "Nova Obra" (rota *Main): é a tela inicial do dono_obra e a
+              aba Perfil existe. Empilhada (NovoReparoStack/legado) a rota é 'CadastrarObra'. */}
+          {route?.name === 'CadastrarObraMain' && <BannerComoFunciona navigation={navigation} semRecuo />}
           <View style={estilos.avisoBanner}>
             <Text style={estilos.avisoIcone}>🎥</Text>
             <View style={{ flex: 1 }}>
