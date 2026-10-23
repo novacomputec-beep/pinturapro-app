@@ -26,6 +26,7 @@ import { emojiObra, rotulosEspecialidades } from '../../utils/categorias'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
+import BlocoPosMatchDono from '../../components/PosMatchDono'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -1329,6 +1330,13 @@ export default function DetalheObraScreen({ route, navigation }) {
   // "Estou a caminho" já dado (POST /match grava a_caminho_em): é o que libera a troca de
   // telefones nos dois lados — antes dele a API devolve telefone/dono_telefone nulos.
   const aCaminho = !!obra?.a_caminho_em
+  // Fase do DONO entre o match e o "Estou a caminho": a tela vira o bloco pós-match
+  // (components/PosMatchDono) — valor/título/endereço num card só, banner "aguarde o dia e
+  // o horário" (ou o card de agendamento, se o profissional já propôs), o profissional
+  // escolhido, a penalidade e o contrato. Lista de candidatos e botões de chegada/conclusão
+  // ficam escondidos até a_caminho_em existir. Espelha DetalheReparo.
+  const faseAguardaHorario = isDono && !!temMatch && !encerrada && !aCaminho
+  const temPropostaHorario = !!obra?.chegada_pendente_em || !!obra?.chegada_prevista_em
   // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
   // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
   const podeDizerACaminho = !!obra?.chegada_prevista_em && diaAgendadoChegou(obra.chegada_prevista_em, agora)
@@ -1547,7 +1555,32 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {(obra.valor || obra.valor_estimado) && (
+          {faseAguardaHorario && (
+            <BlocoPosMatchDono
+              demanda={obra}
+              frente="obra"
+              endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
+              valor={obra.valor || obra.valor_estimado}
+              profissional={pintorMatch}
+              onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
+              agendamento={temPropostaHorario ? (
+                <CardAgendamento
+                  demanda={obra}
+                  usuarioId={usuario?.id}
+                  souDono
+                  nomeOutro={primeiroNome(pintorMatch?.nome)}
+                  frente="obra"
+                  podePropor={false}
+                  enviando={!!enviandoJanela}
+                  respondendo={respondendoChegada}
+                  onPropor={handleProporHorario}
+                  onResponder={handleResponderAgendamento}
+                />
+              ) : null}
+            />
+          )}
+
+          {!faseAguardaHorario && (obra.valor || obra.valor_estimado) && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
               <View style={estilos.valorDestaqueLinha}>
                 <View>
@@ -1565,7 +1598,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          <Text style={estilos.titulo}>{obra.titulo}</Text>
+          {!faseAguardaHorario && <Text style={estilos.titulo}>{obra.titulo}</Text>}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
               cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
               O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
@@ -1588,13 +1621,13 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* Também some para o profissional do MATCH quando há endereço completo: a caixa
               acima já traz rua, número, bairro e cidade, e a distância deixa de importar
               depois que a obra é dele. */}
-          {!((isDono || souPintorDoMatch) && obra.endereco_obra) && (
+          {!faseAguardaHorario && !((isDono || souPintorDoMatch) && obra.endereco_obra) && (
             <Text style={estilos.local}>
               📍 {obra.cidade}{obra.bairro ? `, ${obra.bairro}` : ''}
               {!isDono && distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
             </Text>
           )}
-          {isDono && obra.endereco_obra ? (
+          {isDono && !faseAguardaHorario && obra.endereco_obra ? (
             <Text style={estilos.enderecoLinha}>📍 {obra.endereco_obra}</Text>
           ) : null}
           {/* Linha de referência do DONO: com valor, é a mesma linha de antes, agora tocável
@@ -1679,7 +1712,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* !chegadaConfirmada: confirmada a chegada, a contagem sai de cena — ela media o
               tempo ATÉ chegar, e esse prazo já foi cumprido. Deixá-la correndo ali passaria
               a cobrar um atraso que não existe mais. */}
-          {(souPintorDoMatch || isDono) && temMatch && obra.expira_em && !chegadaConfirmada && !encerrada && (
+          {!faseAguardaHorario && (souPintorDoMatch || isDono) && temMatch && obra.expira_em && !chegadaConfirmada && !encerrada && (
             <RelogioRegressivo
               expiraEm={obra.chegada_prevista_em || obra.expira_em}
               onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
@@ -1698,7 +1731,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {temMatch && !encerrada && (
+          {temMatch && !encerrada && !faseAguardaHorario && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>
@@ -1709,7 +1742,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isDono && (
             <>
-              {temMatch && !encerrada && <CaixaConcluaPeloApp />}
+              {temMatch && !encerrada && !faseAguardaHorario && <CaixaConcluaPeloApp />}
               {obra.status === 'aberta' && !obra.match_usuario_id && (
                 <TouchableOpacity
                   style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (obra.expirada || emEsperaEstender) && { opacity: 0.6 }]}
@@ -1750,7 +1783,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   aguardando o profissional ou AGENDADO: um card só, ver components/Agendamento.
                   O aceite já casa o profissional (API), então temMatch vale desde a proposta.
                   Some com a chegada confirmada: daí em diante o marco é "em andamento". */}
-              {temMatch && !encerrada && !chegadaConfirmada && (
+              {temMatch && !encerrada && !chegadaConfirmada && !faseAguardaHorario && (
                 <CardAgendamento
                   demanda={obra}
                   usuarioId={usuario?.id}
@@ -1810,12 +1843,14 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
                 </TouchableOpacity>
               )}
-              {temMatch && chegadaNaoDeclarada && !encerrada && (
+              {/* aCaminho: antes do "Estou a caminho" não há chegada a registrar nem conclusão
+                  a confirmar — os dois botões esperam a_caminho_em. */}
+              {temMatch && aCaminho && chegadaNaoDeclarada && !encerrada && (
                 <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
                   <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Profissional chegou'}</Text>
                 </TouchableOpacity>
               )}
-              {temMatch && obra?.status !== 'encerrada' && (
+              {temMatch && aCaminho && obra?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, euSolicitei && { opacity: 0.6 }]} onPress={handleEncerrar} disabled={euSolicitei}>
                   <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar obra')}</Text>
                 </TouchableOpacity>
@@ -1853,6 +1888,9 @@ export default function DetalheObraScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
+              {/* Escondida na fase pós-match sem "a caminho": o bloco do topo já mostra o
+                  escolhido, e os demais já perderam a disputa. */}
+              {!faseAguardaHorario && (<>
               <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🎨 Profissionais candidatos ({candidatos.length})</Text>
               {candidatos.length === 0 ? (
                 <View style={estilos.vazioInteressados}>
@@ -2078,6 +2116,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   )
                 })
               )}
+              </>)}
             </>
           )}
 
