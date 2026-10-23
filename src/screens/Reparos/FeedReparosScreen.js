@@ -20,7 +20,7 @@ import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
-import PilulaComoFunciona from '../../components/PilulaComoFunciona'
+import BannerComoFunciona from '../../components/BannerComoFunciona'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -450,7 +450,6 @@ export default function FeedReparosScreen({ navigation }) {
         <View>
           <View style={estilos.saudacaoRow}>
             <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🔧</Text>
-            <PilulaComoFunciona navigation={navigation} />
           </View>
           <Text style={estilos.titulo}>
             Serviços <Text style={{ color: cores.primaria }}>disponíveis</Text>
@@ -466,6 +465,8 @@ export default function FeedReparosScreen({ navigation }) {
           )}
         </TouchableOpacity>
       </View>
+
+      <BannerComoFunciona navigation={navigation} />
 
       {/* Fora da FlatList de propósito: fica fixo no topo enquanto a permissão de
           notificação não existe, e devolve null assim que ela é concedida. */}

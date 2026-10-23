@@ -12,6 +12,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_SERVICO } from '../../utils/categorias'
+import BannerComoFunciona from '../../components/BannerComoFunciona'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
 // Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'hidraulica'
@@ -419,6 +420,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
           )}
           <Text style={estilos.titulo}>Cadastrar{'\n'}serviço</Text>
           <Text style={estilos.subtitulo}>Descreva o serviço e encontre um profissional qualificado</Text>
+          {/* Só na raiz da aba "Novo Serviço" (rota *Main): é a tela inicial do dono_reparo e
+              a aba Perfil existe. No stack legado (rota 'CadastrarReparo') não há Perfil. */}
+          {route?.name === 'CadastrarReparoMain' && <BannerComoFunciona navigation={navigation} semRecuo />}
           <View style={estilos.avisoBanner}>
             <Text style={estilos.avisoIcone}>🎥</Text>
             <View style={{ flex: 1 }}>

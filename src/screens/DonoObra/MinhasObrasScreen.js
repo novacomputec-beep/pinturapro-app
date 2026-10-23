@@ -12,7 +12,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
-import PilulaComoFunciona from '../../components/PilulaComoFunciona'
+import BannerComoFunciona from '../../components/BannerComoFunciona'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -238,9 +238,6 @@ export default function MinhasObrasScreen({ navigation, route }) {
         <View>
           <View style={estilos.saudacaoRow}>
             <Text style={estilos.saudacao}>Olá, {usuario?.nome?.split(' ')[0]} 🏠</Text>
-            {/* Só nas abas (soAba): o stack legado do dono sem tipo_dono não tem a aba
-                Perfil, e a pílula não teria para onde navegar. */}
-            {!!soAba && <PilulaComoFunciona navigation={navigation} />}
           </View>
           <Text style={estilos.titulo}>
             {soAba === 'reparos' ? 'Meus ' : 'Minhas '}
@@ -254,6 +251,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
           <Text style={estilos.btnSairTexto}>Sair</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Só nas abas (soAba): o stack legado do dono sem tipo_dono não tem a aba
+          Perfil, e o cartão não teria para onde navegar. */}
+      {!!soAba && <BannerComoFunciona navigation={navigation} />}
 
       {!soAba && (
         <View style={estilos.botoesRow}>
