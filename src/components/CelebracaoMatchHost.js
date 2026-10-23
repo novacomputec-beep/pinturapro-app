@@ -17,6 +17,26 @@ import { CaixaAtencaoApp } from './Agendamento'
 // ramo do reparador, "a obra X" (f.) no do pintor.
 const nomeDe = (linhas) => (linhas[0]?.titulo ? `"${linhas[0].titulo}"` : null)
 
+// Nome do profissional casado, para o modal de match do DONO. A lista (/reparos/minhas,
+// /obras/minhas) só traz match_usuario_id; o nome vive no detalhe, nas linhas de
+// interessados/candidatos que o dono já recebe. Uma leitura a mais, só no momento do match.
+// Falha ou ausência caem no genérico — o modal não pode depender disso para aparecer.
+const nomeDoProfissional = async (ehObra, demandaId, matchUsuarioId) => {
+  try {
+    const resp = await api.get(ehObra ? `/obras/${demandaId}` : `/reparos/${demandaId}`)
+    const linhas = (ehObra ? resp?.candidatos : resp?.interessados) || []
+    const m = linhas.find(x => x.usuario_id != null && String(x.usuario_id) === String(matchUsuarioId))
+    return (m?.nome || '').trim() || 'O profissional'
+  } catch (err) {
+    console.log('[Celebracao] nome do profissional indisponível, modal segue genérico | code:', err?.code)
+    return 'O profissional'
+  }
+}
+
+// Texto do modal de match do dono. "ele(a)" é neutro de propósito: o cadastro não guarda gênero.
+const subtituloMatch = (nome, titulo) =>
+  `${nome} vai fazer sua “${titulo}”.\n\nAgora é só aguardar: ele(a) vai te enviar o dia e o horário pelo app.`
+
 // Contrato finalizado do DONO ainda sem avaliação, para o lembrete que reaparece.
 // `ja_avaliei` só existe no payload de contratos finalizados — a lista de demandas não o
 // traz —, então não há como saber sem esta SEGUNDA requisição. Ela roda apenas quando a
@@ -93,15 +113,12 @@ const detectar = async (usuario) => {
       x.match_feito_em && x.match_usuario_id && naoVisto(`reparo_match:${x.id}`)
     )
     if (matched) return {
-      // avisoApp: a caixa âmbar "agende e conclua pelo app" entra em todo match, dos dois lados.
-      avisoApp: true,
+      // Sem avisoApp: a caixa âmbar da penalidade saiu do modal e mora no bloco pós-match do
+      // detalhe (components/PosMatchDono), onde o dono a lê junto do que ela regula.
       chave: `reparo_match:${matched.id}`, emoji: '🎉',
-      titulo: 'Seu serviço vai ser realizado!',
-      // A regra do encerramento vem junto: era uma tarja âmbar permanente ao lado do botão
-      // nas duas telas de detalhe. Dita UMA vez, no momento em que o combinado nasce e às
-      // duas partes, informa o mesmo sem ocupar a tela pelo resto do serviço.
-      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Agora combinem o dia e o horário aqui no app.`,
-      ctaTexto: 'Ver detalhes',
+      titulo: 'Match feito!',
+      subtitulo: subtituloMatch(await nomeDoProfissional(false, matched.id, matched.match_usuario_id), matched.titulo),
+      ctaTexto: 'Ver meu serviço',
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: matched }, initial: false }),
     }
     // Serviço CONCLUÍDO — espelha o aviso que o profissional já recebe. Fecha o lado do
@@ -208,11 +225,12 @@ const detectar = async (usuario) => {
       x.match_feito_em && x.match_usuario_id && naoVisto(`obra_match:${x.id}`)
     )
     if (matched) return {
-      avisoApp: true,
+      // Mesmo molde do reparo_match acima: sem avisoApp, nome do profissional e o CTA no
+      // vocabulário da obra.
       chave: `obra_match:${matched.id}`, emoji: '🎉',
-      titulo: 'Sua obra vai ser realizada!',
-      subtitulo: `Ótima notícia! Um profissional verificado fechou negócio para "${matched.titulo}". Agora combinem o dia e o horário aqui no app.`,
-      ctaTexto: 'Ver detalhes',
+      titulo: 'Match feito!',
+      subtitulo: subtituloMatch(await nomeDoProfissional(true, matched.id, matched.match_usuario_id), matched.titulo),
+      ctaTexto: 'Ver minha obra',
       navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: matched }, initial: false }),
     }
     // Obra CONCLUÍDA — espelha o ramo do dono_reparo, mesma posição (depois do match,

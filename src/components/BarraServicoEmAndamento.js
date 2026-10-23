@@ -135,11 +135,18 @@ const BarraServicoEmAndamento = () => {
   // papel da barra, que é levar de volta.
   // "interessado(s)" é o vocabulário que o dono já lê no banner de parabéns; não se inventa
   // "candidatura"/"proposta" aqui só porque o campo do servidor tem outro nome.
+  // DONO com match mas ainda sem "Estou a caminho" (a_caminho_em nulo): o serviço não está
+  // em andamento, está esperando o profissional mandar o dia e o horário — e é isso que a
+  // barra diz. Só o dono (as linhas dele são a própria demanda, com a_caminho_em); as linhas
+  // do profissional são a proposta e seguem com o texto de sempre.
+  const donoSemACaminho = um && usuario.role === 'dono_obra' && !linhas[0].a_caminho_em
   const rotulo = emAndamento
     ? (um
-        ? (linhas[0].titulo
-            ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${linhas[0].titulo}`
-            : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
+        ? (donoSemACaminho
+            ? `⏳ Match feito! Aguardando dia e horário${linhas[0].titulo ? ` · ${linhas[0].titulo}` : ''}`
+            : linhas[0].titulo
+              ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${linhas[0].titulo}`
+              : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
         : `${linhas.length} ${ehObra ? 'obras' : 'serviços'} em andamento`)
     : (um
         ? `${linhas[0].titulo || (ehObra ? 'Obra' : 'Serviço')} · ${cfg.pendentes?.(linhas[0]) ?? 0} interessado(s) aguardando resposta`
@@ -166,7 +173,7 @@ const BarraServicoEmAndamento = () => {
       accessibilityLabel={`${rotulo}. Toque para abrir.`}
     >
       {/* Emoji fora do rotulo, como sempre: o accessibilityLabel acima lê só o texto. */}
-      <Text style={estilos.texto} numberOfLines={1}>{emAndamento ? '▶️' : '📬'} {rotulo}</Text>
+      <Text style={estilos.texto} numberOfLines={1}>{emAndamento ? (donoSemACaminho ? '' : '▶️ ') : '📬 '}{rotulo}</Text>
       <View style={estilos.pill}>
         <Text style={estilos.pillTexto}>Abrir →</Text>
       </View>

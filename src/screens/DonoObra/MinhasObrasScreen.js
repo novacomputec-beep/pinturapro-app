@@ -190,7 +190,11 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
         {temMatch && (
           <View style={estilos.matchBadge}>
-            <Text style={estilos.matchBadgeTexto}>⏱ Profissional a caminho — toque para ver</Text>
+            {/* Antes do "Estou a caminho" (a_caminho_em) o que falta é o dia e o horário;
+                o texto antigo só vale depois dele. */}
+            <Text style={estilos.matchBadgeTexto}>
+              {item.a_caminho_em ? '⏱ Profissional a caminho — toque para ver' : '⏳ Aguardando o profissional enviar dia e horário'}
+            </Text>
           </View>
         )}
 
