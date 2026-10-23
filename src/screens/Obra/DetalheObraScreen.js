@@ -27,6 +27,7 @@ import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import BlocoPosMatchDono from '../../components/PosMatchDono'
+import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -1337,6 +1338,20 @@ export default function DetalheObraScreen({ route, navigation }) {
   // ficam escondidos até a_caminho_em existir. Espelha DetalheReparo.
   const faseAguardaHorario = isDono && !!temMatch && !encerrada && !aCaminho
   const temPropostaHorario = !!obra?.chegada_pendente_em || !!obra?.chegada_prevista_em
+  // Fase do PROFISSIONAL do match sem horário ACEITO — espelha DetalheReparo: o bloco
+  // (components/PosMatchProfissional) fica FORA do painel `!temMatch`, que nunca mais
+  // renderizava para o pintor casado desde que a API passou a casar no aceite. Com horário
+  // aceito, o card AGENDADO e o "Estou a caminho" entram na seção do profissional.
+  const horarioAceito = !!obra?.chegada_prevista_em
+  const faseProAguardaHorario = !!souPintorDoMatch && !encerrada && !horarioAceito
+  const clienteContrapropos = !!obra?.chegada_pendente_em && obra?.chegada_proposta_por != null &&
+    usuario?.id != null && String(obra.chegada_proposta_por) !== String(usuario.id)
+  // Valor combinado visto pelo pintor: a própria candidatura (contraproposta, proposto ou a
+  // oferta legada), senão o valor da obra.
+  const valorCombinadoPro = minhaCandidatura
+    ? (minhaCandidatura.valor_contraproposta ?? minhaCandidatura.valor_proposto ?? minhaCandidatura.valor_oferta ?? obra?.valor ?? obra?.valor_estimado)
+    : (obra?.valor ?? obra?.valor_estimado)
+  const topoCompacto = faseAguardaHorario || faseProAguardaHorario
   // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
   // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
   const podeDizerACaminho = !!obra?.chegada_prevista_em && diaAgendadoChegou(obra.chegada_prevista_em, agora)
@@ -1580,7 +1595,33 @@ export default function DetalheObraScreen({ route, navigation }) {
             />
           )}
 
-          {!faseAguardaHorario && (obra.valor || obra.valor_estimado) && (
+          {faseProAguardaHorario && (
+            <BlocoPosMatchProfissional
+              demanda={obra}
+              frente="obra"
+              valor={valorCombinadoPro}
+              usuarioId={usuario?.id}
+              enviando={!!enviandoJanela}
+              onPropor={handleProporHorario}
+              onExpirar={handleExpirarMatch}
+              agendamento={clienteContrapropos ? (
+                <CardAgendamento
+                  demanda={obra}
+                  usuarioId={usuario?.id}
+                  souDono={false}
+                  limite={obra.expira_em}
+                  frente="obra"
+                  podePropor={souPintorDoMatch}
+                  enviando={!!enviandoJanela}
+                  respondendo={respondendoChegada}
+                  onPropor={handleProporHorario}
+                  onResponder={handleResponderAgendamento}
+                />
+              ) : null}
+            />
+          )}
+
+          {!topoCompacto && (obra.valor || obra.valor_estimado) && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
               <View style={estilos.valorDestaqueLinha}>
                 <View>
@@ -1598,7 +1639,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {!faseAguardaHorario && <Text style={estilos.titulo}>{obra.titulo}</Text>}
+          {!topoCompacto && <Text style={estilos.titulo}>{obra.titulo}</Text>}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
               cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
               O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
@@ -1621,7 +1662,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* Também some para o profissional do MATCH quando há endereço completo: a caixa
               acima já traz rua, número, bairro e cidade, e a distância deixa de importar
               depois que a obra é dele. */}
-          {!faseAguardaHorario && !((isDono || souPintorDoMatch) && obra.endereco_obra) && (
+          {!topoCompacto && !((isDono || souPintorDoMatch) && obra.endereco_obra) && (
             <Text style={estilos.local}>
               📍 {obra.cidade}{obra.bairro ? `, ${obra.bairro}` : ''}
               {!isDono && distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
@@ -1712,7 +1753,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* !chegadaConfirmada: confirmada a chegada, a contagem sai de cena — ela media o
               tempo ATÉ chegar, e esse prazo já foi cumprido. Deixá-la correndo ali passaria
               a cobrar um atraso que não existe mais. */}
-          {!faseAguardaHorario && (souPintorDoMatch || isDono) && temMatch && obra.expira_em && !chegadaConfirmada && !encerrada && (
+          {!topoCompacto && (souPintorDoMatch || isDono) && temMatch && obra.expira_em && !chegadaConfirmada && !encerrada && (
             <RelogioRegressivo
               expiraEm={obra.chegada_prevista_em || obra.expira_em}
               onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
@@ -1731,7 +1772,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {temMatch && !encerrada && !faseAguardaHorario && (
+          {temMatch && !encerrada && !topoCompacto && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>
@@ -2123,6 +2164,36 @@ export default function DetalheObraScreen({ route, navigation }) {
           {isPrestador && !isDono && (
             <>
               {souPintorDoMatch && !encerrada && <CaixaReputacao />}
+              {/* Horário ACEITO: o card AGENDADO e o "Estou a caminho" — aqui, fora do painel
+                  `!temMatch` (ver faseProAguardaHorario). Antes do aceite do horário tudo isso
+                  vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
+              {souPintorDoMatch && !encerrada && horarioAceito && !chegadaConfirmada && (
+                <>
+                  <CardAgendamento
+                    demanda={obra}
+                    usuarioId={usuario?.id}
+                    souDono={false}
+                    limite={obra.expira_em}
+                    frente="obra"
+                    podePropor={souPintorDoMatch}
+                    enviando={!!enviandoJanela}
+                    respondendo={respondendoChegada}
+                    onPropor={handleProporHorario}
+                    onResponder={handleResponderAgendamento}
+                  />
+                  {/* "Estou a caminho" só libera no DIA agendado; dado uma vez, vira a linha de
+                      confirmação (a_caminho_em é write-once no servidor). */}
+                  {aCaminho ? (
+                    <Text style={estilos.chegadaConfirmada}>✅ Você avisou que está a caminho</Text>
+                  ) : (
+                    <TouchableOpacity style={[estilos.btnMatch, { marginTop: 0, marginBottom: 12 }, !podeDizerACaminho && { opacity: 0.5 }]} onPress={handleMatch} disabled={!podeDizerACaminho}>
+                      <Text style={estilos.btnMatchTexto}>
+                        {podeDizerACaminho ? '🚗 Estou a caminho!' : '🚗 Estou a caminho (libera no dia agendado)'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
               {/* WhatsApp do solicitante: dono_telefone só vem da API depois do "Estou a
                   caminho" (a_caminho_em) e só para o pintor do match. */}
               {souPintorDoMatch && aCaminho && donoTelefone && !encerrada && (
