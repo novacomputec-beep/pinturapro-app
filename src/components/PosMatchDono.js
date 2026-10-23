@@ -25,6 +25,39 @@ const iniciaisDe = (nome) =>
 
 const formatarValor = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
+// Limite do dono em America/Sao_Paulo — é o fuso em que o prazo foi cadastrado e em que o
+// servidor escreve os pushes, não o do aparelho. Intl com timeZone quando existe (Hermes
+// traz Intl nas duas plataformas); sem ele cai no relógio local, que no Brasil coincide.
+// "hoje, às 14:00" / "amanhã, às 14:00" / "qui, 29/10 às 14:00".
+const SP_TZ = 'America/Sao_Paulo'
+const DIAS_PT = { Sun: 'dom', Mon: 'seg', Tue: 'ter', Wed: 'qua', Thu: 'qui', Fri: 'sex', Sat: 'sáb' }
+const DIAS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const p2 = (n) => String(n).padStart(2, '0')
+const partesSP = (d) => {
+  try {
+    const f = new Intl.DateTimeFormat('en-US', { timeZone: SP_TZ, hour12: false, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    const o = {}
+    for (const p of f.formatToParts(d)) o[p.type] = p.value
+    // Alguns motores escrevem meia-noite como "24" com hour12: false.
+    return { dia: o.weekday, d: o.day, m: o.month, y: o.year, hh: o.hour === '24' ? '00' : o.hour, mm: o.minute }
+  } catch (e) {
+    return { dia: DIAS_EN[d.getDay()], d: p2(d.getDate()), m: p2(d.getMonth() + 1), y: String(d.getFullYear()), hh: p2(d.getHours()), mm: p2(d.getMinutes()) }
+  }
+}
+export const formatarLimiteSP = (iso, agoraMs = Date.now()) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const a = partesSP(d)
+  const chave = (x) => `${x.y}-${x.m}-${x.d}`
+  const hora = `${a.hh}:${a.mm}`
+  if (chave(a) === chave(partesSP(new Date(agoraMs)))) return `hoje, às ${hora}`
+  if (chave(a) === chave(partesSP(new Date(agoraMs + 86400000)))) return `amanhã, às ${hora}`
+  return `${DIAS_PT[a.dia] || a.dia}, ${a.d}/${a.m} às ${hora}`
+}
+
+const UM_DIA_MS = 24 * 60 * 60 * 1000
+
 // Contagem até `alvo` (chegada prevista ou prazo da demanda). Tique de 30 s: o rótulo é em
 // minutos. `onExpirar` dispara UMA vez ao zerar — é o mesmo gancho do RelogioRegressivo das
 // telas, que este box substitui no estado pós-match do dono.
@@ -48,6 +81,10 @@ const TempoRestante = ({ alvo, frente, onExpirar }) => {
 
 export default function BlocoPosMatchDono({ demanda, frente, endereco, valor, profissional, agendamento, onExpirar }) {
   const alvoPrazo = demanda?.chegada_prevista_em || demanda?.expira_em
+  // Banner: a menos de 24 h do limite não há "dia" a escolher, só o horário. Lido uma vez
+  // por render — o banner não precisa acompanhar o relógio como o box do prazo.
+  const prazoCurto = !!alvoPrazo && (new Date(alvoPrazo).getTime() - Date.now()) < UM_DIA_MS
+  const limiteTexto = formatarLimiteSP(alvoPrazo)
   const temValor = valor != null && Number(valor) > 0
   const nota = profissional?.avaliacoes_total > 0
     ? `⭐ ${Number(profissional.avaliacoes_media).toFixed(1)} (${profissional.avaliacoes_total} ${profissional.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})`
@@ -91,8 +128,15 @@ export default function BlocoPosMatchDono({ demanda, frente, endereco, valor, pr
             style={estilos.banner}
           >
             <Text style={estilos.bannerEmoji}>⏳</Text>
-            <Text style={estilos.bannerTitulo}>AGUARDE O PROFISSIONAL ENVIAR O DIA E O HORÁRIO</Text>
+            <Text style={estilos.bannerTitulo}>{prazoCurto ? 'AGUARDE O PROFISSIONAL ENVIAR O HORÁRIO' : 'AGUARDE O PROFISSIONAL ENVIAR O DIA E O HORÁRIO'}</Text>
             <Text style={estilos.bannerSub}>Depois é só você concordar ou sugerir outro.</Text>
+            {limiteTexto ? (
+              <View style={estilos.bannerLimite}>
+                <Text style={estilos.bannerLimiteLinha}>{prazoCurto ? '📅 O horário precisa ser até:' : '📅 O dia e o horário precisam ser até:'}</Text>
+                <Text style={estilos.bannerLimiteValor}>{limiteTexto}</Text>
+                <Text style={estilos.bannerLimiteNota}>É o prazo que você cadastrou.</Text>
+              </View>
+            ) : null}
             <View style={estilos.bannerChip}>
               <Text style={estilos.bannerChipTexto}>🔔 Você será avisado por notificação</Text>
             </View>
@@ -153,6 +197,10 @@ const estilos = StyleSheet.create({
   bannerEmoji: { fontSize: 44, marginBottom: 8 },
   bannerTitulo: { fontSize: 17, fontWeight: '900', color: '#FFFFFF', textAlign: 'center', lineHeight: 23, letterSpacing: 0.3, marginBottom: 8 },
   bannerSub: { fontSize: 14, color: 'rgba(255,255,255,0.92)', textAlign: 'center', lineHeight: 20, marginBottom: 14 },
+  bannerLimite: { alignSelf: 'stretch', backgroundColor: 'rgba(20,20,22,0.55)', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, alignItems: 'center', marginBottom: 12 },
+  bannerLimiteLinha: { fontSize: 13, color: 'rgba(255,255,255,0.92)', textAlign: 'center', marginBottom: 4 },
+  bannerLimiteValor: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', marginBottom: 4 },
+  bannerLimiteNota: { fontSize: 11, color: 'rgba(255,255,255,0.75)', textAlign: 'center' },
   bannerChip: { backgroundColor: 'rgba(0,0,0,0.28)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   bannerChipTexto: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
 
