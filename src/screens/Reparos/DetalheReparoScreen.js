@@ -27,6 +27,7 @@ import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import BlocoPosMatchDono from '../../components/PosMatchDono'
+import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -1415,6 +1416,25 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // ficam escondidos até a_caminho_em existir.
   const faseAguardaHorario = isDono && !!temMatch && !encerrada && !aCaminho
   const temPropostaHorario = !!reparo?.chegada_pendente_em || !!reparo?.chegada_prevista_em
+  // Fase do PROFISSIONAL do match sem horário ACEITO: o bloco pós-match dele
+  // (components/PosMatchProfissional) — card do topo, banner "envie o dia e o horário" com o
+  // picker, o cliente e a penalidade. Fica FORA do painel `!temMatch` lá embaixo de
+  // propósito: a API casa no aceite (match_feito_em nasce junto), então aquele painel — que
+  // guardava o picker e o "Estou a caminho" — nunca mais renderizava para o profissional
+  // casado. Com horário aceito, o card AGENDADO e o "Estou a caminho" entram na seção do
+  // profissional, também fora do painel.
+  const horarioAceito = !!reparo?.chegada_prevista_em
+  const faseProAguardaHorario = !!souPrestadorDoMatch && !encerrada && !horarioAceito
+  // Contraproposta do CLIENTE pendente: o bloco mostra o CardAgendamento (aceitar/sugerir).
+  const clienteContrapropos = !!reparo?.chegada_pendente_em && reparo?.chegada_proposta_por != null &&
+    usuario?.id != null && String(reparo.chegada_proposta_por) !== String(usuario.id)
+  // Valor combinado visto pelo profissional: a linha do próprio interesse (COALESCE de
+  // contraproposta e proposto, como em Contratos Finalizados), senão o pedido.
+  const valorCombinadoPro = meuInteresse
+    ? (meuInteresse.valor_contraproposta ?? meuInteresse.valor_proposto ?? reparo?.valor_estimado)
+    : reparo?.valor_estimado
+  // Topo compacto (card único no lugar de valor/título/endereço/relógio/contrato) nas duas fases.
+  const topoCompacto = faseAguardaHorario || faseProAguardaHorario
   // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
   // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
   const podeDizerACaminho = !!reparo?.chegada_prevista_em && diaAgendadoChegou(reparo.chegada_prevista_em, agora)
@@ -1663,7 +1683,33 @@ export default function DetalheReparoScreen({ route, navigation }) {
             />
           )}
 
-          {!faseAguardaHorario && valorPrincipal != null && Number(valorPrincipal) > 0 && (
+          {faseProAguardaHorario && (
+            <BlocoPosMatchProfissional
+              demanda={reparo}
+              frente="servico"
+              valor={valorCombinadoPro}
+              usuarioId={usuario?.id}
+              enviando={!!enviandoJanela}
+              onPropor={handleProporHorario}
+              onExpirar={handleExpirarMatch}
+              agendamento={clienteContrapropos ? (
+                <CardAgendamento
+                  demanda={reparo}
+                  usuarioId={usuario?.id}
+                  souDono={false}
+                  limite={reparo.expira_em}
+                  frente="servico"
+                  podePropor={souPrestadorDoMatch}
+                  enviando={!!enviandoJanela}
+                  respondendo={respondendoChegada}
+                  onPropor={handleProporHorario}
+                  onResponder={handleResponderAgendamento}
+                />
+              ) : null}
+            />
+          )}
+
+          {!topoCompacto && valorPrincipal != null && Number(valorPrincipal) > 0 && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
               <View style={estilos.valorDestaqueLinha}>
                 <View>
@@ -1681,7 +1727,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {!faseAguardaHorario && <Text style={estilos.titulo}>{reparo.titulo}</Text>}
+          {!topoCompacto && <Text style={estilos.titulo}>{reparo.titulo}</Text>}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
               cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
               O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
@@ -1705,7 +1751,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               acima já traz rua, número, bairro e cidade. Repetir cidade/bairro logo abaixo
               é uma versão pior do mesmo dado — e a distância, que era o motivo de a linha
               existir, deixa de importar depois que o serviço é dele. */}
-          {!faseAguardaHorario && !((isDono || souPrestadorDoMatch) && reparo.endereco_reparo) && (
+          {!topoCompacto && !((isDono || souPrestadorDoMatch) && reparo.endereco_reparo) && (
             <Text style={estilos.local}>
               📍 {reparo.cidade}{reparo.bairro ? `, ${reparo.bairro}` : ''}
               {!isDono && distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
@@ -1795,7 +1841,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           {/* !chegadaConfirmada: confirmada a chegada, a contagem sai de cena — ela media o
               tempo ATÉ chegar, e esse prazo já foi cumprido. Deixá-la correndo ali passaria
               a cobrar um atraso que não existe mais. */}
-          {!faseAguardaHorario && (souPrestadorDoMatch || isDono) && temMatch && reparo.expira_em && !chegadaConfirmada && reparo.status !== 'encerrada' && (
+          {!topoCompacto && (souPrestadorDoMatch || isDono) && temMatch && reparo.expira_em && !chegadaConfirmada && reparo.status !== 'encerrada' && (
             <RelogioRegressivo
               expiraEm={reparo.chegada_prevista_em || reparo.expira_em}
               onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
@@ -1824,7 +1870,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {temMatch && !encerrada && !faseAguardaHorario && (
+          {temMatch && !encerrada && !topoCompacto && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>
@@ -2219,6 +2265,36 @@ export default function DetalheReparoScreen({ route, navigation }) {
           {isPrestador && !isDono && (
             <>
               {souPrestadorDoMatch && !encerrada && <CaixaReputacao />}
+              {/* Horário ACEITO: o card AGENDADO e o "Estou a caminho" — aqui, fora do painel
+                  `!temMatch` (ver faseProAguardaHorario). Antes do aceite do horário tudo isso
+                  vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
+              {souPrestadorDoMatch && !encerrada && horarioAceito && !chegadaConfirmada && (
+                <>
+                  <CardAgendamento
+                    demanda={reparo}
+                    usuarioId={usuario?.id}
+                    souDono={false}
+                    limite={reparo.expira_em}
+                    frente="servico"
+                    podePropor={souPrestadorDoMatch}
+                    enviando={!!enviandoJanela}
+                    respondendo={respondendoChegada}
+                    onPropor={handleProporHorario}
+                    onResponder={handleResponderAgendamento}
+                  />
+                  {/* "Estou a caminho" só libera no DIA agendado; dado uma vez, vira a linha de
+                      confirmação (a_caminho_em é write-once no servidor). */}
+                  {aCaminho ? (
+                    <Text style={estilos.chegadaConfirmada}>✅ Você avisou que está a caminho</Text>
+                  ) : (
+                    <TouchableOpacity style={[estilos.btnMatch, { marginTop: 0, marginBottom: 12 }, !podeDizerACaminho && { opacity: 0.5 }]} onPress={handleMatch} disabled={!podeDizerACaminho}>
+                      <Text style={estilos.btnMatchTexto}>
+                        {podeDizerACaminho ? '🚗 Estou a caminho!' : '🚗 Estou a caminho (libera no dia agendado)'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
               {/* WhatsApp do solicitante: dono_telefone só vem da API depois do "Estou a
                   caminho" (a_caminho_em) e só para o prestador do match. */}
               {souPrestadorDoMatch && aCaminho && donoTelefone && !encerrada && (
