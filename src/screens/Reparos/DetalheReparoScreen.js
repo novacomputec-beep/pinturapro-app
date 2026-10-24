@@ -1416,6 +1416,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // ficam escondidos até a_caminho_em existir.
   const faseAguardaHorario = isDono && !!temMatch && !encerrada && !aCaminho
   const temPropostaHorario = !!reparo?.chegada_pendente_em || !!reparo?.chegada_prevista_em
+  // Proposta recebida ou AGENDADO (ainda sem "Estou a caminho"): o bloco assume a linha do
+  // ponto de referência e o contrato vira uma linha; descrição some — tudo para caber numa tela.
+  const donoAgendando = faseAguardaHorario && temPropostaHorario
   // Fase do PROFISSIONAL do match sem horário ACEITO: o bloco pós-match dele
   // (components/PosMatchProfissional) — card do topo, banner "envie o dia e o horário" com o
   // picker, o cliente e a penalidade. Fica FORA do painel `!temMatch` lá embaixo de
@@ -1666,6 +1669,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
               valor={valorPrincipal}
               profissional={prestadorMatch}
               onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
+              pontoReferencia={reparo.ponto_referencia}
+              onEditarReferencia={donoAgendando ? abrirReferencia : undefined}
               agendamento={temPropostaHorario ? (
                 <CardAgendamento
                   demanda={reparo}
@@ -1678,6 +1683,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   respondendo={respondendoChegada}
                   onPropor={handleProporHorario}
                   onResponder={handleResponderAgendamento}
+                  agendadoDestaque
                 />
               ) : null}
             />
@@ -1765,7 +1771,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               que o campo existe. Fora do gate de endereco_reparo de propósito: a referência
               é editável mesmo quando o endereço não foi preenchido. O profissional segue
               vendo só o texto, nos blocos acima. */}
-          {isDono ? (
+          {isDono && !donoAgendando ? (
             <TouchableOpacity onPress={abrirReferencia} activeOpacity={0.7}>
               {reparo.ponto_referencia ? (
                 <Text style={estilos.pontoReferenciaLinha}>
@@ -1790,7 +1796,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
 
-          {(!souPrestadorDoMatch || mostrarPedido) && reparo.descricao && (
+          {(!souPrestadorDoMatch || mostrarPedido) && !donoAgendando && reparo.descricao && (
             <>
               <Text style={estilos.secaoTitulo}>Descrição</Text>
               <Text style={estilos.descricao}>{reparo.descricao}</Text>

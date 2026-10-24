@@ -74,10 +74,11 @@ export const CaixaConcluaPeloApp = () => (
 )
 
 // Âmbar: na celebração do match e em TODO card de agendamento. `compacta` tira a margem
-// inferior para caber dentro do modal da celebração.
-export const CaixaAtencaoApp = ({ compacta }) => (
-  <View style={[estilos.caixaAmbar, compacta && { marginBottom: 16 }]}>
-    <Text style={estilos.caixaAmbarTexto}>⚠️ Atenção: mesmo que conversem pelo WhatsApp, o dia, o horário e a conclusão do serviço devem ser registrados aqui no app. Agendar ou concluir o serviço fora do ProTudo gera penalidade para os dois.</Text>
+// inferior para caber dentro do modal da celebração. `grande` sobe a fonte (card AGENDADO
+// do dono antes do "Estou a caminho", onde ela é o único aviso da tela).
+export const CaixaAtencaoApp = ({ compacta, grande }) => (
+  <View style={[estilos.caixaAmbar, compacta && { marginBottom: 16 }, grande && { marginBottom: 0 }]}>
+    <Text style={[estilos.caixaAmbarTexto, grande && estilos.caixaAmbarTextoGrande]}>⚠️ Atenção: mesmo que conversem pelo WhatsApp, o dia, o horário e a conclusão do serviço devem ser registrados aqui no app. Agendar ou concluir o serviço fora do ProTudo gera penalidade para os dois.</Text>
   </View>
 )
 
@@ -208,7 +209,10 @@ const ContagemAgendado = ({ alvo, frente }) => {
 // limite: expira_em — teto do picker do PROFISSIONAL; o dono contrapropõe sem teto.
 // podePropor: quem pode abrir a 1ª proposta (só o profissional do match, regra da API).
 // onPropor(iso) → POST /chegada-prevista; onResponder(acao, iso?) → POST /responder.
-export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite, frente, podePropor, enviando, respondendo, onPropor, onResponder }) {
+// agendadoDestaque: o card AGENDADO do DONO antes do "Estou a caminho" (dentro do
+//          BlocoPosMatchDono) — data maior, sem a lista de lembretes e com a caixa âmbar em
+//          fonte maior, para o estado caber numa tela. Os demais usos seguem iguais.
+export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite, frente, podePropor, enviando, respondendo, onPropor, onResponder, agendadoDestaque }) {
   const [sugerindo, setSugerindo] = useState(false)
   const prevista = demanda?.chegada_prevista_em
   const pendente = demanda?.chegada_pendente_em
@@ -220,6 +224,16 @@ export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite
   const Nome = nome.charAt(0).toUpperCase() + nome.slice(1)
 
   if (prevista) {
+    if (agendadoDestaque) {
+      return (
+        <View style={estilos.agendadoCard}>
+          <Text style={estilos.agendadoRotulo}>📅 AGENDADO</Text>
+          <Text style={estilos.agendadoDataGrande}>{formatarAgendado(prevista) || String(prevista)}</Text>
+          <ContagemAgendado alvo={prevista} frente={frente} />
+          <CaixaAtencaoApp grande />
+        </View>
+      )
+    }
     return (
       <View style={estilos.agendadoCard}>
         <Text style={estilos.agendadoRotulo}>📅 AGENDADO</Text>
@@ -336,6 +350,7 @@ const estilos = StyleSheet.create({
   // Âmbar: mesma caixa do pedido de tempo das telas de detalhe (#3a2a00 / laranja).
   caixaAmbar:       { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, padding: 12, marginBottom: 12 },
   caixaAmbarTexto:  { fontSize: 12, color: cores.textoForte, lineHeight: 18 },
+  caixaAmbarTextoGrande: { fontSize: 14, lineHeight: 21 },
 
   pickerWrap:       { marginBottom: 12 },
   pickerTitulo:     { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 4 },
@@ -357,6 +372,7 @@ const estilos = StyleSheet.create({
   agendadoCard:     { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.grande, padding: 16, marginBottom: 12 },
   agendadoRotulo:   { fontSize: 11, fontWeight: '700', color: '#4caf50', letterSpacing: 0.5, marginBottom: 2 },
   agendadoData:     { fontSize: 18, fontWeight: '700', color: '#4caf50', marginBottom: 4 },
+  agendadoDataGrande: { fontSize: 26, fontWeight: '800', color: '#4caf50', marginTop: 4, marginBottom: 6 },
   agendadoContagem: { fontSize: 13, color: cores.textoForte, marginBottom: 10 },
   lembreteTitulo:   { fontSize: 12, fontWeight: '600', color: cores.textoMedio, marginBottom: 2 },
   lembreteItem:     { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
