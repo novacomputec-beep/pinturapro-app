@@ -1354,7 +1354,14 @@ export default function DetalheObraScreen({ route, navigation }) {
   const valorCombinadoPro = minhaCandidatura
     ? (minhaCandidatura.valor_contraproposta ?? minhaCandidatura.valor_proposto ?? minhaCandidatura.valor_oferta ?? obra?.valor ?? obra?.valor_estimado)
     : (obra?.valor ?? obra?.valor_estimado)
-  const topoCompacto = faseAguardaHorario || faseProAguardaHorario
+  // Horário ACEITO mas ainda sem "Estou a caminho": o mesmo bloco mostra o card INÍCIO AGENDADO
+  // com o botão; a seção legada do pintor só volta depois de a_caminho_em.
+  const proAgendadoSemACaminho = !!souPintorDoMatch && !encerrada && horarioAceito && !aCaminho
+  // Proposta ENVIADA pelo pintor (aguardando o cliente) ou AGENDADO sem "a caminho":
+  // descrição e caixa de reputação somem para o estado caber numa tela.
+  const proPropostaEnviada = faseProAguardaHorario && !!obra?.chegada_pendente_em && !clienteContrapropos
+  const proCompacto = proPropostaEnviada || proAgendadoSemACaminho
+  const topoCompacto = faseAguardaHorario || faseProAguardaHorario || proAgendadoSemACaminho
   // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
   // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
   const podeDizerACaminho = !!obra?.chegada_prevista_em && diaAgendadoChegou(obra.chegada_prevista_em, agora)
@@ -1601,7 +1608,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             />
           )}
 
-          {faseProAguardaHorario && (
+          {(faseProAguardaHorario || proAgendadoSemACaminho) && (
             <BlocoPosMatchProfissional
               demanda={obra}
               frente="obra"
@@ -1609,7 +1616,10 @@ export default function DetalheObraScreen({ route, navigation }) {
               usuarioId={usuario?.id}
               enviando={!!enviandoJanela}
               onPropor={handleProporHorario}
-              onExpirar={handleExpirarMatch}
+              onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
+              cliente={{ nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
+              podeDizerACaminho={podeDizerACaminho}
+              onACaminho={handleMatch}
               agendamento={clienteContrapropos ? (
                 <CardAgendamento
                   demanda={obra}
@@ -1706,7 +1716,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
 
-          {(!souPintorDoMatch || mostrarPedido) && !donoAgendando && obra.descricao && (
+          {(!souPintorDoMatch || mostrarPedido) && !donoAgendando && !proCompacto && obra.descricao && (
             <>
               <Text style={estilos.secaoTitulo}>Descrição</Text>
               <Text style={estilos.descricao}>{obra.descricao}</Text>
@@ -2169,11 +2179,11 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
-              {souPintorDoMatch && !encerrada && <CaixaReputacao />}
-              {/* Horário ACEITO: o card AGENDADO e o "Estou a caminho" — aqui, fora do painel
-                  `!temMatch` (ver faseProAguardaHorario). Antes do aceite do horário tudo isso
-                  vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
-              {souPintorDoMatch && !encerrada && horarioAceito && !chegadaConfirmada && (
+              {souPintorDoMatch && !encerrada && !proCompacto && <CaixaReputacao />}
+              {/* Depois do "Estou a caminho": o card AGENDADO e a linha de confirmação — aqui,
+                  fora do painel `!temMatch` (ver faseProAguardaHorario). Até a_caminho_em tudo
+                  isso vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
+              {souPintorDoMatch && !encerrada && horarioAceito && aCaminho && !chegadaConfirmada && (
                 <>
                   <CardAgendamento
                     demanda={obra}
