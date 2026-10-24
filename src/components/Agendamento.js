@@ -273,7 +273,17 @@ export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite
         </View>
       )
     }
-    const esgotou = (Number(demanda?.chegada_pendente_rodada) || 0) >= RODADAS_MAX_AGENDAMENTO
+    // sugestoes_restantes (API): quantas contrapropostas ESTE lado ainda pode mandar. Com o
+    // campo, ele manda: 0 esconde "Sugerir outro"; 1 ou 2 avisam embaixo dos botões. Sem o
+    // campo (API antiga), vale a régua local de rodadas, como antes.
+    const restantesBruto = demanda?.sugestoes_restantes
+    const restantes = (restantesBruto == null || restantesBruto === '' || !Number.isFinite(Number(restantesBruto)))
+      ? null
+      : Math.max(0, Math.floor(Number(restantesBruto)))
+    const esgotou = restantes != null
+      ? restantes === 0
+      : (Number(demanda?.chegada_pendente_rodada) || 0) >= RODADAS_MAX_AGENDAMENTO
+    const avisoRestantes = restantes === 2 ? 'Você só pode sugerir mais 2 vezes' : restantes === 1 ? 'Você só pode sugerir mais 1 vez' : null
     return (
       <View style={estilos.propostaCard}>
         <Text style={estilos.propostaTitulo}>📅 {Nome} propôs {formatarAgendado(pendente) || String(pendente)}</Text>
@@ -288,7 +298,12 @@ export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite
             </TouchableOpacity>
           )}
         </View>
-        {esgotou && <Text style={estilos.propostaSub}>Limite de propostas atingido: resta confirmar este horário.</Text>}
+        {!esgotou && avisoRestantes ? <Text style={estilos.avisoRestantes}>{avisoRestantes}</Text> : null}
+        {esgotou && (
+          <Text style={estilos.propostaSub}>
+            {restantes != null ? 'Limite de sugestões atingido — confirme o horário proposto.' : 'Limite de propostas atingido: resta confirmar este horário.'}
+          </Text>
+        )}
         <CaixaAtencaoApp compacta />
       </View>
     )
@@ -382,6 +397,8 @@ const estilos = StyleSheet.create({
   propostaTitulo:   { fontSize: 14, fontWeight: '700', color: cores.primaria, marginBottom: 4 },
   propostaSub:      { fontSize: 12, color: cores.textoMedio, marginBottom: 10, lineHeight: 18 },
   botoesRow:        { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  // Linha âmbar pequena embaixo dos botões (sugestões restantes).
+  avisoRestantes:   { fontSize: 12, fontWeight: '600', color: cores.primaria, marginTop: -4, marginBottom: 10 },
   btnConfirmar:     { flex: 1, backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   btnConfirmarTexto:{ fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   btnSugerir:       { flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
