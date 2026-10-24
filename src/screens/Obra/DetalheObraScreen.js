@@ -1338,6 +1338,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   // ficam escondidos até a_caminho_em existir. Espelha DetalheReparo.
   const faseAguardaHorario = isDono && !!temMatch && !encerrada && !aCaminho
   const temPropostaHorario = !!obra?.chegada_pendente_em || !!obra?.chegada_prevista_em
+  // Proposta recebida ou AGENDADO (ainda sem "Estou a caminho"): o bloco assume a linha do
+  // ponto de referência e o contrato vira uma linha; descrição some — tudo para caber numa tela.
+  const donoAgendando = faseAguardaHorario && temPropostaHorario
   // Fase do PROFISSIONAL do match sem horário ACEITO — espelha DetalheReparo: o bloco
   // (components/PosMatchProfissional) fica FORA do painel `!temMatch`, que nunca mais
   // renderizava para o pintor casado desde que a API passou a casar no aceite. Com horário
@@ -1578,6 +1581,8 @@ export default function DetalheObraScreen({ route, navigation }) {
               valor={obra.valor || obra.valor_estimado}
               profissional={pintorMatch}
               onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
+              pontoReferencia={obra.ponto_referencia}
+              onEditarReferencia={donoAgendando ? abrirReferencia : undefined}
               agendamento={temPropostaHorario ? (
                 <CardAgendamento
                   demanda={obra}
@@ -1590,6 +1595,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   respondendo={respondendoChegada}
                   onPropor={handleProporHorario}
                   onResponder={handleResponderAgendamento}
+                  agendadoDestaque
                 />
               ) : null}
             />
@@ -1676,7 +1682,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               que o campo existe. Fora do gate de endereco_obra de propósito: a referência é
               editável mesmo quando o endereço não foi preenchido. O profissional segue
               vendo só o texto, nos blocos acima. */}
-          {isDono ? (
+          {isDono && !donoAgendando ? (
             <TouchableOpacity onPress={abrirReferencia} activeOpacity={0.7}>
               {obra.ponto_referencia ? (
                 <Text style={estilos.pontoReferenciaLinha}>
@@ -1700,7 +1706,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
 
-          {(!souPintorDoMatch || mostrarPedido) && obra.descricao && (
+          {(!souPintorDoMatch || mostrarPedido) && !donoAgendando && obra.descricao && (
             <>
               <Text style={estilos.secaoTitulo}>Descrição</Text>
               <Text style={estilos.descricao}>{obra.descricao}</Text>

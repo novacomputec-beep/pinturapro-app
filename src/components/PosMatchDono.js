@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, Image, StyleSheet } from 'react-native'
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
@@ -16,7 +16,10 @@ import { CaixaAtencaoApp } from './Agendamento'
 //   3. mini card do profissional escolhido;
 //   4. a caixa âmbar da penalidade (CaixaAtencaoApp, texto intacto) — só com o banner, porque
 //      o CardAgendamento já traz a mesma caixa dentro dele;
-//   5. "Contrato enviado para o seu e-mail".
+//   5. com `onEditarReferencia`, a linha do ponto de referência (a mesma da tela, que nesse
+//      caso esconde a dela para a ordem do mockup valer);
+//   6. "Contrato enviado para o seu e-mail" — o card completo com o banner; com `agendamento`
+//      (proposta recebida ou AGENDADO) vira UMA linha, para o estado caber numa tela.
 // O que a tela mostrava nesse estado (valor em destaque, lista de candidatos, botões de
 // chegada e conclusão) fica por conta dela esconder.
 
@@ -79,7 +82,7 @@ const TempoRestante = ({ alvo, frente, onExpirar }) => {
   return <Text style={estilos.boxValor}>{formatarDuracao(ms, { frente, arredondar: 'cima' })}</Text>
 }
 
-export default function BlocoPosMatchDono({ demanda, frente, endereco, valor, profissional, agendamento, onExpirar }) {
+export default function BlocoPosMatchDono({ demanda, frente, endereco, valor, profissional, agendamento, onExpirar, pontoReferencia, onEditarReferencia }) {
   const alvoPrazo = demanda?.chegada_prevista_em || demanda?.expira_em
   // Banner: a menos de 24 h do limite não há "dia" a escolher, só o horário. Lido uma vez
   // por render — o banner não precisa acompanhar o relógio como o box do prazo.
@@ -169,13 +172,33 @@ export default function BlocoPosMatchDono({ demanda, frente, endereco, valor, pr
       {/* 4. Penalidade — texto intacto. Dentro do CardAgendamento ela já existe. */}
       {!agendamento && <CaixaAtencaoApp />}
 
-      {/* 5. Contrato */}
-      <View style={estilos.contrato}>
-        <Text style={estilos.contratoTitulo}>📋 Contrato enviado para o seu e-mail</Text>
-        <Text style={estilos.contratoTexto}>
-          Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.
-        </Text>
-      </View>
+      {/* 5. Ponto de referência (só quando a tela delega a linha para cá) */}
+      {onEditarReferencia ? (
+        <TouchableOpacity onPress={onEditarReferencia} activeOpacity={0.7}>
+          {pontoReferencia ? (
+            <Text style={estilos.referenciaLinha}>
+              🔎 Referência: {pontoReferencia}
+              <Text style={estilos.referenciaAcao}>  editar</Text>
+            </Text>
+          ) : (
+            <Text style={estilos.referenciaVazia}>🔎 Adicionar ponto de referência</Text>
+          )}
+        </TouchableOpacity>
+      ) : null}
+
+      {/* 6. Contrato */}
+      {agendamento ? (
+        <View style={estilos.contratoLinha}>
+          <Text style={estilos.contratoTitulo} numberOfLines={1}>📋 Contrato enviado para o seu e-mail</Text>
+        </View>
+      ) : (
+        <View style={estilos.contrato}>
+          <Text style={estilos.contratoTitulo}>📋 Contrato enviado para o seu e-mail</Text>
+          <Text style={estilos.contratoTexto}>
+            Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.
+          </Text>
+        </View>
+      )}
     </View>
   )
 }
@@ -214,7 +237,14 @@ const estilos = StyleSheet.create({
   miniNota: { fontSize: 12, color: cores.primaria, fontWeight: '600', marginTop: 2 },
   miniMeta: { fontSize: 12, color: cores.textoMedio, marginTop: 2, lineHeight: 17 },
 
+  // Mesmo visual das linhas de referência da tela (pontoReferenciaLinha / referenciaVazia),
+  // sem o marginTop negativo — aqui não há linha de endereço acima a colar.
+  referenciaLinha: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginBottom: 14 },
+  referenciaAcao: { fontSize: 12, color: cores.primaria, fontWeight: '600' },
+  referenciaVazia: { fontSize: 12, color: cores.primaria, fontWeight: '600', marginBottom: 14 },
+
   contrato: { backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: '#4a4a8a', borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  contratoLinha: { backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: '#4a4a8a', borderRadius: raios.medio, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 16 },
   contratoTitulo: { fontSize: 13, fontWeight: '700', color: '#8888cc', marginBottom: 8 },
   contratoTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 19 },
 })
