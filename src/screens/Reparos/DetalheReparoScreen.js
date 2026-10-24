@@ -1436,8 +1436,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const valorCombinadoPro = meuInteresse
     ? (meuInteresse.valor_contraproposta ?? meuInteresse.valor_proposto ?? reparo?.valor_estimado)
     : reparo?.valor_estimado
-  // Topo compacto (card único no lugar de valor/título/endereço/relógio/contrato) nas duas fases.
-  const topoCompacto = faseAguardaHorario || faseProAguardaHorario
+  // Horário ACEITO mas ainda sem "Estou a caminho": o mesmo bloco mostra o card AGENDADO com o
+  // botão; a seção legada do profissional só volta depois de a_caminho_em.
+  const proAgendadoSemACaminho = !!souPrestadorDoMatch && !encerrada && horarioAceito && !aCaminho
+  // Proposta ENVIADA pelo profissional (aguardando o cliente) ou AGENDADO sem "a caminho":
+  // descrição e caixa de reputação somem para o estado caber numa tela.
+  const proPropostaEnviada = faseProAguardaHorario && !!reparo?.chegada_pendente_em && !clienteContrapropos
+  const proCompacto = proPropostaEnviada || proAgendadoSemACaminho
+  // Topo compacto (card único no lugar de valor/título/endereço/relógio/contrato) nas fases pós-match.
+  const topoCompacto = faseAguardaHorario || faseProAguardaHorario || proAgendadoSemACaminho
   // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
   // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
   const podeDizerACaminho = !!reparo?.chegada_prevista_em && diaAgendadoChegou(reparo.chegada_prevista_em, agora)
@@ -1689,7 +1696,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             />
           )}
 
-          {faseProAguardaHorario && (
+          {(faseProAguardaHorario || proAgendadoSemACaminho) && (
             <BlocoPosMatchProfissional
               demanda={reparo}
               frente="servico"
@@ -1697,7 +1704,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
               usuarioId={usuario?.id}
               enviando={!!enviandoJanela}
               onPropor={handleProporHorario}
-              onExpirar={handleExpirarMatch}
+              onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
+              cliente={{ nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
+              podeDizerACaminho={podeDizerACaminho}
+              onACaminho={handleMatch}
               agendamento={clienteContrapropos ? (
                 <CardAgendamento
                   demanda={reparo}
@@ -1796,7 +1806,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
 
-          {(!souPrestadorDoMatch || mostrarPedido) && !donoAgendando && reparo.descricao && (
+          {(!souPrestadorDoMatch || mostrarPedido) && !donoAgendando && !proCompacto && reparo.descricao && (
             <>
               <Text style={estilos.secaoTitulo}>Descrição</Text>
               <Text style={estilos.descricao}>{reparo.descricao}</Text>
@@ -2270,11 +2280,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {isPrestador && !isDono && (
             <>
-              {souPrestadorDoMatch && !encerrada && <CaixaReputacao />}
-              {/* Horário ACEITO: o card AGENDADO e o "Estou a caminho" — aqui, fora do painel
-                  `!temMatch` (ver faseProAguardaHorario). Antes do aceite do horário tudo isso
-                  vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
-              {souPrestadorDoMatch && !encerrada && horarioAceito && !chegadaConfirmada && (
+              {souPrestadorDoMatch && !encerrada && !proCompacto && <CaixaReputacao />}
+              {/* Depois do "Estou a caminho": o card AGENDADO e a linha de confirmação — aqui,
+                  fora do painel `!temMatch` (ver faseProAguardaHorario). Até a_caminho_em tudo
+                  isso vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
+              {souPrestadorDoMatch && !encerrada && horarioAceito && aCaminho && !chegadaConfirmada && (
                 <>
                   <CardAgendamento
                     demanda={reparo}
