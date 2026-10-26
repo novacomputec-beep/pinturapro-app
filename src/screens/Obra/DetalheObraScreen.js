@@ -539,7 +539,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (enviandoPergunta) return false
     setEnviandoPergunta(true)
     try {
-      await comRetry(() => api.post(`/obras/${obraInicial.id}/perguntas`, { texto }))
+      await comRetry(() => api.post(`/obras/${obraInicial.id}/perguntas`, { pergunta: texto }))
       setModalPergunta(false)
       buscar()
       return true
@@ -557,7 +557,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (respondendoPerguntaId != null) return
     setRespondendoPerguntaId(perguntaId)
     try {
-      await comRetry(() => api.post(`/obras/${obraInicial.id}/perguntas/${perguntaId}/responder`, { texto }))
+      await comRetry(() => api.post(`/obras/${obraInicial.id}/perguntas/${perguntaId}/resposta`, { resposta: texto }))
       buscar()
     } catch (err) {
       console.log('[DetalheObra] falha ao responder pergunta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)

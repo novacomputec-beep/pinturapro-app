@@ -555,7 +555,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     if (enviandoPergunta) return false
     setEnviandoPergunta(true)
     try {
-      await comRetry(() => api.post(`/reparos/${reparoInicial.id}/perguntas`, { texto }))
+      await comRetry(() => api.post(`/reparos/${reparoInicial.id}/perguntas`, { pergunta: texto }))
       setModalPergunta(false)
       buscar()
       return true
@@ -573,7 +573,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     if (respondendoPerguntaId != null) return
     setRespondendoPerguntaId(perguntaId)
     try {
-      await comRetry(() => api.post(`/reparos/${reparoInicial.id}/perguntas/${perguntaId}/responder`, { texto }))
+      await comRetry(() => api.post(`/reparos/${reparoInicial.id}/perguntas/${perguntaId}/resposta`, { resposta: texto }))
       buscar()
     } catch (err) {
       console.log('[DetalheReparo] falha ao responder pergunta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)

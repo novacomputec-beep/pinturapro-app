@@ -8,7 +8,7 @@ import { cores, raios } from '../utils/tema'
 // do match — depois dele a conversa é entre os dois do combinado, não pública.
 //
 // Formato de cada pergunta (GET /reparos/:id e /obras/:id, campo `perguntas`):
-//   { id, texto, resposta, respondida_em, minha }
+//   { id, pergunta, resposta, criado_em, respondido_em, minha }
 // Sem nomes de autor, de propósito: a pergunta é pública para todos os profissionais e
 // o que importa é a dúvida, não quem a teve.
 
@@ -30,7 +30,7 @@ export const CardPerguntasProfissional = ({ perguntas }) => {
       <Text style={estilos.cardTitulo}>❓ Perguntas sobre o pedido ({lista.length})</Text>
       {lista.map((p, i) => (
         <View key={p.id ?? i} style={[estilos.item, i === lista.length - 1 && { marginBottom: 0 }]}>
-          <Text style={estilos.pergunta}>{p.texto}</Text>
+          <Text style={estilos.pergunta}>{p.pergunta}</Text>
           {respondida(p) ? (
             <View style={estilos.respostaBox}>
               <Text style={estilos.resposta}>{p.resposta}</Text>
@@ -112,7 +112,7 @@ const ItemResponder = ({ pergunta, respondendo, onResponder }) => {
   const vazio = !texto.trim()
   return (
     <View style={estilos.novaItem}>
-      <Text style={estilos.pergunta}>{pergunta.texto}</Text>
+      <Text style={estilos.pergunta}>{pergunta.pergunta}</Text>
       <TextInput
         style={estilos.respostaInput}
         value={texto}
@@ -166,7 +166,7 @@ export const CardPerguntasDono = ({ perguntas, respondendoId, onResponder }) => 
           <Text style={estilos.cardTitulo}>Já respondidas ({feitas.length})</Text>
           {feitas.map((p, i) => (
             <View key={p.id ?? i} style={[estilos.item, i === feitas.length - 1 && { marginBottom: 0 }]}>
-              <Text style={estilos.pergunta}>{p.texto}</Text>
+              <Text style={estilos.pergunta}>{p.pergunta}</Text>
               <View style={estilos.respostaBox}>
                 <Text style={estilos.resposta}>{p.resposta}</Text>
               </View>
