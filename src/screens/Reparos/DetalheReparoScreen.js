@@ -29,6 +29,7 @@ import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, 
 import BlocoPosMatchDono from '../../components/PosMatchDono'
 import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
+import { ChipEmbaixador } from '../../components/Indicacao'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -2186,6 +2187,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       <View style={{ flex: 1 }}>
                         <View style={estilos.interessadoHeader}>
                           <Text style={[estilos.interessadoNome, { flex: 1 }]}>{item.nome}</Text>
+                          {/* Selo de quem trouxe 3 colegas aprovados (components/Indicacao). */}
+                          {item.embaixador === true && <ChipEmbaixador />}
                         </View>
                         {/* Cidade/endereço saem da linha do nome: em row com space-between
                             disputavam largura com ele e o endereço completo do prestador

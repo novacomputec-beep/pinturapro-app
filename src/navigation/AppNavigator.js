@@ -45,6 +45,7 @@ import RespostasEquipeScreen from '../screens/Perfil/RespostasEquipeScreen'
 import ComoFuncionaScreen  from '../screens/Perfil/ComoFuncionaScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
+import ConvidarColegaScreen from '../screens/Perfil/ConvidarColegaScreen'
 
 // App — Prestador
 import FeedReparosScreen      from '../screens/Reparos/FeedReparosScreen'
@@ -694,6 +695,8 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="RespostasEquipe" component={RespostasEquipeScreen} />
     <PerfilStack.Screen name="ComoFunciona" component={ComoFuncionaScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
+    {/* Indicação de colegas: só o profissional chega aqui (item do Perfil e cartão do feed). */}
+    <PerfilStack.Screen name="ConvidarColega" component={ConvidarColegaScreen} />
     <PerfilStack.Screen name="Termos"       component={TermosScreen} />
     <PerfilStack.Screen name="Privacidade"  component={PrivacidadeScreen} />
   </PerfilStack.Navigator>

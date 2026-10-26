@@ -547,6 +547,9 @@ export default function PerfilScreen({ navigation, route }) {
             <>
               <ItemAcao titulo="⭐ Avaliações recebidas" onPress={() => navigation.navigate('AvaliacoesRecebidas')} />
               <Separador />
+              {/* Indicação de colegas (+1 mês grátis por colega aprovado): só profissional. */}
+              <ItemAcao titulo="🤝 Convide um colega" onPress={() => navigation.navigate('ConvidarColega')} />
+              <Separador />
             </>
           )}
           <ItemAcao titulo="🔒 Alterar senha" onPress={() => navigation.navigate('AlterarSenha')} />
