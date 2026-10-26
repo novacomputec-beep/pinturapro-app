@@ -31,6 +31,8 @@ import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
 import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
+import BlocoEmAndamento from '../../components/PosMatchEmAndamento'
+import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -384,6 +386,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [simulacaoCancelar, setSimulacaoCancelar] = useState(null)
   const [cancelando, setCancelando] = useState(false)
   const [respondendoCancelamento, setRespondendoCancelamento] = useState(false)
+  // "🚩 Denunciar um problema" da tela de em andamento: pedido ao suporte (ModalSuporte) —
+  // POST /denuncias só aceita contrato encerrado, e pelo profissional.
+  const [suporteAberto, setSuporteAberto] = useState(false)
   // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
   // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
   // futuro nem vale abrir o modal — o envio só voltaria recusado (409). Mesmo molde de
@@ -1565,6 +1570,52 @@ export default function DetalheObraScreen({ route, navigation }) {
     )
   }
 
+  // EM ANDAMENTO (chegada confirmada, não encerrada), para o dono e para o pintor do match:
+  // tela única sem rolagem (components/PosMatchEmAndamento) no lugar do corpo completo —
+  // descrição, mídia e proposta ficam de fora; o botão de concluir e suas travas são os de
+  // sempre (handleEncerrar atende os dois lados nesta tela). As fases anteriores seguem no
+  // render abaixo, intactas. Espelha DetalheReparo.
+  const emAndamentoCompacto = (isDono || souPintorDoMatch) && !!temMatch && chegadaConfirmada && !encerrada
+  if (emAndamentoCompacto) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+        <View style={estilos.topbar}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
+          </TouchableOpacity>
+          <Text style={estilos.topbarTitulo}>{isDono ? 'Minha obra' : 'Detalhe da obra'}</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4 }]}>
+          <BlocoEmAndamento
+            demanda={obra}
+            souDono={isDono}
+            valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
+            endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
+            pontoReferencia={obra.ponto_referencia}
+            chegadaEm={obra.chegada_confirmada_em}
+            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
+            telefone={isDono ? pintorMatch?.telefone : donoTelefone}
+            onWhatsApp={() => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone)}
+            rotuloBotao={rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
+            onConcluir={handleEncerrar}
+            desabilitado={euSolicitei}
+            onDenunciar={() => setSuporteAberto(true)}
+            onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
+          />
+        </View>
+        <ModalAvaliacao
+          visivel={avaliarVisivel}
+          nomeAvaliado={pintorMatch?.nome || 'o profissional'}
+          onEnviar={enviarAvaliacaoEncerrar}
+          onFechar={finalizarPosEncerrar}
+        />
+        <ModalSuporte visivel={suporteAberto} telefoneInicial={usuario?.telefone} onFechar={() => setSuporteAberto(false)} />
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.topbar}>
@@ -2061,7 +2112,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                   quem declarou foi o profissional, e o dono diz que não foi o que aconteceu.
                   As duas saídas ficam juntas de propósito — separadas, a de contestar viraria
                   um caminho escondido para quem está esperando alguém que não veio. */}
-              {chegadaDeclaradaPorOutro && !encerrada && (
+              {/* !chegadaConfirmada: confirmada a chegada, não há mais o que contestar. */}
+              {chegadaDeclaradaPorOutro && !chegadaConfirmada && !encerrada && (
                 <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
                   <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
                 </TouchableOpacity>

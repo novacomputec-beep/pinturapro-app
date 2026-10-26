@@ -32,6 +32,8 @@ import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPergunta
 import { ChipEmbaixador } from '../../components/Indicacao'
 import ChipsCategoria from '../../components/ChipsCategoria'
 import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
+import BlocoEmAndamento from '../../components/PosMatchEmAndamento'
+import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -386,6 +388,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [simulacaoCancelar, setSimulacaoCancelar] = useState(null)
   const [cancelando, setCancelando] = useState(false)
   const [respondendoCancelamento, setRespondendoCancelamento] = useState(false)
+  // "🚩 Denunciar um problema" da tela de em andamento: pedido ao suporte (ModalSuporte) —
+  // POST /denuncias só aceita contrato encerrado, e pelo profissional.
+  const [suporteAberto, setSuporteAberto] = useState(false)
   // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
   // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
   // futuro nem vale abrir o modal — o envio só voltaria recusado.
@@ -1652,6 +1657,52 @@ export default function DetalheReparoScreen({ route, navigation }) {
     )
   }
 
+  // EM ANDAMENTO (chegada confirmada, não encerrado), para o dono e para o profissional do
+  // match: tela única sem rolagem (components/PosMatchEmAndamento) no lugar do corpo
+  // completo — descrição, mídia e proposta ficam de fora; o botão de concluir e suas travas
+  // são os de sempre. As fases anteriores seguem no render abaixo, intactas.
+  const emAndamentoCompacto = (isDono || souPrestadorDoMatch) && !!temMatch && chegadaConfirmada && !encerrada
+  if (emAndamentoCompacto) {
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+        <View style={estilos.topbar}>
+          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
+          </TouchableOpacity>
+          <Text style={estilos.topbarTitulo}>{isDono ? 'Meu serviço' : 'Detalhe do serviço'}</Text>
+          <View style={{ width: 36 }} />
+        </View>
+        <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4 }]}>
+          <BlocoEmAndamento
+            demanda={reparo}
+            souDono={isDono}
+            valor={isDono ? valorPrincipal : valorCombinadoPro}
+            endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
+            pontoReferencia={reparo.ponto_referencia}
+            chegadaEm={reparo.chegada_confirmada_em}
+            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
+            telefone={isDono ? prestadorMatch?.telefone : donoTelefone}
+            onWhatsApp={() => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone)}
+            rotuloBotao={rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
+            onConcluir={isDono ? handleEncerrar : handleEncerrarPrestador}
+            desabilitado={euSolicitei}
+            enviando={!isDono && encerrando}
+            onDenunciar={() => setSuporteAberto(true)}
+            onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
+          />
+        </View>
+        <ModalAvaliacao
+          visivel={avaliarVisivel}
+          nomeAvaliado={prestadorMatch?.nome || 'o profissional'}
+          onEnviar={enviarAvaliacaoEncerrar}
+          onFechar={finalizarPosEncerrar}
+        />
+        <ModalSuporte visivel={suporteAberto} telefoneInicial={usuario?.telefone} onFechar={() => setSuporteAberto(false)} />
+      </SafeAreaView>
+    )
+  }
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.topbar}>
@@ -2161,7 +2212,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   quem declarou foi o profissional, e o dono diz que não foi o que aconteceu.
                   As duas saídas ficam juntas de propósito — separadas, a de contestar viraria
                   um caminho escondido para quem está esperando alguém que não veio. */}
-              {chegadaDeclaradaPorOutro && !encerrada && (
+              {/* !chegadaConfirmada: confirmada a chegada, não há mais o que contestar. */}
+              {chegadaDeclaradaPorOutro && !chegadaConfirmada && !encerrada && (
                 <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
                   <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
                 </TouchableOpacity>
