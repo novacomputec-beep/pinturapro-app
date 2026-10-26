@@ -37,7 +37,7 @@ export const BotaoSecundario = ({ titulo, onPress, estilo }) => (
 // ─── INPUT ───────────────────────────────────────────────────
 // estiloInput: override OPCIONAL do box do TextInput (não do wrapper). Fica ANTES de
 // inputErro para que a borda de erro (vermelha) sempre prevaleça quando há erro.
-export const Input = ({ label, erro, estilo, estiloInput, ...props }) => (
+export const Input = ({ label, erro, estilo, estiloInput, avisoContato, ...props }) => (
   <View style={[estilos.inputWrap, estilo]}>
     {label && <Text style={estilos.inputLabel}>{label}</Text>}
     <TextInput
@@ -46,7 +46,18 @@ export const Input = ({ label, erro, estilo, estiloInput, ...props }) => (
       {...props}
     />
     {erro && <Text style={estilos.inputErroTexto}>{erro}</Text>}
+    {avisoContato && <AvisoContatoOculto />}
   </View>
+)
+
+// ─── AVISO: SEM CONTATO NO TEXTO LIVRE ───────────────────────
+// Linha âmbar sob todo campo de texto livre que a OUTRA parte vai ler (descrição da
+// demanda, observações da proposta, pergunta e resposta). O servidor já remove telefones
+// e links; a linha avisa ANTES, para a pessoa não escrever algo que vai sumir.
+export const AvisoContatoOculto = ({ estilo }) => (
+  <Text style={[estilos.avisoContato, estilo]}>
+    🔒 Não informe telefone, e-mail ou link: o contato é liberado no 'Estou a caminho'.
+  </Text>
 )
 
 // ─── BADGE DE STATUS ─────────────────────────────────────────
@@ -197,6 +208,12 @@ const estilos = StyleSheet.create({
     color: cores.perigo,
     fontSize: 11,
     marginTop: 4,
+  },
+  avisoContato: {
+    color: '#FFC107',
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: 6,
   },
   badge: {
     flexDirection: 'row',

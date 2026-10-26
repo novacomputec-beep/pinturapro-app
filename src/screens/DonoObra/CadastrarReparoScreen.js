@@ -532,7 +532,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
             <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Instalar 3 tomadas na sala" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
           </View>
           <View onLayout={registrarY('descricao')}>
-            <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} />
+            <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} avisoContato />
           </View>
           <View onLayout={registrarY('valorEstimado')}>
             <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
