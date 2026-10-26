@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, AppState } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, StyleSheet, AppState, Alert } from 'react-native'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { pedirAvaliacaoLoja } from '../services/avaliacaoLoja'
 import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
-import { comRetry } from '../utils/rede'
+import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../utils/rede'
 import { CaixaAtencaoApp } from './Agendamento'
+import ModalAvaliacao from './ModalAvaliacao'
 
 // Título entre aspas da PRIMEIRA linha de um aviso agrupado, ou null quando ela não traz
 // título — o ramo do pintor já convivia com isso, ver os guardas em :298 e :329. Só o
@@ -169,6 +170,10 @@ const detectar = async (usuario) => {
       titulo: 'Confirme o encerramento',
       subtitulo: `O profissional marcou "${enc.titulo}" como concluído. O serviço só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
+      // O CTA encerra AQUI (POST /encerrar, o mesmo do detalhe) e abre a avaliação; ver
+      // confirmarEncerramento no host. chavesConcluido: a marca do 🏁 acima, para ele não
+      // repetir a notícia de um encerramento que a pessoa acabou de fazer.
+      encerrar: { ehObra: false, id: enc.id, souDono: true, matchUsuarioId: enc.match_usuario_id, chavesConcluido: [`concluido:${enc.id}`] },
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: enc }, initial: false }),
     }
     // Lembrete de avaliação. semMarca porque é uma AÇÃO QUE FALTA, não notícia: o 🏁 acima
@@ -272,6 +277,8 @@ const detectar = async (usuario) => {
       titulo: 'Confirme o encerramento',
       subtitulo: `O profissional marcou "${enc.titulo}" como concluída. A obra só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
+      // Mesmo molde do reparo: encerra aqui e abre a avaliação (confirmarEncerramento).
+      encerrar: { ehObra: true, id: enc.id, souDono: true, matchUsuarioId: enc.match_usuario_id, chavesConcluido: [`${pc}concluido:${enc.id}`] },
       navegar: () => navigationRef.current?.navigate(abaObra, { screen: 'DetalheObra', params: { obra: enc }, initial: false }),
     }
     // Espelha o lembrete de avaliação do ramo do dono_reparo — mesma posição (último dos
@@ -364,6 +371,9 @@ const detectar = async (usuario) => {
       titulo: 'Confirme o encerramento',
       subtitulo: `O solicitante marcou "${enc.titulo}" como concluído. O serviço só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
+      // Encerra aqui (confirmarEncerramento); o lado do profissional segue o fluxo do
+      // detalhe: aviso de encerrado e Contratos Finalizados (só o dono avalia — API).
+      encerrar: { ehObra: false, id: enc.reparo_id, souDono: false, chavesConcluido: [`concluido:${enc.id}`] },
       navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: enc.reparo_id } }, initial: false }),
     }
     // Recusa — ÚLTIMO do ramo. Vem do HISTÓRICO, não de `ativos`: é para lá que o interesse
@@ -446,6 +456,8 @@ const detectar = async (usuario) => {
       titulo: 'Confirme o encerramento',
       subtitulo: `O dono${enc.titulo ? ` de "${enc.titulo}"` : ' da obra'} marcou o serviço como concluído. A obra só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
+      // Mesmo molde do reparador: encerra aqui (confirmarEncerramento).
+      encerrar: { ehObra: true, id: enc.obra_id, souDono: false, chavesConcluido: [`concluido:${enc.id}`] },
       navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: enc.obra_id } }, initial: false }),
     }
     // Recusa — ÚLTIMO do ramo, espelhando o reparador. Aqui a lista é a mesma dos demais
@@ -488,11 +500,26 @@ export default function CelebracaoMatchHost() {
   const [evento, setEvento] = useState(null)
   const checandoRef = useRef(false)
   const ultimaRef = useRef(0)
+  // Encerramento confirmado PELO CARD (eventos `encerrar`): o POST em voo e, no fluxo do
+  // dono, a avaliação que vem em seguida — os MESMOS passos de handleEncerrar /
+  // finalizarPosEncerrar / oferecerBloqueioEncerrar / enviarAvaliacaoEncerrar das telas de
+  // detalhe, só que daqui, sem passar pelo detalhe. `avaliar` guarda o contrato enquanto o
+  // fluxo pós-nota (bloqueio, loja) não termina; `avaliarVisivel` é só o modal, que fecha
+  // antes de cada Alert como no detalhe.
+  const [encerrando, setEncerrando] = useState(false)
+  const [avaliar, setAvaliar] = useState(null)
+  const [avaliarVisivel, setAvaliarVisivel] = useState(false)
+  const avaliarRef = useRef(null)
+  const pedirLojaRef = useRef(false)
+  useEffect(() => { avaliarRef.current = avaliar }, [avaliar])
 
   // forcar=true (login / foreground) checa já; senão, no máximo 1x a cada 15s para
   // não bater na API a cada troca de aba.
+  // avaliarRef: enquanto a avaliação pós-encerramento está em curso, nenhuma verificação —
+  // o lembrete "Avalie o profissional" acharia este mesmo contrato ainda sem nota e
+  // subiria por cima do ModalAvaliacao.
   const verificar = useCallback(async (forcar = false) => {
-    if (!usuario || checandoRef.current) return
+    if (!usuario || checandoRef.current || avaliarRef.current) return
     const agora = Date.now()
     if (!forcar && agora - ultimaRef.current < 15000) return
     ultimaRef.current = agora
@@ -532,7 +559,7 @@ export default function CelebracaoMatchHost() {
   useEffect(() => {
     const nav = navigationRef.current
     if (!nav?.addListener) return
-    const unsub = nav.addListener('state', () => { if (!evento) verificar() })
+    const unsub = nav.addListener('state', () => { if (!evento && !avaliarRef.current) verificar() })
     return unsub
   }, [usuario, evento, verificar])
 
@@ -545,7 +572,115 @@ export default function CelebracaoMatchHost() {
     setTimeout(() => { pedirAvaliacaoLoja() }, 1500)
   }, [evento])
 
-  if (!evento) return null
+  // ── Encerramento pelo card ────────────────────────────────────────────────────────────
+  // Pós-nota do dono: o mesmo trio do detalhe (finalizarPosEncerrar / oferecerBloqueioEncerrar
+  // / enviarAvaliacaoEncerrar). Avaliar é opcional ("Agora não" conclui); nota alta arma o
+  // pedido de avaliação NA LOJA, disparado só depois do Alert de bloqueio ser respondido.
+  const finalizarAvaliacao = () => {
+    setAvaliarVisivel(false)
+    setAvaliar(null)
+    if (pedirLojaRef.current) {
+      pedirLojaRef.current = false
+      setTimeout(() => { pedirAvaliacaoLoja() }, 1500)
+    }
+  }
+  const oferecerBloqueio = (a) => {
+    setAvaliarVisivel(false)
+    const prestadorId = a?.matchUsuarioId
+    if (!prestadorId) { finalizarAvaliacao(); return }
+    Alert.alert(
+      'Bloquear para futuros serviços?',
+      'Você pode impedir que este profissional seja pareado com você novamente. É opcional.',
+      [
+        { text: 'Não, fiquei satisfeito(a)', style: 'cancel', onPress: finalizarAvaliacao },
+        { text: 'Bloquear', style: 'destructive', onPress: async () => {
+          try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }), { timeout: true, persistir: true }) }
+          catch (err) {
+            console.log('[Celebracao] falha ao bloquear prestador | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+            Alert.alert('Erro', err.mensagem || 'Não foi possível bloquear o profissional.')
+          }
+          finalizarAvaliacao()
+        } },
+      ],
+    )
+  }
+  const enviarAvaliacao = async (estrelas) => {
+    const a = avaliar
+    try {
+      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: a.ehObra ? 'obra' : 'reparo', contrato_id: a.id, estrelas }))
+      if (estrelas >= 4) pedirLojaRef.current = true
+    } catch (err) {
+      console.log('[Celebracao] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
+    }
+    oferecerBloqueio(a)
+  }
+
+  // O CTA dos eventos `encerrar`: a mesma confirmação, o mesmo POST /encerrar e os mesmos
+  // alertas de erro de handleEncerrar (dono) / handleEncerrarPrestador (profissional) das
+  // telas de detalhe. Sucesso: dono → fecha o card, marca o 🏁 como visto e abre o
+  // ModalAvaliacao; profissional → aviso de encerrado e Contratos Finalizados (a API só
+  // deixa o dono avaliar). 'pendente' (a outra parte ainda precisa confirmar) → aviso.
+  const confirmarEncerramento = (ev) => {
+    const enc = ev.encerrar
+    const rota = enc.ehObra ? `/obras/${enc.id}` : `/reparos/${enc.id}`
+    const linhaDe = (resp) => (enc.ehObra ? (resp?.obra || resp) : resp?.reparo)
+    const concluirComSucesso = async () => {
+      setEvento(null)
+      if (usuario && enc.chavesConcluido?.length) await marcarVistas(usuario.id, enc.chavesConcluido)
+      if (enc.souDono) {
+        const nome = await nomeDoProfissional(enc.ehObra, enc.id, enc.matchUsuarioId)
+        setAvaliar({ ehObra: enc.ehObra, id: enc.id, nome, matchUsuarioId: enc.matchUsuarioId })
+        setAvaliarVisivel(true)
+      } else {
+        Alert.alert(
+          enc.ehObra ? '✅ Obra encerrada!' : '✅ Serviço encerrado!',
+          enc.ehObra ? 'A obra foi encerrada com sucesso.' : 'O serviço foi concluído com sucesso e movido para Contratos Finalizados.',
+          [{ text: 'OK', onPress: () => navigationRef.current?.navigate('Contratos Finalizados') }],
+        )
+      }
+    }
+    const aguardarOutraParte = () => {
+      setEvento(null)
+      Alert.alert('⏳ Aguardando a outra parte', `Seu pedido de encerramento foi registrado. ${enc.ehObra ? 'A obra será concluída' : 'O serviço será concluído'} quando a outra parte confirmar.`)
+    }
+    const executar = async () => {
+      setEncerrando(true)
+      try {
+        const resp = await comRetry(() => api.post(`${rota}/encerrar`, {}))
+        if (resp?.encerramento === 'pendente') { aguardarOutraParte(); return }
+        await concluirComSucesso()
+      } catch (err) {
+        console.log('[Celebracao] falha ao encerrar pelo card | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+        if (ehContaSuspensa(err)) { Alert.alert('Conta suspensa', err.mensagem || 'Sua conta está suspensa e esta ação não está disponível.'); return }
+        if (ehProfissionalSuspenso(err)) { Alert.alert('Profissional suspenso', err.mensagem || 'Este profissional está suspenso e a ação não pode ser concluída.'); return }
+        // A 1ª tentativa pode ter sido aceita no servidor e só a resposta se perdeu:
+        // reconsulta antes de acusar erro, como no detalhe.
+        try {
+          const atual = linhaDe(await api.get(rota))
+          if (atual?.status === 'encerrada') { await concluirComSucesso(); return }
+          if (atual?.encerramento_solicitado_por != null) { aguardarOutraParte(); return }
+        } catch (e2) { console.log('[Celebracao] reconsulta pós-encerrar falhou | code:', e2.code) }
+        const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
+        if (isNetwork) {
+          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+            { text: 'Tentar novamente', onPress: executar },
+            { text: 'Cancelar', style: 'cancel' },
+          ])
+        } else {
+          Alert.alert('Erro', err.mensagem || 'Não foi possível encerrar.')
+        }
+      } finally {
+        setEncerrando(false)
+      }
+    }
+    Alert.alert(enc.ehObra ? '✅ Encerrar obra?' : '✅ Encerrar serviço?', 'Confirme que o serviço foi concluído.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Encerrar', onPress: executar },
+    ])
+  }
+
+  if (!evento && !avaliar) return null
 
   const fechar = () => setEvento(null)
   // "Ver depois" precisa continuar significando DEPOIS, senão um lembrete semMarca não
@@ -571,6 +706,9 @@ export default function CelebracaoMatchHost() {
   }
   const irParaDetalhe = () => {
     const ev = evento
+    // Eventos `encerrar`: o card fica aberto enquanto a confirmação roda; quem o fecha é o
+    // sucesso (ou o 'pendente'). Travado durante o POST contra o toque duplo.
+    if (ev?.encerrar) { if (!encerrando) confirmarEncerramento(ev); return }
     setEvento(null)
     // Contrapropostas usam ids diretos (sem closure navegar); demais eventos trazem navegar().
     if (ev?.tipo === 'contraproposta_prestador') {
@@ -582,35 +720,46 @@ export default function CelebracaoMatchHost() {
   }
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={fechar}>
-      <View style={estilos.backdrop}>
-        <View style={estilos.card}>
-          {/* O confete era incondicional — em cima do aviso de recusa ele soava como
-              deboche ("🎉 ✨ 🎉" logo acima de "Não foi dessa vez"). Quem não quiser
-              festa marca semConfete. */}
-          {evento.semConfete ? null : <Text style={estilos.confete}>🎉   ✨   🎉</Text>}
-          {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
-          <Text style={estilos.titulo}>{evento.titulo}</Text>
-          <Text style={estilos.subtitulo}>{evento.subtitulo || evento.mensagem}</Text>
-          {/* Só nos matches (avisoApp): a regra de agendar e concluir pelo app, dita no
-              momento em que o combinado nasce — a mesma caixa dos cards de agendamento. */}
-          {evento.avisoApp ? <CaixaAtencaoApp compacta /> : null}
-          <TouchableOpacity style={estilos.cta} onPress={irParaDetalhe} activeOpacity={0.85}>
-            <Text style={estilos.ctaTexto}>{evento.ctaTexto || 'Ver proposta'} →</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={estilos.depois} onPress={fechar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={estilos.depoisTexto}>Ver depois</Text>
-          </TouchableOpacity>
-          {/* Terceira ação só nos eventos dispensáveis (hoje, o lembrete de avaliação):
-              os demais não têm o que dispensar permanentemente. */}
-          {evento.dispensavel ? (
-            <TouchableOpacity style={estilos.depois} onPress={dispensar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={estilos.dispensarTexto}>Não quero avaliar</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      </View>
-    </Modal>
+    <>
+      {evento ? (
+        <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={fechar}>
+          <View style={estilos.backdrop}>
+            <View style={estilos.card}>
+              {/* O confete era incondicional — em cima do aviso de recusa ele soava como
+                  deboche ("🎉 ✨ 🎉" logo acima de "Não foi dessa vez"). Quem não quiser
+                  festa marca semConfete. */}
+              {evento.semConfete ? null : <Text style={estilos.confete}>🎉   ✨   🎉</Text>}
+              {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
+              <Text style={estilos.titulo}>{evento.titulo}</Text>
+              <Text style={estilos.subtitulo}>{evento.subtitulo || evento.mensagem}</Text>
+              {/* Só nos matches (avisoApp): a regra de agendar e concluir pelo app, dita no
+                  momento em que o combinado nasce — a mesma caixa dos cards de agendamento. */}
+              {evento.avisoApp ? <CaixaAtencaoApp compacta /> : null}
+              <TouchableOpacity style={[estilos.cta, encerrando && { opacity: 0.6 }]} onPress={irParaDetalhe} disabled={encerrando} activeOpacity={0.85}>
+                <Text style={estilos.ctaTexto}>{encerrando ? 'Encerrando…' : `${evento.ctaTexto || 'Ver proposta'} →`}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.depois} onPress={fechar} disabled={encerrando} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={estilos.depoisTexto}>Ver depois</Text>
+              </TouchableOpacity>
+              {/* Terceira ação só nos eventos dispensáveis (hoje, o lembrete de avaliação):
+                  os demais não têm o que dispensar permanentemente. */}
+              {evento.dispensavel ? (
+                <TouchableOpacity style={estilos.depois} onPress={dispensar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={estilos.dispensarTexto}>Não quero avaliar</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        </Modal>
+      ) : null}
+      {/* Avaliação pós-encerramento do dono (o mesmo ModalAvaliacao do detalhe). */}
+      <ModalAvaliacao
+        visivel={avaliarVisivel}
+        nomeAvaliado={avaliar?.nome || 'o profissional'}
+        onEnviar={enviarAvaliacao}
+        onFechar={finalizarAvaliacao}
+      />
+    </>
   )
 }
 
