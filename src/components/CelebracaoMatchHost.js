@@ -9,6 +9,7 @@ import { carregarVistas, marcarVistas } from '../utils/celebracao'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../utils/rede'
 import { CaixaAtencaoApp } from './Agendamento'
 import ModalAvaliacao from './ModalAvaliacao'
+import ModalDenuncia from './ModalDenuncia'
 
 // Título entre aspas da PRIMEIRA linha de um aviso agrupado, ou null quando ela não traz
 // título — o ramo do pintor já convivia com isso, ver os guardas em :298 e :329. Só o
@@ -511,7 +512,12 @@ export default function CelebracaoMatchHost() {
   const [avaliarVisivel, setAvaliarVisivel] = useState(false)
   const avaliarRef = useRef(null)
   const pedirLojaRef = useRef(false)
+  // Lado do PROFISSIONAL depois do encerramento pelo card: o ModalDenuncia de Contratos
+  // Finalizados (o mesmo, reusado), opcional — fechar ou enviar leva à aba de finalizados.
+  const [denunciar, setDenunciar] = useState(null)
+  const denunciarRef = useRef(null)
   useEffect(() => { avaliarRef.current = avaliar }, [avaliar])
+  useEffect(() => { denunciarRef.current = denunciar }, [denunciar])
 
   // forcar=true (login / foreground) checa já; senão, no máximo 1x a cada 15s para
   // não bater na API a cada troca de aba.
@@ -519,7 +525,7 @@ export default function CelebracaoMatchHost() {
   // o lembrete "Avalie o profissional" acharia este mesmo contrato ainda sem nota e
   // subiria por cima do ModalAvaliacao.
   const verificar = useCallback(async (forcar = false) => {
-    if (!usuario || checandoRef.current || avaliarRef.current) return
+    if (!usuario || checandoRef.current || avaliarRef.current || denunciarRef.current) return
     const agora = Date.now()
     if (!forcar && agora - ultimaRef.current < 15000) return
     ultimaRef.current = agora
@@ -559,7 +565,7 @@ export default function CelebracaoMatchHost() {
   useEffect(() => {
     const nav = navigationRef.current
     if (!nav?.addListener) return
-    const unsub = nav.addListener('state', () => { if (!evento && !avaliarRef.current) verificar() })
+    const unsub = nav.addListener('state', () => { if (!evento && !avaliarRef.current && !denunciarRef.current) verificar() })
     return unsub
   }, [usuario, evento, verificar])
 
@@ -633,10 +639,11 @@ export default function CelebracaoMatchHost() {
         setAvaliar({ ehObra: enc.ehObra, id: enc.id, nome, matchUsuarioId: enc.matchUsuarioId })
         setAvaliarVisivel(true)
       } else {
+        // Depois do aviso, a denúncia (opcional) do solicitante; dela se vai aos finalizados.
         Alert.alert(
           enc.ehObra ? '✅ Obra encerrada!' : '✅ Serviço encerrado!',
           enc.ehObra ? 'A obra foi encerrada com sucesso.' : 'O serviço foi concluído com sucesso e movido para Contratos Finalizados.',
-          [{ text: 'OK', onPress: () => navigationRef.current?.navigate('Contratos Finalizados') }],
+          [{ text: 'OK', onPress: () => setDenunciar({ ehObra: enc.ehObra, id: enc.id }) }],
         )
       }
     }
@@ -680,7 +687,26 @@ export default function CelebracaoMatchHost() {
     ])
   }
 
-  if (!evento && !avaliar) return null
+  // Denúncia pós-encerramento do profissional: o mesmo POST /denuncias e os mesmos textos de
+  // ContratosFinalizadosScreen.handleEnviarDenuncia. Enviada ou dispensada, segue para a aba.
+  const concluirDenuncia = () => {
+    setDenunciar(null)
+    navigationRef.current?.navigate('Contratos Finalizados')
+  }
+  const enviarDenuncia = async (categoria, descricao) => {
+    const d = denunciar
+    try {
+      await comRetry(() => api.post('/denuncias', { contrato_tipo: d.ehObra ? 'obra' : 'reparo', contrato_id: d.id, categoria, descricao }))
+      concluirDenuncia()
+      Alert.alert('Denúncia enviada', 'Recebemos sua denúncia. Nossa equipe vai analisar o caso.')
+    } catch (err) {
+      console.log('[Celebracao] falha ao enviar denúncia | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      concluirDenuncia()
+      Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a denúncia. Tente novamente.')
+    }
+  }
+
+  if (!evento && !avaliar && !denunciar) return null
 
   const fechar = () => setEvento(null)
   // "Ver depois" precisa continuar significando DEPOIS, senão um lembrete semMarca não
@@ -758,6 +784,13 @@ export default function CelebracaoMatchHost() {
         nomeAvaliado={avaliar?.nome || 'o profissional'}
         onEnviar={enviarAvaliacao}
         onFechar={finalizarAvaliacao}
+      />
+      {/* Denúncia pós-encerramento do profissional (o mesmo ModalDenuncia dos finalizados). */}
+      <ModalDenuncia
+        visivel={!!denunciar}
+        nomeDenunciado=""
+        onEnviar={enviarDenuncia}
+        onFechar={concluirDenuncia}
       />
     </>
   )

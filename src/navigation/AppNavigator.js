@@ -148,8 +148,18 @@ const navegarParaNotificacao = (data) => {
           navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
           break
         }
+        // PROFISSIONAL: o dono encerrou. Cai na lista de finalizados já com o ModalDenuncia
+        // (opcional) deste contrato aberto — denunciarContratoId é lido pela tela.
+        if (usaTabsPintor && data.obra_id) {
+          navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinObraMain', params: { denunciarContratoId: data.obra_id }, initial: false })
+          break
+        }
         // falls through
       case 'reparo_encerrado':
+        if (usaTabsReparador && data.reparo_id) {
+          navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinReparoMain', params: { denunciarContratoId: data.reparo_id }, initial: false })
+          break
+        }
         navegar((ehPrestador || ehDonoComAba) ? 'Contratos Finalizados' : tabEmAndamento); break
       // Match fechado (candidatura/proposta aceita) — deep-link direto p/ o detalhe.
       // 'match_obra'/'match_reparo' são o MESMO fato com outro nome (o par fechou) e por
