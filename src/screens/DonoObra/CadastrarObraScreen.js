@@ -13,6 +13,7 @@ import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import { telaDePouso, marcarAbertaPeloUsuario } from '../../components/RetomadaMatchHost'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_OBRA)
 // Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'residencial'
@@ -217,6 +218,29 @@ export default function CadastrarObraScreen({ navigation, route }) {
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, []))
+
+  // Sinais da tela de pouso para o RetomadaMatchHost (ver telaDePouso lá), espelhando
+  // CadastrarReparoScreen: só quando esta instância É a tela de pouso — a raiz da aba
+  // "Nova Obra" —, e não a cópia empilhada sobre o formulário de serviço do dono_reparo.
+  // (b) qualquer campo fora do valor inicial ou mídia anexada; (c) qualquer foco depois
+  // do primeiro, que é o que o app faz sozinho ao abrir.
+  const ehTelaDePouso = route?.name === 'CadastrarObraMain'
+  const temConteudo = !!(
+    titulo || descricao || valorEstimado || prazo != null || dataInicial || categoria !== CATEGORIA_INICIAL ||
+    cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
+    midia.itens.length > 0
+  )
+  useEffect(() => {
+    if (!ehTelaDePouso) return
+    telaDePouso.comConteudo = temConteudo
+    return () => { telaDePouso.comConteudo = false }
+  }, [ehTelaDePouso, temConteudo])
+  const primeiroFocoRef = useRef(true)
+  useFocusEffect(useCallback(() => {
+    if (!ehTelaDePouso) return
+    if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
+    marcarAbertaPeloUsuario()
+  }, [ehTelaDePouso]))
 
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
   // destruição da MainActivity (Android). Implementação única em utils/midia.

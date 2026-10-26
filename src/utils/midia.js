@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy'
 import * as SecureStore from 'expo-secure-store'
 import api from '../services/api'
 import { comRetry } from './rede'
+import { pickerLancado, pickerDevolvido } from '../components/RetomadaMatchHost'
 
 // Implementação ÚNICA da seleção/captura de mídia, compartilhada por
 // CadastrarObraScreen e CadastrarReparoScreen. Antes cada tela tinha sua própria
@@ -95,12 +96,17 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
     }
   }
 
+  // pickerLancado/pickerDevolvido: avisam o RetomadaMatchHost de que a volta ao 1º plano
+  // é o retorno da câmera/galeria, e não uma abertura a redirecionar. Marca ANTES do
+  // launch (o 'active' chega antes de a promise resolver) e baixa no finally, em qualquer
+  // saída — a marca cai sozinha pouco depois, então nenhum caminho a deixa pendurada.
   const usarCameraFoto = async () => {
     Keyboard.dismiss()
     try {
       const { status } = await ImagePicker.requestCameraPermissionsAsync()
       if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
       const t0 = Date.now()
+      pickerLancado()
       const resultado = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
         quality: 0.6,
@@ -110,6 +116,8 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
     } catch (err) {
       console.log(`${logPrefix} launchCameraAsync (foto) rejeitou | msg:`, err?.message)
       Alert.alert('Não foi possível abrir a câmera', 'Tente novamente. Se o problema continuar, feche o aplicativo completamente e abra de novo.')
+    } finally {
+      pickerDevolvido()
     }
   }
 
@@ -123,6 +131,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
       // sistema (ACTION_VIDEO_CAPTURE), que usa a própria permissão de áudio — o app não precisa de
       // RECORD_AUDIO para isso. A permissão que o picker exige é a de câmera, pedida logo acima.
       const t0 = Date.now()
+      pickerLancado()
       const resultado = await ImagePicker.launchCameraAsync({
         mediaTypes: ['videos'],
         videoMaxDuration: 30,
@@ -132,6 +141,8 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
     } catch (err) {
       console.log(`${logPrefix} launchCameraAsync (video) rejeitou | msg:`, err?.message)
       Alert.alert('Não foi possível abrir a câmera', 'Tente novamente. Se o problema continuar, feche o aplicativo completamente e abra de novo.')
+    } finally {
+      pickerDevolvido()
     }
   }
 
@@ -139,6 +150,7 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
     Keyboard.dismiss()
     try {
       const t0 = Date.now()
+      pickerLancado()
       const resultado = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images', 'videos'],
         allowsMultipleSelection: true,
@@ -149,6 +161,8 @@ export function useSelecaoMidia({ logPrefix, montadoRef, setMidias }) {
     } catch (err) {
       console.log(`${logPrefix} launchImageLibraryAsync rejeitou | msg:`, err?.message)
       Alert.alert('Não foi possível abrir a galeria', 'Tente novamente. Se o problema continuar, feche o aplicativo completamente e abra de novo.')
+    } finally {
+      pickerDevolvido()
     }
   }
 

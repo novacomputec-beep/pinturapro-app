@@ -13,6 +13,7 @@ import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_SERVICO } from '../../utils/categorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import { telaDePouso, marcarAbertaPeloUsuario } from '../../components/RetomadaMatchHost'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
 // Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'hidraulica'
@@ -178,6 +179,28 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     montadoRef,
     setMidias: midia.adicionar,
   })
+
+  // Sinais da tela de pouso para o RetomadaMatchHost (ver telaDePouso lá): só quando esta
+  // instância É a tela de pouso — a raiz da aba "Novo Reparo" —, porque o redirecionamento
+  // do 2º plano só sai dela. (b) qualquer campo fora do valor inicial ou mídia anexada;
+  // (c) qualquer foco depois do primeiro, que é o que o app faz sozinho ao abrir.
+  const ehTelaDePouso = route?.name === 'CadastrarReparoMain'
+  const temConteudo = !!(
+    titulo || descricao || valorEstimado || urgencia != null || categoria !== CATEGORIA_INICIAL ||
+    cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
+    midia.itens.length > 0
+  )
+  useEffect(() => {
+    if (!ehTelaDePouso) return
+    telaDePouso.comConteudo = temConteudo
+    return () => { telaDePouso.comConteudo = false }
+  }, [ehTelaDePouso, temConteudo])
+  const primeiroFocoRef = useRef(true)
+  useFocusEffect(useCallback(() => {
+    if (!ehTelaDePouso) return
+    if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
+    marcarAbertaPeloUsuario()
+  }, [ehTelaDePouso]))
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')
