@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient'
 import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
 import { rotulosEspecialidades } from '../utils/categorias'
+import ChipsCategoria from './ChipsCategoria'
 import { avatar } from '../utils/imagemOtimizada'
 import { CaixaAtencaoApp } from './Agendamento'
 
@@ -98,11 +99,8 @@ export default function BlocoPosMatchDono({ demanda, frente, endereco, valor, pr
     <View>
       {/* 1. Card do topo */}
       <View style={estilos.topo}>
-        {demanda?.categoria ? (
-          <View style={estilos.categoriaPill}>
-            <Text style={estilos.categoriaTexto}>{demanda.categoria}</Text>
-          </View>
-        ) : null}
+        {/* Até 2 chips + "+N" (ChipsCategoria); obra e reparo antigo = o chip de sempre. */}
+        <ChipsCategoria demanda={demanda} estilo={{ marginBottom: 10 }} />
         <Text style={estilos.titulo}>{demanda?.titulo}</Text>
         {endereco ? <Text style={estilos.endereco}>📍 {endereco}</Text> : null}
         <View style={estilos.boxesRow}>

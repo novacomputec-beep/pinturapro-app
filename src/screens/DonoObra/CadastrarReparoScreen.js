@@ -11,16 +11,15 @@ import { useFocusEffect } from '@react-navigation/native'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
-import { paraSeletor, CATEGORIAS_SERVICO } from '../../utils/categorias'
+import { paraSeletor, CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { telaDePouso, marcarAbertaPeloUsuario } from '../../components/RetomadaMatchHost'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
-// Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'hidraulica'
-// que morava aqui era o primeiro da lista ANTES de utils/categorias.js passar a ordenar
-// por rótulo, e ficou para trás — o seletor abria em Hidráulica no meio da lista. Lido
-// da lista, acompanha qualquer reordenação ou categoria nova sem ninguém lembrar daqui.
-const CATEGORIA_INICIAL = CATEGORIAS[0].id
+// Até MAX_CATEGORIAS_DEMANDA (3) categorias por serviço, começando sem nenhuma marcada: a
+// escolha é da pessoa (e obrigatória, ver validar/CAMPOS_OBRIGATORIOS). A primeira marcada
+// vai como `categoria` (a coluna de sempre) e a lista inteira como `categorias`.
 
 // Alvenaria é a única categoria com bifurcação: "pequeno reparo" fica aqui, "pedreiro ou
 // ajudante" é OBRA e segue para CadastrarObraScreen com o que já foi preenchido. Slug, e
@@ -43,6 +42,7 @@ const URGENCIAS = [
 // tenta publicar incompleto, rolar até o 1º campo com erro e exibir um alerta claro —
 // antes a única sinalização era o erro inline (fora da tela, junto ao botão de baixo).
 const CAMPOS_OBRIGATORIOS = [
+  { chave: 'categorias',    msg: 'Escolha ao menos uma categoria antes de continuar.' },
   { chave: 'urgencia',      msg: 'Selecione o prazo para iniciar o serviço antes de continuar.' },
   { chave: 'titulo',        msg: 'Por favor, informe o título do serviço antes de continuar.' },
   { chave: 'descricao',     msg: 'Descreva o serviço necessário antes de continuar.' },
@@ -65,7 +65,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
-  const [categoria, setCategoria] = useState(CATEGORIA_INICIAL)
+  const [categorias, setCategorias] = useState([])
+  // slug → slugs do grupo dele (services/gruposCategorias). Vazio até a resposta chegar, e
+  // vazio de vez se ela falhar: sem grupos não há sugestão, e o cadastro segue igual.
+  const [grupoDoSlug, setGrupoDoSlug] = useState({})
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
   const [urgencia, setUrgencia] = useState(null)
@@ -125,7 +128,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // publicada a partir deste formulário (efeito seguinte). midia.resetar é estável.
   const limparFormulario = useCallback(() => {
     setTitulo('')
-    setCategoria(CATEGORIA_INICIAL)
+    setCategorias([])
     setDescricao('')
     setValorEstimado('')
     setUrgencia(null)
@@ -186,10 +189,16 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // (c) qualquer foco depois do primeiro, que é o que o app faz sozinho ao abrir.
   const ehTelaDePouso = route?.name === 'CadastrarReparoMain'
   const temConteudo = !!(
-    titulo || descricao || valorEstimado || urgencia != null || categoria !== CATEGORIA_INICIAL ||
+    titulo || descricao || valorEstimado || urgencia != null || categorias.length > 0 ||
     cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
     midia.itens.length > 0
   )
+
+  // Grupos de categorias relacionadas, uma vez por montagem (a requisição é uma por
+  // processo, ver o serviço). Guardado por montadoRef para não escrever em tela desmontada.
+  useEffect(() => {
+    carregarGruposCategorias().then(g => { if (montadoRef.current) setGrupoDoSlug(g || {}) })
+  }, [])
   useEffect(() => {
     if (!ehTelaDePouso) return
     telaDePouso.comConteudo = temConteudo
@@ -246,6 +255,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
 
   const validar = () => {
     const novos = {}
+    if (categorias.length === 0) novos.categorias = 'Escolha ao menos uma categoria'
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva o serviço necessário'
     if (!urgencia) novos.urgencia = 'Selecione o prazo para iniciar o serviço'
@@ -288,21 +298,32 @@ export default function CadastrarReparoScreen({ navigation, route }) {
 
   const selecionarMidia = () => setShowMediaPicker(true)
 
-  // Toque numa pill de categoria. Alvenaria abre a folha de escolha obrigatória; a pill
-  // já fica marcada para a folha aparecer sobre o estado que a pessoa acabou de pedir, e
-  // o "voltar" sem escolher desmarca (ver escolhaAlvenaria). As demais selecionam direto.
+  // Toque numa pill (ou num chip de sugestão). Marcada → desmarca. Não marcada → entra, se
+  // ainda há vaga (no limite as pills restantes ficam desabilitadas, então este guarda é
+  // para o chip de sugestão e para toques em sequência). Alvenaria entrando abre a folha
+  // de escolha obrigatória; a pill já fica marcada para a folha aparecer sobre o estado
+  // que a pessoa acabou de pedir, e o "voltar" sem escolher devolve a lista anterior.
+  const noLimite = categorias.length >= MAX_CATEGORIAS_DEMANDA
   const selecionarCategoria = (id) => {
-    if (id === SLUG_ALVENARIA) setEscolhaAlvenaria({ anterior: categoria })
-    setCategoria(id)
+    if (categorias.includes(id)) { setCategorias(categorias.filter(c => c !== id)); return }
+    if (noLimite) return
+    if (id === SLUG_ALVENARIA) setEscolhaAlvenaria({ anterior: categorias })
+    setCategorias([...categorias, id])
   }
+
+  // Sugestões: vizinhas de grupo do que já está marcado, ainda não marcadas, com a pill
+  // correspondente (rótulo com emoji) para o chip "+ 🚿 Hidráulica".
+  const sugestoes = sugerirRelacionadas(grupoDoSlug, categorias)
+    .map(slug => CATEGORIAS.find(c => c.id === slug))
+    .filter(Boolean)
 
   // "🧱 Pequeno reparo": fica aqui, com Alvenaria selecionada.
   const ficarNoReparo = () => setEscolhaAlvenaria(null)
 
-  // Voltar do Android com a folha aberta: nenhuma escolha feita, então a categoria volta
-  // à anterior. A folha não fecha por toque fora — a escolha é obrigatória.
+  // Voltar do Android com a folha aberta: nenhuma escolha feita, então a lista volta à
+  // anterior (sem Alvenaria). A folha não fecha por toque fora — a escolha é obrigatória.
   const desistirDaEscolha = () => {
-    if (escolhaAlvenaria) setCategoria(escolhaAlvenaria.anterior)
+    if (escolhaAlvenaria) setCategorias(escolhaAlvenaria.anterior)
     setEscolhaAlvenaria(null)
   }
 
@@ -382,7 +403,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     try {
       reparo = await comRetry(() => api.post('/reparos/dono', {
         titulo: titulo.trim(),
-        categoria,
+        // A primeira marcada é a coluna de sempre; a lista inteira vai ao lado dela.
+        categoria: categorias[0],
+        categorias,
         descricao: descricao.trim(),
         valor_estimado: valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
         pais: 'Brasil',
@@ -453,13 +476,45 @@ export default function CadastrarReparoScreen({ navigation, route }) {
               <Text style={estilos.avisoTexto}>Mostre o problema e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
             </View>
           </View>
-          <Text style={estilos.labelCategoria}>CATEGORIA</Text>
-          <View style={estilos.categoriasRow}>
-            {CATEGORIAS.map(c => (
-              <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => selecionarCategoria(c.id)}>
-                <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
-              </TouchableOpacity>
-            ))}
+          <View onLayout={registrarY('categorias')}>
+            <View style={estilos.categoriaCabecalho}>
+              <Text style={estilos.labelCategoria}>CATEGORIAS</Text>
+              <Text style={[estilos.categoriaContador, noLimite && { color: cores.primaria }]}>{categorias.length} de {MAX_CATEGORIAS_DEMANDA}</Text>
+            </View>
+            <Text style={estilos.categoriaDica}>Escolha até {MAX_CATEGORIAS_DEMANDA} categorias. Quanto mais certas, mais profissionais recebem o seu pedido.</Text>
+            {erros.categorias && <Text style={estilos.erroTexto}>{erros.categorias}</Text>}
+            <View style={estilos.categoriasRow}>
+              {CATEGORIAS.map(c => {
+                const ativa = categorias.includes(c.id)
+                const bloqueada = !ativa && noLimite
+                return (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={[estilos.categoriaPill, ativa && estilos.categoriaPillAtivo, bloqueada && estilos.categoriaPillBloqueada]}
+                    onPress={() => selecionarCategoria(c.id)}
+                    disabled={bloqueada}
+                    accessibilityState={{ selected: ativa, disabled: bloqueada }}
+                  >
+                    <Text style={[estilos.categoriaPillTexto, ativa && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            {noLimite && <Text style={estilos.categoriaLimite}>Limite de {MAX_CATEGORIAS_DEMANDA} categorias atingido</Text>}
+            {/* Sugestões: só depois da primeira marcada e enquanto há vaga. Chips tracejados
+                no azul informativo — convidam, não competem com as pills marcadas. */}
+            {!noLimite && sugestoes.length > 0 && (
+              <View style={estilos.sugestaoCard}>
+                <Text style={estilos.sugestaoTitulo}>💡 Também podem atender este pedido:</Text>
+                <View style={estilos.sugestaoChips}>
+                  {sugestoes.map(c => (
+                    <TouchableOpacity key={c.id} style={estilos.sugestaoChip} onPress={() => selecionarCategoria(c.id)} activeOpacity={0.7}>
+                      <Text style={estilos.sugestaoChipTexto}>+ {c.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
           <View onLayout={registrarY('urgencia')}>
             <Text style={estilos.labelCategoria}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
@@ -620,6 +675,20 @@ const estilos = StyleSheet.create({
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
   categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
+  // No limite, as pills que sobraram apagam em vez de sumir: a lista continua inteira e
+  // legível, só não aceita toque.
+  categoriaPillBloqueada: { opacity: 0.4 },
+  categoriaCabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  categoriaContador: { fontSize: 11, color: cores.textoMedio, fontWeight: '600', marginBottom: 8, fontVariant: ['tabular-nums'] },
+  categoriaDica: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginBottom: 10 },
+  categoriaLimite: { fontSize: 12, color: cores.primaria, fontWeight: '600', marginTop: -8, marginBottom: 16 },
+  // Card azul de sugestão: mesma tinta e borda do card de pergunta nova (PerguntasDemanda);
+  // os chips tracejados seguem o contorno do uploadBtn de PainelMidiaDemanda.
+  sugestaoCard: { backgroundColor: cores.info + '14', borderWidth: 1, borderColor: cores.info, borderRadius: raios.medio, padding: 12, marginTop: -4, marginBottom: 16 },
+  sugestaoTitulo: { fontSize: 12, fontWeight: '700', color: cores.info, marginBottom: 8 },
+  sugestaoChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  sugestaoChip: { borderWidth: 1, borderStyle: 'dashed', borderColor: cores.info, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  sugestaoChipTexto: { fontSize: 12, color: cores.info, fontWeight: '600' },
   // Três por linha e fonte menor, na mesma medida das pills de CATEGORIA (31% de
   // largura, paddingVertical 7, rótulo em 12): as seis opções passam de 3 linhas para 2
   // e devolvem a altura que a nova linha de categorias consumiu. O raio continua o de

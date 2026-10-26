@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import { rotuloCategorias } from '../../utils/categorias'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
 // não some da tela: ela MENTE. As duas grafias do endpoint legado ('aprovada'/'recusada',
@@ -208,7 +209,7 @@ export default function MeusInteressesScreen({ navigation }) {
           </Text>
         )}
         <Text style={estilos.cardMeta}>
-          {item.categoria} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
+          {rotuloCategorias(item)} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
           {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
         </Text>
         <View style={estilos.valoresRow}>
@@ -236,7 +237,7 @@ export default function MeusInteressesScreen({ navigation }) {
         )}
         <TouchableOpacity
           style={estilos.btnVer}
-          onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, cidade: item.cidade, latitude: item.latitude, longitude: item.longitude } })}
+          onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, categorias: item.categorias, cidade: item.cidade, latitude: item.latitude, longitude: item.longitude } })}
         >
           <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
         </TouchableOpacity>

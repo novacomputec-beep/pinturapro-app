@@ -209,3 +209,30 @@ export const rotulosEspecialidades = (esp) => {
   const rotulos = limpos.map((s) => TODAS_ESPECIALIDADES.find((c) => c.slug === s)?.rotulo || s)
   return rotulos.length ? rotulos.join(', ') : null
 }
+
+// ── Várias categorias por demanda (lado reparo) ─────────────────────────────────────────
+// Teto de categorias de um reparo. Mora aqui pelo mesmo motivo do MAX_ESPECIALIDADES: o
+// cadastro, o contador e a dica precisam do MESMO número.
+export const MAX_CATEGORIAS_DEMANDA = 3
+
+// Lista de categorias de uma demanda como ela chega da API: `categorias` (array, reparo
+// novo) quando existe e não está vazio; senão [categoria] (obra, reparo antigo, linha de
+// lista que só traz a coluna). Deduplicada e sem vazios; demanda sem nada → [].
+export const categoriasDe = (demanda) => {
+  const arr = Array.isArray(demanda?.categorias)
+    ? demanda.categorias.map((s) => String(s).trim()).filter(Boolean)
+    : []
+  if (arr.length) return [...new Set(arr)]
+  const uma = demanda?.categoria != null ? String(demanda.categoria).trim() : ''
+  return uma ? [uma] : []
+}
+
+// Linha de texto "hidraulica, eletrica +1" para as listas que mostram a categoria como
+// texto corrido (Meus Serviços, Contratos Finalizados). Até `max` nomes; o resto vira
+// contagem. Mesmo valor cru que as telas sempre mostraram (slug), só que em lista.
+export const rotuloCategorias = (demanda, max = 2) => {
+  const lista = categoriasDe(demanda)
+  if (!lista.length) return ''
+  const visiveis = lista.slice(0, max).join(', ')
+  return lista.length > max ? `${visiveis} +${lista.length - max}` : visiveis
+}
