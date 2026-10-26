@@ -31,6 +31,8 @@ import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
 import ChipsCategoria from '../../components/ChipsCategoria'
+import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
+import { simularCancelamento, cancelarMatch, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -377,6 +379,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [modalCompareceu, setModalCompareceu] = useState(false)
   const [comparecendo, setComparecendo] = useState(false)
   const comparecimentoAbertoRef = useRef(false)
+  // Cancelamento do match (utils/cancelamento): o pedido de comum acordo pendente (campo
+  // pedido_cancelamento do detalhe), a folha e a simulação que ela mostra, e os dois envios.
+  const [pedidoCancelamento, setPedidoCancelamento] = useState(null)
+  const [sheetCancelar, setSheetCancelar] = useState(false)
+  const [simulacaoCancelar, setSimulacaoCancelar] = useState(null)
+  const [cancelando, setCancelando] = useState(false)
+  const [respondendoCancelamento, setRespondendoCancelamento] = useState(false)
   // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
   // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
   // futuro nem vale abrir o modal — o envio só voltaria recusado.
@@ -465,6 +474,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setMeuInteresse(resposta.meu_interesse)
       setInteressados(resposta.interessados || [])
       setPerguntas(Array.isArray(resposta.perguntas) ? resposta.perguntas : [])
+      setPedidoCancelamento(pedidoCancelamentoDe(resposta, resposta.reparo))
       setDonoTelefone(resposta.dono_telefone ?? null)
       setExtensaoMaximaHoras(resposta.extensao_maxima_horas ?? null)
       setAumentoValor({
@@ -1498,6 +1508,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Só a partir do DIA agendado: antes disso o toque anunciaria uma partida para um serviço
   // que ainda não chegou. Sem horário agendado não há dia de referência — fica travado.
   const podeDizerACaminho = !!reparo?.chegada_prevista_em && diaAgendadoChegou(reparo.chegada_prevista_em, agora)
+  // Cancelamento do match: o botão (ou o pedido de comum acordo pendente) acompanha os
+  // blocos pós-match acima — existe entre o match e o "Estou a caminho", para os dois lados,
+  // e some com a_caminho_em junto com eles. O nome do outro lado vai à folha e ao card.
+  const mostrarCancelamento = faseAguardaHorario || faseProAguardaHorario || proAgendadoSemACaminho
+  const nomeOutroCancelamento = isDono ? primeiroNome(prestadorMatch?.nome) : primeiroNome(reparo?.dono_nome)
   // Vigia do comparecimento: horário AGENDADO vencido, sem chegada confirmada e sem resposta
   // — as mesmas condições do 409 de POST /confirmar-comparecimento. O servidor pergunta por
   // push (vigia_comparecimento_em) 1h depois do horário; a tela também aceita o estado
@@ -1535,6 +1550,70 @@ export default function DetalheReparoScreen({ route, navigation }) {
       if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
     } finally {
       if (mountedRef.current) setComparecendo(false)
+    }
+  }
+
+  // Cancelamento do match. O toque abre a folha já com o spinner e pede a simulação
+  // (?simular=1): é ela que diz se o cancelamento é 'livre' ou 'tardio' (menos de 12 h).
+  // Falhando a simulação, a folha fecha — sem saber o desfecho não se oferece o botão.
+  const abrirCancelar = async () => {
+    setSimulacaoCancelar(null)
+    setSheetCancelar(true)
+    try {
+      const sim = await simularCancelamento('servico', reparo.id)
+      if (mountedRef.current) setSimulacaoCancelar(sim)
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao simular cancelamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (mountedRef.current) setSheetCancelar(false)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível conferir o prazo do cancelamento.')
+    }
+  }
+
+  // Os dois envios da folha: cancelar de vez (comumAcordo false) ou só PEDIR o cancelamento
+  // de comum acordo (true — o outro lado responde em até 2 h). Mesmo molde de
+  // handleComparecimento: sem { timeout }, e buscar() traz o estado que o servidor decidiu.
+  const handleCancelarMatch = async (motivo, motivoTexto, comumAcordo) => {
+    if (cancelando) return
+    setCancelando(true)
+    try {
+      await cancelarMatch('servico', reparo.id, { motivo, motivoTexto, comumAcordo })
+      if (mountedRef.current) setSheetCancelar(false)
+      await buscar()
+      if (comumAcordo) {
+        Alert.alert('🤝 Pedido enviado', `${nomeOutroCancelamento || 'A outra parte'} tem 2h para responder. Sem resposta, o pedido expira e o combinado continua.`)
+      } else {
+        Alert.alert('Serviço cancelado', isDono
+          ? 'O profissional foi avisado e o pedido voltou para os outros profissionais.'
+          : 'O cliente foi avisado e o pedido voltou a receber propostas de outros profissionais.')
+      }
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao cancelar match | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { if (mountedRef.current) setSheetCancelar(false); return }
+      Alert.alert('Erro', err.mensagem || 'Não foi possível cancelar o serviço.')
+      if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setCancelando(false)
+    }
+  }
+
+  // Resposta ao pedido de comum acordo do outro lado ('aceitar' cancela sem falta para
+  // ninguém; 'recusar' mantém o combinado).
+  const handleResponderCancelamento = async (acao) => {
+    if (respondendoCancelamento) return
+    setRespondendoCancelamento(true)
+    try {
+      await responderPedidoCancelamento('servico', reparo.id, acao)
+      await buscar()
+      if (acao === 'aceitar') Alert.alert('Serviço cancelado', 'Cancelado de comum acordo. Ninguém leva falta.')
+      else Alert.alert('Pedido recusado', 'O combinado continua valendo.')
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao responder pedido de cancelamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar sua resposta.')
+      if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setRespondendoCancelamento(false)
     }
   }
 
@@ -1688,6 +1767,19 @@ export default function DetalheReparoScreen({ route, navigation }) {
         onEnviar={enviarPergunta}
       />
 
+      <SheetCancelamento
+        visivel={sheetCancelar}
+        carregando={!simulacaoCancelar}
+        simulacao={simulacaoCancelar}
+        souDono={isDono}
+        nomeOutro={nomeOutroCancelamento}
+        temHorario={!!reparo.chegada_prevista_em}
+        enviando={cancelando}
+        onFechar={() => setSheetCancelar(false)}
+        onCancelar={(motivo, texto) => handleCancelarMatch(motivo, texto, false)}
+        onPedirAcordo={(motivo, texto) => handleCancelarMatch(motivo, texto, true)}
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
@@ -1781,6 +1873,21 @@ export default function DetalheReparoScreen({ route, navigation }) {
               ) : null}
             />
           )}
+
+          {/* Cancelamento do match, logo abaixo do bloco pós-match (dono ou profissional):
+              com pedido de comum acordo pendente, o card (quem responde) ou a linha de
+              espera (quem pediu) no lugar do botão. */}
+          {mostrarCancelamento && (pedidoCancelamento ? (
+            <CardPedidoCancelamento
+              pedido={pedidoCancelamento}
+              paraMim={!pedidoEhMeu(pedidoCancelamento, usuario?.id)}
+              nomeOutro={nomeOutroCancelamento}
+              respondendo={respondendoCancelamento}
+              onResponder={handleResponderCancelamento}
+            />
+          ) : (
+            <BotaoCancelarServico onPress={abrirCancelar} desabilitado={cancelando} />
+          ))}
 
           {!topoCompacto && valorPrincipal != null && Number(valorPrincipal) > 0 && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>

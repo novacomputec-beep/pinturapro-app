@@ -260,6 +260,15 @@ const navegarParaNotificacao = (data) => {
       case 'chegada_contraproposta':
       case 'chegada_remarcar':
       case 'a_caminho':
+      // Cancelamento do match: o pedido de comum acordo a responder (o card com Aceitar /
+      // Recusar vive no detalhe), a resposta a ele e o cancelamento em si — todos levam ao
+      // detalhe, que é onde o estado novo aparece. Mesmo probe reparo_id → obra_id.
+      case 'pedido_cancelamento':
+      case 'cancelamento_aceito':
+      case 'cancelamento_recusado':
+      case 'cancelamento_expirado':
+      case 'match_cancelado':
+      case 'servico_cancelado':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)

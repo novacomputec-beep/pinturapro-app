@@ -78,7 +78,7 @@ export const CaixaConcluaPeloApp = () => (
 // do dono antes do "Estou a caminho", onde ela é o único aviso da tela).
 export const CaixaAtencaoApp = ({ compacta, grande }) => (
   <View style={[estilos.caixaAmbar, compacta && { marginBottom: 16 }, grande && { marginBottom: 0 }]}>
-    <Text style={[estilos.caixaAmbarTexto, grande && estilos.caixaAmbarTextoGrande]}>⚠️ Atenção: mesmo que conversem pelo WhatsApp, o dia, o horário e a conclusão do serviço devem ser registrados aqui no app. Agendar ou concluir o serviço fora do ProTudo gera penalidade para os dois.</Text>
+    <Text style={[estilos.caixaAmbarTexto, grande && estilos.caixaAmbarTextoGrande]}>⚠️ Atenção: mesmo que conversem pelo WhatsApp, o dia, o horário e a conclusão do serviço devem ser registrados aqui no app. Agendar ou concluir o serviço fora do ProTudo gera penalidade para os dois. Cancelar com menos de 12h de antecedência conta como falta.</Text>
   </View>
 )
 
