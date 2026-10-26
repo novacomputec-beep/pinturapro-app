@@ -28,6 +28,7 @@ import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import BlocoPosMatchDono from '../../components/PosMatchDono'
 import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
+import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -311,6 +312,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [aumentoValor, setAumentoValor] = useState({ pode: false, minimo: null })
   const [meuInteresse, setMeuInteresse] = useState(null)
   const [interessados, setInteressados] = useState([])
+  // Perguntas públicas sobre o pedido (campo `perguntas` ao LADO de `reparo`, como os
+  // interessados). O modal e os dois "enviando" vivem aqui; o texto vive no componente.
+  const [perguntas, setPerguntas] = useState([])
+  const [modalPergunta, setModalPergunta] = useState(false)
+  const [enviandoPergunta, setEnviandoPergunta] = useState(false)
+  const [respondendoPerguntaId, setRespondendoPerguntaId] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -455,6 +462,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setMidias(resposta.midias || [])
       setMeuInteresse(resposta.meu_interesse)
       setInteressados(resposta.interessados || [])
+      setPerguntas(Array.isArray(resposta.perguntas) ? resposta.perguntas : [])
       setDonoTelefone(resposta.dono_telefone ?? null)
       setExtensaoMaximaHoras(resposta.extensao_maxima_horas ?? null)
       setAumentoValor({
@@ -533,6 +541,46 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
+    }
+  }
+
+  // Pergunta única do profissional e resposta única do dono (components/PerguntasDemanda).
+  // comRetry SEM { timeout }: os dois gravam algo que o servidor aceita uma vez só, então
+  // só o ERR_NETWORK duro (requisição que não saiu) é reexecutado — mesmo critério das
+  // respostas de negociação. Sucesso recarrega em silêncio: a lista volta do servidor já
+  // com a pergunta/resposta e com o texto como ele a guardou (telefones e links removidos).
+  // Falha de rede recarrega em vez de alertar (recarregarSeFalhaDeRede): se a pergunta
+  // chegou, ela aparece; se não chegou, o modal continua com o texto.
+  const enviarPergunta = async (texto) => {
+    if (enviandoPergunta) return false
+    setEnviandoPergunta(true)
+    try {
+      await comRetry(() => api.post(`/reparos/${reparoInicial.id}/perguntas`, { texto }))
+      setModalPergunta(false)
+      buscar()
+      return true
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao enviar pergunta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { setModalPergunta(false); return true }
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar sua pergunta.')
+      return false
+    } finally {
+      if (mountedRef.current) setEnviandoPergunta(false)
+    }
+  }
+
+  const responderPergunta = async (perguntaId, texto) => {
+    if (respondendoPerguntaId != null) return
+    setRespondendoPerguntaId(perguntaId)
+    try {
+      await comRetry(() => api.post(`/reparos/${reparoInicial.id}/perguntas/${perguntaId}/responder`, { texto }))
+      buscar()
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao responder pergunta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar sua resposta.')
+    } finally {
+      if (mountedRef.current) setRespondendoPerguntaId(null)
     }
   }
 
@@ -1631,6 +1679,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      <ModalPerguntar
+        visivel={modalPergunta}
+        enviando={enviandoPergunta}
+        onFechar={() => setModalPergunta(false)}
+        onEnviar={enviarPergunta}
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
@@ -2043,6 +2098,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
+              {/* Perguntas dos profissionais: as novas no card azul, com o campo de resposta,
+                  e as já respondidas embaixo. Só antes do match — depois dele a conversa
+                  é com o escolhido, pelo card de agendamento. */}
+              {!temMatch && !encerrada && (
+                <CardPerguntasDono perguntas={perguntas} respondendoId={respondendoPerguntaId} onResponder={responderPergunta} />
+              )}
               {/* Escondida na fase pós-match sem "a caminho": o bloco do topo já mostra o
                   escolhido, e os demais já perderam a disputa. */}
               {!faseAguardaHorario && (<>
@@ -2361,6 +2422,18 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}...</Text>
                 </View>
+              )}
+              {/* Perguntas públicas sobre o pedido e o botão de fazer a própria. Só antes do
+                  match. O botão some com a própria pergunta já feita (`minha`), fora da
+                  disputa (recusado), sem assinatura (mesma regra do "Tenho interesse") e
+                  com o formulário de proposta aberto — ele fica ACIMA do "Tenho interesse". */}
+              {!temMatch && !encerrada && (
+                <>
+                  <CardPerguntasProfissional perguntas={perguntas} />
+                  {assinaturaAtiva && !foraDaDisputa && !mostrarForm && !perguntas.some(p => p.minha) && (
+                    <BotaoPerguntar onPress={() => setModalPergunta(true)} />
+                  )}
+                </>
               )}
               {!temMatch && !encerrada && (
                 meuInteresse ? (

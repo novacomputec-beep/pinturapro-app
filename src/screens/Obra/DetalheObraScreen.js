@@ -28,6 +28,7 @@ import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import BlocoPosMatchDono from '../../components/PosMatchDono'
 import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
+import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -314,6 +315,12 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [aumentoValor, setAumentoValor] = useState({ pode: false, minimo: null })
   const [minhaCandidatura, setMinhaCandidatura] = useState(null)
   const [candidatos, setCandidatos] = useState([])
+  // Perguntas públicas sobre a obra (campo `perguntas` ao LADO de `obra`, como os
+  // candidatos). O modal e os dois "enviando" vivem aqui; o texto vive no componente.
+  const [perguntas, setPerguntas] = useState([])
+  const [modalPergunta, setModalPergunta] = useState(false)
+  const [enviandoPergunta, setEnviandoPergunta] = useState(false)
+  const [respondendoPerguntaId, setRespondendoPerguntaId] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -441,6 +448,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       setMidias(resposta.midias || [])
       setMinhaCandidatura(resposta.minha_candidatura)
       setCandidatos(resposta.candidatos || [])
+      setPerguntas(Array.isArray(resposta.perguntas) ? resposta.perguntas : [])
       setDonoTelefone(resposta.dono_telefone ?? null)
       setExtensaoMaximaHoras(resposta.extensao_maxima_horas ?? null)
       const linha = resposta.obra || resposta
@@ -520,6 +528,43 @@ export default function DetalheObraScreen({ route, navigation }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar seu interesse.')
     } finally {
       setEnviando(false)
+    }
+  }
+
+  // Pergunta única do profissional e resposta única do dono (components/PerguntasDemanda).
+  // Espelha DetalheReparoScreen: comRetry SEM { timeout } porque os dois gravam algo que o
+  // servidor aceita uma vez só; sucesso recarrega em silêncio; falha de rede recarrega em
+  // vez de alertar (recarregarSeFalhaDeRede).
+  const enviarPergunta = async (texto) => {
+    if (enviandoPergunta) return false
+    setEnviandoPergunta(true)
+    try {
+      await comRetry(() => api.post(`/obras/${obraInicial.id}/perguntas`, { texto }))
+      setModalPergunta(false)
+      buscar()
+      return true
+    } catch (err) {
+      console.log('[DetalheObra] falha ao enviar pergunta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarObra)) { setModalPergunta(false); return true }
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar sua pergunta.')
+      return false
+    } finally {
+      if (mountedRef.current) setEnviandoPergunta(false)
+    }
+  }
+
+  const responderPergunta = async (perguntaId, texto) => {
+    if (respondendoPerguntaId != null) return
+    setRespondendoPerguntaId(perguntaId)
+    try {
+      await comRetry(() => api.post(`/obras/${obraInicial.id}/perguntas/${perguntaId}/responder`, { texto }))
+      buscar()
+    } catch (err) {
+      console.log('[DetalheObra] falha ao responder pergunta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarObra)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar sua resposta.')
+    } finally {
+      if (mountedRef.current) setRespondendoPerguntaId(null)
     }
   }
 
@@ -1548,6 +1593,13 @@ export default function DetalheObraScreen({ route, navigation }) {
         </View>
       </Modal>
 
+      <ModalPerguntar
+        visivel={modalPergunta}
+        enviando={enviandoPergunta}
+        onFechar={() => setModalPergunta(false)}
+        onEnviar={enviarPergunta}
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
@@ -1945,6 +1997,12 @@ export default function DetalheObraScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
+              {/* Perguntas dos profissionais: as novas no card azul, com o campo de resposta,
+                  e as já respondidas embaixo. Só antes do match — depois dele a conversa
+                  é com o escolhido, pelo card de agendamento. */}
+              {!temMatch && !encerrada && (
+                <CardPerguntasDono perguntas={perguntas} respondendoId={respondendoPerguntaId} onResponder={responderPergunta} />
+              )}
               {/* Escondida na fase pós-match sem "a caminho": o bloco do topo já mostra o
                   escolhido, e os demais já perderam a disputa. */}
               {!faseAguardaHorario && (<>
@@ -2260,6 +2318,18 @@ export default function DetalheObraScreen({ route, navigation }) {
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(obra.pedido_tempo_minutos * 60000, { frente: 'obra', agrupar: false })}...</Text>
                 </View>
+              )}
+              {/* Perguntas públicas sobre a obra e o botão de fazer a própria. Só antes do
+                  match. O botão some com a própria pergunta já feita (`minha`), fora da
+                  disputa (recusado), sem assinatura (mesma regra do "Tenho interesse") e
+                  com o formulário de proposta aberto — ele fica ACIMA do "Tenho interesse". */}
+              {!temMatch && !encerrada && (
+                <>
+                  <CardPerguntasProfissional perguntas={perguntas} />
+                  {assinaturaAtiva && !foraDaDisputa && !mostrarForm && !perguntas.some(p => p.minha) && (
+                    <BotaoPerguntar onPress={() => setModalPergunta(true)} />
+                  )}
+                </>
               )}
               {!temMatch && !encerrada && (
                 minhaCandidatura ? (

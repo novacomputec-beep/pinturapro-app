@@ -311,6 +311,17 @@ const navegarParaNotificacao = (data) => {
       case 'candidatura_recusada':
       case 'candidatura_aprovada':
         navegar(tabEmAndamento); break
+      // Perguntas sobre o pedido: 'pergunta_nova' chega ao DONO (há uma pergunta a responder,
+      // e o campo de resposta vive no detalhe da demanda dele); 'pergunta_respondida' chega
+      // ao PROFISSIONAL que perguntou, antes do match — então a demanda ainda vive no feed
+      // de disponíveis, como em 'reparo_proximo'/'obra_proxima'. Quem escolhe a aba é o
+      // papel, como no 'link_demanda' logo abaixo.
+      case 'pergunta_nova':
+      case 'pergunta_respondida':
+        if (data.reparo_id) navigationRef.current.navigate(ehPrestador ? 'Reparos' : 'Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else if (data.obra_id) navigationRef.current.navigate(ehPrestador ? 'Obras' : abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(tabEmAndamento)
+        break
       // Link compartilhado (protudo://p/CODIGO | https://protudo.app.br/p/CODIGO), já
       // resolvido em id pelo utils/deepLink. Não é notificação, mas entra aqui para seguir
       // o MESMO caminho de navegação dos toques: o profissional ainda não está envolvido
