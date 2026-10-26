@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react'
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Clipboard,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { LinearGradient } from 'expo-linear-gradient'
+import * as Clipboard from 'expo-clipboard'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarAviso } from '../../utils/deepLink'
@@ -14,10 +15,8 @@ import { buscarMinhasIndicacoes, mensagemConvite, convidarPeloWhatsApp, META_EMB
 // bloco ehPrestador). Tudo que a tela mostra vem de GET /indicacoes/minhas (utils/indicacao):
 // o código e o link pessoais, e os três números dos boxes. Mesmo esqueleto das outras telas
 // do PerfilStack (AvaliacoesRecebidas): seta de voltar, título, puxar-para-atualizar e o
-// banner de erro de carregamento, que nunca esconde o que já carregou.
-//
-// Clipboard do react-native: o projeto não tem expo-clipboard e um módulo nativo novo
-// pediria build. O do core segue funcionando (avisa de depreciação só no modo dev).
+// banner de erro de carregamento, que nunca esconde o que já carregou. Copiar usa o
+// expo-clipboard (o Clipboard do core do RN está depreciado).
 
 const Stat = ({ numero, rotulo }) => (
   <View style={estilos.stat}>
@@ -59,10 +58,10 @@ export default function ConvidarColegaScreen({ navigation }) {
     convidarPeloWhatsApp(mensagemConvite(codigo, link))
   }
 
-  const copiar = () => {
+  const copiar = async () => {
     if (!temLink) return
     try {
-      Clipboard.setString(link)
+      await Clipboard.setStringAsync(link)
       mostrarAviso('Link copiado!')
     } catch (err) {
       console.log('[ConvidarColega] falha ao copiar | msg:', err?.message)
