@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native'
 import { cores, raios } from '../utils/tema'
+import { AvisoContatoOculto } from './index'
 
 // Pergunta única do profissional sobre uma demanda, e a resposta única do dono. Um
 // componente só para DetalheReparo e DetalheObra não divergirem (a mesma razão de
@@ -88,6 +89,7 @@ export const ModalPerguntar = ({ visivel, enviando, onFechar, onEnviar }) => {
             importantForAutofill="no"
             textContentType="none"
           />
+          <AvisoContatoOculto />
           <Text style={estilos.contador}>{texto.length}/{LIMITE_PERGUNTA}</Text>
           <View style={estilos.modalBotoes}>
             <TouchableOpacity style={estilos.btnCancelar} onPress={fechar} disabled={enviando}>
@@ -126,6 +128,7 @@ const ItemResponder = ({ pergunta, respondendo, onResponder }) => {
         importantForAutofill="no"
         textContentType="none"
       />
+      <AvisoContatoOculto />
       <Text style={estilos.contador}>{texto.length}/{LIMITE_RESPOSTA} · resposta única, visível a todos</Text>
       <TouchableOpacity
         style={[estilos.btnResponder, (respondendo || vazio) && { opacity: 0.6 }]}

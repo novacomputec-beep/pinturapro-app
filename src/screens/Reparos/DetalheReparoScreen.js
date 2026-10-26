@@ -10,7 +10,7 @@ import api from '../../services/api'
 import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
-import { BotaoPrimario, BotaoSecundario } from '../../components'
+import { BotaoPrimario, BotaoSecundario, AvisoContatoOculto } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ModalAumentarValor from '../../components/ModalAumentarValor'
@@ -2588,10 +2588,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💡 Sugestão para melhorar a durabilidade (opcional)</Text>
                       <TextInput style={estilos.textarea} placeholder="Ex: Recomendo usar vedante específico..." placeholderTextColor={cores.placeholderCampo} value={sugestaoDurabilidade} onChangeText={setSugestaoDurabilidade} multiline numberOfLines={3} />
+                      <AvisoContatoOculto />
                     </View>
                     <View style={estilos.perguntaWrap}>
                       <Text style={estilos.perguntaLabel}>💬 Mensagem adicional (opcional)</Text>
                       <TextInput style={estilos.textarea} placeholder="Alguma informação extra..." placeholderTextColor={cores.placeholderCampo} value={mensagemAdicional} onChangeText={setMensagemAdicional} multiline numberOfLines={3} />
+                      <AvisoContatoOculto />
                     </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
