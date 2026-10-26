@@ -36,6 +36,31 @@ export const formatarAgendado = (iso) => {
 
 export const primeiroNome = (nome) => ((nome || '').trim().split(/\s+/)[0]) || null
 
+// Fase do agendamento de uma linha de LISTA (reparo/obra do dono, interesse/candidatura
+// do profissional — todas trazem chegada_pendente_em / chegada_prevista_em):
+//   'a_caminho'   → a_caminho_em marcado (o "Estou a caminho" já foi dado);
+//   'agendado'    → horário aceito (chegada_prevista_em), mesma precedência do CardAgendamento;
+//   'pendente'    → proposta sem resposta (chegada_pendente_em);
+//   'sem_horario' → match sem proposta nenhuma.
+export const faseAgendamento = (linha) => {
+  if (!linha) return 'sem_horario'
+  if (linha.a_caminho_em) return 'a_caminho'
+  if (linha.chegada_prevista_em) return 'agendado'
+  if (linha.chegada_pendente_em) return 'pendente'
+  return 'sem_horario'
+}
+
+// A linha de status das listas e da barra "em andamento" para cada fase; null em
+// 'a_caminho', para quem chama manter o texto que já tinha depois do "Estou a caminho".
+export const textoFasePosMatch = (linha, souDono) => {
+  switch (faseAgendamento(linha)) {
+    case 'sem_horario': return souDono ? '⏳ Aguardando o profissional enviar dia e horário' : '📅 Envie o dia e horário ao cliente'
+    case 'pendente':    return '⏳ Aguardando confirmação do horário'
+    case 'agendado':    return `📅 Agendado: ${formatarAgendado(linha.chegada_prevista_em) || String(linha.chegada_prevista_em)}`
+    default:            return null
+  }
+}
+
 const inicioDoDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
 
 // O "Estou a caminho" só libera no DIA agendado (meia-noite local em diante).

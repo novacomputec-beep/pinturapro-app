@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { navigationRef } from '../navigation/navigationRef'
 import { perfilDe, tabsMontadas } from './RetomadaMatchHost'
+import { textoFasePosMatch } from './Agendamento'
 import { cores, raios, alturas } from '../utils/tema'
 
 // Barra PERSISTENTE do serviço em andamento: enquanto existe um combinado de pé, o app
@@ -135,15 +136,16 @@ const BarraServicoEmAndamento = () => {
   // papel da barra, que é levar de volta.
   // "interessado(s)" é o vocabulário que o dono já lê no banner de parabéns; não se inventa
   // "candidatura"/"proposta" aqui só porque o campo do servidor tem outro nome.
-  // DONO com match mas ainda sem "Estou a caminho" (a_caminho_em nulo): o serviço não está
-  // em andamento, está esperando o profissional mandar o dia e o horário — e é isso que a
-  // barra diz. Só o dono (as linhas dele são a própria demanda, com a_caminho_em); as linhas
-  // do profissional são a proposta e seguem com o texto de sempre.
-  const donoSemACaminho = um && usuario.role === 'dono_obra' && !linhas[0].a_caminho_em
+  // UM serviço com match e ainda sem "Estou a caminho": a barra diz a fase do agendamento
+  // (components/Agendamento — sem proposta, proposta pendente, agendado), nos dois lados.
+  // null depois do a_caminho_em (ou sem o campo, como nas linhas do profissional enquanto o
+  // endpoint não o manda): aí vale o texto de sempre.
+  const souDono = usuario.role === 'dono_obra'
+  const fase = emAndamento && um ? textoFasePosMatch(linhas[0], souDono) : null
   const rotulo = emAndamento
     ? (um
-        ? (donoSemACaminho
-            ? `⏳ Match feito! Aguardando dia e horário${linhas[0].titulo ? ` · ${linhas[0].titulo}` : ''}`
+        ? (fase
+            ? `${fase}${linhas[0].titulo ? ` · ${linhas[0].titulo}` : ''}`
             : linhas[0].titulo
               ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${linhas[0].titulo}`
               : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
@@ -173,9 +175,10 @@ const BarraServicoEmAndamento = () => {
       accessibilityLabel={`${rotulo}. Toque para abrir.`}
     >
       {/* Emoji fora do rotulo, como sempre: o accessibilityLabel acima lê só o texto. */}
-      <Text style={estilos.texto} numberOfLines={1}>{emAndamento ? (donoSemACaminho ? '' : '▶️ ') : '📬 '}{rotulo}</Text>
+      <Text style={estilos.texto} numberOfLines={1}>{emAndamento ? (fase ? '' : '▶️ ') : '📬 '}{rotulo}</Text>
+      {/* Uma leva ao detalhe ("Abrir"); várias levam à lista ("Ver"). */}
       <View style={estilos.pill}>
-        <Text style={estilos.pillTexto}>Abrir →</Text>
+        <Text style={estilos.pillTexto}>{um ? 'Abrir →' : 'Ver →'}</Text>
       </View>
     </TouchableOpacity>
   )

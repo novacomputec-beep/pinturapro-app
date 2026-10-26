@@ -13,6 +13,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import { textoFasePosMatch } from '../../components/Agendamento'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -190,10 +191,11 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
         {temMatch && (
           <View style={estilos.matchBadge}>
-            {/* Antes do "Estou a caminho" (a_caminho_em) o que falta é o dia e o horário;
-                o texto antigo só vale depois dele. */}
+            {/* Antes do "Estou a caminho" (a_caminho_em) a linha segue a fase do agendamento
+                (components/Agendamento: sem proposta, proposta pendente, agendado); o texto
+                antigo só vale depois dele. */}
             <Text style={estilos.matchBadgeTexto}>
-              {item.a_caminho_em ? '⏱ Profissional a caminho — toque para ver' : '⏳ Aguardando o profissional enviar dia e horário'}
+              {textoFasePosMatch(item, true) ?? '⏱ Profissional a caminho — toque para ver'}
             </Text>
           </View>
         )}

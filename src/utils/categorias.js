@@ -236,3 +236,17 @@ export const rotuloCategorias = (demanda, max = 2) => {
   const visiveis = lista.slice(0, max).join(', ')
   return lista.length > max ? `${visiveis} +${lista.length - max}` : visiveis
 }
+
+// Rótulo de UMA categoria de demanda (reparo, construção ou obra), para os chips dos
+// detalhes: "eletronica" → "Eletrônica". Nunca devolve o slug cru: valor fora das listas
+// (legado do banco, "pintura interna") volta legível — underscore vira espaço e a primeira
+// letra sobe — sem o 'capitalize' por palavra que deformava "Aula particular".
+const TODAS_CATEGORIAS = [...CATEGORIAS_SERVICO, ...CATEGORIAS_CONSTRUCAO, ...CATEGORIAS_OBRA]
+export const rotuloCategoria = (slug) => {
+  const s = slug != null ? String(slug).trim() : ''
+  if (!s) return ''
+  const c = TODAS_CATEGORIAS.find((x) => x.slug === s)
+  if (c) return c.rotulo
+  const limpo = s.replace(/_/g, ' ')
+  return limpo.charAt(0).toUpperCase() + limpo.slice(1)
+}
