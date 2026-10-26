@@ -10,6 +10,7 @@ import * as Application from 'expo-application'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
+import { abrirCanalWhatsApp } from '../../utils/canalWhatsApp'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
@@ -43,9 +44,10 @@ const LinhaPerfil = ({ label, valor }) => (
 // `estado` é opcional: só as linhas que refletem uma condição do aparelho (hoje, a
 // permissão de notificação) mostram um rótulo antes da seta. As demais seguem idênticas.
 // `destaque` pinta o título de laranja (convite, não alerta) — par do `perigo` vermelho.
-const ItemAcao = ({ titulo, onPress, perigo, destaque, estado, estadoCor }) => (
+// `cor` é uma cor explícita para o título (o item do canal do WhatsApp, no verde dele).
+const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor }) => (
   <TouchableOpacity style={estilos.itemAcao} onPress={onPress} activeOpacity={0.7}>
-    <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }, destaque && { color: cores.primaria }]}>{titulo}</Text>
+    <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }, destaque && { color: cores.primaria }, cor && { color: cor }]}>{titulo}</Text>
     <View style={estilos.itemAcaoDireita}>
       {!!estado && <Text style={[estilos.itemAcaoEstado, estadoCor && { color: estadoCor }]}>{estado}</Text>}
       <Text style={estilos.itemAcaoSeta}>→</Text>
@@ -549,6 +551,10 @@ export default function PerfilScreen({ navigation, route }) {
               <Separador />
               {/* Indicação de colegas (+1 mês grátis por colega aprovado): só profissional. */}
               <ItemAcao titulo="🤝 Convide um colega" onPress={() => navigation.navigate('ConvidarColega')} />
+              <Separador />
+              {/* Canal do WhatsApp com os pedidos do dia: porta FIXA (o cartão do feed some),
+                  em verde, abrindo o mesmo link (utils/canalWhatsApp). */}
+              <ItemAcao titulo="📢 Canal de pedidos no WhatsApp" cor="#25D366" onPress={abrirCanalWhatsApp} />
               <Separador />
             </>
           )}

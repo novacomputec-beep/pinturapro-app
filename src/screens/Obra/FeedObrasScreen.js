@@ -22,6 +22,7 @@ import ConviteCadastroServicos from '../../components/ConviteCadastroServicos'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { BannerConvideColega } from '../../components/Indicacao'
+import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -444,6 +445,9 @@ export default function FeedObrasScreen({ navigation }) {
       </View>
 
       <BannerComoFunciona navigation={navigation} />
+      {/* Canal do WhatsApp: nunca junto do "Como funciona" (ele decide isso sozinho) e na
+          frente do convite de indicação — prioridade a quem está sem push. */}
+      <BannerCanalWhatsApp />
       {/* Depois do primeiro match: "Convide um colega". Mesmo molde e mesma posição do
           cartão acima; as regras de reaparecer/parar vivem em utils/indicacao. */}
       <BannerConvideColega navigation={navigation} />
