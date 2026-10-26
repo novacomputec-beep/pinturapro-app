@@ -32,7 +32,7 @@ import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPergunta
 import { ChipEmbaixador } from '../../components/Indicacao'
 import ChipsCategoria from '../../components/ChipsCategoria'
 import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
-import { simularCancelamento, cancelarMatch, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
+import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -1561,7 +1561,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
     setSheetCancelar(true)
     try {
       const sim = await simularCancelamento('servico', reparo.id)
-      if (mountedRef.current) setSimulacaoCancelar(sim)
+      if (!mountedRef.current) return
+      // A simulação também traz o pedido de acordo vigente: havendo um, a folha nem abre —
+      // o card (ou a linha de espera) toma o lugar do botão.
+      if (sim.pedido_cancelamento) { setPedidoCancelamento(sim.pedido_cancelamento); setSheetCancelar(false); return }
+      setSimulacaoCancelar(sim)
     } catch (err) {
       console.log('[DetalheReparo] falha ao simular cancelamento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (mountedRef.current) setSheetCancelar(false)
@@ -1570,14 +1574,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
-  // Os dois envios da folha: cancelar de vez (comumAcordo false) ou só PEDIR o cancelamento
-  // de comum acordo (true — o outro lado responde em até 2 h). Mesmo molde de
-  // handleComparecimento: sem { timeout }, e buscar() traz o estado que o servidor decidiu.
-  const handleCancelarMatch = async (motivo, motivoTexto, comumAcordo) => {
+  // Os dois envios da folha: cancelar de vez (POST /cancelar-match) ou só PEDIR o
+  // cancelamento de comum acordo (POST /cancelamento-acordo — o outro lado responde em até
+  // 2 h). Mesmo molde de handleComparecimento: sem { timeout }, e buscar() traz o estado
+  // que o servidor decidiu.
+  const handleCancelarMatch = async (motivo, detalhe, comumAcordo) => {
     if (cancelando) return
     setCancelando(true)
     try {
-      await cancelarMatch('servico', reparo.id, { motivo, motivoTexto, comumAcordo })
+      await (comumAcordo ? pedirCancelamentoAcordo : cancelarMatch)('servico', reparo.id, { motivo, detalhe })
       if (mountedRef.current) setSheetCancelar(false)
       await buscar()
       if (comumAcordo) {
@@ -1603,7 +1608,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     if (respondendoCancelamento) return
     setRespondendoCancelamento(true)
     try {
-      await responderPedidoCancelamento('servico', reparo.id, acao)
+      await responderPedidoCancelamento('servico', reparo.id, acao === 'aceitar')
       await buscar()
       if (acao === 'aceitar') Alert.alert('Serviço cancelado', 'Cancelado de comum acordo. Ninguém leva falta.')
       else Alert.alert('Pedido recusado', 'O combinado continua valendo.')
@@ -1880,7 +1885,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           {mostrarCancelamento && (pedidoCancelamento ? (
             <CardPedidoCancelamento
               pedido={pedidoCancelamento}
-              paraMim={!pedidoEhMeu(pedidoCancelamento, usuario?.id)}
+              paraMim={!pedidoEhMeu(pedidoCancelamento)}
               nomeOutro={nomeOutroCancelamento}
               respondendo={respondendoCancelamento}
               onResponder={handleResponderCancelamento}
