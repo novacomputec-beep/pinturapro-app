@@ -9,19 +9,20 @@ import { comRetry } from './rede'
 // local do cartão do feed. Telas e componentes (ConvidarColegaScreen, components/Indicacao,
 // CadastroScreen) só consomem.
 //
-// Contrato da API, como combinado:
-//   GET /indicacoes/minhas   → { codigo, link, indicados, aprovados, meses_ganhos, embaixador }
-//   GET /indicacao/:codigo   → { nome } do profissional dono do código; 404 quando não existe
-//   POST /auth/cadastro      → aceita `codigo_indicacao` (opcional)
+// Contrato da API (pinturapro-api 406e217, routes/index.js:7089-7135 e utils/indicacoes.js):
+//   GET /indicacoes/minhas   → { codigo, link, indicados, aprovados, meses_bonus, embaixador }
+//                              (link = https://protudo.app.br/baixar?c=CODIGO; código de 6 chars)
+//   GET /indicacao/:codigo   → { nome } curto do profissional dono do código; 404 quando não
+//                              existe ou é malformado (público, roda pré-login)
+//   POST /auth/cadastro      → aceita `codigo_indicacao` (opcional; só profissional nasce indicado)
 //   candidatos/interessados  → `embaixador: true` no profissional com 3 indicações aprovadas
-// A normalização abaixo tolera nomes vizinhos (total_indicados, indicados_aprovados) para
-// uma diferença de grafia no servidor não zerar os números na tela.
 
 // Selo Embaixador: 3 colegas aprovados.
 export const META_EMBAIXADOR = 3
 
-// Link pessoal quando a API não o devolve: mesmo host dos links de demanda (utils/deepLink).
-const LINK_BASE = 'https://protudo.app.br/r/'
+// Link pessoal quando a API não o devolve: o MESMO formato de LINK_INDICACAO no servidor
+// (utils/indicacoes.js:20) — a página /baixar leva o `c` ao install referrer da loja.
+const LINK_BASE = 'https://protudo.app.br/baixar?c='
 export const linkDeIndicacao = (codigo) => `${LINK_BASE}${encodeURIComponent(codigo || '')}`
 
 // Mensagem do convite, texto aprovado. <CODIGO> e <link> são os dois únicos vazios.
@@ -33,21 +34,19 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
 // GET /indicacoes/minhas normalizado. GET é idempotente: retry em timeout e 5xx é seguro.
 export const buscarMinhasIndicacoes = async () => {
   const r = await comRetry(() => api.get('/indicacoes/minhas'), { timeout: true, servidor: true })
-  const d = (r && typeof r === 'object') ? (r.indicacoes && typeof r.indicacoes === 'object' ? r.indicacoes : r) : {}
-  const codigo = String(d.codigo ?? d.codigo_indicacao ?? '').trim()
-  const indicados = num(d.indicados ?? d.total_indicados ?? d.colegas_indicados)
-  // Sem contagem de aprovados separada, a de indicados é o melhor que há para o selo.
-  const aprovados = d.aprovados != null || d.indicados_aprovados != null
-    ? num(d.aprovados ?? d.indicados_aprovados)
-    : indicados
+  const d = (r && typeof r === 'object') ? r : {}
+  const codigo = String(d.codigo ?? '').trim()
+  const aprovados = num(d.aprovados)
   return {
     codigo,
     link: (typeof d.link === 'string' && d.link.trim()) || (codigo ? linkDeIndicacao(codigo) : ''),
-    indicados,
+    indicados: num(d.indicados),
     aprovados,
-    mesesGanhos: num(d.meses_ganhos ?? d.meses),
+    // meses_bonus já vem com o teto do servidor (TETO_MESES_BONUS = 12).
+    mesesGanhos: num(d.meses_bonus),
     paraSelo: Math.max(0, META_EMBAIXADOR - aprovados),
-    embaixador: d.embaixador === true || aprovados >= META_EMBAIXADOR,
+    // O selo é decisão do servidor (recalcularIndicador), não derivada aqui.
+    embaixador: d.embaixador === true,
   }
 }
 
@@ -57,8 +56,8 @@ export const buscarMinhasIndicacoes = async () => {
 export const buscarIndicador = async (codigo) => {
   try {
     const r = await comRetry(() => api.get(`/indicacao/${encodeURIComponent(codigo)}`), { timeout: true, servidor: true })
-    if (!r || typeof r !== 'object' || r.valido === false) return null
-    const nome = String(r.nome ?? r.indicador?.nome ?? r.usuario?.nome ?? '').trim()
+    if (!r || typeof r !== 'object') return null
+    const nome = String(r.nome ?? '').trim()
     return nome || null
   } catch (err) {
     if (err?.status === 404 || err?.status === 400 || err?.status === 410) return null
