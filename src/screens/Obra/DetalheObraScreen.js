@@ -22,7 +22,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
-import { emojiObra, rotulosEspecialidades } from '../../utils/categorias'
+import { emojiObra, rotulosEspecialidades, rotuloCategoria } from '../../utils/categorias'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
@@ -1812,7 +1812,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                   </Text>
                 </View>
                 <View style={estilos.categoriaPill}>
-                  <Text style={estilos.categoriaTexto}>{obra.categoria}</Text>
+                  {/* Rótulo do mapa, nunca o slug (textTransform 'none' contra o capitalize do estilo). */}
+                  <Text style={[estilos.categoriaTexto, { textTransform: 'none' }]}>{rotuloCategoria(obra.categoria)}</Text>
                 </View>
               </View>
               <View style={estilos.valorDestaqueDivisor} />

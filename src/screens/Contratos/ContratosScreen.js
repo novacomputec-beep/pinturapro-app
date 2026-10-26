@@ -10,6 +10,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { BadgeStatus, Card, Separador, STATUS_BADGE } from '../../components'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { textoFasePosMatch } from '../../components/Agendamento'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleDateString('pt-BR') : '—'
@@ -95,6 +96,12 @@ export default function ContratosScreen({ navigation }) {
     // Vale só enquanto indeciso: aceita e recusada têm desfecho próprio e mantêm o badge
     // delas mesmo com a obra fechada.
     const semResposta      = emAnalise && !demandaAberta
+    // Pós-match do pintor (candidatura aceita, obra viva, match meu): a linha da fase do
+    // agendamento (components/Agendamento). null depois do "Estou a caminho" — aí o card
+    // fica como sempre foi. Espelha MeusInteressesScreen.
+    const souDoMatch = temContrato && demandaAberta &&
+      item.match_usuario_id != null && String(item.match_usuario_id) === String(usuario?.id)
+    const faseTexto = souDoMatch ? textoFasePosMatch(item, false) : null
 
     const abrirDetalhe = () => navigation?.navigate('DetalheObra', {
       obra: {
@@ -187,6 +194,11 @@ export default function ContratosScreen({ navigation }) {
           {temContrato && (
             <>
               <Separador estilo={{ marginTop: 12, marginBottom: 12 }} />
+              {faseTexto && (
+                <View style={estilos.faseBanner}>
+                  <Text style={estilos.faseTexto}>{faseTexto}</Text>
+                </View>
+              )}
               <View style={estilos.contratoBox}>
                 <Text style={estilos.contratoTexto}>✅ Contrato enviado por e-mail</Text>
                 <Text style={estilos.contratoSub}>Verifique sua caixa de entrada</Text>
@@ -302,6 +314,9 @@ const estilos = StyleSheet.create({
   infoItem: { flex: 1, backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, alignItems: 'center' },
   infoLabel: { fontSize: 10, color: cores.textoFraco, marginBottom: 3 },
   infoValor: { fontSize: 12, fontWeight: '600', color: cores.textoForte, textAlign: 'center', textTransform: 'capitalize' },
+  // Fase do agendamento pós-match: o mesmo matchBadge da lista do dono (MinhasObrasScreen).
+  faseBanner: { backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 },
+  faseTexto: { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
   contratoBox: { backgroundColor: cores.sucessoSuave, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
   contratoTexto: { fontSize: 13, color: cores.sucesso, fontWeight: '600', marginBottom: 2 },
   contratoSub: { fontSize: 11, color: cores.sucesso, opacity: 0.8 },

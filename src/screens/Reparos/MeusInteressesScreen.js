@@ -11,6 +11,7 @@ import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { rotuloCategorias } from '../../utils/categorias'
+import { textoFasePosMatch } from '../../components/Agendamento'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
 // não some da tela: ela MENTE. As duas grafias do endpoint legado ('aprovada'/'recusada',
@@ -185,6 +186,12 @@ export default function MeusInteressesScreen({ navigation }) {
     const s = ((expirado || eEncerrado) && emAnalise)
       ? { ...STATUS_INFO.expirado, texto: 'Sem resposta' }
       : (STATUS_INFO[item.status] || STATUS_INFO.pendente)
+    // Pós-match do profissional (proposta aceita, serviço vivo, match meu): a linha da fase
+    // do agendamento (components/Agendamento). null depois do "Estou a caminho" — aí o card
+    // fica como sempre foi.
+    const souDoMatch = GRUPO_STATUS.aprovada.includes(item.status) && demandaAberta &&
+      item.match_usuario_id != null && String(item.match_usuario_id) === String(usuario?.id)
+    const faseTexto = souDoMatch ? textoFasePosMatch(item, false) : null
 
     return (
       <View style={estilos.card}>
@@ -233,6 +240,11 @@ export default function MeusInteressesScreen({ navigation }) {
         {item.status === 'contraproposta_dono' && (
           <View style={estilos.alertaBanner}>
             <Text style={estilos.alertaTexto}>⚡ O solicitante enviou uma contraproposta — veja os detalhes</Text>
+          </View>
+        )}
+        {faseTexto && (
+          <View style={estilos.faseBanner}>
+            <Text style={estilos.faseTexto}>{faseTexto}</Text>
           </View>
         )}
         <TouchableOpacity
@@ -327,6 +339,9 @@ const estilos = StyleSheet.create({
   valorTexto:       { fontSize: 15, fontWeight: '700', color: cores.textoForte },
   alertaBanner:     { backgroundColor: '#3a2a1a', borderWidth: 1, borderColor: '#FF6B3544', borderRadius: raios.medio, padding: 10, marginBottom: 12 },
   alertaTexto:      { fontSize: 12, color: '#FF6B35', textAlign: 'center' },
+  // Fase do agendamento pós-match: o mesmo matchBadge da lista do dono (MinhasObrasScreen).
+  faseBanner:       { backgroundColor: '#1a1a2a', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 },
+  faseTexto:        { fontSize: 11, color: cores.primaria, fontWeight: '600', textAlign: 'center' },
   btnVer:           { backgroundColor: cores.primaria, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   btnVerTexto:      { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
   vazio:            { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
