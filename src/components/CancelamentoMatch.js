@@ -74,13 +74,15 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   const opcoes = souDono ? MOTIVOS_DONO : MOTIVOS_PROFISSIONAL
   const motivoOk = !!motivo && (motivo !== 'outro' || !!texto.trim())
   const tardio = simulacao?.tipo === 'tardio'
+  // Antecedência que a API aplicou (12 h; 1 h nas demandas de faixa curta).
+  const limite = Number.isFinite(Number(simulacao?.limite_horas)) && Number(simulacao.limite_horas) > 0 ? Number(simulacao.limite_horas) : 12
   const fechar = () => { if (!enviando) onFechar() }
   const outro = nomeOutro || (souDono ? 'o profissional' : 'o cliente')
 
   const textoLado = souDono
     ? 'O profissional será avisado e o pedido volta para os outros profissionais.'
     : 'O cliente será avisado e o pedido volta a receber propostas de outros profissionais.'
-  const textoPrazo = temHorario ? 'Faltam mais de 12h para o horário combinado.' : 'Ainda não há horário combinado.'
+  const textoPrazo = temHorario ? `Faltam mais de ${limite}h para o horário combinado.` : 'Ainda não há horário combinado.'
 
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
@@ -100,7 +102,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
               {tardio ? (
                 <>
                   <View style={estilos.caixaVermelha}>
-                    <Text style={estilos.caixaVermelhaTexto}>⚠️ Faltam menos de 12h. Cancelar agora conta como falta para você (3 faltas em 90 dias suspendem a conta).</Text>
+                    <Text style={estilos.caixaVermelhaTexto}>⚠️ Faltam menos de {limite}h. Cancelar agora conta como falta para você (3 faltas em 90 dias suspendem a conta).</Text>
                   </View>
                   <Text style={estilos.linhaAcordo}>
                     🤝 Ou peça para {outro} cancelar de comum acordo: se aceitar, ninguém leva falta. Sem resposta em 2h, o pedido expira e o combinado continua.
@@ -148,8 +150,9 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   )
 }
 
-// pedido: o pedido_cancelamento pendente. paraMim: é o OUTRO lado quem pediu (eu respondo).
-// nomeOutro: o primeiro nome de quem está do outro lado. onResponder('aceitar' | 'recusar').
+// pedido: o pedido_cancelamento pendente ({ por, meu, motivo, detalhe, expira_em }). paraMim: é
+// o OUTRO lado quem pediu (eu respondo). nomeOutro: o primeiro nome de quem está do outro
+// lado. onResponder('aceitar' | 'recusar').
 export const CardPedidoCancelamento = ({ pedido, paraMim, nomeOutro, respondendo, onResponder }) => {
   if (!pedido) return null
   const nome = nomeOutro || 'a outra parte'
