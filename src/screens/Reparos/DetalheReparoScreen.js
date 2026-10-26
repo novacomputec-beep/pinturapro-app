@@ -1208,6 +1208,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
       console.log('[DetalheReparo] falha ao responder interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // 409 MATCH_ATIVO: o profissional já é o do match — a mensagem do servidor diz o caminho
+      // ("Cancelar serviço"). Mesmo alerta de erro de sempre, com o texto dele.
+      if (err.codigo === 'MATCH_ATIVO') { Alert.alert('Erro', err.mensagem || 'Este profissional já foi escolhido.'); return }
       // É AQUI que o dono recebe o 409 PROFISSIONAL_SUSPENSO ao tentar aceitar: o aceite
       // não vale, e o motivo é o profissional, não a conexão de quem está aceitando.
       if (alertouSuspensao(err)) return
@@ -2436,6 +2439,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             >
                               <Text style={estilos.btnAceitarTexto}>✅ Aceitar</Text>
                             </TouchableOpacity>
+                            {/* Nunca sobre proposta aceita (ou do profissional do match): o
+                                servidor recusa com MATCH_ATIVO, e o caminho certo é "Cancelar
+                                serviço". O bloco já exige 'pendente'; a guarda fica explícita. */}
+                            {!foiAceito && !ehMatch && (
                             <TouchableOpacity
                               style={[estilos.btnRecusar, { flex: 1 }]}
                               onPress={() => Alert.alert('Recusar esta proposta?', 'O profissional será avisado e não poderá se candidatar de novo a esta demanda.', [
@@ -2446,6 +2453,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             >
                               <Text style={estilos.btnRecusarTexto}>❌ Recusar</Text>
                             </TouchableOpacity>
+                            )}
                             {/* Contrapor um valor que o profissional JÁ aceitou não quer dizer
                                 nada: ele copiou o valor pedido e a linha acima anuncia isso.
                                 Mesma condição que desenha aquela linha (aceitouValorPedido),

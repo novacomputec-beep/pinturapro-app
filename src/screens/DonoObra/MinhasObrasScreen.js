@@ -136,6 +136,9 @@ export default function MinhasObrasScreen({ navigation, route }) {
             }
           } catch (err) {
             console.log('[MinhasObras] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+            // 409 MATCH_ATIVO: há profissional escolhido — a mensagem do servidor diz o caminho
+            // ("Cancelar serviço" na tela do pedido). Mesmo alerta de erro, com o texto dele.
+            if (err.codigo === 'MATCH_ATIVO') { Alert.alert('Erro', err.mensagem || 'Já existe um profissional escolhido.'); return }
             // Rede pura → recarrega em vez de alertar. A lista É o resultado da ação: se
             // o DELETE não chegou, o item reaparece; se chegou e só a resposta se perdeu,
             // ele some. Nos dois casos a tela responde sozinha se a exclusão valeu.
