@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
+import { buscarIndicador, codigoDoInstallReferrer } from '../../utils/indicacao'
 import EscolhaPerfil from './EscolhaPerfil'
 
 // ─── MÚLTIPLAS CONTAS POR E-MAIL ─────────────────────────────
@@ -196,6 +197,14 @@ export default function CadastroScreen({ navigation, route }) {
   const [rg, setRg] = useState('')
   const [rgOrgao, setRgOrgao] = useState('SSP')
   const [rgEstado, setRgEstado] = useState('')
+  // Código de indicação (opcional, só profissional): quem indicou ganha +1 mês quando este
+  // cadastro for aprovado. `indicadoPor` é o nome devolvido por GET /indicacao/:codigo e
+  // vira a linha "✓ Indicado por …"; o ref espelha o campo para a validação assíncrona
+  // saber se a resposta ainda é do código que está na tela.
+  const [codigoIndicacao, setCodigoIndicacao] = useState('')
+  const [indicadoPor, setIndicadoPor] = useState(null)
+  const codigoIndicacaoRef = useRef('')
+  codigoIndicacaoRef.current = codigoIndicacao
 
   const [progresso, setProgresso] = useState('')          // texto de fase exibido durante o cadastro
   const emAndamentoRef = useRef(false)                    // trava reentrância (evita toques múltiplos)
@@ -218,7 +227,7 @@ export default function CadastroScreen({ navigation, route }) {
     tipoConta, passo, nome, sobrenome, email, telefone, cidade, uf, cep,
     latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
     cpfCnpj, anosExp, equipe, especialidades, planoSelecionado,
-    rg, rgOrgao, rgEstado,
+    rg, rgOrgao, rgEstado, codigoIndicacao,
   }
   senhaRef.current = senha
 
@@ -240,6 +249,35 @@ export default function CadastroScreen({ navigation, route }) {
   // Delega ao limpador compartilhado (remove AsyncStorage + senha + fotos).
   const limparRascunho = () => limparRascunhoCadastro()
 
+  // Valida o código em GET /indicacao/:codigo e mostra "✓ Indicado por <nome>". Código
+  // inexistente vira erro no campo; falha de REDE fica muda — o POST /auth/cadastro é quem
+  // decide, e um aviso aqui culparia a conexão por um código que pode estar certo. O
+  // resultado só é aplicado se o campo ainda tiver o MESMO código: a pessoa pode ter
+  // digitado outro enquanto a resposta vinha.
+  const validarCodigoIndicacao = async (valor) => {
+    const codigo = String(valor ?? codigoIndicacaoRef.current).trim().toUpperCase()
+    if (!codigo) { setIndicadoPor(null); setErros(e => ({ ...e, codigoIndicacao: undefined })); return }
+    try {
+      const nome = await buscarIndicador(codigo)
+      if (!montadoRef.current || codigoIndicacaoRef.current.trim().toUpperCase() !== codigo) return
+      setIndicadoPor(nome)
+      setErros(e => ({ ...e, codigoIndicacao: nome ? undefined : 'Código não encontrado' }))
+    } catch (err) {
+      console.log('[cadastro] validação do código de indicação indisponível | code:', err?.code)
+    }
+  }
+
+  // Android: o link de convite instala pela Play Store com `c=CODIGO` no referrer, e o
+  // campo nasce preenchido e validado. Só se ainda estiver vazio — rascunho e digitação
+  // ganham do referrer. No iOS a leitura devolve null e nada acontece.
+  useEffect(() => {
+    codigoDoInstallReferrer().then(codigo => {
+      if (!codigo || !montadoRef.current || codigoIndicacaoRef.current) return
+      setCodigoIndicacao(codigo)
+      validarCodigoIndicacao(codigo)
+    })
+  }, [])
+
   // Restaura o rascunho na montagem, ANTES de qualquer interação.
   useEffect(() => {
     (async () => {
@@ -258,6 +296,9 @@ export default function CadastroScreen({ navigation, route }) {
           setCpfCnpj(s.cpfCnpj ?? ''); setAnosExp(s.anosExp ?? ''); setEquipe(s.equipe ?? '')
           setEspecialidades(normalizarEspecialidades(s.especialidades)); setPlanoSelecionado(s.planoSelecionado ?? 'mensal')
           setRg(s.rg ?? ''); setRgOrgao(s.rgOrgao ?? 'SSP'); setRgEstado(s.rgEstado ?? '')
+          // Só sobrescreve com rascunho que TEM código: um rascunho sem ele não pode apagar o
+          // que o install referrer já pôs. O nome do indicador não é gravado — revalida.
+          if (s.codigoIndicacao) { setCodigoIndicacao(s.codigoIndicacao); validarCodigoIndicacao(s.codigoIndicacao) }
           const senhaSalva = await SecureStore.getItemAsync(RASCUNHO_SENHA_KEY)
           if (senhaSalva && montadoRef.current) setSenha(senhaSalva)
           // Rascunho antigo podia estar no passo 4 (PIX/referências), que não existe mais.
@@ -552,6 +593,8 @@ export default function CadastroScreen({ navigation, route }) {
         rg: isPrestador ? rg.trim() || null : null,
         rg_orgao: isPrestador ? rgOrgao : null,
         rg_estado: isPrestador ? rgEstado || null : null,
+        // Indicação: só profissional e só quando preenchido; o servidor valida o código.
+        codigo_indicacao: isPrestador ? (codigoIndicacao.trim().toUpperCase() || null) : null,
       }
 
       setProgresso('Finalizando cadastro...')
@@ -786,6 +829,20 @@ export default function CadastroScreen({ navigation, route }) {
                       </TouchableOpacity>
                     ))}
                   </View>
+                  {/* Indicação de colega (opcional). Maiúsculas e sem espaços, como o código é
+                      emitido; valida ao sair do campo e mostra quem indicou. Digitar de novo
+                      apaga o ✓ e o erro até a próxima validação. */}
+                  <Input
+                    label="CÓDIGO DE INDICAÇÃO (opcional)"
+                    placeholder="Código do colega que te indicou"
+                    value={codigoIndicacao}
+                    onChangeText={(t) => { setCodigoIndicacao(t.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20)); setIndicadoPor(null); setErros(e => ({ ...e, codigoIndicacao: undefined })) }}
+                    onBlur={() => validarCodigoIndicacao()}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    erro={erros.codigoIndicacao}
+                  />
+                  {!!indicadoPor && <Text style={estilos.indicacaoOk}>✓ Indicado por {indicadoPor}</Text>}
                 </>
               )}
             </View>
@@ -916,5 +973,7 @@ const estilos = StyleSheet.create({
   enviandoTexto: { fontSize: 13, color: cores.textoMedio },
   cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
   cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
+  // Confirmação do código de indicação, colada ao campo (o Input tem a própria margem).
+  indicacaoOk: { fontSize: 12, color: cores.sucesso, fontWeight: '600', marginTop: -8, marginBottom: 14 },
   dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: 12 },
 })

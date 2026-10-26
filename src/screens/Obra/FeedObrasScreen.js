@@ -21,6 +21,7 @@ import { softAskRef } from '../../components/SoftAskNotificacao'
 import ConviteCadastroServicos from '../../components/ConviteCadastroServicos'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import { BannerConvideColega } from '../../components/Indicacao'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -443,6 +444,9 @@ export default function FeedObrasScreen({ navigation }) {
       </View>
 
       <BannerComoFunciona navigation={navigation} />
+      {/* Depois do primeiro match: "Convide um colega". Mesmo molde e mesma posição do
+          cartão acima; as regras de reaparecer/parar vivem em utils/indicacao. */}
+      <BannerConvideColega navigation={navigation} />
 
       {/* Fora da FlatList de propósito: fica fixo no topo enquanto a permissão de
           notificação não existe, e devolve null assim que ela é concedida. */}
