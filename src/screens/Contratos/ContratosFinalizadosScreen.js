@@ -143,6 +143,18 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
   useFocusEffect(useCallback(() => { buscar() }, []))
 
+  // Push "encerrado pelo dono" (AppNavigator): a tela chega com denunciarContratoId e abre o
+  // ModalDenuncia (opcional) daquele contrato assim que a lista o traz. Só lado profissional.
+  // O param é consumido para não reabrir no próximo foco; sem o contrato na lista carregada,
+  // é consumido também — a lista é a de sempre.
+  const denunciarContratoId = route?.params?.denunciarContratoId
+  useEffect(() => {
+    if (denunciarContratoId == null || ehDono || carregando) return
+    const item = contratos.find(c => String(c.id) === String(denunciarContratoId))
+    navigation.setParams({ denunciarContratoId: undefined })
+    if (item) setDenunciandoContrato(item)
+  }, [denunciarContratoId, contratos, carregando, ehDono])
+
   const onRefresh = () => { setAtualizando(true); buscar() }
 
   const abrirDetalhe = (item) => {
