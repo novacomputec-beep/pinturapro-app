@@ -15,6 +15,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
+import ChipsCategoria from '../../components/ChipsCategoria'
 import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo } from '../../utils/urgencia'
@@ -133,9 +134,8 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
         {/* Categoria à esquerda, prazo à direita, em flex row: por não serem mais
             absolutos, não há como se sobreporem, qualquer que seja o tamanho do texto. */}
         <View style={estilos.topoRow}>
-          <View style={estilos.categoriaPill}>
-            <Text style={estilos.categoriaTexto} numberOfLines={1}>{emoji} {item.categoria}</Text>
-          </View>
+          {/* Até 2 chips + "+N" (components/ChipsCategoria); reparo antigo = o chip de sempre. */}
+          <ChipsCategoria demanda={item} variante="feed" />
           {item.expira_em && (
             <ContadorExpiracao expiraEm={item.expira_em} onExpirar={onExpirar} />
           )}

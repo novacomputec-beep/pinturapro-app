@@ -6,6 +6,7 @@ import { formatarDuracao } from '../utils/tempo'
 import { avatar } from '../utils/imagemOtimizada'
 import { CardAgendamento, PickerAgendamento, CaixaAtencaoApp, formatarAgendado } from './Agendamento'
 import { formatarLimiteSP } from './PosMatchDono'
+import ChipsCategoria from './ChipsCategoria'
 
 // Bloco do PROFISSIONAL do match enquanto ele ainda não disse "Estou a caminho" (a_caminho_em
 // nulo). Mesma linguagem visual do PosMatchDono, para DetalheReparo e DetalheObra não
@@ -109,11 +110,8 @@ export default function BlocoPosMatchProfissional({ demanda, frente, valor, usua
     <View>
       {/* 1. Card do topo */}
       <View style={estilos.topo}>
-        {demanda?.categoria ? (
-          <View style={estilos.categoriaPill}>
-            <Text style={estilos.categoriaTexto}>{demanda.categoria}</Text>
-          </View>
-        ) : null}
+        {/* Até 2 chips + "+N" (ChipsCategoria); obra e reparo antigo = o chip de sempre. */}
+        <ChipsCategoria demanda={demanda} estilo={{ marginBottom: 10 }} />
         <Text style={estilos.titulo}>{demanda?.titulo}</Text>
         {local ? <Text style={estilos.endereco}>📍 {local}</Text> : null}
         <View style={estilos.boxesRow}>

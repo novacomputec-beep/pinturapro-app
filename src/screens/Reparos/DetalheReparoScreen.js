@@ -30,6 +30,7 @@ import BlocoPosMatchDono from '../../components/PosMatchDono'
 import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
+import ChipsCategoria from '../../components/ChipsCategoria'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -1790,9 +1791,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     R$ {Number(valorPrincipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Text>
                 </View>
-                <View style={estilos.categoriaPill}>
-                  <Text style={estilos.categoriaTexto}>{reparo.categoria}</Text>
-                </View>
+                {/* Até 2 chips + "+N" (components/ChipsCategoria); reparo antigo = o chip de sempre. */}
+                <ChipsCategoria demanda={reparo} estilo={{ justifyContent: 'flex-end', maxWidth: '55%' }} />
               </View>
               <View style={estilos.valorDestaqueDivisor} />
               <Text style={estilos.valorDestaqueNota}>Pagamento acertado direto com o profissional.{'\n'}O app não recebe valores.</Text>

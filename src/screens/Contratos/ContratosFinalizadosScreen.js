@@ -12,6 +12,7 @@ import ModalAvaliacao from '../../components/ModalAvaliacao'
 import ModalDenuncia from '../../components/ModalDenuncia'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { rotuloCategorias } from '../../utils/categorias'
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
@@ -171,7 +172,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
             <Text style={estilos.badgeConcluidoTexto}>✅ Concluído</Text>
           </View>
         </View>
-        <Text style={estilos.cardMeta}>{item.categoria} · {item.cidade}{item.uf ? `, ${item.uf}` : ''}</Text>
+        <Text style={estilos.cardMeta}>{rotuloCategorias(item)} · {item.cidade}{item.uf ? `, ${item.uf}` : ''}</Text>
 
         <View style={estilos.valoresRow}>
           <View>
