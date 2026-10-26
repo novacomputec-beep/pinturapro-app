@@ -111,6 +111,40 @@ export const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
   return assinatura?.status === 'ativa' && !mostrarBoasVindas
 }
 
+// Estado da tela de pouso do DONO, informado por quem o conhece. O redirecionamento do 2º
+// plano só vale para a tela de pouso PRISTINA que o app abriu sozinho — a regra da rota
+// em checar() diz ONDE a pessoa está, mas não se ela está usando a tela. O formulário de
+// cadastro é a tela de pouso do dono, e quem está nele voltando da câmera, ou já digitou
+// algo, ou tocou na aba por conta própria, está preenchendo um pedido, não parado na tela
+// em que o app o deixou. Três sinais, cada um de uma fonte:
+//   pickerAberto      (a) câmera/galeria lançada de um cadastro e ainda não devolvida. A
+//                         captura no Android põe o app em 2º plano; a volta é o pior momento
+//                         para trocar de tela. Curto: cai sozinho pouco depois do resultado,
+//                         porque o 'active' e a resposta do picker correm na mesma ponte e
+//                         não há ordem garantida entre eles (utils/midia.js).
+//   comConteudo       (b) o formulário tem algo digitado ou mídia anexada
+//                         (CadastrarReparoScreen / CadastrarObraScreen).
+//   abertaPeloUsuario (c) a pessoa abriu o formulário por conta própria nesta sessão (toque
+//                         na aba, "Novo serviço", seta de voltar) — qualquer foco depois do
+//                         primeiro, que é o que o app faz sozinho. Dura a sessão do usuário.
+export const telaDePouso = { pickerAberto: false, comConteudo: false, abertaPeloUsuario: false }
+
+// Quanto a marca do picker sobrevive ao resultado. Cobre a troca de ordem entre o 'active'
+// do AppState e a resolução da promise do picker; o foreground checa ANTES do fetch, então
+// o que importa é a marca ainda estar de pé nesse instante.
+const PICKER_DEVOLVIDO_MS = 2000
+let timerPicker = null
+export const pickerLancado = () => {
+  clearTimeout(timerPicker)
+  telaDePouso.pickerAberto = true
+}
+export const pickerDevolvido = () => {
+  clearTimeout(timerPicker)
+  timerPicker = setTimeout(() => { telaDePouso.pickerAberto = false }, PICKER_DEVOLVIDO_MS)
+}
+export const marcarAbertaPeloUsuario = () => { telaDePouso.abertaPeloUsuario = true }
+const pousoOcupado = () => telaDePouso.pickerAberto || telaDePouso.comConteudo || telaDePouso.abertaPeloUsuario
+
 // Arranque frio: o app SUBIU agora. Vale por processo — e não por montagem do componente
 // nem por usuário —, porque é exatamente esse o alcance de getLastNotificationResponseAsync:
 // ela responde "este processo foi aberto por um toque?", e a resposta não muda mais depois.
@@ -145,6 +179,10 @@ export default function RetomadaMatchHost() {
     // e o único cadastro que é — a raiz da aba do dono — é justamente o caso que o
     // redirecionamento precisa atender, e que a regra de cadastro bloqueava por engano.
     if (deForeground && navigationRef.current?.getCurrentRoute?.()?.name !== cfg.telaInicial) return
+    // ...e só a tela de pouso PRISTINA, que o app abriu sozinho (ver telaDePouso acima):
+    // voltando da câmera, com algo preenchido ou aberta pela própria pessoa, ela é um
+    // cadastro em andamento, e o redirecionamento o interromperia.
+    if (deForeground && pousoOcupado()) return
 
     rodandoRef.current = true
     try {
@@ -180,6 +218,9 @@ export default function RetomadaMatchHost() {
       // Reconfere a tela de pouso DEPOIS do fetch: entre a requisição e a navegação a
       // pessoa pode ter saído dali sozinha, e a decisão vale para onde ela está agora.
       if (deForeground && nav.getCurrentRoute?.()?.name !== cfg.telaInicial) return
+      // Idem para os sinais da tela de pouso: o resultado do picker ou a primeira letra
+      // digitada podem ter chegado durante o fetch.
+      if (deForeground && pousoOcupado()) return
 
       if (abertos.length > 1) { nav.navigate(cfg.tab); return }
 
@@ -206,6 +247,9 @@ export default function RetomadaMatchHost() {
     // checagem desista lá dentro. Sem isto, uma mudança posterior de assinatura ou de
     // boas-vindas re-dispararia este caminho no meio do uso.
     jaRodouRef.current = String(uid)
+    // "Abriu por conta própria" é por sessão do USUÁRIO: quem entra noutra conta começa
+    // na tela de pouso que o app abriu sozinho, como na primeira abertura.
+    telaDePouso.abertaPeloUsuario = false
     // A primeira passagem é a abertura do app; da segunda em diante o que mudou foi o
     // usuário — alguém saiu e entrou noutra conta com o app na mão, e essa entrada merece
     // a mesma retomada de sempre, sem o toque de notificação que abriu o processo mandar
