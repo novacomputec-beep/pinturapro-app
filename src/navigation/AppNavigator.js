@@ -264,6 +264,13 @@ const navegarParaNotificacao = (data) => {
       case 'aprovar_tempo':
       case 'tempo_aceito':
       case 'tempo_recusado':
+      // Tolerância de chegada e pedido de atraso (atrasoChegadaService da API): o pedido a
+      // responder (Aceitar/Recusar no detalhe do dono), o aceite (manual ou automático, o
+      // novo prazo está no detalhe) e o aviso de atraso aos dois lados. Mesmo probe.
+      case 'pedido_atraso':
+      case 'atraso_aceito':
+      case 'atraso_aceito_auto':
+      case 'atrasado':
       case 'contra_oferta':
       // Agendamento (dia + hora): contraproposta de horário a responder, pedido de remarcar
       // (o profissional propõe outro horário) e o "está a caminho" ao dono (o telefone do

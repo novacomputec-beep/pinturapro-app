@@ -33,7 +33,7 @@ import { ChipEmbaixador } from '../../components/Indicacao'
 import ChipsCategoria from '../../components/ChipsCategoria'
 import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
 import BlocoEmAndamento from '../../components/PosMatchEmAndamento'
-import { BlocoAgendado, BlocoACaminho, ModalDetalhesDemanda } from '../../components/PosMatchAgendamento'
+import { BlocoAgendado, BlocoACaminho, ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchAgendamento'
 import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
@@ -352,10 +352,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [avaliarVisivel, setAvaliarVisivel] = useState(false)
   // Armado por enviarAvaliacaoEncerrar (dono, nota 4-5); consumido em finalizarPosEncerrar.
   const pedirLojaRef = useRef(false)
-  const [modalTempo, setModalTempo] = useState(false)
-  const [minutosTempo, setMinutosTempo] = useState('')
-  // Edição do ponto de referência (só dono). Mesmo molde do modalTempo logo acima: um
-  // Modal inline com TextInput e dois botões, em vez de um componente novo.
+  // Pedido de atraso (fase A caminho, components/PosMatchAgendamento): a folha do
+  // profissional e as travas dos dois POSTs (pedir / responder).
+  const [modalAtraso, setModalAtraso] = useState(false)
+  const [enviandoAtraso, setEnviandoAtraso] = useState(false)
+  const [respondendoAtraso, setRespondendoAtraso] = useState(false)
+  // Edição do ponto de referência (só dono): um Modal inline com TextInput e dois botões,
+  // em vez de um componente novo.
   const [modalReferencia, setModalReferencia] = useState(false)
   const [textoReferencia, setTextoReferencia] = useState('')
   const [salvandoReferencia, setSalvandoReferencia] = useState(false)
@@ -685,7 +688,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // da proposta: isto é uma RESPOSTA DE NEGOCIAÇÃO, o caso que rede.js:20-22 manda deixar
   // de fora — o servidor pode ter processado a 1ª tentativa e o retry duplicaria o efeito.
   // Só o ERR_NETWORK duro, onde a requisição não chegou, é reexecutado.
-  // Mesmo tratamento de handleResponderTempo, a negociação vizinha.
+  // Mesmo tratamento de responderAtraso, a negociação vizinha.
   const handleResponderAgendamento = async (acao, dataHora) => {
     if (respondendoChegada) return
     setRespondendoChegada(true)
@@ -1039,8 +1042,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
         await buscar()
         Alert.alert('Serviço reaberto', 'O match foi desfeito e o serviço voltou a ficar disponível para outros profissionais.')
       } catch (err) {
-        console.log('[DetalheReparo] falha ao expirar match por não chegada | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-        Alert.alert('Erro', err.mensagem || 'Não foi possível liberar o serviço. Tente novamente.')
+        console.log('[DetalheReparo] falha ao expirar match por não chegada | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+        // 403 PEDIDO_ATRASO_PENDENTE entra aqui: há um pedido de mais tempo a responder antes.
+        Alert.alert('Erro', mensagemErroAtraso(err, 'Não foi possível liberar o serviço. Tente novamente.'))
       }
     }
     // O texto diz as três coisas que a pessoa precisa saber ANTES de tocar: o que a ação faz
@@ -1303,97 +1307,68 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
-  const handlePedirTempo = () => {
-    Alert.alert('⚠️ Preciso de mais tempo', 'Qual é o motivo?', [
-      { text: '🚗 Veículo quebrou', onPress: () => enviarPedidoTempo('Veículo quebrou') },
-      { text: '🚦 Trânsito intenso', onPress: () => enviarPedidoTempo('Trânsito intenso') },
-      { text: '👮 Parada por fiscalização', onPress: () => enviarPedidoTempo('Parada por fiscalização') },
-      { text: '💥 Acidente', onPress: () => enviarPedidoTempo('Acidente') },
-      { text: 'Cancelar', style: 'cancel' },
+  // Pedido de ATRASO (atrasoChegadaService da API; fluxo antigo pedir/perguntar/informar/
+  // responder-tempo aposentado). Profissional: POST /pedir-atraso { minutos 15|30|60,
+  // motivo? } pela folha ModalPedirAtraso. A resposta já traz prazo_chegada, tolerancia_ate,
+  // atrasado, pedido_atraso e pedidos_atraso_restantes — mescla direto, sem reler.
+  // Recusa da API (MINUTOS_INVALIDOS, SEM_A_CAMINHO, CHEGADA_DECLARADA, PEDIDO_PENDENTE,
+  // LIMITE_PEDIDOS, DEMANDA_FECHADA): a mensagem do servidor no alerta e uma releitura, porque
+  // o que ela descreve (chegada registrada, pedido já aberto, limite usado) mudou lá, não aqui.
+  const handlePedirAtraso = async (minutos, motivo) => {
+    if (enviandoAtraso) return
+    setEnviandoAtraso(true)
+    try {
+      const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/pedir-atraso`, { minutos, motivo: motivo || undefined }))
+      if (!mountedRef.current) return
+      setModalAtraso(false)
+      setReparo(prev => ({ ...prev, ...camposAtrasoDe(resp) }))
+      Alert.alert('✅ Pedido enviado', 'O cliente recebe o pedido na hora. Sem resposta em 10 min, ele é aceito automaticamente.')
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao pedir atraso | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { if (mountedRef.current) setModalAtraso(false); return }
+      if (mountedRef.current && err.status != null) setModalAtraso(false)
+      Alert.alert('Erro', mensagemErroAtraso(err, 'Não foi possível pedir mais tempo.'))
+      if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setEnviandoAtraso(false)
+    }
+  }
+
+  // Dono: POST /pedir-atraso/responder { aceitar }. Aceitar move o prazo para os dois (a
+  // resposta traz o novo prazo_chegada); recusar desfaz o match — o profissional sai sem
+  // falta e o serviço volta ao Rol —, por isso passa por confirmação e termina no goBack,
+  // como o responder-tempo antigo. 409 SEM_PEDIDO (já respondido ou aceito pelo cron):
+  // mensagem do servidor e releitura.
+  const responderAtraso = async (aceitar) => {
+    if (respondendoAtraso) return
+    setRespondendoAtraso(true)
+    try {
+      const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/pedir-atraso/responder`, { aceitar }))
+      if (!mountedRef.current) return
+      if (aceitar) {
+        setReparo(prev => ({ ...prev, ...camposAtrasoDe(resp) }))
+        const novo = horaDe(resp?.prazo_chegada)
+        Alert.alert('✅ Tempo concedido', novo ? `Novo prazo de chegada: ${novo}. Vale para os dois.` : 'O novo prazo de chegada vale para os dois.')
+      } else {
+        setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, a_caminho_em: null, pedido_atraso: null, pedidos_atraso_restantes: 0, pedido_tempo_status: null }))
+        Alert.alert('Recusado', 'O serviço voltou para disponível, sem falta para o profissional.')
+        navigation.goBack()
+      }
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao responder atraso | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', mensagemErroAtraso(err, 'Não foi possível responder.'))
+      if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setRespondendoAtraso(false)
+    }
+  }
+  const handleResponderAtraso = (aceitar) => {
+    if (aceitar) { responderAtraso(true); return }
+    Alert.alert('✕ Recusar o tempo extra?', `${primeiroNome(prestadorMatch?.nome) || 'O profissional'} sai do serviço sem falta, e o serviço volta para outros profissionais.`, [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Recusar', style: 'destructive', onPress: () => responderAtraso(false) },
     ])
-  }
-
-  const enviarPedidoTempo = async (motivo) => {
-    try {
-      await comRetry(() => api.post(`/reparos/${reparo.id}/pedir-tempo`, { motivo }))
-      setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_tempo', pedido_tempo_motivo: motivo }))
-      Alert.alert('✅ Solicitação enviada!', 'O solicitante foi notificado e vai perguntar quanto tempo você precisa.')
-    } catch (err) {
-      console.log('[DetalheReparo] falha ao pedir tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      // Rede pura → recarrega: pedido_tempo_status é justamente o que a tela mostra, então
-      // o estado do servidor responde sozinho se o pedido saiu ou não.
-      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar a solicitação.')
-    }
-  }
-
-  const handleperguntarTempo = async () => {
-    try {
-      await comRetry(() => api.post(`/reparos/${reparo.id}/perguntar-tempo`, {}))
-      setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_minutos' }))
-      Alert.alert('✅ Profissional notificado!', 'Ele vai informar quantos minutos precisa.')
-    } catch (err) {
-      console.log('[DetalheReparo] falha ao perguntar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
-    }
-  }
-
-  const handleInformarTempo = () => setModalTempo(true)
-
-  const enviarTempo = async () => {
-    const min = parseInt(minutosTempo)
-    if (!min || min <= 0) { Alert.alert('Atenção', 'Informe um número válido de minutos.'); return }
-    setModalTempo(false)
-    setMinutosTempo('')
-    try {
-      await comRetry(() => api.post(`/reparos/${reparo.id}/informar-tempo`, { minutos: min }))
-      setReparo(prev => ({ ...prev, pedido_tempo_status: 'aguardando_aprovacao', pedido_tempo_minutos: min }))
-      Alert.alert('✅ Enviado!', 'O solicitante foi notificado para aceitar ou recusar.')
-    } catch (err) {
-      console.log('[DetalheReparo] falha ao informar tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
-      Alert.alert('Erro', err.mensagem || 'Não foi possível enviar.')
-    }
-  }
-
-  const handleResponderTempo = (aceito) => {
-    // Guarda no HANDLER, não só no botão: é o único ponto por onde qualquer caminho (botão
-    // de hoje, atalho de amanhã) chega ao alerta "precisará de … a mais", e um pedido sem
-    // tempo positivo não tem o que aceitar — recusar continua permitido, para o
-    // profissional refazer o pedido. Dado assim só chega de fora do app (o campo bloqueia 0).
-    if (aceito && !(Number(reparo.pedido_tempo_minutos) > 0)) {
-      Alert.alert('Pedido sem tempo válido', 'Este pedido não informa um tempo extra válido. Recuse-o para que o profissional possa pedir novamente.')
-      return
-    }
-    Alert.alert(
-      aceito ? '✅ Aceitar tempo extra?' : '❌ Recusar tempo extra?',
-      aceito ? `O profissional precisará de ${formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })} a mais.` : 'O serviço voltará para disponível e o profissional será bloqueado.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: aceito ? 'Aceitar' : 'Recusar', style: aceito ? 'default' : 'destructive', onPress: async () => {
-          try {
-            const resp = await comRetry(() => api.post(`/reparos/${reparo.id}/responder-tempo`, { aceito }))
-            if (aceito) {
-              setReparo(prev => ({ ...prev, match_feito_em: resp.novo_match_feito_em, pedido_tempo_status: null, pedido_tempo_minutos: null }))
-              Alert.alert('✅ Tempo concedido!', 'O cronômetro foi estendido.')
-            } else {
-              setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
-              Alert.alert('❌ Recusado', 'O serviço voltou para disponível.')
-              navigation.goBack()
-            }
-          } catch (err) {
-            console.log('[DetalheReparo] falha ao responder tempo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-            // Recarrega em vez de alertar: aceitar/recusar mexe em match_feito_em e no
-            // pedido_tempo_status, ambos na tela. Note que o goBack() do ramo "recusar"
-            // só acontece no sucesso — numa falha de rede a pessoa continua aqui, vendo
-            // o estado real.
-            if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
-            Alert.alert('Erro', err.mensagem || 'Não foi possível responder.')
-          }
-        }}
-      ]
-    )
   }
 
   const temMatch = reparo?.match_feito_em && reparo?.match_usuario_id
@@ -1838,38 +1813,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      <Modal visible={modalTempo} transparent animationType="fade" onRequestClose={() => { setModalTempo(false); setMinutosTempo('') }}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-          <View style={{ backgroundColor: cores.fundoCard, borderRadius: 16, padding: 24, width: '100%' }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>⏱ Quantos minutos você precisa?</Text>
-            <Text style={{ fontSize: 13, color: cores.textoFraco, marginBottom: 16 }}>Digite o tempo em minutos</Text>
-            <TextInput
-              style={{ backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: 10, padding: 14, fontSize: 18, color: cores.textoForte, textAlign: 'center', marginBottom: 16 }}
-              keyboardType="numeric"
-              value={minutosTempo}
-              onChangeText={setMinutosTempo}
-              placeholder="Ex: 15"
-              placeholderTextColor={cores.placeholderCampo}
-              autoFocus
-            />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <TouchableOpacity
-                style={{ flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, padding: 14, alignItems: 'center' }}
-                onPress={() => { setModalTempo(false); setMinutosTempo('') }}
-              >
-                <Text style={{ color: cores.textoFraco, fontWeight: '600' }}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ flex: 1, backgroundColor: cores.primaria, borderRadius: 10, padding: 14, alignItems: 'center' }}
-                onPress={enviarTempo}
-              >
-                <Text style={{ color: '#0A0A0A', fontWeight: '700' }}>Confirmar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
       <ModalPerguntar
         visivel={modalPergunta}
         enviando={enviandoPergunta}
@@ -1893,7 +1836,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       {posMatchCompacto ? (
         /* AGENDADO / A CAMINHO em tela única (components/PosMatchAgendamento). Os modais
-           acima (fotos, vídeo, referência, tempo, folha de cancelamento) e a avaliação abaixo
+           acima (fotos, vídeo, referência, folha de cancelamento) e a avaliação abaixo
            continuam montados; só o corpo rolável sai de cena. */
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
           {agendadoCompacto ? (
@@ -1968,60 +1911,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
                 </View>
               )) : null}
-              onPedirTempo={!isDono && !reparo.pedido_tempo_status ? handlePedirTempo : undefined}
-              secundario={isDono ? (
-                <>
-                  {reparo.pedido_tempo_status === 'aguardando_tempo' && (
-                    <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
-                      <Text style={estilos.pedidoAlertaTitulo}>⚠️ Profissional precisa de mais tempo</Text>
-                      <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
-                      <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleperguntarTempo}>
-                        <Text style={estilos.btnPerguntarTempoTexto}>⏱ Quanto tempo a mais você precisa?</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  {reparo.pedido_tempo_status === 'aguardando_minutos' && (
-                    <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
-                      <Text style={estilos.pedidoTexto}>⏳ Aguardando o profissional informar quantos minutos precisa...</Text>
-                    </View>
-                  )}
-                  {reparo.pedido_tempo_status === 'aguardando_aprovacao' && (
-                    <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
-                      <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
-                      <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
-                      {reparo.pedido_tempo_minutos > 0 && (
-                        <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}</Text>
-                      )}
-                      <View style={estilos.pedidoBotoesRow}>
-                        <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
-                          <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderTempo(false)}>
-                          <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <>
-                  {reparo.pedido_tempo_status === 'aguardando_tempo' && (
-                    <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
-                      <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
-                    </View>
-                  )}
-                  {reparo.pedido_tempo_status === 'aguardando_minutos' && (
-                    <TouchableOpacity style={[estilos.btnInformarTempo, { marginTop: 0, marginBottom: 12 }]} onPress={handleInformarTempo}>
-                      <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
-                    </TouchableOpacity>
-                  )}
-                  {reparo.pedido_tempo_status === 'aguardando_aprovacao' && reparo.pedido_tempo_minutos > 0 && (
-                    <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
-                      <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}...</Text>
-                    </View>
-                  )}
-                </>
-              )}
+              /* Pedido de atraso: o profissional só pede antes de declarar a chegada (a API
+                 recusa depois, CHEGADA_DECLARADA); o bloco esconde o botão sem pedidos
+                 restantes ou com um pendente. O dono responde ao pendente. */
+              onPedirAtraso={!isDono && chegadaNaoDeclarada ? () => setModalAtraso(true) : undefined}
+              onResponderAtraso={isDono ? handleResponderAtraso : undefined}
+              respondendoAtraso={respondendoAtraso}
               onNaoChegou={isDono && chegadaNaoDeclarada ? naoChegouACaminho : undefined}
               onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
               onContrato={isDono ? () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.') : undefined}
@@ -2055,6 +1950,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 </ScrollView>
               ) : null}
             </ModalDetalhesDemanda>
+          )}
+          {!isDono && (
+            <ModalPedirAtraso
+              visivel={modalAtraso}
+              enviando={enviandoAtraso}
+              onEnviar={handlePedirAtraso}
+              onFechar={() => setModalAtraso(false)}
+            />
           )}
         </View>
       ) : (
@@ -2451,39 +2354,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnEncerrarTexto}>{rotuloEncerrar('✅ Confirmar conclusão — Encerrar serviço')}</Text>
                 </TouchableOpacity>
               )}
-              {temMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
-                <View style={estilos.pedidoAlertaBox}>
-                  <Text style={estilos.pedidoAlertaTitulo}>⚠️ Profissional precisa de mais tempo</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
-                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleperguntarTempo}>
-                    <Text style={estilos.btnPerguntarTempoTexto}>⏱ Quanto tempo a mais você precisa?</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              {temMatch && reparo.pedido_tempo_status === 'aguardando_minutos' && !encerrada && (
-                <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o profissional informar quantos minutos precisa...</Text>
-                </View>
-              )}
-              {temMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && (
-                <View style={estilos.pedidoAlertaBox}>
-                  <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
-                  {/* Valor não positivo não vira frase: "Tempo solicitado: expirado" seria
-                      absurdo. A linha some; título, motivo e botões ficam. */}
-                  {reparo.pedido_tempo_minutos > 0 && (
-                    <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}</Text>
-                  )}
-                  <View style={estilos.pedidoBotoesRow}>
-                    <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
-                      <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderTempo(false)}>
-                      <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
+              {/* Pedido de atraso: só na tela única A CAMINHO (BlocoACaminho), que é onde a
+                  fase vive; este corpo rolável não a desenha mais. */}
               {/* Perguntas dos profissionais: as novas no card azul, com o campo de resposta,
                   e as já respondidas embaixo. Só antes do match — depois dele a conversa
                   é com o escolhido, pelo card de agendamento. */}
@@ -2791,31 +2663,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
                 </TouchableOpacity>
               )}
-              {/* !chegadaConfirmada: pedir mais tempo é sobre o prazo ATÉ chegar, e esse
-                  prazo acabou quando o dono confirmou a chegada. Mesma razão pela qual a
-                  contagem regressiva sai de cena nesse momento (:1165). */}
-              {souPrestadorDoMatch && !reparo.pedido_tempo_status && !chegadaConfirmada && !encerrada && (
-                <TouchableOpacity style={estilos.btnPedirTempo} onPress={handlePedirTempo}>
-                  <Text style={estilos.btnPedirTempoTexto}>⚠️ Preciso de mais tempo para chegar</Text>
-                </TouchableOpacity>
-              )}
-              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_tempo' && !encerrada && (
-                <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
-                </View>
-              )}
-              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_minutos' && !encerrada && (
-                <TouchableOpacity style={estilos.btnInformarTempo} onPress={handleInformarTempo}>
-                  <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
-                </TouchableOpacity>
-              )}
-              {/* pedido_tempo_minutos > 0 no gate: com valor não positivo a caixa inteira some —
-                  ela só tem esta frase, e a frase sem tempo não diz nada. */}
-              {souPrestadorDoMatch && reparo.pedido_tempo_status === 'aguardando_aprovacao' && !encerrada && reparo.pedido_tempo_minutos > 0 && (
-                <View style={estilos.pedidoBox}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}...</Text>
-                </View>
-              )}
+              {/* Pedido de atraso ("Vou atrasar"): só na tela única A CAMINHO (BlocoACaminho). */}
               {/* Perguntas públicas sobre o pedido e o botão de fazer a própria. Só antes do
                   match. O botão some com a própria pergunta já feita (`minha`), fora da
                   disputa (recusado), sem assinatura (mesma regra do "Tenho interesse") e
