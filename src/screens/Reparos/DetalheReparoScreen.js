@@ -2025,7 +2025,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onNaoChegou={isDono && chegadaNaoDeclarada ? naoChegouACaminho : undefined}
               onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
               onContrato={isDono ? () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.') : undefined}
-              onCancelar={abrirCancelar}
             />
           )}
           {isDono && (
