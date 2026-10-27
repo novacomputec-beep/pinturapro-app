@@ -14,6 +14,7 @@ import { Feather } from '@expo/vector-icons'
 import api from '../services/api'
 import { navigationRef } from './navigationRef'
 import { codigoDoLink, resolverDemandaPorCodigo, mostrarAviso } from '../utils/deepLink'
+import { emitirPushRecebido } from '../utils/eventosPush'
 import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
@@ -991,7 +992,11 @@ export default function AppNavigator() {
     }).catch(err => console.log('[AppNavigator] falha ao ler a última resposta de notificação | msg:', err?.message))
 
     respostaNotificacaoRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
-      navegarParaNotificacao(resposta.notification.request.content.data)
+      const data = resposta.notification.request.content.data
+      navegarParaNotificacao(data)
+      // Toque que mira uma tela JÁ aberta: o navigate acima não dispara foco nem novo mount,
+      // então o detalhe só relê a demanda por este repasse (utils/eventosPush).
+      emitirPushRecebido(data)
     })
 
     return () => respostaNotificacaoRef.current?.remove()
