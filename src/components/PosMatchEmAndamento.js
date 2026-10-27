@@ -40,6 +40,18 @@ const desdeTexto = (iso) => {
   return mesmoDia ? `hoje às ${hora}` : (formatarAgendado(iso) || hora)
 }
 
+// "às HH:MM" hoje; "dd/mm às HH:MM" noutro dia. Ilegível → null.
+const quandoTexto = (iso) => {
+  const hora = horaDe(iso)
+  if (!hora) return null
+  const d = new Date(iso), h = new Date()
+  const mesmoDia = d.getFullYear() === h.getFullYear() && d.getMonth() === h.getMonth() && d.getDate() === h.getDate()
+  return mesmoDia ? `às ${hora}` : `${p2(d.getDate())}/${p2(d.getMonth() + 1)} às ${hora}`
+}
+// Prazo do encerramento automático do cron da API (alertaService.autoEncerrarPendentes):
+// 3 h no reparo, 2 dias na obra — usado quando a API não manda encerramento_automatico_em.
+const AUTO_ENCERRAR_MS = { reparo: 3 * 3600000, obra: 2 * 86400000 }
+
 // demanda: a linha do reparo/obra. souDono: decide os textos. valor: o combinado.
 // endereco / pontoReferencia: o que o card do topo mostra. chegadaEm: chegada_confirmada_em.
 // outro: { nome, foto_url, avaliacoes_media, avaliacoes_total, cidade, bairro, especialidades }
@@ -47,13 +59,24 @@ const desdeTexto = (iso) => {
 // telefone/onWhatsApp: o botão verde do WhatsApp (some sem telefone).
 // rotuloBotao/onConcluir/desabilitado/enviando: o botão principal, com as travas da tela.
 // onDenunciar / onContrato: os dois links do rodapé.
+// encerramentoOutro (dono): { nome, solicitadoEm, automaticoEm, ehObra } quando o PROFISSIONAL
+// pediu o encerramento (encerramento_solicitado_por é o outro lado) — o card verde "CONCLUÍDO
+// PELO PROFISSIONAL" toma o lugar da caixa "em andamento", o botão principal sobe e o WhatsApp
+// vira o secundário vazado abaixo dele.
 export default function BlocoEmAndamento({
   demanda, souDono, valor, endereco, pontoReferencia, chegadaEm, outro,
   telefone, onWhatsApp, rotuloBotao, onConcluir, desabilitado, enviando, onDenunciar, onContrato,
+  encerramentoOutro,
 }) {
   const temValor = valor != null && Number(valor) > 0
   const hora = horaDe(chegadaEm)
   const desde = desdeTexto(chegadaEm)
+  const enc = souDono && encerramentoOutro?.solicitadoEm ? encerramentoOutro : null
+  const terminouEm = enc ? quandoTexto(enc.solicitadoEm) : null
+  const automaticoIso = enc
+    ? (enc.automaticoEm || new Date(new Date(enc.solicitadoEm).getTime() + AUTO_ENCERRAR_MS[enc.ehObra ? 'obra' : 'reparo']).toISOString())
+    : null
+  const automaticoEm = enc ? quandoTexto(automaticoIso) : null
   const nota = souDono
     ? (outro?.avaliacoes_total > 0
         ? `⭐ ${Number(outro.avaliacoes_media).toFixed(1)} (${outro.avaliacoes_total} ${outro.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})`
@@ -89,18 +112,27 @@ export default function BlocoEmAndamento({
         </View>
       </View>
 
-      {/* 2. Em andamento */}
-      <View style={estilos.andamento}>
-        <Text style={estilos.andamentoTitulo}>▶️ SERVIÇO EM ANDAMENTO{desde ? ` · desde ${desde}` : ''}</Text>
-        <Text style={estilos.andamentoTexto}>
-          {souDono
-            ? 'Quando o serviço terminar, confirme aqui para avaliar o profissional.'
-            : 'Ao terminar, peça ao cliente para confirmar a conclusão no app.'}
-        </Text>
-      </View>
+      {/* 2. Em andamento — ou o card "concluído pelo profissional" (dono, pedido pendente do outro) */}
+      {enc ? (
+        <View style={estilos.concluido}>
+          <Text style={estilos.concluidoRotulo}>{enc.ehObra ? '✅ OBRA CONCLUÍDA PELO PROFISSIONAL' : '✅ SERVIÇO CONCLUÍDO PELO PROFISSIONAL'}</Text>
+          <Text style={estilos.concluidoLinha}>{enc.nome || 'O profissional'} terminou {terminouEm || 'agora'}</Text>
+          <Text style={estilos.concluidoTexto}>Confira o serviço e confirme a conclusão para avaliar o profissional.</Text>
+          {automaticoEm ? <Text style={estilos.concluidoAuto}>Sem resposta, o serviço é encerrado automaticamente {automaticoEm}</Text> : null}
+        </View>
+      ) : (
+        <View style={estilos.andamento}>
+          <Text style={estilos.andamentoTitulo}>▶️ SERVIÇO EM ANDAMENTO{desde ? ` · desde ${desde}` : ''}</Text>
+          <Text style={estilos.andamentoTexto}>
+            {souDono
+              ? 'Quando o serviço terminar, confirme aqui para avaliar o profissional.'
+              : 'Ao terminar, peça ao cliente para confirmar a conclusão no app.'}
+          </Text>
+        </View>
+      )}
 
-      {/* 3. WhatsApp */}
-      {telefone ? (
+      {/* 3. WhatsApp (acima do botão; com o pedido do profissional vai abaixo, vazado) */}
+      {telefone && !enc ? (
         <TouchableOpacity style={estilos.btnWhatsApp} onPress={onWhatsApp} activeOpacity={0.85} accessibilityRole="button">
           <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp {souDono ? 'do profissional' : 'do cliente'}: {telefone}</Text>
         </TouchableOpacity>
@@ -116,6 +148,11 @@ export default function BlocoEmAndamento({
       >
         <Text style={estilos.btnConcluirTexto}>{enviando ? 'Encerrando…' : rotuloBotao}</Text>
       </TouchableOpacity>
+      {telefone && enc ? (
+        <TouchableOpacity style={[estilos.btnWhatsApp, estilos.btnWhatsAppVazado]} onPress={onWhatsApp} activeOpacity={0.85} accessibilityRole="button">
+          <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp do profissional: {telefone}</Text>
+        </TouchableOpacity>
+      ) : null}
 
       {/* 5. Mini card da outra parte: foto → iniciais → 🏠/👷 */}
       <View style={estilos.mini}>
@@ -165,6 +202,13 @@ const estilos = StyleSheet.create({
   andamento: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#4caf50', borderRadius: raios.grande, padding: 14, marginBottom: 12 },
   andamentoTitulo: { fontSize: 13, fontWeight: '800', color: '#4caf50', letterSpacing: 0.3, marginBottom: 6 },
   andamentoTexto: { fontSize: 13, color: cores.textoForte, lineHeight: 19 },
+  // Card "concluído pelo profissional" (dono): verde em destaque, centrado.
+  concluido: { backgroundColor: '#13291A', borderWidth: 2, borderColor: '#7BD093', borderRadius: 18, padding: 14, marginBottom: 12, alignItems: 'center' },
+  concluidoRotulo: { fontSize: 12, fontWeight: '800', color: '#7BD093', letterSpacing: 0.5, textAlign: 'center', marginBottom: 6 },
+  concluidoLinha: { fontSize: 20, fontWeight: '800', color: cores.textoForte, lineHeight: 26, textAlign: 'center', marginBottom: 6 },
+  concluidoTexto: { fontSize: 13, color: cores.textoForte, lineHeight: 19, textAlign: 'center' },
+  concluidoAuto: { fontSize: 11, color: cores.textoMedio, lineHeight: 16, textAlign: 'center', marginTop: 6 },
+  btnWhatsAppVazado: { backgroundColor: 'transparent', marginBottom: 12 },
 
   // Mesmo btnWhatsApp / btnEncerrar das telas de detalhe.
   btnWhatsApp: { backgroundColor: '#1a3a1a', borderWidth: 1, borderColor: '#25D366', borderRadius: raios.medio, padding: 13, alignItems: 'center', marginBottom: 10 },
