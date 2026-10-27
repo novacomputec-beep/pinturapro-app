@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { View, Text, Image, TouchableOpacity, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios } from '../utils/tema'
 import { rotulosEspecialidades } from '../utils/categorias'
 import { avatar } from '../utils/imagemOtimizada'
@@ -182,7 +183,7 @@ const BotaoPrincipal = ({ rotulo, rotuloCarregando, onPress, desabilitado, carre
     activeOpacity={0.85}
     accessibilityRole="button"
   >
-    <Text style={estilos.btnPrincipalTexto}>{carregando ? (rotuloCarregando || rotulo) : rotulo}</Text>
+    <Text style={estilos.btnPrincipalTexto} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{carregando ? (rotuloCarregando || rotulo) : rotulo}</Text>
   </TouchableOpacity>
 )
 
@@ -347,7 +348,7 @@ export function BlocoACaminho({
       {/* 3. WhatsApp */}
       {telefone ? (
         <TouchableOpacity style={estilos.btnWhatsApp} onPress={onWhatsApp} activeOpacity={0.85} accessibilityRole="button">
-          <Text style={estilos.btnWhatsAppTexto}>💬 WhatsApp {souDono ? 'do profissional' : 'do cliente'}: {telefone}</Text>
+          <Text style={estilos.btnWhatsAppTexto} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>💬 WhatsApp {souDono ? 'do profissional' : 'do cliente'}: {telefone}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -418,15 +419,16 @@ export function BlocoACaminho({
 // `enviando` trava os botões. Chips 15/30/60 (MINUTOS_ATRASO), motivo opcional até 200.
 // O estado zera a cada abertura, para o segundo pedido não herdar o primeiro.
 export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
+  const insets = useSafeAreaInsets()
   const [minutos, setMinutos] = useState(null)
   const [motivo, setMotivo] = useState('')
   useEffect(() => { if (visivel) { setMinutos(null); setMotivo('') } }, [visivel])
   const fechar = () => { if (!enviando) onFechar?.() }
   return (
-    <Modal visible={visivel} transparent animationType="slide" onRequestClose={fechar}>
+    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={fechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={estilos.detalhesCard}>
+        <View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }]}>
           <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
           <Text style={estilos.atrasoFolhaTexto}>O cliente recebe o pedido na hora e decide se aceita. Você pode pedir até {MAX_PEDIDOS_ATRASO} vezes neste serviço.</Text>
           <View style={estilos.chips}>
@@ -477,13 +479,16 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
 // ---------------------------------------------------------------------------------------
 // Descrição e fotos do pedido, para o profissional, sem sair da tela única.
 // ---------------------------------------------------------------------------------------
-// children: a tira de mídia que a tela já monta (TileMidia + os modais de tela cheia dela).
-export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, children }) {
+// children: a tira de mídia que a tela já monta (TileMidia). extras: os modais de tela cheia
+// (foto/vídeo) da tela, montados AQUI DENTRO enquanto a folha está aberta — no iOS um segundo
+// Modal irmão não é apresentado por cima de outro já visível; aninhado, é.
+export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, children, extras }) {
+  const insets = useSafeAreaInsets()
   return (
-    <Modal visible={visivel} transparent animationType="slide" onRequestClose={onFechar}>
+    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
       <View style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={estilos.detalhesCard}>
+        <View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }]}>
           <View style={estilos.detalhesCabecalho}>
             <Text style={estilos.detalhesTitulo} numberOfLines={2}>{titulo}</Text>
             <TouchableOpacity onPress={onFechar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Fechar">
@@ -505,6 +510,7 @@ export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, chi
             ) : null}
             {!descricao && !children ? <Text style={estilos.detalhesTexto}>Este pedido não tem descrição nem fotos.</Text> : null}
           </ScrollView>
+          {extras}
         </View>
       </View>
     </Modal>

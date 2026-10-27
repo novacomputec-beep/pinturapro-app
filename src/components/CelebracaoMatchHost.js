@@ -532,6 +532,11 @@ export default function CelebracaoMatchHost() {
     checandoRef.current = true
     try {
       const ev = await detectar(usuario)
+      // Tela de finalizados prestes a abrir (ou com) o ModalDenuncia do push "encerrado"
+      // (denunciarContratoId, AppNavigator): nenhuma celebração agora — no iOS dois Modals
+      // de subárvores diferentes não se apresentam juntos, e a chave 🏁 seria consumida sem
+      // ninguém ver. Sem marcar, o evento volta na próxima verificação.
+      if (ev && navigationRef.current?.getCurrentRoute?.()?.params?.denunciarContratoId != null) return
       // Marca como visto ao exibir → comemora exatamente uma vez, mesmo se só dispensar.
       // Exceto os eventos `semMarca` (encerramento pendente): não são notícia a comemorar
       // uma vez, e sim uma ação que falta. Ficam fora da marca d'água e reaparecem a cada
@@ -633,6 +638,10 @@ export default function CelebracaoMatchHost() {
     const linhaDe = (resp) => (enc.ehObra ? (resp?.obra || resp) : resp?.reparo)
     const concluirComSucesso = async () => {
       setEvento(null)
+      // avaliarRef ANTES dos awaits: entre o setEvento(null) e o setAvaliar uma verificação
+      // (nav 'state' / AppState) achava este mesmo contrato sem nota e abria o lembrete por
+      // cima do ModalAvaliacao. A ref trava a verificação já; o efeito a sincroniza depois.
+      if (enc.souDono) avaliarRef.current = { ehObra: enc.ehObra, id: enc.id, matchUsuarioId: enc.matchUsuarioId }
       if (usuario && enc.chavesConcluido?.length) await marcarVistas(usuario.id, enc.chavesConcluido)
       if (enc.souDono) {
         const nome = await nomeDoProfissional(enc.ehObra, enc.id, enc.matchUsuarioId)
@@ -656,6 +665,16 @@ export default function CelebracaoMatchHost() {
       try {
         const resp = await comRetry(() => api.post(`${rota}/encerrar`, {}))
         if (resp?.encerramento === 'pendente') { aguardarOutraParte(); return }
+        // Demanda JÁ encerrada antes deste toque (push atrasado): a API responde o mesmo
+        // encerramento 'concluido' do sucesso, só a mensagem distingue ("Serviço já
+        // encerrado." / "Obra já encerrada.", routes/index.js). Nada a avaliar ou denunciar
+        // de novo — marca o 🏁 e leva aos finalizados.
+        if (resp?.encerramento === 'concluido' && /j[aá] encerrad/i.test(String(resp?.mensagem || ''))) {
+          setEvento(null)
+          if (usuario && enc.chavesConcluido?.length) await marcarVistas(usuario.id, enc.chavesConcluido)
+          navigationRef.current?.navigate('Contratos Finalizados')
+          return
+        }
         await concluirComSucesso()
       } catch (err) {
         console.log('[Celebracao] falha ao encerrar pelo card | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -666,7 +685,10 @@ export default function CelebracaoMatchHost() {
         try {
           const atual = linhaDe(await api.get(rota))
           if (atual?.status === 'encerrada') { await concluirComSucesso(); return }
-          if (atual?.encerramento_solicitado_por != null) { aguardarOutraParte(); return }
+          // Só o MEU pedido conta como "registrado": no evento `encerrar` quem pediu foi a
+          // outra parte, e um 409 (chegada não declarada) virava falso "aguardando".
+          if (atual?.encerramento_solicitado_por != null && usuario?.id != null &&
+              String(atual.encerramento_solicitado_por) === String(usuario.id)) { aguardarOutraParte(); return }
         } catch (e2) { console.log('[Celebracao] reconsulta pós-encerrar falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {

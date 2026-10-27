@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { cores, raios } from '../utils/tema'
 import { rotulosEspecialidades } from '../utils/categorias'
 import { avatar } from '../utils/imagemOtimizada'
@@ -63,7 +63,10 @@ export default function BlocoEmAndamento({
   const iniciais = iniciaisDe(outro?.nome)
 
   return (
-    <View style={estilos.tela}>
+    /* ScrollView e não View: o layout é o de uma tela só, mas num aparelho pequeno (iPhone SE)
+       o conteúdo passa da área útil e, sem rolagem, o mini card e os links ficavam atrás da
+       barra de abas. bounces={false}: só rola quando é mais alto que a tela. */
+    <ScrollView style={estilos.tela} contentContainerStyle={estilos.conteudo} showsVerticalScrollIndicator={false} bounces={false}>
       {/* 1. Card do topo */}
       <View style={estilos.topo}>
         <ChipsCategoria demanda={demanda} estilo={{ marginBottom: 8 }} />
@@ -140,12 +143,13 @@ export default function BlocoEmAndamento({
           <Text style={estilos.link}>📋 Contrato no seu e-mail</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </ScrollView>
   )
 }
 
 const estilos = StyleSheet.create({
   tela: { flex: 1 },
+  conteudo: { flexGrow: 1, paddingBottom: 16 },
   // Mesmo card do topo dos blocos pós-match (PosMatchDono.topo), um pouco mais compacto.
   topo: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 14, marginBottom: 12 },
   titulo: { fontSize: 18, fontWeight: '700', color: cores.textoForte, lineHeight: 24, marginBottom: 4 },

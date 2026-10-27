@@ -212,6 +212,13 @@ const navegarParaNotificacao = (data) => {
         if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
+      // O par do reparo (routes/index.js: notificarAprovacaoReparo), mesma razão: o reparo
+      // recusado não aparece em "Meus Reparos", só o detalhe mostra o motivo.
+      case 'reparo_aprovado':
+      case 'reparo_recusado':
+        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else navegar(tabEmAndamento)
+        break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
       case 'reparo_5min_restantes':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })

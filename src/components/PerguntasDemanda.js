@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, Modal, StyleSheet } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, Modal, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
 import { cores, raios } from '../utils/tema'
 import { AvisoContatoOculto } from './index'
 
@@ -69,7 +69,9 @@ export const ModalPerguntar = ({ visivel, enviando, onFechar, onEnviar }) => {
   const vazio = !texto.trim()
   return (
     <Modal visible={visivel} transparent animationType="fade" onRequestClose={fechar}>
-      <View style={estilos.modalFundo}>
+      {/* KeyboardAvoidingView: o campo abre com o teclado (autoFocus) e, num iPhone pequeno,
+          o teclado cobria o "Enviar pergunta" do card centralizado. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.modalFundo}>
         <View style={estilos.modalCard}>
           <Text style={estilos.modalTitulo}>❓ Sua pergunta ao cliente</Text>
           <Text style={estilos.modalExplicacao}>
@@ -100,7 +102,7 @@ export const ModalPerguntar = ({ visivel, enviando, onFechar, onEnviar }) => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
