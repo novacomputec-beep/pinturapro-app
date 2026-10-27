@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, Image, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'react-native'
+import { View, Text, Image, TouchableOpacity, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
 import { cores, raios } from '../utils/tema'
 import { rotulosEspecialidades } from '../utils/categorias'
 import { avatar } from '../utils/imagemOtimizada'
@@ -14,22 +14,67 @@ import { formatarAgendado } from './Agendamento'
 //                    caixa verde "📅 AGENDADO" com a data em destaque; o dono lê que o app
 //                    lembra, o profissional tem o botão "🚗 Estou a caminho" dentro dela.
 //   BlocoACaminho  — a_caminho_em marcado e chegada ainda não confirmada: caixa azul com a
-//                    hora da saída e o limite de chegada, WhatsApp e o botão de chegada.
+//                    hora da saída e o prazo de chegada (âmbar quando o prazo passou — a
+//                    tolerância de chegada da API), WhatsApp, o botão de chegada e o pedido
+//                    de atraso ("Vou atrasar" do profissional, Aceitar/Recusar do dono).
 // Os blocos só DESENHAM: ações, travas e regras continuam nos handlers das telas, que
-// passam botão, estado e nós prontos (cancelamento, pedido de tempo, vigia).
+// passam botão, estado e nós prontos (cancelamento, vigia).
+//
+// Tolerância e pedido de atraso (atrasoChegadaService da API, GET /:id → camposAtraso):
+//   prazo_chegada    — a extensão aceita ou o horário combinado (chegada_prevista_em/expira_em)
+//   tolerancia_ate   — a extensão (já com tudo dentro) ou prazo + 15 min; depois dela o cron
+//                      desfaz o match e o dono pode marcar que o profissional não chegou
+//   atrasado         — prazo passado, chegada não declarada (relógio do servidor)
+//   pedido_atraso    — { minutos 15|30|60, motivo, criado_em, status pendente|aceito|
+//                      auto_aceito|recusado, respondido_em, responde_ate }; um por vez
+//   pedidos_atraso_restantes — de 2 por match
+// POST /:id/pedir-atraso { minutos, motivo } (profissional) e /pedir-atraso/responder
+// { aceitar } (dono). Aceite = novo prazo para os dois; recusa = match desfeito, sem falta.
 
 const formatarValor = (v) => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 const p2 = (n) => String(n).padStart(2, '0')
 const iniciaisDe = (nome) =>
   (nome || '').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || null
+const primeiroNomeDe = (nome, padrao) => (String(nome || '').trim().split(/\s+/)[0] || padrao)
 
-// "HH:MM" de um instante; ilegível → null (o box/linha some).
-const horaDe = (iso) => {
-  if (!iso) return null
+// "HH:MM" de um instante (ISO ou ms); ilegível → null (o box/linha some).
+export const horaDe = (iso) => {
+  if (iso == null || iso === '') return null
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
   return `${p2(d.getHours())}:${p2(d.getMinutes())}`
 }
+
+// Os mesmos da API: minutos aceitos num pedido, pedidos por match, tolerância padrão e o
+// prazo de resposta do dono (depois dele o cron aceita por ele).
+export const MINUTOS_ATRASO = [15, 30, 60]
+export const MAX_PEDIDOS_ATRASO = 2
+const TOLERANCIA_PADRAO_MS = 15 * 60000
+
+// Campos de atraso que pedir-atraso e responder devolvem junto com a mensagem: a tela
+// mescla só eles na demanda, sem reler.
+export const camposAtrasoDe = (resp) => {
+  const o = {}
+  if (!resp || typeof resp !== 'object') return o
+  for (const k of ['prazo_chegada', 'tolerancia_ate', 'atrasado', 'pedido_atraso', 'pedidos_atraso_restantes']) {
+    if (k in resp) o[k] = resp[k]
+  }
+  return o
+}
+
+// Códigos do pedido de atraso → texto do alerta. A mensagem do servidor vem primeiro (é a
+// mais exata); o mapa cobre a resposta sem `erro` e dá nome ao que cada código significa.
+const MENSAGENS_ATRASO = {
+  MINUTOS_INVALIDOS: 'Informe os minutos: 15, 30 ou 60.',
+  SEM_A_CAMINHO: 'Toque em "Estou a caminho" antes de pedir mais tempo.',
+  CHEGADA_DECLARADA: 'A chegada já foi registrada.',
+  PEDIDO_PENDENTE: 'Já existe um pedido aguardando a resposta do cliente.',
+  LIMITE_PEDIDOS: `Você já usou os ${MAX_PEDIDOS_ATRASO} pedidos de mais tempo deste atendimento.`,
+  DEMANDA_FECHADA: 'Este atendimento não está mais em aberto.',
+  SEM_PEDIDO: 'Não há pedido de mais tempo aguardando resposta.',
+  PEDIDO_ATRASO_PENDENTE: 'Há um pedido de mais tempo aguardando resposta. Responda a ele antes.',
+}
+export const mensagemErroAtraso = (err, padrao) => err?.mensagem || MENSAGENS_ATRASO[err?.codigo] || padrao
 
 // "2d 3h" · "3h 20min" · "45min" — contagem curta para o box e a linha "faltam". Sobe ao
 // minuto inteiro (é quanto ESPERAR). Zero ou negativo → null: quem chama diz o que mostrar.
@@ -220,25 +265,52 @@ export function BlocoAgendado({
 // telefone/onWhatsApp: o botão do WhatsApp (some sem telefone). botao: { rotulo,
 // rotuloCarregando, onPress, carregando } — o botão principal laranja; estado: o nó que
 // toma o lugar dele quando a chegada já foi declarada (a caixa "declarou que chegou" do
-// dono, a espera do profissional). onPedirTempo (profissional, sem pedido em aberto): o
-// botão pequeno "⏱ Preciso de mais tempo". secundario: os cards de pedido de tempo da tela.
-// onNaoChegou (dono, chegada não declarada): "🚫 O profissional não chegou", que só
-// aparece DEPOIS do limite de chegada. onDetalhes/onContrato: os links. Sem cancelamento
-// nesta fase: a API recusa o cancelar-match depois do "Estou a caminho" (409 A_CAMINHO).
+// dono, a espera do profissional). onPedirAtraso (profissional, chegada não declarada):
+// abre a folha "⏱ Quanto tempo a mais?" — o botão "⏱ Vou atrasar" só aparece com pedidos
+// restantes e sem pedido pendente; pendente, a linha "Aguardando o cliente responder".
+// onResponderAtraso(aceitar)/respondendoAtraso (dono): o card "⏱ PEDIDO DE TEMPO EXTRA"
+// com Aceitar/Recusar enquanto pedido_atraso.status === 'pendente'. onNaoChegou (dono,
+// chegada não declarada): "🚫 O profissional não chegou", que só aparece DEPOIS de
+// tolerancia_ate e sem pedido pendente (a API recusa o expirar-match com um em aberto,
+// 403 PEDIDO_ATRASO_PENDENTE). onDetalhes/onContrato: os links. Sem cancelamento nesta
+// fase: a API recusa o cancelar-match depois do "Estou a caminho" (409 A_CAMINHO).
 export function BlocoACaminho({
   demanda, frente, souDono, valor, endereco, pontoReferencia, outro,
-  telefone, onWhatsApp, botao, estado, onPedirTempo, secundario, onNaoChegou,
-  onDetalhes, onContrato,
+  telefone, onWhatsApp, botao, estado, onNaoChegou, onDetalhes, onContrato,
+  onPedirAtraso, onResponderAtraso, respondendoAtraso,
 }) {
   const agora = useAgora()
   const saiu = horaDe(demanda?.a_caminho_em)
-  const alvoIso = demanda?.chegada_prevista_em || demanda?.expira_em
-  const limite = horaDe(alvoIso)
-  const ms = alvoIso ? new Date(alvoIso).getTime() - agora : NaN
-  const faltam = duracaoCurta(ms)
-  const vencido = Number.isFinite(ms) && ms <= 0
-  const linhaLimite = limite
-    ? `${souDono ? 'Deve chegar até' : 'Chegue até'} ${limite}${faltam ? ` · faltam ${faltam}` : vencido ? ' · horário de chegada já passou' : ''}`
+  // Prazo e tolerância vêm PRONTOS da API (ver o cabeçalho). Resposta sem os campos (API
+  // antiga): o horário combinado e +15 min, que é o que os crons sempre leram.
+  const prazoIso = demanda?.prazo_chegada || demanda?.chegada_prevista_em || demanda?.expira_em
+  const prazoMs = prazoIso ? new Date(prazoIso).getTime() : NaN
+  const toleranciaMs = demanda?.tolerancia_ate
+    ? new Date(demanda.tolerancia_ate).getTime()
+    : (Number.isFinite(prazoMs) ? prazoMs + TOLERANCIA_PADRAO_MS : NaN)
+  const prazo = horaDe(prazoIso)
+  const tolerancia = Number.isFinite(toleranciaMs) ? horaDe(toleranciaMs) : null
+  const faltam = duracaoCurta(prazoMs - agora)
+  const prazoVencido = Number.isFinite(prazoMs) && prazoMs <= agora
+  // Atrasado: o flag do servidor OU o prazo vencido pelo relógio local — a caixa vira âmbar
+  // no tique de 30 s, sem esperar o push 'atrasado' reler a demanda. Chegada já declarada
+  // não é atraso (é o dono que falta confirmar), igual ao servidor.
+  const semChegada = !demanda?.chegada_declarada_em && !demanda?.chegada_confirmada_em
+  const atrasado = semChegada && (!!demanda?.atrasado || prazoVencido)
+  const minAtraso = atrasado && Number.isFinite(prazoMs) ? Math.max(1, Math.ceil((agora - prazoMs) / 60000)) : 0
+  const toleranciaVencida = Number.isFinite(toleranciaMs) && toleranciaMs <= agora
+  const pedido = demanda?.pedido_atraso
+  const pedidoPendente = pedido?.status === 'pendente'
+  const restantes = Number(demanda?.pedidos_atraso_restantes) || 0
+  const respondeAte = pedidoPendente ? horaDe(pedido?.responde_ate) : null
+  // "Chegaria até": o novo limite se o dono aceitar agora — GREATEST(NOW(), limite atual) +
+  // minutos, como a API calcula (SQL_NOVO_LIMITE); o limite atual é tolerancia_ate.
+  const chegariaAte = pedidoPendente && Number(pedido?.minutos) > 0
+    ? horaDe(Math.max(agora, Number.isFinite(toleranciaMs) ? toleranciaMs : agora) + Number(pedido.minutos) * 60000)
+    : null
+  const nomeOutro = primeiroNomeDe(outro?.nome, 'O profissional')
+  const linhaLimite = prazo
+    ? `${souDono ? 'Deve chegar até' : 'Chegue até'} ${prazo}${faltam ? ` · faltam ${faltam}` : prazoVencido ? ' · horário de chegada já passou' : ''}`
     : null
 
   return (
@@ -248,17 +320,29 @@ export function BlocoACaminho({
         endereco={endereco}
         pontoReferencia={pontoReferencia}
         valor={valor}
-        boxRotulo={souDono ? 'CHEGA ATÉ' : 'CHEGAR ATÉ'}
-        boxValor={limite}
-        boxDestaque={vencido}
+        boxRotulo={atrasado ? 'TOLERÂNCIA ATÉ' : souDono ? 'CHEGA ATÉ' : 'CHEGAR ATÉ'}
+        boxValor={atrasado ? (tolerancia || prazo) : prazo}
+        boxDestaque={atrasado}
       />
 
-      {/* 2. Caixa azul A CAMINHO */}
-      <View style={estilos.aCaminho}>
-        <Text style={estilos.aCaminhoRotulo}>{souDono ? '🚗 PROFISSIONAL A CAMINHO' : '🚗 VOCÊ ESTÁ A CAMINHO'}</Text>
-        {saiu ? <Text style={estilos.aCaminhoSaiu}>{souDono ? 'saiu às' : 'avisou às'} {saiu}</Text> : null}
-        {linhaLimite ? <Text style={[estilos.aCaminhoLimite, vencido && { color: cores.primaria }]}>{linhaLimite}</Text> : null}
-      </View>
+      {/* 2. Caixa azul A CAMINHO — âmbar ATRASADO depois do prazo */}
+      {atrasado ? (
+        <View style={estilos.atrasado}>
+          <Text style={estilos.atrasadoRotulo}>{souDono ? '⏰ PROFISSIONAL ATRASADO' : '⏰ VOCÊ ESTÁ ATRASADO'}</Text>
+          <Text style={estilos.atrasadoMinutos}>{minAtraso} min de atraso</Text>
+          <Text style={estilos.atrasadoTexto}>
+            {souDono
+              ? `Pequenos atrasos acontecem. Ele tem tolerância até ${tolerancia || '—'} — depois disso você poderá marcar que não chegou.`
+              : `Tolerância até ${tolerancia || '—'}. Depois disso, sem aviso, conta como falta. O cliente já foi avisado.`}
+          </Text>
+        </View>
+      ) : (
+        <View style={estilos.aCaminho}>
+          <Text style={estilos.aCaminhoRotulo}>{souDono ? '🚗 PROFISSIONAL A CAMINHO' : '🚗 VOCÊ ESTÁ A CAMINHO'}</Text>
+          {saiu ? <Text style={estilos.aCaminhoSaiu}>{souDono ? 'saiu às' : 'avisou às'} {saiu}</Text> : null}
+          {linhaLimite ? <Text style={[estilos.aCaminhoLimite, prazoVencido && { color: cores.primaria }]}>{linhaLimite}</Text> : null}
+        </View>
+      )}
 
       {/* 3. WhatsApp */}
       {telefone ? (
@@ -278,16 +362,37 @@ export function BlocoACaminho({
         />
       ) : null}
 
-      {/* 5. Tempo extra (profissional) / cards de tempo (os dois lados) */}
-      {onPedirTempo ? (
-        <TouchableOpacity style={estilos.btnPequeno} onPress={onPedirTempo} activeOpacity={0.8} accessibilityRole="button">
-          <Text style={estilos.btnPequenoTexto}>⏱ Preciso de mais tempo</Text>
+      {/* 5. Pedido de atraso — profissional: "Vou atrasar" ou a espera; dono: o card a responder */}
+      {!souDono && pedidoPendente ? (
+        <View style={estilos.aguardando}>
+          <Text style={estilos.aguardandoTexto}>⏳ Aguardando o cliente responder{respondeAte ? ` (até ${respondeAte})` : ''}</Text>
+        </View>
+      ) : !souDono && onPedirAtraso && restantes > 0 ? (
+        <TouchableOpacity style={estilos.btnAtrasar} onPress={onPedirAtraso} activeOpacity={0.8} accessibilityRole="button">
+          <Text style={estilos.btnAtrasarTexto}>{atrasado ? '⏱ Vou atrasar mais' : '⏱ Vou atrasar'}</Text>
         </TouchableOpacity>
       ) : null}
-      {secundario}
+      {souDono && pedidoPendente && onResponderAtraso ? (
+        <View style={estilos.pedidoAtraso}>
+          <Text style={estilos.pedidoAtrasoRotulo}>⏱ PEDIDO DE TEMPO EXTRA</Text>
+          <Text style={estilos.pedidoAtrasoTitulo}>{nomeOutro} pediu +{Number(pedido.minutos) || 0} min</Text>
+          <Text style={estilos.pedidoAtrasoLinha} numberOfLines={2}>
+            {chegariaAte ? `Chegaria até ${chegariaAte}` : 'Novo prazo ao aceitar'}{pedido.motivo ? ` · motivo: ${pedido.motivo}` : ''}
+          </Text>
+          <View style={estilos.pedidoAtrasoBotoes}>
+            <TouchableOpacity style={[estilos.btnAceitar, respondendoAtraso && { opacity: 0.5 }]} onPress={() => onResponderAtraso(true)} disabled={!!respondendoAtraso} activeOpacity={0.85} accessibilityRole="button">
+              <Text style={estilos.btnAceitarTexto}>{respondendoAtraso ? 'Enviando…' : '✓ Aceitar'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[estilos.btnRecusar, respondendoAtraso && { opacity: 0.5 }]} onPress={() => onResponderAtraso(false)} disabled={!!respondendoAtraso} activeOpacity={0.85} accessibilityRole="button">
+              <Text style={estilos.btnRecusarTexto}>✕ Recusar</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={estilos.pedidoAtrasoNota}>Se aceitar, o novo prazo vale para os dois. Se recusar, o pedido volta para outros profissionais, sem falta para ele.</Text>
+        </View>
+      ) : null}
 
-      {/* 6. "Não chegou" (dono): só depois do limite de chegada. */}
-      {onNaoChegou && vencido ? (
+      {/* 6. "Não chegou" (dono): só depois da tolerância e sem pedido de atraso em aberto. */}
+      {onNaoChegou && toleranciaVencida && !pedidoPendente ? (
         <TouchableOpacity style={estilos.btnNaoChegou} onPress={onNaoChegou} activeOpacity={0.8} accessibilityRole="button">
           <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
         </TouchableOpacity>
@@ -303,6 +408,69 @@ export function BlocoACaminho({
           : { texto: '🔎 Ver descrição e fotos', onPress: onDetalhes },
       ]} />
     </ScrollView>
+  )
+}
+
+// ---------------------------------------------------------------------------------------
+// Folha "⏱ Quanto tempo a mais?" — o pedido de atraso do profissional.
+// ---------------------------------------------------------------------------------------
+// onEnviar(minutos, motivo): a tela faz o POST /pedir-atraso e fecha a folha no sucesso;
+// `enviando` trava os botões. Chips 15/30/60 (MINUTOS_ATRASO), motivo opcional até 200.
+// O estado zera a cada abertura, para o segundo pedido não herdar o primeiro.
+export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
+  const [minutos, setMinutos] = useState(null)
+  const [motivo, setMotivo] = useState('')
+  useEffect(() => { if (visivel) { setMinutos(null); setMotivo('') } }, [visivel])
+  const fechar = () => { if (!enviando) onFechar?.() }
+  return (
+    <Modal visible={visivel} transparent animationType="slide" onRequestClose={fechar}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.detalhesFundo}>
+        <TouchableOpacity style={{ flex: 1 }} onPress={fechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
+        <View style={estilos.detalhesCard}>
+          <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
+          <Text style={estilos.atrasoFolhaTexto}>O cliente recebe o pedido na hora e decide se aceita. Você pode pedir até {MAX_PEDIDOS_ATRASO} vezes neste serviço.</Text>
+          <View style={estilos.chips}>
+            {MINUTOS_ATRASO.map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[estilos.chip, minutos === m && estilos.chipAtivo]}
+                onPress={() => setMinutos(m)}
+                disabled={!!enviando}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: minutos === m }}
+              >
+                <Text style={[estilos.chipTexto, minutos === m && estilos.chipTextoAtivo]}>+{m} min</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={estilos.detalhesSecao}>Motivo (opcional)</Text>
+          <TextInput
+            style={estilos.atrasoMotivo}
+            value={motivo}
+            onChangeText={setMotivo}
+            placeholder="Ex: trânsito parado na avenida"
+            placeholderTextColor={cores.textoFraco}
+            maxLength={200}
+            editable={!enviando}
+            autoComplete="off"
+            importantForAutofill="no"
+            textContentType="none"
+          />
+          <BotaoPrincipal
+            rotulo="Avisar o cliente"
+            rotuloCarregando="Avisando…"
+            onPress={() => onEnviar?.(minutos, motivo.trim())}
+            desabilitado={!minutos}
+            carregando={!!enviando}
+            estilo={{ marginTop: 14, marginBottom: 8 }}
+          />
+          <TouchableOpacity onPress={fechar} disabled={!!enviando} style={{ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 }} accessibilityRole="button">
+            <Text style={estilos.linkNeutro}>Agora não</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   )
 }
 
@@ -378,11 +546,38 @@ const estilos = StyleSheet.create({
   // Laranja do btnMatch / btnPerguntarTempo das telas.
   btnPrincipal: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginBottom: 12 },
   btnPrincipalTexto: { fontSize: 15, fontWeight: '700', color: '#0A0A0A' },
-  // Pequeno e vazado, como o btnPedirTempo das telas.
-  btnPequeno: { alignSelf: 'center', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 12 },
-  btnPequenoTexto: { fontSize: 12, fontWeight: '600', color: cores.primaria },
   btnNaoChegou: { backgroundColor: 'transparent', borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginBottom: 12 },
   btnNaoChegouTexto: { fontSize: 13, fontWeight: '700', color: cores.perigo },
+
+  // Âmbar do atraso e do pedido de tempo extra (mesma paleta do avisoCompacto).
+  atrasado: { backgroundColor: 'rgba(255,193,7,0.10)', borderWidth: 1, borderColor: 'rgba(255,193,7,0.55)', borderRadius: raios.grande, padding: 14, marginBottom: 12 },
+  atrasadoRotulo: { fontSize: 13, fontWeight: '800', color: '#FFC107', letterSpacing: 0.3, marginBottom: 4 },
+  atrasadoMinutos: { fontSize: 22, fontWeight: '800', color: cores.textoForte, lineHeight: 28, marginBottom: 4 },
+  atrasadoTexto: { fontSize: 12, color: cores.textoForte, lineHeight: 17 },
+  // Vazado âmbar, pequeno: "⏱ Vou atrasar".
+  btnAtrasar: { alignSelf: 'center', borderWidth: 1, borderColor: '#FFC107', borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 7, marginBottom: 12 },
+  btnAtrasarTexto: { fontSize: 12, fontWeight: '700', color: '#FFC107' },
+  aguardando: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginBottom: 12 },
+  aguardandoTexto: { fontSize: 13, color: cores.textoForte, lineHeight: 19 },
+  pedidoAtraso: { backgroundColor: 'rgba(255,193,7,0.10)', borderWidth: 1, borderColor: 'rgba(255,193,7,0.55)', borderRadius: raios.grande, padding: 14, marginBottom: 12 },
+  pedidoAtrasoRotulo: { fontSize: 12, fontWeight: '800', color: '#FFC107', letterSpacing: 0.5, marginBottom: 4 },
+  pedidoAtrasoTitulo: { fontSize: 17, fontWeight: '800', color: cores.textoForte, lineHeight: 22, marginBottom: 2 },
+  pedidoAtrasoLinha: { fontSize: 13, color: cores.textoForte, lineHeight: 18, marginBottom: 10 },
+  pedidoAtrasoBotoes: { flexDirection: 'row', gap: 10, marginBottom: 8 },
+  btnAceitar: { flex: 1, backgroundColor: cores.sucesso, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnAceitarTexto: { fontSize: 14, fontWeight: '700', color: '#0A0A0A' },
+  btnRecusar: { flex: 1, backgroundColor: 'transparent', borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, padding: 12, alignItems: 'center' },
+  btnRecusarTexto: { fontSize: 14, fontWeight: '700', color: cores.perigo },
+  pedidoAtrasoNota: { fontSize: 11, color: cores.textoMedio, lineHeight: 16 },
+  // Folha do pedido de atraso.
+  atrasoFolhaTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginTop: 4, marginBottom: 12 },
+  chips: { flexDirection: 'row', gap: 10 },
+  chip: { flex: 1, borderWidth: 1, borderColor: cores.borda, backgroundColor: cores.fundoElevado, borderRadius: raios.pill, paddingVertical: 10, alignItems: 'center' },
+  chipAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  chipTexto: { fontSize: 14, fontWeight: '700', color: cores.textoForte },
+  chipTextoAtivo: { color: cores.primaria },
+  atrasoMotivo: { backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: cores.textoForte },
+  linkNeutro: { fontSize: 13, fontWeight: '600', color: cores.textoMedio },
 
   // Mini card (PosMatchEmAndamento.mini).
   mini: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 12, marginBottom: 12 },
