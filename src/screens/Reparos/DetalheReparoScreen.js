@@ -1810,7 +1810,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       {/* Acima do conteúdo SEMEADO, que continua na tela: a recarga é que falhou. */}
       <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
 
-      {!detalhesAbertos ? modaisMidia : null}
+      {/* Na raiz sempre que a folha não os monta: fechada, OU fora da fase compacta (uma recarga
+          por push/AppState pode desmontar a folha ainda "aberta", e os visores sumiriam). */}
+      {!detalhesAbertos || !posMatchCompacto ? modaisMidia : null}
 
       {/* KeyboardAvoidingView: o campo abre com o teclado (autoFocus) e, num iPhone pequeno, o
           teclado cobria Cancelar/Salvar do card centralizado. */}
