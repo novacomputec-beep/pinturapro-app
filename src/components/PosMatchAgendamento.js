@@ -177,9 +177,7 @@ export function BlocoAgendado({
       <View style={estilos.agendado}>
         <Text style={estilos.agendadoRotulo}>{ehObra ? '📅 INÍCIO AGENDADO' : '📅 AGENDADO'}</Text>
         <Text style={estilos.agendadoData}>{dataTexto}</Text>
-        {souDono ? (
-          <Text style={estilos.agendadoLinha}>O app lembra na véspera, 2h antes e na hora de sair.</Text>
-        ) : (
+        {souDono ? null : (
           <>
             <Text style={estilos.agendadoLinha}>Na hora de sair, avise o cliente:</Text>
             <BotaoPrincipal
@@ -225,11 +223,12 @@ export function BlocoAgendado({
 // dono, a espera do profissional). onPedirTempo (profissional, sem pedido em aberto): o
 // botão pequeno "⏱ Preciso de mais tempo". secundario: os cards de pedido de tempo da tela.
 // onNaoChegou (dono, chegada não declarada): "🚫 O profissional não chegou", que só
-// aparece DEPOIS do limite de chegada. onDetalhes/onContrato/onCancelar: os links.
+// aparece DEPOIS do limite de chegada. onDetalhes/onContrato: os links. Sem cancelamento
+// nesta fase: a API recusa o cancelar-match depois do "Estou a caminho" (409 A_CAMINHO).
 export function BlocoACaminho({
   demanda, frente, souDono, valor, endereco, pontoReferencia, outro,
   telefone, onWhatsApp, botao, estado, onPedirTempo, secundario, onNaoChegou,
-  onDetalhes, onContrato, onCancelar,
+  onDetalhes, onContrato,
 }) {
   const agora = useAgora()
   const saiu = horaDe(demanda?.a_caminho_em)
@@ -302,7 +301,6 @@ export function BlocoACaminho({
         souDono
           ? { texto: '📋 Contrato no e-mail', onPress: onContrato }
           : { texto: '🔎 Ver descrição e fotos', onPress: onDetalhes },
-        { texto: '✕ Cancelar serviço', onPress: onCancelar, perigo: true },
       ]} />
     </ScrollView>
   )
