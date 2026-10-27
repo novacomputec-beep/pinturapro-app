@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
-  TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal
+  TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal, AppState
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'react-native'
@@ -33,8 +33,10 @@ import { ChipEmbaixador } from '../../components/Indicacao'
 import ChipsCategoria from '../../components/ChipsCategoria'
 import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
 import BlocoEmAndamento from '../../components/PosMatchEmAndamento'
+import { BlocoAgendado, BlocoACaminho, ModalDetalhesDemanda } from '../../components/PosMatchAgendamento'
 import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
+import { aoPushRecebido } from '../../utils/eventosPush'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardReparo no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -391,6 +393,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // "🚩 Denunciar um problema" da tela de em andamento: pedido ao suporte (ModalSuporte) —
   // POST /denuncias só aceita contrato encerrado, e pelo profissional.
   const [suporteAberto, setSuporteAberto] = useState(false)
+  // "🔎 Ver descrição e fotos" das telas únicas de agendado / a caminho (profissional).
+  const [detalhesAbertos, setDetalhesAbertos] = useState(false)
+  // Instante da última recarga por sinal externo (push / volta ao primeiro plano): o toque
+  // num push com o app em segundo plano dispara os dois sinais quase juntos — uma leitura basta.
+  const ultimaRecargaSinalRef = useRef(0)
   // Janela de espera entre extensões: o detalhe pode devolver pode_estender_em, o
   // instante a partir do qual uma nova extensão passa a ser aceita. Enquanto for
   // futuro nem vale abrir o modal — o envio só voltaria recusado.
@@ -460,6 +467,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
       if (reparoInicial?.id) buscar()
     }, [reparoInicial?.id])
   )
+
+  // Recarga por SINAL EXTERNO, com a tela em foco: push deste reparo em primeiro plano (ou
+  // o toque num push que mira esta tela já aberta — utils/eventosPush) e a volta do app ao
+  // primeiro plano (AppState 'active'). Sem isto o "a caminho", a chegada declarada etc. só
+  // apareciam ao sair e voltar. Mesma leitura silenciosa do foco (buscar).
+  useEffect(() => {
+    const id = reparoInicial?.id
+    if (!id) return
+    const recarregar = () => {
+      if (!navigation.isFocused()) return
+      const t = Date.now()
+      if (t - ultimaRecargaSinalRef.current < 1500) return
+      ultimaRecargaSinalRef.current = t
+      buscar()
+    }
+    const assinaturaApp = AppState.addEventListener('change', (estado) => { if (estado === 'active') recarregar() })
+    const sairDoPush = aoPushRecebido((data) => {
+      const alvo = data?.reparo_id
+      if (alvo != null && String(alvo) === String(id)) recarregar()
+    })
+    return () => { assinaturaApp.remove(); sairDoPush() }
+  }, [reparoInicial?.id])
 
   // Núcleo da recarga: relê o reparo e repõe o estado, PROPAGANDO a falha. É disso que
   // recarregarSeFalhaDeRede precisa para distinguir "recarreguei" de "nem isso consegui"
@@ -1521,6 +1550,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // e some com a_caminho_em junto com eles. O nome do outro lado vai à folha e ao card.
   const mostrarCancelamento = faseAguardaHorario || faseProAguardaHorario || proAgendadoSemACaminho
   const nomeOutroCancelamento = isDono ? primeiroNome(prestadorMatch?.nome) : primeiroNome(reparo?.dono_nome)
+  // Telas ÚNICAS (components/PosMatchAgendamento) das duas fases entre o horário aceito e a
+  // chegada confirmada, para o dono e para o profissional do match:
+  //   AGENDADO  — horário aceito, sem "Estou a caminho" e sem proposta de horário em aberto
+  //               (com proposta pendente a negociação continua nos blocos pós-match abaixo);
+  //   A CAMINHO — a_caminho_em marcado, chegada ainda não confirmada.
+  // Em andamento (chegada confirmada) já tem a sua tela única, acima no render.
+  const parteDoMatch = (isDono || !!souPrestadorDoMatch) && !!temMatch && !encerrada
+  const agendadoCompacto = parteDoMatch && horarioAceito && !aCaminho && !reparo?.chegada_pendente_em
+  const aCaminhoCompacto = parteDoMatch && aCaminho && !chegadaConfirmada
+  const posMatchCompacto = agendadoCompacto || aCaminhoCompacto
+  // "🚫 O profissional não chegou" na tela A CAMINHO (só depois do limite de chegada):
+  // com o horário AGENDADO vencido a saída certa é a vigia ("o profissional veio?" →
+  // POST /confirmar-comparecimento 'nao'), porque POST /expirar-match recusa as partes depois
+  // do "Estou a caminho" (403 USE_CANCELAR_MATCH) salvo contestando uma chegada declarada.
+  // Fora da vigia cai no handleNaoChegou de sempre, e o servidor diz o que vale.
+  const naoChegouACaminho = () => {
+    const vigia = reparo?.chegada_janela === 'agendado' && !!reparo?.chegada_prevista_em &&
+      new Date(reparo.chegada_prevista_em).getTime() <= Date.now() &&
+      !reparo?.chegada_confirmada_em && !reparo?.comparecimento_resposta
+    if (vigia) setModalCompareceu(true)
+    else handleNaoChegou()
+  }
   // Vigia do comparecimento: horário AGENDADO vencido, sem chegada confirmada e sem resposta
   // — as mesmas condições do 409 de POST /confirmar-comparecimento. O servidor pergunta por
   // push (vigia_comparecimento_em) 1h depois do horário; a tela também aceita o estado
@@ -1840,6 +1891,174 @@ export default function DetalheReparoScreen({ route, navigation }) {
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      {posMatchCompacto ? (
+        /* AGENDADO / A CAMINHO em tela única (components/PosMatchAgendamento). Os modais
+           acima (fotos, vídeo, referência, tempo, folha de cancelamento) e a avaliação abaixo
+           continuam montados; só o corpo rolável sai de cena. */
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
+          {agendadoCompacto ? (
+            <BlocoAgendado
+              demanda={reparo}
+              frente="servico"
+              souDono={isDono}
+              valor={isDono ? valorPrincipal : valorCombinadoPro}
+              endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
+              pontoReferencia={reparo.ponto_referencia}
+              outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
+              podeDizerACaminho={podeDizerACaminho}
+              onACaminho={handleMatch}
+              onReferencia={isDono ? abrirReferencia : undefined}
+              onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
+              onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
+              cancelamento={pedidoCancelamento ? (
+                <CardPedidoCancelamento
+                  pedido={pedidoCancelamento}
+                  paraMim={!pedidoEhMeu(pedidoCancelamento)}
+                  nomeOutro={nomeOutroCancelamento}
+                  respondendo={respondendoCancelamento}
+                  onResponder={handleResponderCancelamento}
+                />
+              ) : (
+                <BotaoCancelarServico onPress={abrirCancelar} desabilitado={cancelando} />
+              )}
+              extras={isDono && comparecimentoPendente ? (
+                <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
+                  <Text style={estilos.pedidoAlertaTitulo}>🤔 O profissional veio?</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>O horário combinado já passou. Conte para a gente o que aconteceu.</Text>
+                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={() => setModalCompareceu(true)}>
+                    <Text style={estilos.btnPerguntarTempoTexto}>Responder</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            />
+          ) : (
+            <BlocoACaminho
+              demanda={reparo}
+              frente="servico"
+              souDono={isDono}
+              valor={isDono ? valorPrincipal : valorCombinadoPro}
+              endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
+              pontoReferencia={reparo.ponto_referencia}
+              outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
+              telefone={isDono ? prestadorMatch?.telefone : donoTelefone}
+              onWhatsApp={() => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone)}
+              /* Chegada: o botão (handleChegada, o mesmo /chegada dos dois lados) enquanto ninguém
+                 declarou; declarada, o dono confirma ou contesta e o profissional espera. */
+              botao={chegadaNaoDeclarada ? {
+                rotulo: isDono ? '🚶 Profissional chegou' : '📍 Cheguei no local',
+                rotuloCarregando: 'Registrando…',
+                onPress: handleChegada,
+                carregando: declarandoChegada,
+              } : null}
+              estado={chegadaAguardaConfirmacao ? (isDono ? (
+                <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
+                  <Text style={estilos.pedidoAlertaTitulo}>🚶 O profissional declarou que chegou{chegadaDeclaradaTexto ? ` ${chegadaDeclaradaTexto}` : ''}</Text>
+                  <Text style={estilos.pedidoAlertaMotivo}>Confirme a chegada para o serviço começar.</Text>
+                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
+                    <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Confirmando…' : '✅ Confirmar chegada'}</Text>
+                  </TouchableOpacity>
+                  {chegadaDeclaradaPorOutro && (
+                    <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
+                      <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
+                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
+                </View>
+              )) : null}
+              onPedirTempo={!isDono && !reparo.pedido_tempo_status ? handlePedirTempo : undefined}
+              secundario={isDono ? (
+                <>
+                  {reparo.pedido_tempo_status === 'aguardando_tempo' && (
+                    <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
+                      <Text style={estilos.pedidoAlertaTitulo}>⚠️ Profissional precisa de mais tempo</Text>
+                      <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
+                      <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleperguntarTempo}>
+                        <Text style={estilos.btnPerguntarTempoTexto}>⏱ Quanto tempo a mais você precisa?</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {reparo.pedido_tempo_status === 'aguardando_minutos' && (
+                    <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
+                      <Text style={estilos.pedidoTexto}>⏳ Aguardando o profissional informar quantos minutos precisa...</Text>
+                    </View>
+                  )}
+                  {reparo.pedido_tempo_status === 'aguardando_aprovacao' && (
+                    <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
+                      <Text style={estilos.pedidoAlertaTitulo}>⏳ Profissional precisa de mais tempo</Text>
+                      <Text style={estilos.pedidoAlertaMotivo}>Motivo: {reparo.pedido_tempo_motivo}</Text>
+                      {reparo.pedido_tempo_minutos > 0 && (
+                        <Text style={estilos.pedidoAlertaMinutos}>Tempo solicitado: {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}</Text>
+                      )}
+                      <View style={estilos.pedidoBotoesRow}>
+                        <TouchableOpacity style={estilos.btnAceitar} onPress={() => handleResponderTempo(true)}>
+                          <Text style={estilos.btnAceitarTexto}>✅ Aceito</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={estilos.btnRecusar} onPress={() => handleResponderTempo(false)}>
+                          <Text style={estilos.btnRecusarTexto}>❌ Não aceito</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <>
+                  {reparo.pedido_tempo_status === 'aguardando_tempo' && (
+                    <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
+                      <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante responder sua solicitação...</Text>
+                    </View>
+                  )}
+                  {reparo.pedido_tempo_status === 'aguardando_minutos' && (
+                    <TouchableOpacity style={[estilos.btnInformarTempo, { marginTop: 0, marginBottom: 12 }]} onPress={handleInformarTempo}>
+                      <Text style={estilos.btnInformarTempoTexto}>⏱ Informar quantos minutos preciso</Text>
+                    </TouchableOpacity>
+                  )}
+                  {reparo.pedido_tempo_status === 'aguardando_aprovacao' && reparo.pedido_tempo_minutos > 0 && (
+                    <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
+                      <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante aceitar o tempo extra de {formatarDuracao(reparo.pedido_tempo_minutos * 60000, { frente: 'servico', agrupar: false })}...</Text>
+                    </View>
+                  )}
+                </>
+              )}
+              onNaoChegou={isDono && chegadaNaoDeclarada ? naoChegouACaminho : undefined}
+              onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
+              onContrato={isDono ? () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.') : undefined}
+              onCancelar={abrirCancelar}
+            />
+          )}
+          {isDono && (
+            <ModalCompareceu
+              visivel={modalCompareceu}
+              enviando={comparecendo}
+              onResponder={handleComparecimento}
+              onFechar={() => setModalCompareceu(false)}
+            />
+          )}
+          {!isDono && (
+            <ModalDetalhesDemanda
+              visivel={detalhesAbertos}
+              onFechar={() => setDetalhesAbertos(false)}
+              titulo={reparo.titulo}
+              descricao={reparo.descricao}
+            >
+              {midias.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                  {midias.map((midia, i) => (
+                    <TileMidia
+                      key={i}
+                      midia={midia}
+                      emoji={emojiReparo(reparo.categoria)}
+                      onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
+            </ModalDetalhesDemanda>
+          )}
+        </View>
+      ) : (
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
 
@@ -2783,6 +3002,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
         </View>
       </ScrollView>
+      )}
       </KeyboardAvoidingView>
 
       {/* Avaliação pós-encerrar (dono). Mesma invocação de ContratosFinalizadosScreen. */}

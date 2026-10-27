@@ -7,6 +7,7 @@ import { authService } from '../services/api'
 import api from '../services/api'
 import { comRetry } from '../utils/rede'
 import { limparRascunhoCadastro } from '../utils/rascunhoCadastro'
+import { emitirPushRecebido } from '../utils/eventosPush'
 
 const AuthContext = createContext({})
 
@@ -128,6 +129,8 @@ export const AuthProvider = ({ children }) => {
 
     notificacaoRecebidaRef.current = Notifications.addNotificationReceivedListener(notificacao => {
       console.log('Notificação recebida:', notificacao.request.content)
+      // Push em PRIMEIRO PLANO: repassa às telas montadas (o detalhe relê a demanda do id).
+      emitirPushRecebido(notificacao.request.content?.data)
     })
 
     notificacaoRespostaRef.current = Notifications.addNotificationResponseReceivedListener(resposta => {
