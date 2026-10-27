@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, AppState, Alert } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, ScrollView, StyleSheet, AppState, Alert } from 'react-native'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { pedirAvaliacaoLoja } from '../services/avaliacaoLoja'
@@ -393,13 +393,14 @@ const detectar = async (usuario) => {
     // destacada em "Meus Serviços", ela só passa a exibir "✗ Recusado" entre as outras.
     // Sem título disponível volta ao texto anterior, genérico mas correto.
     const nomeRec = nomeDe(recs)
+    // `dica`: a caixa "Como ser o escolhido na próxima" (render), só neste evento.
     if (recs.length) return {
-      semConfete: true,
-      chaves: recs.map(x => `recusa:${x.id}`), emoji: '😔',
-      titulo: 'Não foi dessa vez',
+      semConfete: true, dica: true,
+      chaves: recs.map(x => `recusa:${x.id}`), emoji: '😕',
+      titulo: 'Desta vez foi outro profissional',
       subtitulo: recs.length === 1
-        ? `Infelizmente o serviço${nomeRec ? ` ${nomeRec}` : ''} foi dado a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏`
-        : `Infelizmente ${nomeRec ? `${nomeRec} e outros ${recs.length - 1}` : `${recs.length}`} serviços foram dados a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
+        ? `O cliente${nomeRec ? ` de ${nomeRec}` : ''} escolheu outra proposta. Não desanime: novos serviços chegam todos os dias no ProTudo! 🚀`
+        : `${nomeRec ? `${nomeRec} e outros ${recs.length - 1}` : `${recs.length}`} serviços foram para outros profissionais. Não desanime: novos serviços chegam todos os dias no ProTudo! 🚀`,
       ctaTexto: 'Ver outros serviços',
       navegar: () => navigationRef.current?.navigate('Reparos'),
     }
@@ -476,13 +477,14 @@ const detectar = async (usuario) => {
     // aparece, e sem o nome não dizia de qual obra falava. "outras" no feminino, seguindo a
     // concordância que este ramo já mantém ("foram dadas", "Ver outras obras").
     const nomeRec = nomeDe(recs)
+    // `dica`: a caixa "Como ser o escolhido na próxima" (render), só neste evento.
     if (recs.length) return {
-      semConfete: true,
-      chaves: recs.map(x => `recusa:${x.id}`), emoji: '😔',
-      titulo: 'Não foi dessa vez',
+      semConfete: true, dica: true,
+      chaves: recs.map(x => `recusa:${x.id}`), emoji: '😕',
+      titulo: 'Desta vez foi outro profissional',
       subtitulo: recs.length === 1
-        ? `Infelizmente a obra${nomeRec ? ` ${nomeRec}` : ''} foi dada a outro profissional, mas não fique triste, ainda hoje algo melhor surgirá para você! 🙏`
-        : `Infelizmente ${nomeRec ? `${nomeRec} e outras ${recs.length - 1}` : `${recs.length}`} obras foram dadas a outros profissionais, mas não fique triste, algo melhor surgirá para você! 🙏`,
+        ? `O cliente${nomeRec ? ` da obra ${nomeRec}` : ''} escolheu outra proposta. Não desanime: novas obras chegam todos os dias no ProTudo! 🚀`
+        : `${nomeRec ? `${nomeRec} e outras ${recs.length - 1}` : `${recs.length}`} obras foram para outros profissionais. Não desanime: novas obras chegam todos os dias no ProTudo! 🚀`,
       ctaTexto: 'Ver outras obras',
       navegar: () => navigationRef.current?.navigate('Obras'),
     }
@@ -772,6 +774,9 @@ export default function CelebracaoMatchHost() {
       {evento ? (
         <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={fechar}>
           <View style={estilos.backdrop}>
+            {/* ScrollView em volta do card: num aparelho pequeno o card com a dica da recusa
+                passa da tela; com folga ele fica centrado como sempre (flexGrow + center). */}
+            <ScrollView style={estilos.rolagem} contentContainerStyle={estilos.rolagemConteudo} bounces={false} showsVerticalScrollIndicator={false}>
             <View style={estilos.card}>
               {/* O confete era incondicional — em cima do aviso de recusa ele soava como
                   deboche ("🎉 ✨ 🎉" logo acima de "Não foi dessa vez"). Quem não quiser
@@ -779,7 +784,19 @@ export default function CelebracaoMatchHost() {
               {evento.semConfete ? null : <Text style={estilos.confete}>🎉   ✨   🎉</Text>}
               {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
               <Text style={estilos.titulo}>{evento.titulo}</Text>
-              <Text style={estilos.subtitulo}>{evento.subtitulo || evento.mensagem}</Text>
+              <Text style={[estilos.subtitulo, evento.dica && { marginBottom: 0 }]}>{evento.subtitulo || evento.mensagem}</Text>
+              {/* Dica da recusa: o que faz um profissional ser escolhido — as etapas pelo app. */}
+              {evento.dica ? (
+                <View style={estilos.dica}>
+                  <Text style={estilos.dicaTitulo}>⭐ Como ser o escolhido na próxima</Text>
+                  <Text style={estilos.dicaTexto}>Clientes escolhem quem tem boas avaliações. E avaliação só vem de quem faz <Text style={estilos.dicaNegrito}>todas as etapas pelo app</Text>:</Text>
+                  <View style={estilos.dicaChips}>
+                    {['📅 Agendar', '🚗 A caminho', '📍 Cheguei', '✅ Concluir'].map((c) => (
+                      <View key={c} style={estilos.dicaChip}><Text style={estilos.dicaChipTexto}>{c}</Text></View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
               {/* Só nos matches (avisoApp): a regra de agendar e concluir pelo app, dita no
                   momento em que o combinado nasce — a mesma caixa dos cards de agendamento. */}
               {evento.avisoApp ? <CaixaAtencaoApp compacta /> : null}
@@ -797,6 +814,7 @@ export default function CelebracaoMatchHost() {
                 </TouchableOpacity>
               ) : null}
             </View>
+            </ScrollView>
           </View>
         </Modal>
       ) : null}
@@ -820,7 +838,17 @@ export default function CelebracaoMatchHost() {
 
 const estilos = StyleSheet.create({
   backdrop:   { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  rolagem:    { width: '100%', maxWidth: 380 },
+  rolagemConteudo: { flexGrow: 1, justifyContent: 'center' },
   card:       { width: '100%', maxWidth: 380, backgroundColor: cores.fundoCard, borderRadius: 24, borderWidth: 1, borderColor: cores.primaria, padding: 28, alignItems: 'center' },
+  // Caixa da dica (evento de recusa).
+  dica:       { alignSelf: 'stretch', backgroundColor: '#2A1D0C', borderWidth: 1, borderColor: '#E8833A', borderRadius: 16, padding: 14, marginTop: 18, marginBottom: 24 },
+  dicaTitulo: { fontSize: 14.5, fontWeight: '800', color: '#FFB066', marginBottom: 6 },
+  dicaTexto:  { fontSize: 13, color: '#E9D6BD', lineHeight: 19 },
+  dicaNegrito:{ fontWeight: '700' },
+  dicaChips:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
+  dicaChip:   { backgroundColor: '#3A2810', borderRadius: 10, paddingVertical: 5, paddingHorizontal: 8 },
+  dicaChipTexto: { fontSize: 11.5, fontWeight: '700', color: '#FFB066' },
   confete:    { fontSize: 24, marginBottom: 4 },
   emoji:      { fontSize: 64, marginBottom: 8 },
   titulo:     { fontSize: 22, fontWeight: '800', color: cores.primaria, textAlign: 'center', marginBottom: 10, letterSpacing: -0.3 },
