@@ -549,9 +549,14 @@ export default function PerfilScreen({ navigation, route }) {
             <>
               <ItemAcao titulo="⭐ Avaliações recebidas" onPress={() => navigation.navigate('AvaliacoesRecebidas')} />
               <Separador />
-              {/* Indicação de colegas (+1 mês grátis por colega aprovado): só profissional. */}
-              <ItemAcao titulo="🤝 Convide um colega" onPress={() => navigation.navigate('ConvidarColega')} />
-              <Separador />
+              {/* Indicação de colegas (+1 mês grátis por colega aprovado): só o prestador —
+                  GET /indicacoes/minhas responde 403 ao assinante. */}
+              {usuario?.role === 'prestador' && (
+                <>
+                  <ItemAcao titulo="🤝 Convide um colega" onPress={() => navigation.navigate('ConvidarColega')} />
+                  <Separador />
+                </>
+              )}
               {/* Canal do WhatsApp com os pedidos do dia: porta FIXA (o cartão do feed some),
                   em verde, abrindo o mesmo link (utils/canalWhatsApp). */}
               <ItemAcao titulo="📢 Canal de pedidos no WhatsApp" cor="#25D366" onPress={abrirCanalWhatsApp} />

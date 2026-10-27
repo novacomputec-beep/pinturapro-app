@@ -122,10 +122,11 @@ const BarraServicoEmAndamento = () => {
   // Os != null vêm ANTES da comparação em String, mesma disciplina dos flags de identidade
   // das telas de detalhe: dois ids ausentes viram String(undefined) dos dois lados e casariam,
   // escondendo a barra em qualquer detalhe que chegasse sem params.
-  const idBarra = um ? cfg.idDemanda(linhas[0]) : null
+  // Vale para QUALQUER uma das linhas da barra, não só quando há uma: com 2+ serviços a barra
+  // flutuava por cima das telas únicas (Agendado / A caminho / Em andamento) do próprio serviço.
   const idRota = rota?.params?.[cfg.param]?.id
-  const noDetalheDesta = rota?.name === cfg.detalhe &&
-    idBarra != null && idRota != null && String(idRota) === String(idBarra)
+  const noDetalheDesta = rota?.name === cfg.detalhe && idRota != null &&
+    linhas.some(l => { const id = cfg.idDemanda(l); return id != null && String(idRota) === String(id) })
   if (noDetalheDesta) return null
 
   // O vocabulário do papel sai do param do perfil ('reparo' | 'obra'), sem campo novo: para

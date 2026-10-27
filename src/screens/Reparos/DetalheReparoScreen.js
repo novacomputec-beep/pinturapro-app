@@ -227,6 +227,17 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
   </View>
 )
 
+// GET /reparos/:id devolve alguns campos AO LADO de `reparo` (routes/index.js, res.json do
+// detalhe): prazo_chegada / tolerancia_ate / atrasado / pedido_atraso / pedidos_atraso_restantes
+// (camposAtraso), dono_nome / dono_foto_url e sugestoes_restantes. Os blocos pós-match leem
+// tudo da linha, então eles entram nela aqui. Linha nula/ausente fica como veio.
+const mesclarTopo = (resposta, linha) => {
+  if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
+  const extra = camposAtrasoDe(resposta)
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes']) if (k in resposta) extra[k] = resposta[k]
+  return { ...linha, ...extra }
+}
+
 // Pós-match: conta até o alvo que o CHAMADOR escolhe — chegada_prevista_em quando o
 // profissional prometeu um horário, senão expira_em. Sem promessa, o comportamento é o
 // de sempre: expira_em é o deadline (o MESMO prazo do contador pré-match), tornando a
@@ -407,10 +418,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [agora, setAgora] = useState(() => Date.now())
   const [coords] = useCoordsUsuario()
   const mountedRef = useRef(true)
-  // Após o match, mantém a contagem na tela por ~2 min e então devolve a aba "Meus Reparos"
-  // (ou o feed) à lista, liberando o reparador para navegar/aceitar outros serviços.
-  const autoRetornoRef = useRef(null)
-  useEffect(() => () => { if (autoRetornoRef.current) clearTimeout(autoRetornoRef.current) }, [])
+  // "Estou a caminho" em voo: trava o botão do BlocoAgendado e o segundo toque (o POST não é
+  // idempotente: repetido responde 409 e abria um segundo "✅ Confirmado!").
+  const [enviandoACaminho, setEnviandoACaminho] = useState(false)
 
   // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
   // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
@@ -426,11 +436,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // setAgora, o botão reabre e o intervalo é descartado. 30s bastam para um rótulo em
   // minutos e evitam re-renderizar o detalhe inteiro a cada segundo (os contadores de
   // expiração têm relógio próprio, isolados em seus componentes, justamente por isso).
+  // Também bate enquanto há match sem chegada confirmada: `agora` alimenta podeDizerACaminho
+  // (libera no DIA agendado) e a vigia comparecimentoPendente; parado no mount, a tela aberta
+  // na véspera nunca liberava o "Estou a caminho" e o dono não via o "O profissional veio?".
+  const relogioPosMatch = !!reparo?.match_usuario_id && !reparo?.chegada_confirmada_em && reparo?.status !== 'encerrada'
   useEffect(() => {
-    if (!emEsperaEstender) return
+    if (!emEsperaEstender && !relogioPosMatch) return
     const id = setInterval(() => setAgora(Date.now()), 30000)
     return () => clearInterval(id)
-  }, [emEsperaEstender, liberaEstenderEm])
+  }, [emEsperaEstender, liberaEstenderEm, relogioPosMatch])
 
   const mascararValor = (v) => {
     const nums = v.replace(/\D/g, '')
@@ -506,7 +520,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
     // { reparo: null } continua limpando o estado, como sempre limpou.
     if (!resposta || typeof resposta !== 'object') return
     if (mountedRef.current) {
-      setReparo(resposta.reparo)
+      // Campos que GET /reparos/:id devolve AO LADO da linha (não dentro dela): os de atraso
+      // (camposAtraso), dono_nome/dono_foto_url (só ao prestador do match) e sugestoes_restantes.
+      // Entram na linha porque é ela que os blocos pós-match leem; sem isto cada recarga apagava
+      // o pedido de atraso pendente e o "Vou atrasar" (pedidos_atraso_restantes virava 0).
+      setReparo(mesclarTopo(resposta, resposta.reparo))
       setMidias(resposta.midias || [])
       setMeuInteresse(resposta.meu_interesse)
       setInteressados(resposta.interessados || [])
@@ -786,16 +804,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setReparo(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id, a_caminho_em: aCaminhoEm || prev.a_caminho_em || new Date().toISOString() }))
       buscar()
       Alert.alert('✅ Confirmado!', MSG_SUCESSO)
-      // Auto-retorno à lista após ~2 min. A contagem (RelogioRegressivo) deriva de
-      // match_feito_em — segue valendo e reaparece se o reparo for reaberto; nada é parado.
-      if (autoRetornoRef.current) clearTimeout(autoRetornoRef.current)
-      autoRetornoRef.current = setTimeout(() => {
-        if (mountedRef.current && navigation.canGoBack()) navigation.popToTop()
-      }, 120000)
+      // Sem auto-retorno à lista: a tela única A CAMINHO é onde vivem "Vou atrasar" e
+      // "Cheguei no local" — tirar o profissional dela a caminho do serviço era um erro.
     }
+    if (enviandoACaminho) return
     Alert.alert('🔧 Confirmar ida ao local?', 'Ao confirmar, o solicitante será notificado e a contagem regressiva será iniciada.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Confirmar', onPress: async () => {
+        if (enviandoACaminho) return
+        setEnviandoACaminho(true)
         try {
           // { persistir } sem { timeout }: só o ERR_NETWORK duro insiste por 45 s. A
           // variante que trava fica de fora porque o match não é idempotente de fato —
@@ -821,6 +838,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
             if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(atual.reparo.match_feito_em, atual.reparo.a_caminho_em); return }
           } catch (e2) { console.log('[DetalheReparo] reconsulta pós-match falhou | code:', e2.code) }
           Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
+        } finally {
+          if (mountedRef.current) setEnviandoACaminho(false)
         }
       }}
     ])
@@ -1006,6 +1025,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
     try {
       await comRetry(() => api.post(`/reparos/${reparo.id}/expirar-match`, {}))
       setReparo(prev => ({ ...prev, match_feito_em: null, match_usuario_id: null, pedido_tempo_status: null }))
+      // Releitura: o servidor também zera chegada_*, o interesse aceito e a_caminho_em; só o
+      // setReparo acima deixava a tela num meio-termo ("Proposta aceita… Estou a caminho").
+      buscar()
       Alert.alert('⏰ Tempo esgotado', 'O profissional não chegou a tempo. O serviço está disponível novamente.')
     } catch (err) {
       console.log('Erro ao expirar match:', err)
@@ -1616,8 +1638,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
     if (cancelando) return
     setCancelando(true)
     try {
-      await (comumAcordo ? pedirCancelamentoAcordo : cancelarMatch)('servico', reparo.id, { motivo, detalhe })
+      const resp = await (comumAcordo ? pedirCancelamentoAcordo : cancelarMatch)('servico', reparo.id, { motivo, detalhe })
       if (mountedRef.current) setSheetCancelar(false)
+      // Dono com "Não preciso mais do serviço": a API cancela o match E encerra o pedido
+      // (demanda_encerrada) — não há o que reler nem "voltar para outros profissionais".
+      if (!comumAcordo && resp?.demanda_encerrada) {
+        Alert.alert('Pedido encerrado', 'O profissional foi avisado e o pedido foi encerrado.')
+        navigation.goBack()
+        return
+      }
       await buscar()
       if (comumAcordo) {
         Alert.alert('🤝 Pedido enviado', `${nomeOutroCancelamento || 'A outra parte'} tem 2h para responder. Sem resposta, o pedido expira e o combinado continua.`)
@@ -1702,7 +1731,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           <View style={{ width: 36 }} />
         </View>
         <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4 }]}>
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
           <BlocoEmAndamento
             demanda={reparo}
             souDono={isDono}
@@ -1732,19 +1761,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
     )
   }
 
-  return (
-    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <View style={estilos.topbar}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-        </TouchableOpacity>
-        <Text style={estilos.topbarTitulo}>{isDono ? 'Meu serviço' : 'Detalhe do serviço'}</Text>
-        <View style={{ width: 36 }} />
-      </View>
-
-      {/* Acima do conteúdo SEMEADO, que continua na tela: a recarga é que falhou. */}
-      <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
-
+  // Foto/vídeo em tela cheia. Com a folha "descrição e fotos" (ModalDetalhesDemanda) aberta,
+  // estes dois Modals são montados DENTRO dela (prop extras): no iOS um Modal irmão não é
+  // apresentado por cima de outro já visível, e o toque na miniatura não abria nada.
+  const modaisMidia = (
+    <>
       <Modal visible={!!fotoFullscreen} transparent animationType="fade" onRequestClose={() => setFotoFullscreen(null)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.97)', alignItems: 'center', justifyContent: 'center' }}>
           <TouchableOpacity
@@ -1773,9 +1794,28 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
         </View>
       </Modal>
+    </>
+  )
 
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+      <View style={estilos.topbar}>
+        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
+          <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
+        </TouchableOpacity>
+        <Text style={estilos.topbarTitulo}>{isDono ? 'Meu serviço' : 'Detalhe do serviço'}</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {/* Acima do conteúdo SEMEADO, que continua na tela: a recarga é que falhou. */}
+      <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
+
+      {!detalhesAbertos ? modaisMidia : null}
+
+      {/* KeyboardAvoidingView: o campo abre com o teclado (autoFocus) e, num iPhone pequeno, o
+          teclado cobria Cancelar/Salvar do card centralizado. */}
       <Modal visible={modalReferencia} transparent animationType="fade" onRequestClose={() => setModalReferencia(false)}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <View style={{ backgroundColor: cores.fundoCard, borderRadius: 16, padding: 24, width: '100%' }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>🔎 Ponto de referência</Text>
             <Text style={{ fontSize: 13, color: cores.textoFraco, marginBottom: 16 }}>Ajuda o profissional a chegar. Deixe em branco para remover.</Text>
@@ -1810,7 +1850,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ModalPerguntar
@@ -1850,6 +1890,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
               podeDizerACaminho={podeDizerACaminho}
               onACaminho={handleMatch}
+              enviandoACaminho={enviandoACaminho}
               onReferencia={isDono ? abrirReferencia : undefined}
               onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
               onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
@@ -1917,7 +1958,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onPedirAtraso={!isDono && chegadaNaoDeclarada ? () => setModalAtraso(true) : undefined}
               onResponderAtraso={isDono ? handleResponderAtraso : undefined}
               respondendoAtraso={respondendoAtraso}
-              onNaoChegou={isDono && chegadaNaoDeclarada ? naoChegouACaminho : undefined}
+              /* Só com a vigia disponível (horário 'agendado' e ainda sem resposta): fora dela o
+                 caminho seria o /expirar-match, que a API recusa depois do "Estou a caminho"
+                 (403 USE_CANCELAR_MATCH) — e o cancelar-match é 409 A_CAMINHO. Aí quem desfaz é o cron. */
+              onNaoChegou={isDono && chegadaNaoDeclarada && reparo.chegada_janela === 'agendado' && !reparo.comparecimento_resposta ? naoChegouACaminho : undefined}
               onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
               onContrato={isDono ? () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.') : undefined}
             />
@@ -1936,6 +1980,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onFechar={() => setDetalhesAbertos(false)}
               titulo={reparo.titulo}
               descricao={reparo.descricao}
+              extras={modaisMidia}
             >
               {midias.length > 0 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
@@ -2648,17 +2693,20 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   própria chegada. O botão do DONO (mesmo endpoint, logo acima na seção dele)
                   segue em 3ª pessoa — "Profissional chegou" —, porque lá o toque fala de
                   outra pessoa e vale como confirmação, não como declaração. */}
-              {souPrestadorDoMatch && chegadaNaoDeclarada && !encerrada && (
+              {/* aCaminho nos três: antes do "Estou a caminho" (aguardando horário / proposta
+                  pendente) não há chegada a declarar nem conclusão — o /chegada marcaria
+                  a_caminho_em por tabela, pulando o agendamento, e o /encerrar é 409. */}
+              {souPrestadorDoMatch && aCaminho && chegadaNaoDeclarada && !encerrada && (
                 <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
                   <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Registrando…' : '🚶 Cheguei no local do serviço'}</Text>
                 </TouchableOpacity>
               )}
-              {souPrestadorDoMatch && chegadaAguardaConfirmacao && !encerrada && (
+              {souPrestadorDoMatch && aCaminho && chegadaAguardaConfirmacao && !encerrada && (
                 <View style={estilos.pedidoBox}>
                   <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
                 </View>
               )}
-              {souPrestadorDoMatch && reparo?.status !== 'encerrada' && (
+              {souPrestadorDoMatch && aCaminho && reparo?.status !== 'encerrada' && (
                 <TouchableOpacity style={[estilos.btnEncerrar, (encerrando || euSolicitei) && { opacity: 0.6 }]} onPress={handleEncerrarPrestador} disabled={encerrando || euSolicitei}>
                   <Text style={estilos.btnEncerrarTexto}>{encerrando ? 'Encerrando…' : rotuloEncerrar('✅ Serviço concluído — Encerrar')}</Text>
                 </TouchableOpacity>

@@ -118,10 +118,10 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
         categoria,
         descricao,
       }))
-      setDenunciandoContrato(null)
+      fecharDenuncia()
       Alert.alert('Denúncia enviada', 'Recebemos sua denúncia. Nossa equipe vai analisar o caso.')
     } catch (err) {
-      setDenunciandoContrato(null)
+      fecharDenuncia()
       const msg = err?.mensagem || 'Não foi possível enviar a denúncia. Tente novamente.'
       Alert.alert('Erro', msg)
     }
@@ -130,11 +130,14 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const buscar = async () => {
     try {
       const data = await comRetry(() => api.get(endpoint))
-      setContratos(data.contratos || [])
+      const lista = data.contratos || []
+      setContratos(lista)
       setErro(null)
+      return lista
     } catch (err) {
       console.log('[ContratosFinalizados] falha ao carregar | tipo:', tipo, '| status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       setErro(err.mensagem || 'Não foi possível carregar seus contratos finalizados.')
+      return null
     } finally {
       setCarregando(false)
       setAtualizando(false)
@@ -144,16 +147,28 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   useFocusEffect(useCallback(() => { buscar() }, []))
 
   // Push "encerrado pelo dono" (AppNavigator): a tela chega com denunciarContratoId e abre o
-  // ModalDenuncia (opcional) daquele contrato assim que a lista o traz. Só lado profissional.
-  // O param é consumido para não reabrir no próximo foco; sem o contrato na lista carregada,
-  // é consumido também — a lista é a de sempre.
+  // ModalDenuncia (opcional) daquele contrato. Só lado profissional. Procura na lista que a
+  // PRÓPRIA busca disparada pelo param devolve — com a aba já montada, `carregando` não volta
+  // a true e a lista antiga ainda não tinha o contrato recém-encerrado. O param fica nos params
+  // enquanto o modal está aberto (o CelebracaoMatchHost o lê para não celebrar por cima) e é
+  // consumido ao fechar; sem o contrato na lista, é consumido na hora.
   const denunciarContratoId = route?.params?.denunciarContratoId
+  const consumirDenuncia = () => navigation.setParams({ denunciarContratoId: undefined })
   useEffect(() => {
-    if (denunciarContratoId == null || ehDono || carregando) return
-    const item = contratos.find(c => String(c.id) === String(denunciarContratoId))
-    navigation.setParams({ denunciarContratoId: undefined })
-    if (item) setDenunciandoContrato(item)
-  }, [denunciarContratoId, contratos, carregando, ehDono])
+    if (denunciarContratoId == null || ehDono) return
+    let ativo = true
+    buscar().then((lista) => {
+      if (!ativo) return
+      const item = (lista || contratos).find(c => String(c.id) === String(denunciarContratoId))
+      if (item) setDenunciandoContrato(item)
+      else consumirDenuncia()
+    })
+    return () => { ativo = false }
+  }, [denunciarContratoId, ehDono])
+  const fecharDenuncia = () => {
+    setDenunciandoContrato(null)
+    if (route?.params?.denunciarContratoId != null) consumirDenuncia()
+  }
 
   const onRefresh = () => { setAtualizando(true); buscar() }
 
@@ -309,7 +324,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
         visivel={!!denunciandoContrato}
         nomeDenunciado={denunciandoContrato ? denunciandoContrato.dono_nome : ''}
         onEnviar={handleEnviarDenuncia}
-        onFechar={() => setDenunciandoContrato(null)}
+        onFechar={fecharDenuncia}
       />
     </SafeAreaView>
   )
