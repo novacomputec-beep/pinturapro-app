@@ -1660,9 +1660,18 @@ export default function DetalheObraScreen({ route, navigation }) {
             outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
             telefone={isDono ? pintorMatch?.telefone : donoTelefone}
             onWhatsApp={() => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone)}
-            rotuloBotao={rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
+            rotuloBotao={isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
             onConcluir={handleEncerrar}
             desabilitado={euSolicitei}
+            /* O pintor pediu o encerramento: card "concluída pelo profissional" no lugar da
+               caixa em andamento. encerramento_automatico_em quando a API mandar; senão o
+               bloco soma o prazo do cron (2 dias) ao encerramento_solicitado_em. */
+            encerramentoOutro={isDono && encerramentoPendente && !euSolicitei ? {
+              nome: primeiroNome(pintorMatch?.nome),
+              solicitadoEm: obra.encerramento_solicitado_em,
+              automaticoEm: obra.encerramento_automatico_em,
+              ehObra: true,
+            } : null}
             onDenunciar={() => setSuporteAberto(true)}
             onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
           />

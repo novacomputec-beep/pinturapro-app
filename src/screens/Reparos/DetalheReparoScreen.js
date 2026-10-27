@@ -1742,10 +1742,19 @@ export default function DetalheReparoScreen({ route, navigation }) {
             outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
             telefone={isDono ? prestadorMatch?.telefone : donoTelefone}
             onWhatsApp={() => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone)}
-            rotuloBotao={rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
+            rotuloBotao={isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
             onConcluir={isDono ? handleEncerrar : handleEncerrarPrestador}
             desabilitado={euSolicitei}
             enviando={!isDono && encerrando}
+            /* O profissional pediu o encerramento: card "concluído pelo profissional" no lugar
+               da caixa em andamento. encerramento_automatico_em quando a API mandar; senão o
+               bloco soma o prazo do cron (3 h) ao encerramento_solicitado_em. */
+            encerramentoOutro={isDono && encerramentoPendente && !euSolicitei ? {
+              nome: primeiroNome(prestadorMatch?.nome),
+              solicitadoEm: reparo.encerramento_solicitado_em,
+              automaticoEm: reparo.encerramento_automatico_em,
+              ehObra: false,
+            } : null}
             onDenunciar={() => setSuporteAberto(true)}
             onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
           />
