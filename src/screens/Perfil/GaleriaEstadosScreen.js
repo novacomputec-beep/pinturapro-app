@@ -1,0 +1,181 @@
+import React, { useState, useMemo, useRef } from 'react'
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import TelaPosMatch from '../../components/PosMatchFixo'
+import { cores, espacos, larguraMaxima } from '../../utils/tema'
+
+// Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
+// com dados locais, um caso por página — fase × lado (dono/profissional) × variante, para
+// serviço E obra. Entrada única: 7 toques na linha da versão do Perfil (qualquer conta).
+// Nada aqui chama a API nem muda estado: todos os handlers são no-op. Serve para conferir
+// no aparelho que cada estado cabe entre o cabeçalho e a barra de abas sem rolar.
+//
+// O cabeçalho tem a MESMA altura da topbar das telas de detalhe (botão 36 + 12 de padding em
+// cima e embaixo) e o corpo usa o mesmo wrapper (corpo + larguraMaxima + flex:1), para a área
+// útil ser idêntica à real. Anterior/Próximo nos botões ou por deslize horizontal.
+
+const noop = () => {}
+const H = 3600000
+const MIN = 60000
+const iso = (deltaMs) => new Date(Date.now() + deltaMs).toISOString()
+
+const EU = 'eu'
+const OUTRO = 'outro'
+
+const PROFISSIONAL = { nome: 'Carlos Henrique da Silva', foto_url: null, avaliacoes_media: 4.8, avaliacoes_total: 23, especialidades: ['eletrica', 'hidraulica'], telefone: '(11) 98765-4321' }
+const CLIENTE = { nome: 'Maria Aparecida Souza', foto_url: null }
+
+// Base da demanda por frente. Títulos e endereços propositalmente LONGOS: a tela corta em 1 linha.
+const base = (frente) => frente === 'obra'
+  ? { id: 1, titulo: 'Reforma completa da cozinha e da área de serviço com troca de piso', categoria: 'residencial', endereco_obra: 'Rua das Acácias, 1234, apto 52, bloco B — Jardim Paulista, São Paulo', cidade: 'São Paulo', bairro: 'Jardim Paulista', ponto_referencia: 'portão azul ao lado da padaria', valor: 18500, descricao: 'Descrição longa da obra.', dono_nome: CLIENTE.nome, match_usuario_id: OUTRO, match_feito_em: iso(-2 * H), expira_em: iso(26 * H), status: 'aberta' }
+  : { id: 1, titulo: 'Trocar o chuveiro elétrico e revisar o disjuntor do banheiro da suíte', categorias: ['eletrica', 'hidraulica', 'marcenaria'], endereco_reparo: 'Rua das Acácias, 1234, apto 52, bloco B — Jardim Paulista, São Paulo', cidade: 'São Paulo', bairro: 'Jardim Paulista', ponto_referencia: 'portão azul ao lado da padaria', valor_estimado: 350, descricao: 'Descrição longa do serviço.', dono_nome: CLIENTE.nome, match_usuario_id: OUTRO, match_feito_em: iso(-2 * H), expira_em: iso(26 * H), status: 'aberta' }
+
+// Cada caso: { fase, lado: 'dono' | 'pro', rotulo, demanda (patch), extra (patch das props) }.
+// `propostaPor` diz quem fez a proposta pendente ('eu' | 'outro'); `cancel` 'mim' | 'meu'.
+const CASOS = [
+  // ── Dono ────────────────────────────────────────────────────────────────────────────
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando horário' },
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · pedido de cancelamento p/ mim', cancel: 'mim' },
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · meu pedido de cancelamento', cancel: 'meu' },
+  { lado: 'dono', fase: 'proposto', rotulo: 'Horário proposto (recebido)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: OUTRO, sugestoes_restantes: 2 } },
+  { lado: 'dono', fase: 'proposto', rotulo: 'Horário proposto (enviei)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: EU } },
+  { lado: 'dono', fase: 'agendado', rotulo: 'Agendado', demanda: { chegada_prevista_em: iso(3 * H) } },
+  { lado: 'dono', fase: 'agendado', rotulo: 'Agendado · vigia "o profissional veio?"', demanda: { chegada_prevista_em: iso(-40 * MIN), chegada_janela: 'agendado' }, vigia: true },
+  { lado: 'dono', fase: 'agendado', rotulo: 'Agendado · reagendamento do outro', demanda: { chegada_prevista_em: iso(3 * H), chegada_pendente_em: iso(6 * H), chegada_proposta_por: OUTRO, sugestoes_restantes: 1 } },
+  { lado: 'dono', fase: 'agendado', rotulo: 'Agendado · meu reagendamento', demanda: { chegada_prevista_em: iso(3 * H), chegada_pendente_em: iso(6 * H), chegada_proposta_por: EU } },
+  { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho', demanda: { chegada_prevista_em: iso(25 * MIN), a_caminho_em: iso(-10 * MIN), prazo_chegada: iso(25 * MIN), tolerancia_ate: iso(40 * MIN), pedidos_atraso_restantes: 2 } },
+  { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho · atrasado', demanda: { chegada_prevista_em: iso(-12 * MIN), a_caminho_em: iso(-50 * MIN), prazo_chegada: iso(-12 * MIN), tolerancia_ate: iso(3 * MIN), atrasado: true, pedidos_atraso_restantes: 2 } },
+  { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho · pedido de atraso', demanda: { chegada_prevista_em: iso(20 * MIN), a_caminho_em: iso(-15 * MIN), prazo_chegada: iso(20 * MIN), tolerancia_ate: iso(35 * MIN), pedidos_atraso_restantes: 1, pedido_atraso: { minutos: 30, motivo: 'trânsito parado na avenida', status: 'pendente', responde_ate: iso(12 * MIN) } } },
+  { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho · pedido de atraso + atrasado', demanda: { chegada_prevista_em: iso(-8 * MIN), a_caminho_em: iso(-45 * MIN), prazo_chegada: iso(-8 * MIN), tolerancia_ate: iso(7 * MIN), atrasado: true, pedidos_atraso_restantes: 1, pedido_atraso: { minutos: 30, motivo: 'trânsito parado na avenida', status: 'pendente', responde_ate: iso(12 * MIN) } } },
+  { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho · chegada declarada', demanda: { chegada_prevista_em: iso(10 * MIN), a_caminho_em: iso(-30 * MIN), prazo_chegada: iso(10 * MIN), chegada_declarada_em: iso(-2 * MIN), chegada_declarada_por: OUTRO } },
+  { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho · tolerância vencida', demanda: { chegada_prevista_em: iso(-30 * MIN), a_caminho_em: iso(-70 * MIN), prazo_chegada: iso(-30 * MIN), tolerancia_ate: iso(-15 * MIN), atrasado: true, chegada_janela: 'agendado', pedidos_atraso_restantes: 0 } },
+  { lado: 'dono', fase: 'em_andamento', rotulo: 'Em andamento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_declarada_em: iso(-2 * H), chegada_confirmada_em: iso(-2 * H) } },
+  { lado: 'dono', fase: 'em_andamento', rotulo: 'Em andamento · concluído pelo profissional', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_confirmada_em: iso(-2 * H), encerramento_solicitado_por: OUTRO, encerramento_solicitado_em: iso(-20 * MIN) }, concluidoPeloOutro: true },
+  // ── Profissional ────────────────────────────────────────────────────────────────────
+  { lado: 'pro', fase: 'aguardando', rotulo: 'Aguardando horário' },
+  { lado: 'pro', fase: 'aguardando', rotulo: 'Aguardando · pedido de cancelamento p/ mim', cancel: 'mim' },
+  { lado: 'pro', fase: 'aguardando', rotulo: 'Aguardando · meu pedido de cancelamento', cancel: 'meu' },
+  { lado: 'pro', fase: 'proposto', rotulo: 'Horário proposto (cliente contrapropôs)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: OUTRO, sugestoes_restantes: 2 } },
+  { lado: 'pro', fase: 'proposto', rotulo: 'Horário proposto (enviei)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: EU } },
+  { lado: 'pro', fase: 'agendado', rotulo: 'Agendado', demanda: { chegada_prevista_em: iso(3 * H) } },
+  { lado: 'pro', fase: 'agendado', rotulo: 'Agendado · reagendamento do outro', demanda: { chegada_prevista_em: iso(3 * H), chegada_pendente_em: iso(6 * H), chegada_proposta_por: OUTRO, sugestoes_restantes: 1 } },
+  { lado: 'pro', fase: 'agendado', rotulo: 'Agendado · meu reagendamento', demanda: { chegada_prevista_em: iso(3 * H), chegada_pendente_em: iso(6 * H), chegada_proposta_por: EU } },
+  { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho', demanda: { chegada_prevista_em: iso(25 * MIN), a_caminho_em: iso(-10 * MIN), prazo_chegada: iso(25 * MIN), tolerancia_ate: iso(40 * MIN), pedidos_atraso_restantes: 2 } },
+  { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · atrasado', demanda: { chegada_prevista_em: iso(-12 * MIN), a_caminho_em: iso(-50 * MIN), prazo_chegada: iso(-12 * MIN), tolerancia_ate: iso(3 * MIN), atrasado: true, pedidos_atraso_restantes: 2 } },
+  { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · pedido de atraso pendente', demanda: { chegada_prevista_em: iso(20 * MIN), a_caminho_em: iso(-15 * MIN), prazo_chegada: iso(20 * MIN), tolerancia_ate: iso(35 * MIN), pedidos_atraso_restantes: 1, pedido_atraso: { minutos: 30, motivo: 'trânsito', status: 'pendente', responde_ate: iso(12 * MIN) } } },
+  { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · chegada declarada', demanda: { chegada_prevista_em: iso(10 * MIN), a_caminho_em: iso(-30 * MIN), prazo_chegada: iso(10 * MIN), chegada_declarada_em: iso(-2 * MIN), chegada_declarada_por: EU } },
+  { lado: 'pro', fase: 'em_andamento', rotulo: 'Em andamento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_declarada_em: iso(-2 * H), chegada_confirmada_em: iso(-2 * H) } },
+]
+
+// Lista final: cada caso para serviço e para obra.
+const TODOS = ['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente })))
+
+// Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
+// com handlers no-op e os mesmos gates (quem pode o quê) derivados dos dados.
+const propsDoCaso = (caso) => {
+  const souDono = caso.lado === 'dono'
+  const demanda = { ...base(caso.frente), ...(caso.demanda || {}) }
+  const ehObra = caso.frente === 'obra'
+  const chegadaConfirmada = !!demanda.chegada_confirmada_em
+  const chegadaAguardaConfirmacao = !!demanda.chegada_declarada_em && !chegadaConfirmada
+  const chegadaNaoDeclarada = !demanda.chegada_declarada_em && !chegadaConfirmada
+  const chegadaDeclaradaPorOutro = !!demanda.chegada_declarada_em && demanda.chegada_declarada_por != null && String(demanda.chegada_declarada_por) !== EU
+  const podeDizerACaminho = !!demanda.chegada_prevista_em && new Date(demanda.chegada_prevista_em).getTime() - Date.now() < 24 * H
+  const mostrarCancelamento = caso.fase === 'aguardando' || caso.fase === 'proposto' || caso.fase === 'agendado'
+  const pedidoCancel = caso.cancel ? { por: caso.cancel === 'mim' ? OUTRO : EU, meu: caso.cancel === 'meu', motivo: 'imprevisto', detalhe: '', expira_em: iso(90 * MIN) } : null
+  const nomeOutro = souDono ? 'Carlos' : 'Maria'
+  const valor = ehObra ? demanda.valor : demanda.valor_estimado
+  const telefone = souDono ? PROFISSIONAL.telefone : '(11) 91234-5678'
+  return {
+    fase: caso.fase,
+    demanda,
+    frente: caso.frente,
+    souDono,
+    valor,
+    endereco: ehObra ? demanda.endereco_obra : demanda.endereco_reparo,
+    pontoReferencia: demanda.ponto_referencia,
+    outro: souDono ? PROFISSIONAL : { nome: demanda.dono_nome, foto_url: null },
+    usuarioId: EU,
+    onExpirar: undefined,
+    agendamento: { nomeOutro, limite: demanda.expira_em, enviando: false, onPropor: noop, respondendo: false, onResponder: noop },
+    agendado: { podeDizerACaminho, onACaminho: noop, enviandoACaminho: false, vigia: souDono && caso.vigia ? { onResponder: noop } : null },
+    aCaminho: {
+      telefone,
+      onWhatsApp: noop,
+      chegada: { naoDeclarada: chegadaNaoDeclarada, aguardaConfirmacao: chegadaAguardaConfirmacao, declaradaPorOutro: chegadaDeclaradaPorOutro, declaradaTexto: 'há 2 min', onChegada: noop, declarando: false, onContestar: noop },
+      atraso: { onPedir: !souDono && chegadaNaoDeclarada ? noop : undefined, onResponder: souDono ? noop : undefined, respondendo: false },
+      onNaoChegou: souDono && chegadaNaoDeclarada && demanda.chegada_janela === 'agendado' ? noop : undefined,
+    },
+    emAndamento: {
+      telefone,
+      onWhatsApp: noop,
+      rotuloBotao: souDono ? (caso.concluidoPeloOutro ? '✅ Confirmar conclusão e avaliar' : '✅ Confirmar conclusão') : '✅ Serviço concluído',
+      onConcluir: noop,
+      desabilitado: false,
+      enviando: false,
+      encerramentoOutro: souDono && caso.concluidoPeloOutro ? { nome: 'Carlos', solicitadoEm: demanda.encerramento_solicitado_em, automaticoEm: null } : null,
+    },
+    cancelamento: mostrarCancelamento ? { pedido: pedidoCancel, paraMim: caso.cancel === 'mim', nomeOutro, respondendo: false, onResponder: noop, onAbrir: noop, desabilitado: false } : null,
+    links: { onReferencia: souDono ? noop : undefined, onDetalhes: noop, onContrato: noop, onDenunciar: caso.fase === 'em_andamento' ? noop : undefined },
+  }
+}
+
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento' }
+
+export default function GaleriaEstadosScreen({ navigation }) {
+  const [i, setI] = useState(0)
+  const total = TODOS.length
+  const caso = TODOS[i]
+  const ir = (delta) => setI((atual) => (atual + delta + total) % total)
+  // Deslize horizontal (> 40 px, mais horizontal que vertical) troca o caso; toques
+  // continuam chegando aos botões, porque o responder só é pedido no movimento.
+  const irRef = useRef(ir); irRef.current = ir
+  const pan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 40 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+    onPanResponderRelease: (_, g) => { if (g.dx < -40) irRef.current(1); else if (g.dx > 40) irRef.current(-1) },
+  })).current
+
+  // Props recalculadas por caso (as datas relativas são lidas na montagem da lista).
+  const props = useMemo(() => propsDoCaso(caso), [caso])
+  const rotulo = `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
+
+  return (
+    <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+      {/* Mesma altura da topbar das telas de detalhe (36 + 12 + 12). */}
+      <View style={estilos.topbar}>
+        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Voltar">
+          <Text style={estilos.btnVoltarTexto}>←</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 8 }}>
+          <Text style={estilos.rotulo} numberOfLines={1}>{rotulo}</Text>
+          <Text style={estilos.rotuloSub} numberOfLines={1}>{NOMES_FASE[caso.fase]} · dados locais, sem API</Text>
+        </View>
+        <TouchableOpacity style={estilos.btnNav} onPress={() => ir(-1)} accessibilityRole="button" accessibilityLabel="Anterior">
+          <Text style={estilos.btnNavTexto}>‹</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[estilos.btnNav, { marginLeft: 6 }]} onPress={() => ir(1)} accessibilityRole="button" accessibilityLabel="Próximo">
+          <Text style={estilos.btnNavTexto}>›</Text>
+        </TouchableOpacity>
+      </View>
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]} {...pan.panHandlers}>
+          <TelaPosMatch key={i} {...props} />
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  )
+}
+
+const estilos = StyleSheet.create({
+  container: { flex: 1, backgroundColor: cores.fundo },
+  topbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: espacos.tela, paddingVertical: 12 },
+  btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  btnVoltarTexto: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
+  rotulo: { fontSize: 12, fontWeight: '700', color: cores.textoForte },
+  rotuloSub: { fontSize: 10, color: cores.textoMedio },
+  btnNav: { width: 36, height: 36, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  btnNavTexto: { color: cores.primaria, fontSize: 22, fontWeight: '800', lineHeight: 26, includeFontPadding: false },
+  corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+})

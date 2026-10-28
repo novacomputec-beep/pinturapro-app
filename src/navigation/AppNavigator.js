@@ -44,6 +44,7 @@ import AlterarSenhaScreen  from '../screens/Perfil/AlterarSenhaScreen'
 import SugestoesScreen     from '../screens/Perfil/SugestoesScreen'
 import RespostasEquipeScreen from '../screens/Perfil/RespostasEquipeScreen'
 import ComoFuncionaScreen  from '../screens/Perfil/ComoFuncionaScreen'
+import GaleriaEstadosScreen from '../screens/Perfil/GaleriaEstadosScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
 import ConvidarColegaScreen from '../screens/Perfil/ConvidarColegaScreen'
@@ -727,6 +728,8 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="Sugestoes"    component={SugestoesScreen} />
     <PerfilStack.Screen name="RespostasEquipe" component={RespostasEquipeScreen} />
     <PerfilStack.Screen name="ComoFunciona" component={ComoFuncionaScreen} />
+    {/* Galeria oculta dos estados do pós-match: só por 7 toques na versão, no Perfil. */}
+    <PerfilStack.Screen name="GaleriaEstados" component={GaleriaEstadosScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
     {/* Indicação de colegas: só o profissional chega aqui (item do Perfil e cartão do feed). */}
     <PerfilStack.Screen name="ConvidarColega" component={ConvidarColegaScreen} />
