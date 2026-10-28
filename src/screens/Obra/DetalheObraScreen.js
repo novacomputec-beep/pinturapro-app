@@ -30,7 +30,7 @@ import TelaPosMatch from '../../components/PosMatchFixo'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
-import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchAgendamento'
+import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
@@ -359,7 +359,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [mostrarPedido, setMostrarPedido] = useState(false)
   const [valorContraPintor, setValorContraPintor] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
-  // Pedido de atraso (fase A caminho, components/PosMatchAgendamento): a folha do
+  // Pedido de atraso (fase A caminho, components/PosMatchFolhas): a folha do
   // profissional e as travas dos dois POSTs (pedir / responder).
   const [modalAtraso, setModalAtraso] = useState(false)
   const [enviandoAtraso, setEnviandoAtraso] = useState(false)
@@ -1427,7 +1427,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // telefones nos dois lados — antes dele a API devolve telefone/dono_telefone nulos.
   const aCaminho = !!obra?.a_caminho_em
   // Fase do DONO entre o match e o "Estou a caminho": a tela vira o bloco pós-match
-  // (components/PosMatchDono) — valor/título/endereço num card só, banner "aguarde o dia e
+  // (hoje a tela fixa, components/PosMatchFixo) — valor/título/endereço num card só, banner "aguarde o dia e
   // o horário" (ou o card de agendamento, se o profissional já propôs), o profissional
   // escolhido, a penalidade e o contrato. Lista de candidatos e botões de chegada/conclusão
   // ficam escondidos até a_caminho_em existir. Espelha DetalheReparo.
@@ -1437,7 +1437,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // ponto de referência e o contrato vira uma linha; descrição some — tudo para caber numa tela.
   const donoAgendando = faseAguardaHorario && temPropostaHorario
   // Fase do PROFISSIONAL do match sem horário ACEITO — espelha DetalheReparo: o bloco
-  // (components/PosMatchProfissional) fica FORA do painel `!temMatch`, que nunca mais
+  // (hoje a tela fixa, components/PosMatchFixo) fica FORA do painel `!temMatch`, que nunca mais
   // renderizava para o pintor casado desde que a API passou a casar no aceite. Com horário
   // aceito, o card AGENDADO e o "Estou a caminho" entram na seção do profissional.
   const horarioAceito = !!obra?.chegada_prevista_em
@@ -2439,7 +2439,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               {souPintorDoMatch && !encerrada && !proCompacto && <CaixaReputacao />}
               {/* Depois do "Estou a caminho": o card AGENDADO e a linha de confirmação — aqui,
                   fora do painel `!temMatch` (ver faseProAguardaHorario). Até a_caminho_em tudo
-                  isso vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
+                  isso vive na tela fixa (PosMatchFixo). Some com a chegada confirmada. */}
               {souPintorDoMatch && !encerrada && horarioAceito && aCaminho && !chegadaConfirmada && (
                 <>
                   <CardAgendamento

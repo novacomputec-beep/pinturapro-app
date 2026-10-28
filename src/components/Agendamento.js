@@ -235,7 +235,7 @@ const ContagemAgendado = ({ alvo, frente }) => {
 // podePropor: quem pode abrir a 1ª proposta (só o profissional do match, regra da API).
 // onPropor(iso) → POST /chegada-prevista; onResponder(acao, iso?) → POST /responder.
 // agendadoDestaque: o card AGENDADO do DONO antes do "Estou a caminho" (dentro do
-//          BlocoPosMatchDono) — data maior, sem a lista de lembretes e com a caixa âmbar em
+//          tela fixa do pós-match, hoje PosMatchFixo) — data maior, sem a lista de lembretes e com a caixa âmbar em
 //          fonte maior, para o estado caber numa tela. Os demais usos seguem iguais.
 export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite, frente, podePropor, enviando, respondendo, onPropor, onResponder, agendadoDestaque }) {
   const [sugerindo, setSugerindo] = useState(false)

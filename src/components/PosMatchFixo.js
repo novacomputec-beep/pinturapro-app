@@ -8,7 +8,6 @@ import { avatar } from '../utils/imagemOtimizada'
 import { rotuloMotivo } from '../utils/cancelamento'
 import ChipsCategoria from './ChipsCategoria'
 import { formatarAgendado, PickerAgendamento, RODADAS_MAX_AGENDAMENTO } from './Agendamento'
-import { formatarLimiteSP } from './PosMatchDono'
 
 // Tela FIXA do pós-match (dono e profissional, reparo e obra) nas cinco fases entre o match
 // e o encerramento: aguardando horário, horário proposto, agendado, a caminho, em andamento.
@@ -51,6 +50,35 @@ const horaDe = (iso) => {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return null
   return `${p2(d.getHours())}:${p2(d.getMinutes())}`
+}
+// Limite da demanda em America/Sao_Paulo — é o fuso em que o prazo foi cadastrado e em que o
+// servidor escreve os pushes, não o do aparelho. Intl com timeZone quando existe (Hermes
+// traz Intl nas duas plataformas); sem ele cai no relógio local, que no Brasil coincide.
+// "hoje, às 14:00" / "amanhã, às 14:00" / "qui, 29/10 às 14:00".
+const SP_TZ = 'America/Sao_Paulo'
+const DIAS_PT = { Sun: 'dom', Mon: 'seg', Tue: 'ter', Wed: 'qua', Thu: 'qui', Fri: 'sex', Sat: 'sáb' }
+const DIAS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const partesSP = (d) => {
+  try {
+    const f = new Intl.DateTimeFormat('en-US', { timeZone: SP_TZ, hour12: false, weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    const o = {}
+    for (const p of f.formatToParts(d)) o[p.type] = p.value
+    // Alguns motores escrevem meia-noite como "24" com hour12: false.
+    return { dia: o.weekday, d: o.day, m: o.month, y: o.year, hh: o.hour === '24' ? '00' : o.hour, mm: o.minute }
+  } catch (e) {
+    return { dia: DIAS_EN[d.getDay()], d: p2(d.getDate()), m: p2(d.getMonth() + 1), y: String(d.getFullYear()), hh: p2(d.getHours()), mm: p2(d.getMinutes()) }
+  }
+}
+export const formatarLimiteSP = (iso, agoraMs = Date.now()) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const a = partesSP(d)
+  const chave = (x) => `${x.y}-${x.m}-${x.d}`
+  const hora = `${a.hh}:${a.mm}`
+  if (chave(a) === chave(partesSP(new Date(agoraMs)))) return `hoje, às ${hora}`
+  if (chave(a) === chave(partesSP(new Date(agoraMs + 86400000)))) return `amanhã, às ${hora}`
+  return `${DIAS_PT[a.dia] || a.dia}, ${a.d}/${a.m} às ${hora}`
 }
 // "às HH:MM" hoje; "dd/mm às HH:MM" noutro dia.
 const quandoTexto = (iso) => {
