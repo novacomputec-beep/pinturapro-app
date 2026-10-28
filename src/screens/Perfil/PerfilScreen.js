@@ -61,6 +61,16 @@ export default function PerfilScreen({ navigation, route }) {
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
   const [mostrarExcluir, setMostrarExcluir] = useState(false)
+  // Contador dos toques na linha da versão: 7 seguidos (até 3 s entre eles) abrem a
+  // galeria oculta dos estados do pós-match. Ref, não estado: nada re-renderiza por isso.
+  const toquesVersaoRef = useRef({ n: 0, ultimo: 0 })
+  const toqueVersao = () => {
+    const agora = Date.now()
+    const t = toquesVersaoRef.current
+    t.n = agora - t.ultimo < 3000 ? t.n + 1 : 1
+    t.ultimo = agora
+    if (t.n >= 7) { t.n = 0; navigation.navigate('GaleriaEstados') }
+  }
   // Só no iOS (mostrarCobranca false): pedido de contato com o suporte, ver ModalSuporte.
   const [suporteAberto, setSuporteAberto] = useState(false)
   const [permNotif, setPermNotif] = useState(null)
@@ -614,7 +624,9 @@ export default function PerfilScreen({ navigation, route }) {
             estilo={{ borderColor: cores.perigo + '44' }}
           />
           <Text style={estilos.creditoTexto}>By Nova Computec Informática</Text>
-          <Text style={estilos.versaoTexto}>{textoVersao}</Text>
+          {/* 7 toques (em até 3 s entre eles) abrem a galeria oculta dos estados do pós-match
+              (GaleriaEstadosScreen) — único ponto de entrada, para qualquer conta. */}
+          <Text style={estilos.versaoTexto} onPress={toqueVersao} suppressHighlighting>{textoVersao}</Text>
         </View>
 
       </ScrollView>

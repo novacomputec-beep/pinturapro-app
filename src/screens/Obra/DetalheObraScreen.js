@@ -26,13 +26,11 @@ import { emojiObra, rotulosEspecialidades, rotuloCategoria } from '../../utils/c
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
-import BlocoPosMatchDono from '../../components/PosMatchDono'
-import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
+import TelaPosMatch from '../../components/PosMatchFixo'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
-import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
-import BlocoEmAndamento from '../../components/PosMatchEmAndamento'
-import { BlocoAgendado, BlocoACaminho, ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchAgendamento'
+import { SheetCancelamento } from '../../components/CancelamentoMatch'
+import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
@@ -361,7 +359,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [mostrarPedido, setMostrarPedido] = useState(false)
   const [valorContraPintor, setValorContraPintor] = useState('')
   const [enviandoResposta, setEnviandoResposta] = useState(false)
-  // Pedido de atraso (fase A caminho, components/PosMatchAgendamento): a folha do
+  // Pedido de atraso (fase A caminho, components/PosMatchFolhas): a folha do
   // profissional e as travas dos dois POSTs (pedir / responder).
   const [modalAtraso, setModalAtraso] = useState(false)
   const [enviandoAtraso, setEnviandoAtraso] = useState(false)
@@ -1429,7 +1427,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // telefones nos dois lados — antes dele a API devolve telefone/dono_telefone nulos.
   const aCaminho = !!obra?.a_caminho_em
   // Fase do DONO entre o match e o "Estou a caminho": a tela vira o bloco pós-match
-  // (components/PosMatchDono) — valor/título/endereço num card só, banner "aguarde o dia e
+  // (hoje a tela fixa, components/PosMatchFixo) — valor/título/endereço num card só, banner "aguarde o dia e
   // o horário" (ou o card de agendamento, se o profissional já propôs), o profissional
   // escolhido, a penalidade e o contrato. Lista de candidatos e botões de chegada/conclusão
   // ficam escondidos até a_caminho_em existir. Espelha DetalheReparo.
@@ -1439,7 +1437,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // ponto de referência e o contrato vira uma linha; descrição some — tudo para caber numa tela.
   const donoAgendando = faseAguardaHorario && temPropostaHorario
   // Fase do PROFISSIONAL do match sem horário ACEITO — espelha DetalheReparo: o bloco
-  // (components/PosMatchProfissional) fica FORA do painel `!temMatch`, que nunca mais
+  // (hoje a tela fixa, components/PosMatchFixo) fica FORA do painel `!temMatch`, que nunca mais
   // renderizava para o pintor casado desde que a API passou a casar no aceite. Com horário
   // aceito, o card AGENDADO e o "Estou a caminho" entram na seção do profissional.
   const horarioAceito = !!obra?.chegada_prevista_em
@@ -1467,14 +1465,17 @@ export default function DetalheObraScreen({ route, navigation }) {
   // e some com a_caminho_em junto com eles. O nome do outro lado vai à folha e ao card.
   const mostrarCancelamento = faseAguardaHorario || faseProAguardaHorario || proAgendadoSemACaminho
   const nomeOutroCancelamento = isDono ? primeiroNome(pintorMatch?.nome) : primeiroNome(obra?.dono_nome)
-  // Telas ÚNICAS (components/PosMatchAgendamento) das duas fases entre o horário aceito e a
-  // chegada confirmada, para o dono e para o pintor do match — espelha DetalheReparo:
-  //   AGENDADO  — horário aceito, sem "Estou a caminho" e sem proposta de horário em aberto;
-  //   A CAMINHO — a_caminho_em marcado, chegada ainda não confirmada.
+  // Tela FIXA do pós-match (components/PosMatchFixo) para o dono e para o pintor do match,
+  // nas cinco fases entre o match e o encerramento — espelha DetalheReparo:
+  //   aguardando / proposto / agendado (reagendamento pendente como variante) /
+  //   a_caminho / em_andamento. null fora do match: o corpo rolável de sempre.
   const parteDoMatch = (isDono || !!souPintorDoMatch) && !!temMatch && !encerrada
-  const agendadoCompacto = parteDoMatch && horarioAceito && !aCaminho && !obra?.chegada_pendente_em
-  const aCaminhoCompacto = parteDoMatch && aCaminho && !chegadaConfirmada
-  const posMatchCompacto = agendadoCompacto || aCaminhoCompacto
+  const fasePosMatch = !parteDoMatch ? null
+    : chegadaConfirmada ? 'em_andamento'
+    : aCaminho ? 'a_caminho'
+    : horarioAceito ? 'agendado'
+    : obra?.chegada_pendente_em ? 'proposto'
+    : 'aguardando'
   // "🚫 O profissional não chegou" na tela A CAMINHO (só depois do limite de chegada): com o
   // horário AGENDADO vencido a saída é a vigia (POST /confirmar-comparecimento 'nao'), porque
   // POST /expirar-match recusa as partes depois do "Estou a caminho" (403 USE_CANCELAR_MATCH)
@@ -1632,61 +1633,6 @@ export default function DetalheObraScreen({ route, navigation }) {
     )
   }
 
-  // EM ANDAMENTO (chegada confirmada, não encerrada), para o dono e para o pintor do match:
-  // tela única sem rolagem (components/PosMatchEmAndamento) no lugar do corpo completo —
-  // descrição, mídia e proposta ficam de fora; o botão de concluir e suas travas são os de
-  // sempre (handleEncerrar atende os dois lados nesta tela). As fases anteriores seguem no
-  // render abaixo, intactas. Espelha DetalheReparo.
-  const emAndamentoCompacto = (isDono || souPintorDoMatch) && !!temMatch && chegadaConfirmada && !encerrada
-  if (emAndamentoCompacto) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-        <View style={estilos.topbar}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
-          <Text style={estilos.topbarTitulo}>{isDono ? 'Minha obra' : 'Detalhe da obra'}</Text>
-          <View style={{ width: 36 }} />
-        </View>
-        <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
-          <BlocoEmAndamento
-            demanda={obra}
-            souDono={isDono}
-            valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
-            endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
-            pontoReferencia={obra.ponto_referencia}
-            chegadaEm={obra.chegada_confirmada_em}
-            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
-            telefone={isDono ? pintorMatch?.telefone : donoTelefone}
-            onWhatsApp={() => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone)}
-            rotuloBotao={isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
-            onConcluir={handleEncerrar}
-            desabilitado={euSolicitei}
-            /* O pintor pediu o encerramento: card "concluída pelo profissional" no lugar da
-               caixa em andamento. encerramento_automatico_em quando a API mandar; senão o
-               bloco soma o prazo do cron (2 dias) ao encerramento_solicitado_em. */
-            encerramentoOutro={isDono && encerramentoPendente && !euSolicitei ? {
-              nome: primeiroNome(pintorMatch?.nome),
-              solicitadoEm: obra.encerramento_solicitado_em,
-              automaticoEm: obra.encerramento_automatico_em,
-              ehObra: true,
-            } : null}
-            onDenunciar={() => setSuporteAberto(true)}
-            onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
-          />
-        </View>
-        <ModalAvaliacao
-          visivel={avaliarVisivel}
-          nomeAvaliado={pintorMatch?.nome || 'o profissional'}
-          onEnviar={enviarAvaliacaoEncerrar}
-          onFechar={finalizarPosEncerrar}
-        />
-        <ModalSuporte visivel={suporteAberto} telefoneInicial={usuario?.telefone} onFechar={() => setSuporteAberto(false)} />
-      </SafeAreaView>
-    )
-  }
-
   // Foto/vídeo em tela cheia. Com a folha "descrição e fotos" (ModalDetalhesDemanda) aberta,
   // estes dois Modals são montados DENTRO dela (prop extras): no iOS um Modal irmão não é
   // apresentado por cima de outro já visível, e o toque na miniatura não abria nada.
@@ -1738,7 +1684,7 @@ export default function DetalheObraScreen({ route, navigation }) {
 
       {/* Na raiz sempre que a folha não os monta: fechada, OU fora da fase compacta (uma recarga
           por push/AppState pode desmontar a folha ainda "aberta", e os visores sumiriam). */}
-      {!detalhesAbertos || !posMatchCompacto ? modaisMidia : null}
+      {!detalhesAbertos || !fasePosMatch ? modaisMidia : null}
 
       {/* KeyboardAvoidingView: o campo abre com o teclado (autoFocus) e, num iPhone pequeno, o
           teclado cobria Cancelar/Salvar do card centralizado. */}
@@ -1802,98 +1748,95 @@ export default function DetalheObraScreen({ route, navigation }) {
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      {posMatchCompacto ? (
-        /* AGENDADO / A CAMINHO em tela única (components/PosMatchAgendamento). Os modais
-           acima (fotos, vídeo, referência, folha de cancelamento) e a avaliação abaixo
-           continuam montados; só o corpo rolável sai de cena. */
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
-          {agendadoCompacto ? (
-            <BlocoAgendado
-              demanda={obra}
-              frente="obra"
-              souDono={isDono}
-              valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
-              endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
-              pontoReferencia={obra.ponto_referencia}
-              outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
-              podeDizerACaminho={podeDizerACaminho}
-              onACaminho={handleMatch}
-              enviandoACaminho={enviandoACaminho}
-              onReferencia={isDono ? abrirReferencia : undefined}
-              onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
-              onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
-              cancelamento={pedidoCancelamento ? (
-                <CardPedidoCancelamento
-                  pedido={pedidoCancelamento}
-                  paraMim={!pedidoEhMeu(pedidoCancelamento)}
-                  nomeOutro={nomeOutroCancelamento}
-                  respondendo={respondendoCancelamento}
-                  onResponder={handleResponderCancelamento}
-                />
-              ) : (
-                <BotaoCancelarServico onPress={abrirCancelar} desabilitado={cancelando} />
-              )}
-              extras={isDono && comparecimentoPendente ? (
-                <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
-                  <Text style={estilos.pedidoAlertaTitulo}>🤔 O profissional veio?</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>O horário combinado já passou. Conte para a gente o que aconteceu.</Text>
-                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={() => setModalCompareceu(true)}>
-                    <Text style={estilos.btnPerguntarTempoTexto}>Responder</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-            />
-          ) : (
-            <BlocoACaminho
-              demanda={obra}
-              frente="obra"
-              souDono={isDono}
-              valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
-              endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
-              pontoReferencia={obra.ponto_referencia}
-              outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
-              telefone={isDono ? pintorMatch?.telefone : donoTelefone}
-              onWhatsApp={() => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone)}
-              /* Chegada: o botão (handleChegada, o mesmo /chegada dos dois lados) enquanto ninguém
-                 declarou; declarada, o dono confirma ou contesta e o pintor espera. */
-              botao={chegadaNaoDeclarada ? {
-                rotulo: isDono ? '🚶 Profissional chegou' : '📍 Cheguei no local',
-                rotuloCarregando: 'Registrando…',
-                onPress: handleChegada,
-                carregando: declarandoChegada,
-              } : null}
-              estado={chegadaAguardaConfirmacao ? (isDono ? (
-                <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
-                  <Text style={estilos.pedidoAlertaTitulo}>🚶 O profissional declarou que chegou{chegadaDeclaradaTexto ? ` ${chegadaDeclaradaTexto}` : ''}</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>Confirme a chegada para o serviço começar.</Text>
-                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
-                    <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Confirmando…' : '✅ Confirmar chegada'}</Text>
-                  </TouchableOpacity>
-                  {chegadaDeclaradaPorOutro && (
-                    <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
-                      <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
-                </View>
-              )) : null}
-              /* Pedido de atraso: o pintor só pede antes de declarar a chegada (a API recusa
-                 depois, CHEGADA_DECLARADA); o bloco esconde o botão sem pedidos restantes ou
-                 com um pendente. O dono responde ao pendente. */
-              onPedirAtraso={!isDono && chegadaNaoDeclarada ? () => setModalAtraso(true) : undefined}
-              onResponderAtraso={isDono ? handleResponderAtraso : undefined}
-              respondendoAtraso={respondendoAtraso}
-              /* Só com a vigia disponível (horário 'agendado' e ainda sem resposta): fora dela o
-                 caminho seria o /expirar-match, que a API recusa depois do "Estou a caminho"
-                 (403 USE_CANCELAR_MATCH) — e o cancelar-match é 409 A_CAMINHO. Aí quem desfaz é o cron. */
-              onNaoChegou={isDono && chegadaNaoDeclarada && obra.chegada_janela === 'agendado' && !obra.comparecimento_resposta ? naoChegouACaminho : undefined}
-              onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
-              onContrato={isDono ? () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.') : undefined}
-            />
-          )}
+      {fasePosMatch ? (
+        /* Tela FIXA do pós-match (components/PosMatchFixo): as cinco fases, sem rolagem. Os
+           modais acima (fotos, vídeo, referência, folha de cancelamento) e a avaliação abaixo
+           continuam montados; só o corpo rolável sai de cena. Handlers e chamadas são os de
+           sempre — o componente só desenha. Espelha DetalheReparo. */
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]}>
+          <TelaPosMatch
+            fase={fasePosMatch}
+            demanda={obra}
+            frente="obra"
+            souDono={isDono}
+            valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
+            endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
+            pontoReferencia={obra.ponto_referencia}
+            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
+            usuarioId={usuario?.id}
+            onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
+            /* Negociação do horário: POST /chegada-prevista (pintor) e /responder. */
+            agendamento={{
+              nomeOutro: isDono ? primeiroNome(pintorMatch?.nome) : primeiroNome(obra.dono_nome),
+              limite: obra.expira_em,
+              enviando: !!enviandoJanela,
+              onPropor: handleProporHorario,
+              respondendo: respondendoChegada,
+              onResponder: handleResponderAgendamento,
+            }}
+            /* AGENDADO: "Estou a caminho" (handleMatch) e a vigia "o profissional veio?". */
+            agendado={{
+              podeDizerACaminho,
+              onACaminho: handleMatch,
+              enviandoACaminho,
+              vigia: isDono && comparecimentoPendente ? { onResponder: () => setModalCompareceu(true) } : null,
+            }}
+            /* A CAMINHO: chegada (handleChegada, o mesmo /chegada dos dois lados; declarada, o
+               dono confirma ou contesta), pedido de atraso (pintor pede antes de declarar a
+               chegada; dono responde) e "não chegou" só com a vigia disponível — fora dela o
+               caminho seria o /expirar-match, que a API recusa depois do "Estou a caminho". */
+            aCaminho={{
+              telefone: isDono ? pintorMatch?.telefone : donoTelefone,
+              onWhatsApp: () => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone),
+              chegada: {
+                naoDeclarada: chegadaNaoDeclarada,
+                aguardaConfirmacao: chegadaAguardaConfirmacao,
+                declaradaPorOutro: chegadaDeclaradaPorOutro,
+                declaradaTexto: chegadaDeclaradaTexto,
+                onChegada: handleChegada,
+                declarando: declarandoChegada,
+                onContestar: handleNaoChegou,
+              },
+              atraso: {
+                onPedir: !isDono && chegadaNaoDeclarada ? () => setModalAtraso(true) : undefined,
+                onResponder: isDono ? handleResponderAtraso : undefined,
+                respondendo: respondendoAtraso,
+              },
+              onNaoChegou: isDono && chegadaNaoDeclarada && obra.chegada_janela === 'agendado' && !obra.comparecimento_resposta ? naoChegouACaminho : undefined,
+            }}
+            /* EM ANDAMENTO: concluir/confirmar com as travas de sempre (handleEncerrar atende os
+               dois lados nesta tela); o pintor pediu o encerramento → card "concluída pelo
+               profissional" (prazo do cron: 2 dias). */
+            emAndamento={{
+              telefone: isDono ? pintorMatch?.telefone : donoTelefone,
+              onWhatsApp: () => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone),
+              rotuloBotao: isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído'),
+              onConcluir: handleEncerrar,
+              desabilitado: euSolicitei,
+              encerramentoOutro: isDono && encerramentoPendente && !euSolicitei ? {
+                nome: primeiroNome(pintorMatch?.nome),
+                solicitadoEm: obra.encerramento_solicitado_em,
+                automaticoEm: obra.encerramento_automatico_em,
+              } : null,
+            }}
+            /* Cancelamento do match (até o "Estou a caminho"): botão por último; pedido de comum
+               acordo pendente no lugar do bloco de estado (quem responde) ou como linha (quem pediu). */
+            cancelamento={mostrarCancelamento ? {
+              pedido: pedidoCancelamento,
+              paraMim: pedidoCancelamento ? !pedidoEhMeu(pedidoCancelamento) : false,
+              nomeOutro: nomeOutroCancelamento,
+              respondendo: respondendoCancelamento,
+              onResponder: handleResponderCancelamento,
+              onAbrir: abrirCancelar,
+              desabilitado: cancelando,
+            } : null}
+            links={{
+              onReferencia: isDono ? abrirReferencia : undefined,
+              onDetalhes: () => setDetalhesAbertos(true),
+              onContrato: () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.'),
+              onDenunciar: fasePosMatch === 'em_andamento' ? () => setSuporteAberto(true) : undefined,
+            }}
+          />
           {isDono && (
             <ModalCompareceu
               visivel={modalCompareceu}
@@ -1902,28 +1845,27 @@ export default function DetalheObraScreen({ route, navigation }) {
               onFechar={() => setModalCompareceu(false)}
             />
           )}
-          {!isDono && (
-            <ModalDetalhesDemanda
-              visivel={detalhesAbertos}
-              onFechar={() => setDetalhesAbertos(false)}
-              titulo={obra.titulo}
-              descricao={obra.descricao}
-              extras={modaisMidia}
-            >
-              {midias.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                  {midias.map((midia, i) => (
-                    <TileMidia
-                      key={i}
-                      midia={midia}
-                      emoji={emojiObra(obra.categoria)}
-                      onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
-                    />
-                  ))}
-                </ScrollView>
-              ) : null}
-            </ModalDetalhesDemanda>
-          )}
+          {/* Descrição e fotos saem da tela e vão para a folha, para os dois lados. */}
+          <ModalDetalhesDemanda
+            visivel={detalhesAbertos}
+            onFechar={() => setDetalhesAbertos(false)}
+            titulo={obra.titulo}
+            descricao={obra.descricao}
+            extras={modaisMidia}
+          >
+            {midias.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                {midias.map((midia, i) => (
+                  <TileMidia
+                    key={i}
+                    midia={midia}
+                    emoji={emojiObra(obra.categoria)}
+                    onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
+                  />
+                ))}
+              </ScrollView>
+            ) : null}
+          </ModalDetalhesDemanda>
           {!isDono && (
             <ModalPedirAtraso
               visivel={modalAtraso}
@@ -1965,77 +1907,8 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {faseAguardaHorario && (
-            <BlocoPosMatchDono
-              demanda={obra}
-              frente="obra"
-              endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
-              valor={obra.valor || obra.valor_estimado}
-              profissional={pintorMatch}
-              onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
-              pontoReferencia={obra.ponto_referencia}
-              onEditarReferencia={donoAgendando ? abrirReferencia : undefined}
-              agendamento={temPropostaHorario ? (
-                <CardAgendamento
-                  demanda={obra}
-                  usuarioId={usuario?.id}
-                  souDono
-                  nomeOutro={primeiroNome(pintorMatch?.nome)}
-                  frente="obra"
-                  podePropor={false}
-                  enviando={!!enviandoJanela}
-                  respondendo={respondendoChegada}
-                  onPropor={handleProporHorario}
-                  onResponder={handleResponderAgendamento}
-                  agendadoDestaque
-                />
-              ) : null}
-            />
-          )}
-
-          {(faseProAguardaHorario || proAgendadoSemACaminho) && (
-            <BlocoPosMatchProfissional
-              demanda={obra}
-              frente="obra"
-              valor={valorCombinadoPro}
-              usuarioId={usuario?.id}
-              enviando={!!enviandoJanela}
-              onPropor={handleProporHorario}
-              onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
-              cliente={{ nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
-              podeDizerACaminho={podeDizerACaminho}
-              onACaminho={handleMatch}
-              agendamento={clienteContrapropos ? (
-                <CardAgendamento
-                  demanda={obra}
-                  usuarioId={usuario?.id}
-                  souDono={false}
-                  limite={obra.expira_em}
-                  frente="obra"
-                  podePropor={souPintorDoMatch}
-                  enviando={!!enviandoJanela}
-                  respondendo={respondendoChegada}
-                  onPropor={handleProporHorario}
-                  onResponder={handleResponderAgendamento}
-                />
-              ) : null}
-            />
-          )}
-
-          {/* Cancelamento do match, logo abaixo do bloco pós-match (dono ou profissional):
-              com pedido de comum acordo pendente, o card (quem responde) ou a linha de
-              espera (quem pediu) no lugar do botão. */}
-          {mostrarCancelamento && (pedidoCancelamento ? (
-            <CardPedidoCancelamento
-              pedido={pedidoCancelamento}
-              paraMim={!pedidoEhMeu(pedidoCancelamento)}
-              nomeOutro={nomeOutroCancelamento}
-              respondendo={respondendoCancelamento}
-              onResponder={handleResponderCancelamento}
-            />
-          ) : (
-            <BotaoCancelarServico onPress={abrirCancelar} desabilitado={cancelando} />
-          ))}
+          {/* Fases pós-match (aguardando horário, proposta, agendado, a caminho, em andamento)
+              vivem na tela fixa acima (TelaPosMatch); este corpo rolável nunca as desenha. */}
 
           {!topoCompacto && (obra.valor || obra.valor_estimado) && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
@@ -2566,7 +2439,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               {souPintorDoMatch && !encerrada && !proCompacto && <CaixaReputacao />}
               {/* Depois do "Estou a caminho": o card AGENDADO e a linha de confirmação — aqui,
                   fora do painel `!temMatch` (ver faseProAguardaHorario). Até a_caminho_em tudo
-                  isso vive no BlocoPosMatchProfissional, no topo. Some com a chegada confirmada. */}
+                  isso vive na tela fixa (PosMatchFixo). Some com a chegada confirmada. */}
               {souPintorDoMatch && !encerrada && horarioAceito && aCaminho && !chegadaConfirmada && (
                 <>
                   <CardAgendamento

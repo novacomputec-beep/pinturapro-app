@@ -116,7 +116,7 @@ const detectar = async (usuario) => {
     )
     if (matched) return {
       // Sem avisoApp: a caixa âmbar da penalidade saiu do modal e mora no bloco pós-match do
-      // detalhe (components/PosMatchDono), onde o dono a lê junto do que ela regula.
+      // detalhe (components/PosMatchFixo), onde o dono a lê junto do que ela regula.
       chave: `reparo_match:${matched.id}`, emoji: '🎉',
       titulo: 'Match feito!',
       subtitulo: subtituloMatch(await nomeDoProfissional(false, matched.id, matched.match_usuario_id), matched.titulo),
