@@ -294,6 +294,11 @@ const navegarParaNotificacao = (data) => {
       case 'pedido_cancelamento_recusado':
       case 'pedido_cancelamento_expirado':
       case 'match_cancelado':
+      // Lembrete "Ainda trabalhando?" ao profissional (alertaService.lembrarConclusaoPendente):
+      // a cada 6 h (reparo) / 3 dias (obra) desde a chegada confirmada, enquanto ninguém pede
+      // a conclusão. O botão "Concluí o serviço/a obra" vive no detalhe. Payload
+      // { tipo, reparo_id | obra_id } — mesmo probe.
+      case 'lembrete_conclusao':
         if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
