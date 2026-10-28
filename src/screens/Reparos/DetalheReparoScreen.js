@@ -26,14 +26,12 @@ import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
-import BlocoPosMatchDono from '../../components/PosMatchDono'
-import BlocoPosMatchProfissional from '../../components/PosMatchProfissional'
+import TelaPosMatch from '../../components/PosMatchFixo'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
 import ChipsCategoria from '../../components/ChipsCategoria'
-import { BotaoCancelarServico, SheetCancelamento, CardPedidoCancelamento } from '../../components/CancelamentoMatch'
-import BlocoEmAndamento from '../../components/PosMatchEmAndamento'
-import { BlocoAgendado, BlocoACaminho, ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchAgendamento'
+import { SheetCancelamento } from '../../components/CancelamentoMatch'
+import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchAgendamento'
 import ModalSuporte from '../../components/ModalSuporte'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
@@ -1547,16 +1545,22 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // e some com a_caminho_em junto com eles. O nome do outro lado vai à folha e ao card.
   const mostrarCancelamento = faseAguardaHorario || faseProAguardaHorario || proAgendadoSemACaminho
   const nomeOutroCancelamento = isDono ? primeiroNome(prestadorMatch?.nome) : primeiroNome(reparo?.dono_nome)
-  // Telas ÚNICAS (components/PosMatchAgendamento) das duas fases entre o horário aceito e a
-  // chegada confirmada, para o dono e para o profissional do match:
-  //   AGENDADO  — horário aceito, sem "Estou a caminho" e sem proposta de horário em aberto
-  //               (com proposta pendente a negociação continua nos blocos pós-match abaixo);
-  //   A CAMINHO — a_caminho_em marcado, chegada ainda não confirmada.
-  // Em andamento (chegada confirmada) já tem a sua tela única, acima no render.
+  // Tela FIXA do pós-match (components/PosMatchFixo) para o dono e para o profissional do
+  // match, nas cinco fases entre o match e o encerramento:
+  //   aguardando   — sem proposta de horário;
+  //   proposto     — chegada_pendente_em sem horário aceito (um lado espera, o outro responde);
+  //   agendado     — horário aceito, sem "Estou a caminho" (uma proposta de reagendamento
+  //                  pendente entra como variante dentro do bloco);
+  //   a_caminho    — a_caminho_em marcado, chegada ainda não confirmada;
+  //   em_andamento — chegada confirmada, não encerrado.
+  // null fora do match (pré-match, outros profissionais, encerrada): o corpo rolável de sempre.
   const parteDoMatch = (isDono || !!souPrestadorDoMatch) && !!temMatch && !encerrada
-  const agendadoCompacto = parteDoMatch && horarioAceito && !aCaminho && !reparo?.chegada_pendente_em
-  const aCaminhoCompacto = parteDoMatch && aCaminho && !chegadaConfirmada
-  const posMatchCompacto = agendadoCompacto || aCaminhoCompacto
+  const fasePosMatch = !parteDoMatch ? null
+    : chegadaConfirmada ? 'em_andamento'
+    : aCaminho ? 'a_caminho'
+    : horarioAceito ? 'agendado'
+    : reparo?.chegada_pendente_em ? 'proposto'
+    : 'aguardando'
   // "🚫 O profissional não chegou" na tela A CAMINHO (só depois do limite de chegada):
   // com o horário AGENDADO vencido a saída certa é a vigia ("o profissional veio?" →
   // POST /confirmar-comparecimento 'nao'), porque POST /expirar-match recusa as partes depois
@@ -1715,61 +1719,6 @@ export default function DetalheReparoScreen({ route, navigation }) {
     )
   }
 
-  // EM ANDAMENTO (chegada confirmada, não encerrado), para o dono e para o profissional do
-  // match: tela única sem rolagem (components/PosMatchEmAndamento) no lugar do corpo
-  // completo — descrição, mídia e proposta ficam de fora; o botão de concluir e suas travas
-  // são os de sempre. As fases anteriores seguem no render abaixo, intactas.
-  const emAndamentoCompacto = (isDono || souPrestadorDoMatch) && !!temMatch && chegadaConfirmada && !encerrada
-  if (emAndamentoCompacto) {
-    return (
-      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-        <View style={estilos.topbar}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
-          <Text style={estilos.topbarTitulo}>{isDono ? 'Meu serviço' : 'Detalhe do serviço'}</Text>
-          <View style={{ width: 36 }} />
-        </View>
-        <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
-          <BlocoEmAndamento
-            demanda={reparo}
-            souDono={isDono}
-            valor={isDono ? valorPrincipal : valorCombinadoPro}
-            endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
-            pontoReferencia={reparo.ponto_referencia}
-            chegadaEm={reparo.chegada_confirmada_em}
-            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
-            telefone={isDono ? prestadorMatch?.telefone : donoTelefone}
-            onWhatsApp={() => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone)}
-            rotuloBotao={isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído')}
-            onConcluir={isDono ? handleEncerrar : handleEncerrarPrestador}
-            desabilitado={euSolicitei}
-            enviando={!isDono && encerrando}
-            /* O profissional pediu o encerramento: card "concluído pelo profissional" no lugar
-               da caixa em andamento. encerramento_automatico_em quando a API mandar; senão o
-               bloco soma o prazo do cron (3 h) ao encerramento_solicitado_em. */
-            encerramentoOutro={isDono && encerramentoPendente && !euSolicitei ? {
-              nome: primeiroNome(prestadorMatch?.nome),
-              solicitadoEm: reparo.encerramento_solicitado_em,
-              automaticoEm: reparo.encerramento_automatico_em,
-              ehObra: false,
-            } : null}
-            onDenunciar={() => setSuporteAberto(true)}
-            onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
-          />
-        </View>
-        <ModalAvaliacao
-          visivel={avaliarVisivel}
-          nomeAvaliado={prestadorMatch?.nome || 'o profissional'}
-          onEnviar={enviarAvaliacaoEncerrar}
-          onFechar={finalizarPosEncerrar}
-        />
-        <ModalSuporte visivel={suporteAberto} telefoneInicial={usuario?.telefone} onFechar={() => setSuporteAberto(false)} />
-      </SafeAreaView>
-    )
-  }
-
   // Foto/vídeo em tela cheia. Com a folha "descrição e fotos" (ModalDetalhesDemanda) aberta,
   // estes dois Modals são montados DENTRO dela (prop extras): no iOS um Modal irmão não é
   // apresentado por cima de outro já visível, e o toque na miniatura não abria nada.
@@ -1821,7 +1770,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
       {/* Na raiz sempre que a folha não os monta: fechada, OU fora da fase compacta (uma recarga
           por push/AppState pode desmontar a folha ainda "aberta", e os visores sumiriam). */}
-      {!detalhesAbertos || !posMatchCompacto ? modaisMidia : null}
+      {!detalhesAbertos || !fasePosMatch ? modaisMidia : null}
 
       {/* KeyboardAvoidingView: o campo abre com o teclado (autoFocus) e, num iPhone pequeno, o
           teclado cobria Cancelar/Salvar do card centralizado. */}
@@ -1885,98 +1834,95 @@ export default function DetalheReparoScreen({ route, navigation }) {
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      {posMatchCompacto ? (
-        /* AGENDADO / A CAMINHO em tela única (components/PosMatchAgendamento). Os modais
-           acima (fotos, vídeo, referência, folha de cancelamento) e a avaliação abaixo
-           continuam montados; só o corpo rolável sai de cena. */
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 0 }]}>
-          {agendadoCompacto ? (
-            <BlocoAgendado
-              demanda={reparo}
-              frente="servico"
-              souDono={isDono}
-              valor={isDono ? valorPrincipal : valorCombinadoPro}
-              endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
-              pontoReferencia={reparo.ponto_referencia}
-              outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
-              podeDizerACaminho={podeDizerACaminho}
-              onACaminho={handleMatch}
-              enviandoACaminho={enviandoACaminho}
-              onReferencia={isDono ? abrirReferencia : undefined}
-              onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
-              onContrato={() => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.')}
-              cancelamento={pedidoCancelamento ? (
-                <CardPedidoCancelamento
-                  pedido={pedidoCancelamento}
-                  paraMim={!pedidoEhMeu(pedidoCancelamento)}
-                  nomeOutro={nomeOutroCancelamento}
-                  respondendo={respondendoCancelamento}
-                  onResponder={handleResponderCancelamento}
-                />
-              ) : (
-                <BotaoCancelarServico onPress={abrirCancelar} desabilitado={cancelando} />
-              )}
-              extras={isDono && comparecimentoPendente ? (
-                <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
-                  <Text style={estilos.pedidoAlertaTitulo}>🤔 O profissional veio?</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>O horário combinado já passou. Conte para a gente o que aconteceu.</Text>
-                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={() => setModalCompareceu(true)}>
-                    <Text style={estilos.btnPerguntarTempoTexto}>Responder</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-            />
-          ) : (
-            <BlocoACaminho
-              demanda={reparo}
-              frente="servico"
-              souDono={isDono}
-              valor={isDono ? valorPrincipal : valorCombinadoPro}
-              endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
-              pontoReferencia={reparo.ponto_referencia}
-              outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
-              telefone={isDono ? prestadorMatch?.telefone : donoTelefone}
-              onWhatsApp={() => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone)}
-              /* Chegada: o botão (handleChegada, o mesmo /chegada dos dois lados) enquanto ninguém
-                 declarou; declarada, o dono confirma ou contesta e o profissional espera. */
-              botao={chegadaNaoDeclarada ? {
-                rotulo: isDono ? '🚶 Profissional chegou' : '📍 Cheguei no local',
-                rotuloCarregando: 'Registrando…',
-                onPress: handleChegada,
-                carregando: declarandoChegada,
-              } : null}
-              estado={chegadaAguardaConfirmacao ? (isDono ? (
-                <View style={[estilos.pedidoAlertaBox, { marginTop: 0, marginBottom: 12 }]}>
-                  <Text style={estilos.pedidoAlertaTitulo}>🚶 O profissional declarou que chegou{chegadaDeclaradaTexto ? ` ${chegadaDeclaradaTexto}` : ''}</Text>
-                  <Text style={estilos.pedidoAlertaMotivo}>Confirme a chegada para o serviço começar.</Text>
-                  <TouchableOpacity style={estilos.btnPerguntarTempo} onPress={handleChegada} disabled={declarandoChegada}>
-                    <Text style={estilos.btnPerguntarTempoTexto}>{declarandoChegada ? 'Confirmando…' : '✅ Confirmar chegada'}</Text>
-                  </TouchableOpacity>
-                  {chegadaDeclaradaPorOutro && (
-                    <TouchableOpacity style={estilos.btnNaoChegou} onPress={handleNaoChegou}>
-                      <Text style={estilos.btnNaoChegouTexto}>🚫 O profissional não chegou</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                <View style={[estilos.pedidoBox, { marginTop: 0, marginBottom: 12 }]}>
-                  <Text style={estilos.pedidoTexto}>⏳ Aguardando o solicitante confirmar sua chegada...</Text>
-                </View>
-              )) : null}
-              /* Pedido de atraso: o profissional só pede antes de declarar a chegada (a API
-                 recusa depois, CHEGADA_DECLARADA); o bloco esconde o botão sem pedidos
-                 restantes ou com um pendente. O dono responde ao pendente. */
-              onPedirAtraso={!isDono && chegadaNaoDeclarada ? () => setModalAtraso(true) : undefined}
-              onResponderAtraso={isDono ? handleResponderAtraso : undefined}
-              respondendoAtraso={respondendoAtraso}
-              /* Só com a vigia disponível (horário 'agendado' e ainda sem resposta): fora dela o
-                 caminho seria o /expirar-match, que a API recusa depois do "Estou a caminho"
-                 (403 USE_CANCELAR_MATCH) — e o cancelar-match é 409 A_CAMINHO. Aí quem desfaz é o cron. */
-              onNaoChegou={isDono && chegadaNaoDeclarada && reparo.chegada_janela === 'agendado' && !reparo.comparecimento_resposta ? naoChegouACaminho : undefined}
-              onDetalhes={!isDono ? () => setDetalhesAbertos(true) : undefined}
-              onContrato={isDono ? () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.') : undefined}
-            />
-          )}
+      {fasePosMatch ? (
+        /* Tela FIXA do pós-match (components/PosMatchFixo): as cinco fases, sem rolagem. Os
+           modais acima (fotos, vídeo, referência, folha de cancelamento) e a avaliação abaixo
+           continuam montados; só o corpo rolável sai de cena. Handlers e chamadas são os de
+           sempre — o componente só desenha. */
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]}>
+          <TelaPosMatch
+            fase={fasePosMatch}
+            demanda={reparo}
+            frente="servico"
+            souDono={isDono}
+            valor={isDono ? valorPrincipal : valorCombinadoPro}
+            endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
+            pontoReferencia={reparo.ponto_referencia}
+            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
+            usuarioId={usuario?.id}
+            onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
+            /* Negociação do horário: POST /chegada-prevista (profissional) e /responder. */
+            agendamento={{
+              nomeOutro: isDono ? primeiroNome(prestadorMatch?.nome) : primeiroNome(reparo.dono_nome),
+              limite: reparo.expira_em,
+              enviando: !!enviandoJanela,
+              onPropor: handleProporHorario,
+              respondendo: respondendoChegada,
+              onResponder: handleResponderAgendamento,
+            }}
+            /* AGENDADO: "Estou a caminho" (handleMatch) e a vigia "o profissional veio?". */
+            agendado={{
+              podeDizerACaminho,
+              onACaminho: handleMatch,
+              enviandoACaminho,
+              vigia: isDono && comparecimentoPendente ? { onResponder: () => setModalCompareceu(true) } : null,
+            }}
+            /* A CAMINHO: chegada (handleChegada, o mesmo /chegada dos dois lados; declarada, o
+               dono confirma ou contesta), pedido de atraso (profissional pede antes de declarar
+               a chegada; dono responde) e "não chegou" só com a vigia disponível — fora dela o
+               caminho seria o /expirar-match, que a API recusa depois do "Estou a caminho". */
+            aCaminho={{
+              telefone: isDono ? prestadorMatch?.telefone : donoTelefone,
+              onWhatsApp: () => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone),
+              chegada: {
+                naoDeclarada: chegadaNaoDeclarada,
+                aguardaConfirmacao: chegadaAguardaConfirmacao,
+                declaradaPorOutro: chegadaDeclaradaPorOutro,
+                declaradaTexto: chegadaDeclaradaTexto,
+                onChegada: handleChegada,
+                declarando: declarandoChegada,
+                onContestar: handleNaoChegou,
+              },
+              atraso: {
+                onPedir: !isDono && chegadaNaoDeclarada ? () => setModalAtraso(true) : undefined,
+                onResponder: isDono ? handleResponderAtraso : undefined,
+                respondendo: respondendoAtraso,
+              },
+              onNaoChegou: isDono && chegadaNaoDeclarada && reparo.chegada_janela === 'agendado' && !reparo.comparecimento_resposta ? naoChegouACaminho : undefined,
+            }}
+            /* EM ANDAMENTO: concluir/confirmar com as travas de sempre; o profissional pediu o
+               encerramento → card "concluído pelo profissional" (prazo do cron: 3 h). */
+            emAndamento={{
+              telefone: isDono ? prestadorMatch?.telefone : donoTelefone,
+              onWhatsApp: () => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone),
+              rotuloBotao: isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído'),
+              onConcluir: isDono ? handleEncerrar : handleEncerrarPrestador,
+              desabilitado: euSolicitei,
+              enviando: !isDono && encerrando,
+              encerramentoOutro: isDono && encerramentoPendente && !euSolicitei ? {
+                nome: primeiroNome(prestadorMatch?.nome),
+                solicitadoEm: reparo.encerramento_solicitado_em,
+                automaticoEm: reparo.encerramento_automatico_em,
+              } : null,
+            }}
+            /* Cancelamento do match (até o "Estou a caminho"): botão por último; pedido de comum
+               acordo pendente no lugar do bloco de estado (quem responde) ou como linha (quem pediu). */
+            cancelamento={mostrarCancelamento ? {
+              pedido: pedidoCancelamento,
+              paraMim: pedidoCancelamento ? !pedidoEhMeu(pedidoCancelamento) : false,
+              nomeOutro: nomeOutroCancelamento,
+              respondendo: respondendoCancelamento,
+              onResponder: handleResponderCancelamento,
+              onAbrir: abrirCancelar,
+              desabilitado: cancelando,
+            } : null}
+            links={{
+              onReferencia: isDono ? abrirReferencia : undefined,
+              onDetalhes: () => setDetalhesAbertos(true),
+              onContrato: () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.'),
+              onDenunciar: fasePosMatch === 'em_andamento' ? () => setSuporteAberto(true) : undefined,
+            }}
+          />
           {isDono && (
             <ModalCompareceu
               visivel={modalCompareceu}
@@ -1985,28 +1931,27 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onFechar={() => setModalCompareceu(false)}
             />
           )}
-          {!isDono && (
-            <ModalDetalhesDemanda
-              visivel={detalhesAbertos}
-              onFechar={() => setDetalhesAbertos(false)}
-              titulo={reparo.titulo}
-              descricao={reparo.descricao}
-              extras={modaisMidia}
-            >
-              {midias.length > 0 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                  {midias.map((midia, i) => (
-                    <TileMidia
-                      key={i}
-                      midia={midia}
-                      emoji={emojiReparo(reparo.categoria)}
-                      onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
-                    />
-                  ))}
-                </ScrollView>
-              ) : null}
-            </ModalDetalhesDemanda>
-          )}
+          {/* Descrição e fotos saem da tela e vão para a folha, para os dois lados. */}
+          <ModalDetalhesDemanda
+            visivel={detalhesAbertos}
+            onFechar={() => setDetalhesAbertos(false)}
+            titulo={reparo.titulo}
+            descricao={reparo.descricao}
+            extras={modaisMidia}
+          >
+            {midias.length > 0 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                {midias.map((midia, i) => (
+                  <TileMidia
+                    key={i}
+                    midia={midia}
+                    emoji={emojiReparo(reparo.categoria)}
+                    onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
+                  />
+                ))}
+              </ScrollView>
+            ) : null}
+          </ModalDetalhesDemanda>
           {!isDono && (
             <ModalPedirAtraso
               visivel={modalAtraso}
@@ -2053,77 +1998,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {faseAguardaHorario && (
-            <BlocoPosMatchDono
-              demanda={reparo}
-              frente="servico"
-              endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
-              valor={valorPrincipal}
-              profissional={prestadorMatch}
-              onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
-              pontoReferencia={reparo.ponto_referencia}
-              onEditarReferencia={donoAgendando ? abrirReferencia : undefined}
-              agendamento={temPropostaHorario ? (
-                <CardAgendamento
-                  demanda={reparo}
-                  usuarioId={usuario?.id}
-                  souDono
-                  nomeOutro={primeiroNome(prestadorMatch?.nome)}
-                  frente="servico"
-                  podePropor={false}
-                  enviando={!!enviandoJanela}
-                  respondendo={respondendoChegada}
-                  onPropor={handleProporHorario}
-                  onResponder={handleResponderAgendamento}
-                  agendadoDestaque
-                />
-              ) : null}
-            />
-          )}
-
-          {(faseProAguardaHorario || proAgendadoSemACaminho) && (
-            <BlocoPosMatchProfissional
-              demanda={reparo}
-              frente="servico"
-              valor={valorCombinadoPro}
-              usuarioId={usuario?.id}
-              enviando={!!enviandoJanela}
-              onPropor={handleProporHorario}
-              onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
-              cliente={{ nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
-              podeDizerACaminho={podeDizerACaminho}
-              onACaminho={handleMatch}
-              agendamento={clienteContrapropos ? (
-                <CardAgendamento
-                  demanda={reparo}
-                  usuarioId={usuario?.id}
-                  souDono={false}
-                  limite={reparo.expira_em}
-                  frente="servico"
-                  podePropor={souPrestadorDoMatch}
-                  enviando={!!enviandoJanela}
-                  respondendo={respondendoChegada}
-                  onPropor={handleProporHorario}
-                  onResponder={handleResponderAgendamento}
-                />
-              ) : null}
-            />
-          )}
-
-          {/* Cancelamento do match, logo abaixo do bloco pós-match (dono ou profissional):
-              com pedido de comum acordo pendente, o card (quem responde) ou a linha de
-              espera (quem pediu) no lugar do botão. */}
-          {mostrarCancelamento && (pedidoCancelamento ? (
-            <CardPedidoCancelamento
-              pedido={pedidoCancelamento}
-              paraMim={!pedidoEhMeu(pedidoCancelamento)}
-              nomeOutro={nomeOutroCancelamento}
-              respondendo={respondendoCancelamento}
-              onResponder={handleResponderCancelamento}
-            />
-          ) : (
-            <BotaoCancelarServico onPress={abrirCancelar} desabilitado={cancelando} />
-          ))}
+          {/* Fases pós-match (aguardando horário, proposta, agendado, a caminho, em andamento)
+              vivem na tela fixa acima (TelaPosMatch); este corpo rolável nunca as desenha. */}
 
           {!topoCompacto && valorPrincipal != null && Number(valorPrincipal) > 0 && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
