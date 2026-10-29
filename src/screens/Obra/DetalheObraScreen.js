@@ -311,7 +311,9 @@ function PlayerFullscreen({ uri }) {
 export default function DetalheObraScreen({ route, navigation }) {
   // abrirComparecimento: vem do toque no push 'confirmar_comparecimento' (AppNavigator) e
   // abre o modal "O profissional veio?" assim que o detalhe confirma que a pergunta vale.
-  const { obra: obraInicial, abrirComparecimento } = route.params
+  // abrirAvaliacao: vem do toque no push 'obra_encerrada' ao DONO e abre o ModalAvaliacao
+  // se ele ainda não avaliou este contrato.
+  const { obra: obraInicial, abrirComparecimento, abrirAvaliacao } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const verificacao = useVerificacaoIdentidade()
   const [obra, setObra] = useState(obraInicial)
@@ -1506,6 +1508,21 @@ export default function DetalheObraScreen({ route, navigation }) {
       setModalCompareceu(true)
     }
   }, [comparecimentoPendente, abrirComparecimento, obra?.vigia_comparecimento_em])
+
+  // Push 'obra_encerrada' ao dono (inclusive o encerramento automático): abre a avaliação
+  // UMA vez por montagem, só se ainda não avaliou. O detalhe não traz ja_avaliei; quem traz é
+  // meus-contratos-dono (o mesmo de Contratos Finalizados). Na dúvida (falha/ausente), não abre.
+  const avaliacaoPushRef = useRef(false)
+  useEffect(() => {
+    if (!abrirAvaliacao || !isDono || !encerrada || avaliacaoPushRef.current) return
+    avaliacaoPushRef.current = true
+    api.get('/obras/meus-contratos-dono')
+      .then(data => {
+        const c = (data?.contratos || []).find(x => String(x.id) === String(obra.id))
+        if (c && !c.ja_avaliei && mountedRef.current) setAvaliarVisivel(true)
+      })
+      .catch(err => console.log('[DetalheObra] checagem ja_avaliei falhou | code:', err?.code))
+  }, [abrirAvaliacao, isDono, encerrada])
 
   // Resposta do dono à vigia. Negociação (sem { timeout }), como handleResponderAgendamento:
   // o servidor decide o desfecho ('sim' confirma a chegada, 'nao' desfaz o match pelo cron,

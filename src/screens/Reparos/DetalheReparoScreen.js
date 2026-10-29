@@ -312,7 +312,9 @@ function PlayerFullscreen({ uri }) {
 export default function DetalheReparoScreen({ route, navigation }) {
   // abrirComparecimento: vem do toque no push 'confirmar_comparecimento' (AppNavigator) e
   // abre o modal "O profissional veio?" assim que o detalhe confirma que a pergunta vale.
-  const { reparo: reparoInicial, abrirComparecimento } = route.params
+  // abrirAvaliacao: vem do toque no push 'reparo_encerrado' ao DONO e abre o ModalAvaliacao
+  // se ele ainda não avaliou este contrato.
+  const { reparo: reparoInicial, abrirComparecimento, abrirAvaliacao } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const verificacao = useVerificacaoIdentidade()
   const [reparo, setReparo] = useState(reparoInicial)
@@ -1592,6 +1594,21 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setModalCompareceu(true)
     }
   }, [comparecimentoPendente, abrirComparecimento, reparo?.vigia_comparecimento_em])
+
+  // Push 'reparo_encerrado' ao dono (inclusive o encerramento automático): abre a avaliação
+  // UMA vez por montagem, só se ainda não avaliou. O detalhe não traz ja_avaliei; quem traz é
+  // meus-contratos-dono (o mesmo de Contratos Finalizados). Na dúvida (falha/ausente), não abre.
+  const avaliacaoPushRef = useRef(false)
+  useEffect(() => {
+    if (!abrirAvaliacao || !isDono || !encerrada || avaliacaoPushRef.current) return
+    avaliacaoPushRef.current = true
+    api.get('/reparos/meus-contratos-dono')
+      .then(data => {
+        const c = (data?.contratos || []).find(x => String(x.id) === String(reparo.id))
+        if (c && !c.ja_avaliei && mountedRef.current) setAvaliarVisivel(true)
+      })
+      .catch(err => console.log('[DetalheReparo] checagem ja_avaliei falhou | code:', err?.code))
+  }, [abrirAvaliacao, isDono, encerrada])
 
   // Resposta do dono à vigia. Negociação (sem { timeout }), como handleResponderAgendamento:
   // o servidor decide o desfecho ('sim' confirma a chegada, 'nao' desfaz o match pelo cron,

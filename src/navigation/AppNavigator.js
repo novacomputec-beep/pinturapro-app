@@ -93,7 +93,8 @@ const navegarParaNotificacao = (data) => {
   const usaTabsPintor    = u.role === 'assinante' || (u.role === 'prestador' && u.tipo_prestador === 'pintor')
   const usaTabsReparador = u.role === 'prestador' && u.tipo_prestador !== 'pintor'
   const ehPrestador      = usaTabsPintor || usaTabsReparador
-  const ehDonoReparo     = u.role === 'dono_obra' && u.tipo_dono === 'reparo'
+  const ehDono           = u.role === 'dono_obra'
+  const ehDonoReparo     = ehDono && u.tipo_dono === 'reparo'
   // Donos com navegador de abas (reparo/pintura) possuem a aba "Contratos Finalizados".
   // O fallback (tipo_dono indefinido) usa um stack sem essa aba.
   const ehDonoComAba     = u.role === 'dono_obra' && (u.tipo_dono === 'reparo' || u.tipo_dono === 'pintura')
@@ -145,10 +146,11 @@ const navegarParaNotificacao = (data) => {
       // Itens finalizados (encerrados): prestador e dono (com aba) veem em "Contratos Finalizados";
       // o dono fallback (sem a aba) cai na lista em andamento.
       case 'obra_encerrada':
-        // A aba "Contratos Finalizados" do dono_reparo só lista reparos: a obra encerrada
-        // fica inalcançável por lá. Com id, abre o detalhe; sem id, cai no destino de sempre.
-        if (ehDonoReparo && data.obra_id) {
-          navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        // DONO: abre o detalhe da obra encerrada e, se ainda não avaliou, a avaliação
+        // (abrirAvaliacao). Vale também para o encerramento automático, em que o dono não
+        // passou pelo botão "Encerrar". Sem id, cai no destino de sempre.
+        if (ehDono && data.obra_id) {
+          navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id }, abrirAvaliacao: true }, initial: false })
           break
         }
         // PROFISSIONAL: o dono encerrou. Cai na lista de finalizados já com o ModalDenuncia
@@ -159,6 +161,11 @@ const navegarParaNotificacao = (data) => {
         }
         // falls through
       case 'reparo_encerrado':
+        // DONO: mesmo destino de 'obra_encerrada' acima, no detalhe do reparo.
+        if (ehDono && data.reparo_id) {
+          navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirAvaliacao: true }, initial: false })
+          break
+        }
         if (usaTabsReparador && data.reparo_id) {
           navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinReparoMain', params: { denunciarContratoId: data.reparo_id }, initial: false })
           break
@@ -317,6 +324,10 @@ const navegarParaNotificacao = (data) => {
       // ressalva de 'obra_encerrada' acima —, então cai na lista em andamento.
       case 'conta_suspensa':
       case 'conta_liberada':
+      // Avisos de conduta (cancelamentos frequentes, tentativa de passar contato): também
+      // sobre a CONTA, sem id de demanda — mesmo destino.
+      case 'cancelamentos_frequentes':
+      case 'contato_nao_permitido':
       // Verificação de documentos e assinatura: mesmo destino e mesma razão — o que se faz
       // a respeito (reenviar documento, renovar, pagar) está no Perfil, e nenhum destes
       // avisos traz id de demanda para deep-link.
