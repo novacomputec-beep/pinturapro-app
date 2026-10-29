@@ -159,6 +159,9 @@ const MiniPessoa = ({ souDono, outro, linha2 }) => {
     ? (outro?.avaliacoes_total > 0
         ? `⭐ ${Number(outro.avaliacoes_media).toFixed(1)} (${outro.avaliacoes_total} ${outro.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})`
         : '🆕 Novo na plataforma')
+      // Selo "bem avaliado" na mesma linha da nota (sem altura extra): a linha do
+      // interessado/candidato escolhido já traz selo_bem_avaliado da API.
+      + (outro?.selo_bem_avaliado === true ? ' · 🏅 Bem avaliado' : '')
     : (linha2 || 'Cliente')
   const especialidades = souDono ? rotulosEspecialidades(outro?.especialidades) : null
   const iniciais = iniciaisDe(outro?.nome)

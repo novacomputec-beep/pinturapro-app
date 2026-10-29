@@ -15,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import ModalSuporte from '../../components/ModalSuporte'
+import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
@@ -417,6 +418,11 @@ export default function PerfilScreen({ navigation, route }) {
             </View>
           </TouchableOpacity>
           <Text style={estilos.nomeTexto}>{dados?.nome}</Text>
+          {/* Selo "bem avaliado" (3+ avaliações 5★): vem em /auth/me (usuario.selo_bem_avaliado),
+              só para o profissional. Sem segunda chamada. */}
+          {ehPrestador && (temSeloBemAvaliado(dados) || temSeloBemAvaliado(usuario)) ? (
+            <ChipBemAvaliado estilo={{ alignSelf: 'center', marginLeft: 0, marginBottom: 6 }} />
+          ) : null}
           <Text style={estilos.emailTexto}>{dados?.email}</Text>
           {cidadeComUf && (
             <Text style={estilos.cidadeTexto}>📍 {cidadeComUf}</Text>

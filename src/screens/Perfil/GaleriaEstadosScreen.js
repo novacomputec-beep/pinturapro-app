@@ -22,7 +22,8 @@ const iso = (deltaMs) => new Date(Date.now() + deltaMs).toISOString()
 const EU = 'eu'
 const OUTRO = 'outro'
 
-const PROFISSIONAL = { nome: 'Carlos Henrique da Silva', foto_url: null, avaliacoes_media: 4.8, avaliacoes_total: 23, especialidades: ['eletrica', 'hidraulica'], telefone: '(11) 98765-4321' }
+// selo_bem_avaliado: true exercita o "🏅 Bem avaliado" na linha da nota do mini card.
+const PROFISSIONAL = { nome: 'Carlos Henrique da Silva', foto_url: null, avaliacoes_media: 4.8, avaliacoes_total: 23, selo_bem_avaliado: true, especialidades: ['eletrica', 'hidraulica'], telefone: '(11) 98765-4321' }
 const CLIENTE = { nome: 'Maria Aparecida Souza', foto_url: null }
 
 // Base da demanda por frente. Títulos e endereços propositalmente LONGOS: a tela corta em 1 linha.

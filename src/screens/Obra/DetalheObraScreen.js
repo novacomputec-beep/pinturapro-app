@@ -29,6 +29,7 @@ import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, 
 import TelaPosMatch from '../../components/PosMatchFixo'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
+import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
@@ -2276,6 +2277,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                           <Text style={[estilos.interessadoNome, { flex: 1 }]}>{item.nome}</Text>
                           {/* Selo de quem trouxe 3 colegas aprovados (components/Indicacao). */}
                           {item.embaixador === true && <ChipEmbaixador />}
+                          {/* Selo "bem avaliado" (3+ avaliações 5★), calculado pela API na linha. */}
+                          {temSeloBemAvaliado(item) && <ChipBemAvaliado />}
                         </View>
                         {/* Cidade/endereço saem da linha do nome: em row com space-between
                             disputavam largura com ele e o endereço completo do pintor do
