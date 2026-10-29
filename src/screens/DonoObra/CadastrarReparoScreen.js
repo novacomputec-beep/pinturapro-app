@@ -7,14 +7,14 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
-import { telaDePouso, marcarAbertaPeloUsuario } from '../../components/RetomadaMatchHost'
+import { cadastro } from '../../components/RetomadaMatchHost'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
 // Até MAX_CATEGORIAS_DEMANDA (3) categorias por serviço, começando sem nenhuma marcada: a
@@ -183,11 +183,11 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     setMidias: midia.adicionar,
   })
 
-  // Sinais da tela de pouso para o RetomadaMatchHost (ver telaDePouso lá): só quando esta
-  // instância É a tela de pouso — a raiz da aba "Novo Reparo" —, porque o redirecionamento
-  // do 2º plano só sai dela. (b) qualquer campo fora do valor inicial ou mídia anexada;
-  // (c) qualquer foco depois do primeiro, que é o que o app faz sozinho ao abrir.
-  const ehTelaDePouso = route?.name === 'CadastrarReparoMain'
+  // Sinal de cadastro em uso para o RetomadaMatchHost (ver `cadastro` lá): qualquer campo
+  // fora do valor inicial ou mídia anexada, enquanto ESTA instância está focada — o
+  // redirecionamento do 2º plano desiste só de dentro de um formulário em uso. Cai ao
+  // enviar (campos limpos), ao perder o foco ou ao desmontar.
+  const focado = useIsFocused()
   const temConteudo = !!(
     titulo || descricao || valorEstimado || urgencia != null || categorias.length > 0 ||
     cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
@@ -200,16 +200,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     carregarGruposCategorias().then(g => { if (montadoRef.current) setGrupoDoSlug(g || {}) })
   }, [])
   useEffect(() => {
-    if (!ehTelaDePouso) return
-    telaDePouso.comConteudo = temConteudo
-    return () => { telaDePouso.comConteudo = false }
-  }, [ehTelaDePouso, temConteudo])
-  const primeiroFocoRef = useRef(true)
-  useFocusEffect(useCallback(() => {
-    if (!ehTelaDePouso) return
-    if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
-    marcarAbertaPeloUsuario()
-  }, [ehTelaDePouso]))
+    if (!focado) return
+    cadastro.comConteudo = temConteudo
+    return () => { cadastro.comConteudo = false }
+  }, [focado, temConteudo])
 
   const mascararValor = (valor) => {
     const nums = valor.replace(/\D/g, '')

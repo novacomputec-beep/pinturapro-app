@@ -7,13 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
-import { useFocusEffect } from '@react-navigation/native'
+import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
-import { telaDePouso, marcarAbertaPeloUsuario } from '../../components/RetomadaMatchHost'
+import { cadastro } from '../../components/RetomadaMatchHost'
 
 const CATEGORIAS = paraSeletor(CATEGORIAS_OBRA)
 // Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'residencial'
@@ -219,28 +219,21 @@ export default function CadastrarObraScreen({ navigation, route }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, []))
 
-  // Sinais da tela de pouso para o RetomadaMatchHost (ver telaDePouso lá), espelhando
-  // CadastrarReparoScreen: só quando esta instância É a tela de pouso — a raiz da aba
-  // "Nova Obra" —, e não a cópia empilhada sobre o formulário de serviço do dono_reparo.
-  // (b) qualquer campo fora do valor inicial ou mídia anexada; (c) qualquer foco depois
-  // do primeiro, que é o que o app faz sozinho ao abrir.
-  const ehTelaDePouso = route?.name === 'CadastrarObraMain'
+  // Sinal de cadastro em uso para o RetomadaMatchHost (ver `cadastro` lá), espelhando
+  // CadastrarReparoScreen: qualquer campo fora do valor inicial ou mídia anexada, enquanto
+  // ESTA instância está focada (vale também para a cópia empilhada sobre o formulário de
+  // serviço do dono_reparo). Cai ao enviar, ao perder o foco ou ao desmontar.
+  const focado = useIsFocused()
   const temConteudo = !!(
     titulo || descricao || valorEstimado || prazo != null || dataInicial || categoria !== CATEGORIA_INICIAL ||
     cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
     midia.itens.length > 0
   )
   useEffect(() => {
-    if (!ehTelaDePouso) return
-    telaDePouso.comConteudo = temConteudo
-    return () => { telaDePouso.comConteudo = false }
-  }, [ehTelaDePouso, temConteudo])
-  const primeiroFocoRef = useRef(true)
-  useFocusEffect(useCallback(() => {
-    if (!ehTelaDePouso) return
-    if (primeiroFocoRef.current) { primeiroFocoRef.current = false; return }
-    marcarAbertaPeloUsuario()
-  }, [ehTelaDePouso]))
+    if (!focado) return
+    cadastro.comConteudo = temConteudo
+    return () => { cadastro.comConteudo = false }
+  }, [focado, temConteudo])
 
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
   // destruição da MainActivity (Android). Implementação única em utils/midia.

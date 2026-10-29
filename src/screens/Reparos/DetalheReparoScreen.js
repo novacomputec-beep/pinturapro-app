@@ -1891,11 +1891,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onNaoChegou: isDono && chegadaNaoDeclarada && reparo.chegada_janela === 'agendado' && !reparo.comparecimento_resposta ? naoChegouACaminho : undefined,
             }}
             /* EM ANDAMENTO: concluir/confirmar com as travas de sempre; o profissional pediu o
-               encerramento → card "concluído pelo profissional" (prazo do cron: 3 h). */
+               encerramento → card "concluído pelo profissional" (prazo do cron: 3 h). Rótulo
+               do dono: "Encerrar serviço" enquanto ninguém pediu (é ele quem abre as duas
+               etapas), "Confirmar conclusão e avaliar" só com o pedido do profissional,
+               "Aguardando a outra parte" quando o pedido é dele (rotuloEncerrar). */
             emAndamento={{
               telefone: isDono ? prestadorMatch?.telefone : donoTelefone,
               onWhatsApp: () => abrirWhatsApp(isDono ? prestadorMatch?.telefone : donoTelefone),
-              rotuloBotao: isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído'),
+              rotuloBotao: isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Encerrar serviço' : '✅ Serviço concluído'),
               onConcluir: isDono ? handleEncerrar : handleEncerrarPrestador,
               desabilitado: euSolicitei,
               enviando: !isDono && encerrando,
