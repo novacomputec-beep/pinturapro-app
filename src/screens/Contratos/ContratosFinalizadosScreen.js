@@ -87,12 +87,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
     }
   }
 
-  const handleEnviarAvaliacao = async (estrelas) => {
+  const handleEnviarAvaliacao = async (estrelas, etiquetas = []) => {
     try {
       await comRetry(() => api.post('/avaliacoes', {
         contrato_tipo: ehObra ? 'obra' : 'reparo',
         contrato_id: avaliandoContrato.id,
-        estrelas,
+        nota: estrelas,
+        etiquetas,
       }))
       setAvaliandoContrato(null)
       buscar()  // refresh list so ja_avaliei updates
@@ -316,6 +317,8 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       <ModalAvaliacao
         visivel={!!avaliandoContrato}
         nomeAvaliado={avaliandoContrato ? (ehDono ? avaliandoContrato.prestador_nome : avaliandoContrato.dono_nome) : ''}
+        ehObra={ehObra}
+        demanda={avaliandoContrato}
         onEnviar={handleEnviarAvaliacao}
         onFechar={() => setAvaliandoContrato(null)}
       />

@@ -153,8 +153,9 @@ const CardTopo = ({ demanda, endereco, pontoReferencia, valor, faixa }) => {
   )
 }
 
-// 3. Mini card da outra parte: foto → iniciais → 🏠/👷.
-const MiniPessoa = ({ souDono, outro, linha2 }) => {
+// 3. Mini card da outra parte: foto → iniciais → 🏠/👷. Exportado: a tela de avaliação
+// (ModalAvaliacao) mostra o MESMO card do profissional.
+export const MiniPessoa = ({ souDono, outro, linha2 }) => {
   const nota = souDono
     ? (outro?.avaliacoes_total > 0
         ? `⭐ ${Number(outro.avaliacoes_media).toFixed(1)} (${outro.avaliacoes_total} ${outro.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})`

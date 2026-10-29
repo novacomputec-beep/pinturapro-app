@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react'
 import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import TelaPosMatch from '../../components/PosMatchFixo'
+import { AvaliacaoConteudo } from '../../components/ModalAvaliacao'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -66,7 +67,30 @@ const CASOS = [
   { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · pedido de atraso pendente', demanda: { chegada_prevista_em: iso(20 * MIN), a_caminho_em: iso(-15 * MIN), prazo_chegada: iso(20 * MIN), tolerancia_ate: iso(35 * MIN), pedidos_atraso_restantes: 1, pedido_atraso: { minutos: 30, motivo: 'trânsito', status: 'pendente', responde_ate: iso(12 * MIN) } } },
   { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · chegada declarada', demanda: { chegada_prevista_em: iso(10 * MIN), a_caminho_em: iso(-30 * MIN), prazo_chegada: iso(10 * MIN), chegada_declarada_em: iso(-2 * MIN), chegada_declarada_por: EU } },
   { lado: 'pro', fase: 'em_andamento', rotulo: 'Em andamento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_declarada_em: iso(-2 * H), chegada_confirmada_em: iso(-2 * H) } },
+  // ── Avaliação do profissional pelo dono (ModalAvaliacao → AvaliacaoConteudo) ─────────
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · sem nota', nota: 0 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 5 Excelente + etiquetas', nota: 5, etiquetas: 0 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 3 Regular', nota: 3 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 1 Péssimo', nota: 1 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · catálogo indisponível', nota: 4, semCatalogo: true },
 ]
+
+// Catálogo LOCAL no formato de GET /config/etiquetas-avaliacao (só para a galeria): um grupo
+// de reparo (elétrica/hidráulica), o de obra (construcao_pintura) e as universais por nível.
+const CATALOGO_GALERIA = {
+  niveis: [5, 4, 3, 2, 1].map((nota) => ({ nota, rotulo: { 5: 'Excelente', 4: 'Bom', 3: 'Regular', 2: 'Ruim', 1: 'Péssimo' }[nota] })),
+  universais: {
+    5: ['Pontual', 'Educado', 'Deixou tudo limpo'], 4: ['Pontual', 'Educado'], 3: ['Atrasou um pouco'],
+    2: ['Atrasou', 'Deixou sujeira'], 1: ['Não compareceu', 'Falta de respeito'],
+  },
+  grupos: [
+    { chave: 'eletrica_hidraulica', nome: 'Elétrica e hidráulica', especialidades: ['eletrica', 'hidraulica'],
+      etiquetas: { 5: ['Resolveu de primeira', 'Explicou o problema'], 4: ['Resolveu o problema'], 3: ['Precisou voltar'], 2: ['Não resolveu tudo'], 1: ['Piorou o problema'] } },
+    { chave: 'construcao_pintura', nome: 'Construção e pintura', especialidades: ['pintura', 'alvenaria'],
+      etiquetas: { 5: ['Acabamento impecável', 'Cumpriu o prazo'], 4: ['Bom acabamento'], 3: ['Acabamento irregular'], 2: ['Atrasou a obra'], 1: ['Abandonou a obra'] } },
+  ],
+  max_por_avaliacao: 5,
+}
 
 // Lista final: cada caso para serviço e para obra.
 const TODOS = ['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente })))
@@ -121,7 +145,30 @@ const propsDoCaso = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento' }
+// Props do AvaliacaoConteudo para um caso de avaliação: o mesmo componente do ModalAvaliacao,
+// com o catálogo local (ou {} quando o caso simula a API fora, o que cai em "a nota já basta").
+const propsAvaliacao = (caso) => {
+  const ehObra = caso.frente === 'obra'
+  const demanda = base(caso.frente)
+  const grupo = ehObra ? 'construcao_pintura' : 'eletrica_hidraulica'
+  const g = CATALOGO_GALERIA.grupos.find((x) => x.chave === grupo)
+  const etiquetasIniciais = caso.etiquetas != null && caso.nota
+    ? [...(g.etiquetas[caso.nota] || []), ...(CATALOGO_GALERIA.universais[caso.nota] || [])].slice(0, 3)
+    : []
+  return {
+    nomeAvaliado: PROFISSIONAL.nome,
+    profissional: PROFISSIONAL,
+    ehObra,
+    demanda,
+    catalogo: caso.semCatalogo ? { niveis: [], universais: {}, grupos: [] } : CATALOGO_GALERIA,
+    notaInicial: caso.nota || 0,
+    etiquetasIniciais,
+    onEnviar: noop,
+    onFechar: noop,
+  }
+}
+
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -137,7 +184,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
   })).current
 
   // Props recalculadas por caso (as datas relativas são lidas na montagem da lista).
-  const props = useMemo(() => propsDoCaso(caso), [caso])
+  const ehAvaliacao = caso.fase === 'avaliacao'
+  const props = useMemo(() => (ehAvaliacao ? propsAvaliacao(caso) : propsDoCaso(caso)), [caso, ehAvaliacao])
   const rotulo = `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
   return (
@@ -162,7 +210,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]} {...pan.panHandlers}>
-          <TelaPosMatch key={i} {...props} />
+          {ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} /> : <TelaPosMatch key={i} {...props} />}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

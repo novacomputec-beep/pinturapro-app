@@ -617,10 +617,10 @@ export default function CelebracaoMatchHost() {
       ],
     )
   }
-  const enviarAvaliacao = async (estrelas) => {
+  const enviarAvaliacao = async (estrelas, etiquetas = []) => {
     const a = avaliar
     try {
-      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: a.ehObra ? 'obra' : 'reparo', contrato_id: a.id, estrelas }))
+      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: a.ehObra ? 'obra' : 'reparo', contrato_id: a.id, nota: estrelas, etiquetas }))
       if (estrelas >= 4) pedirLojaRef.current = true
     } catch (err) {
       console.log('[Celebracao] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -822,6 +822,8 @@ export default function CelebracaoMatchHost() {
       <ModalAvaliacao
         visivel={avaliarVisivel}
         nomeAvaliado={avaliar?.nome || 'o profissional'}
+        ehObra={!!avaliar?.ehObra}
+        demanda={avaliar}
         onEnviar={enviarAvaliacao}
         onFechar={finalizarAvaliacao}
       />

@@ -940,9 +940,11 @@ export default function DetalheObraScreen({ route, navigation }) {
     )
   }
 
-  const enviarAvaliacaoEncerrar = async (estrelas) => {
+  // (estrelas, etiquetas): a nota vai como `nota` e as etiquetas do nível (ModalAvaliacao),
+  // espelhando DetalheReparo.
+  const enviarAvaliacaoEncerrar = async (estrelas, etiquetas = []) => {
     try {
-      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, estrelas }))
+      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, nota: estrelas, etiquetas }))
       // Nota alta enviada pelo dono = o melhor momento para pedir a avaliação NA LOJA. Só
       // ARMA aqui: o pedido em si sai de finalizarPosEncerrar, 1,5 s depois de o Alert de
       // bloqueio ser respondido, para nunca cair em cima dele.
@@ -2692,6 +2694,9 @@ export default function DetalheObraScreen({ route, navigation }) {
       <ModalAvaliacao
         visivel={avaliarVisivel}
         nomeAvaliado={pintorMatch?.nome || 'o profissional'}
+        profissional={pintorMatch}
+        ehObra
+        demanda={obra}
         onEnviar={enviarAvaliacaoEncerrar}
         onFechar={finalizarPosEncerrar}
       />
