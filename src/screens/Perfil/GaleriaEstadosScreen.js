@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useRef } from 'react'
-import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet, Image } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import TelaPosMatch from '../../components/PosMatchFixo'
 import { AvaliacaoConteudo } from '../../components/ModalAvaliacao'
 import { CelebracaoAvaliacaoConteudo } from './AvaliacaoRecebidaScreen'
+import { AjustarFotoConteudo } from '../../components/AjustarFoto'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -100,8 +101,23 @@ const CATALOGO_GALERIA = {
   max_por_avaliacao: 5,
 }
 
-// Lista final: cada caso para serviço e para obra.
-const TODOS = ['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente })))
+// "Ajustar foto" (components/AjustarFoto) com uma imagem do próprio app: não depende de
+// frente, entra uma vez só. Em modo demo: Concluir mostra o retângulo em pixels, Girar avisa.
+const FOTO_EXEMPLO = require('../../../assets/escolha/escolha-trabalhar.png')
+const CASOS_FOTO = [
+  { lado: 'pro', fase: 'ajustar_foto', rotulo: 'Ajustar foto · perfil (1:1 circular)', modo: 'perfil' },
+  { lado: 'pro', fase: 'ajustar_foto', rotulo: 'Ajustar foto · documento (livre)', modo: 'livre', dica: 'Arraste os cantos laranja até as bordas do documento (frente). Use dois dedos para aproximar.' },
+  { lado: 'pro', fase: 'ajustar_foto', rotulo: 'Ajustar foto · selfie com documento (livre)', modo: 'livre', dica: 'Deixe seu rosto e o documento inteiros dentro do quadro.' },
+]
+
+// Props do AjustarFotoConteudo em modo demo (sem manipulador, sem arquivo gerado).
+const propsAjustarFoto = (caso) => {
+  const fonte = Image.resolveAssetSource(FOTO_EXEMPLO)
+  return { uri: fonte.uri, largura: fonte.width, altura: fonte.height, modo: caso.modo, dica: caso.dica, demo: true, semInsets: true, onConcluir: noop, onCancelar: noop }
+}
+
+// Lista final: cada caso para serviço e para obra; os de foto, uma vez.
+const TODOS = [...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))), ...CASOS_FOTO.map((c) => ({ ...c, frente: null }))]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
 // com handlers no-op e os mesmos gates (quem pode o quê) derivados dos dados.
@@ -196,7 +212,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -214,10 +230,13 @@ export default function GaleriaEstadosScreen({ navigation }) {
   // Props recalculadas por caso (as datas relativas são lidas na montagem da lista).
   const ehAvaliacao = caso.fase === 'avaliacao'
   const ehCelebracao = caso.fase === 'celebracao'
+  const ehFoto = caso.fase === 'ajustar_foto'
   const props = useMemo(() => (
-    ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehAvaliacao, ehCelebracao])
-  const rotulo = `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
+    ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto
+    ? `${i + 1}/${total} · ${caso.rotulo}`
+    : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
@@ -240,8 +259,10 @@ export default function GaleriaEstadosScreen({ navigation }) {
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]} {...pan.panHandlers}>
-          {ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
+        {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, ehFoto && { paddingHorizontal: 0, paddingBottom: 0 }]} {...(ehFoto ? {} : pan.panHandlers)}>
+          {ehFoto ? <AjustarFotoConteudo key={i} {...props} />
+            : ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
             : ehCelebracao ? <CelebracaoAvaliacaoConteudo key={i} {...props} />
             : <TelaPosMatch key={i} {...props} />}
         </View>
