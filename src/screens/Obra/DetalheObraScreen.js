@@ -1810,7 +1810,10 @@ export default function DetalheObraScreen({ route, navigation }) {
             emAndamento={{
               telefone: isDono ? pintorMatch?.telefone : donoTelefone,
               onWhatsApp: () => abrirWhatsApp(isDono ? pintorMatch?.telefone : donoTelefone),
-              rotuloBotao: isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Confirmar conclusão' : '✅ Serviço concluído'),
+              /* Dono: "Encerrar obra" enquanto ninguém pediu (é ele quem abre as duas etapas),
+                 "Confirmar conclusão e avaliar" só com o pedido do pintor, "Aguardando a outra
+                 parte" quando o pedido é dele (rotuloEncerrar). */
+              rotuloBotao: isDono && encerramentoPendente && !euSolicitei ? '✅ Confirmar conclusão e avaliar' : rotuloEncerrar(isDono ? '✅ Encerrar obra' : '✅ Serviço concluído'),
               onConcluir: handleEncerrar,
               desabilitado: euSolicitei,
               encerramentoOutro: isDono && encerramentoPendente && !euSolicitei ? {

@@ -540,7 +540,7 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
         <View style={estilos.verde}>
           <T style={estilos.verdeRotulo}>▶️ SERVIÇO EM ANDAMENTO{hora ? ` · desde ${hora}` : ''}</T>
           <T linhas={2} style={estilos.verdeLinha}>
-            {souDono ? 'Quando o serviço terminar, confirme aqui para avaliar o profissional.' : 'Ao terminar, peça ao cliente para confirmar a conclusão no app.'}
+            {souDono ? 'Quando o serviço terminar, encerre aqui para avaliar o profissional.' : 'Ao terminar, peça ao cliente para confirmar a conclusão no app.'}
           </T>
         </View>
       )}

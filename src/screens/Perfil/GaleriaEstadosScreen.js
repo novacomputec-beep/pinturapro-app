@@ -51,6 +51,7 @@ const CASOS = [
   { lado: 'dono', fase: 'a_caminho', rotulo: 'A caminho · tolerância vencida', demanda: { chegada_prevista_em: iso(-30 * MIN), a_caminho_em: iso(-70 * MIN), prazo_chegada: iso(-30 * MIN), tolerancia_ate: iso(-15 * MIN), atrasado: true, chegada_janela: 'agendado', pedidos_atraso_restantes: 0 } },
   { lado: 'dono', fase: 'em_andamento', rotulo: 'Em andamento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_declarada_em: iso(-2 * H), chegada_confirmada_em: iso(-2 * H) } },
   { lado: 'dono', fase: 'em_andamento', rotulo: 'Em andamento · concluído pelo profissional', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_confirmada_em: iso(-2 * H), encerramento_solicitado_por: OUTRO, encerramento_solicitado_em: iso(-20 * MIN) }, concluidoPeloOutro: true },
+  { lado: 'dono', fase: 'em_andamento', rotulo: 'Em andamento · eu pedi o encerramento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_confirmada_em: iso(-2 * H), encerramento_solicitado_por: EU, encerramento_solicitado_em: iso(-20 * MIN) }, euSolicitei: true },
   // ── Profissional ────────────────────────────────────────────────────────────────────
   { lado: 'pro', fase: 'aguardando', rotulo: 'Aguardando horário' },
   { lado: 'pro', fase: 'aguardando', rotulo: 'Aguardando · pedido de cancelamento p/ mim', cancel: 'mim' },
@@ -65,6 +66,7 @@ const CASOS = [
   { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · pedido de atraso pendente', demanda: { chegada_prevista_em: iso(20 * MIN), a_caminho_em: iso(-15 * MIN), prazo_chegada: iso(20 * MIN), tolerancia_ate: iso(35 * MIN), pedidos_atraso_restantes: 1, pedido_atraso: { minutos: 30, motivo: 'trânsito', status: 'pendente', responde_ate: iso(12 * MIN) } } },
   { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · chegada declarada', demanda: { chegada_prevista_em: iso(10 * MIN), a_caminho_em: iso(-30 * MIN), prazo_chegada: iso(10 * MIN), chegada_declarada_em: iso(-2 * MIN), chegada_declarada_por: EU } },
   { lado: 'pro', fase: 'em_andamento', rotulo: 'Em andamento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_declarada_em: iso(-2 * H), chegada_confirmada_em: iso(-2 * H) } },
+  { lado: 'pro', fase: 'em_andamento', rotulo: 'Em andamento · eu pedi o encerramento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_confirmada_em: iso(-2 * H), encerramento_solicitado_por: EU, encerramento_solicitado_em: iso(-20 * MIN) }, euSolicitei: true },
 ]
 
 // Lista final: cada caso para serviço e para obra.
@@ -109,9 +111,15 @@ const propsDoCaso = (caso) => {
     emAndamento: {
       telefone,
       onWhatsApp: noop,
-      rotuloBotao: souDono ? (caso.concluidoPeloOutro ? '✅ Confirmar conclusão e avaliar' : '✅ Confirmar conclusão') : '✅ Serviço concluído',
+      // Mesmos rótulos das telas: dono "Encerrar serviço/obra" (ninguém pediu), "Confirmar
+      // conclusão e avaliar" (o profissional pediu), "Aguardando a outra parte" (eu pedi).
+      rotuloBotao: caso.euSolicitei
+        ? '⏳ Aguardando a outra parte'
+        : souDono
+          ? (caso.concluidoPeloOutro ? '✅ Confirmar conclusão e avaliar' : (ehObra ? '✅ Encerrar obra' : '✅ Encerrar serviço'))
+          : '✅ Serviço concluído',
       onConcluir: noop,
-      desabilitado: false,
+      desabilitado: !!caso.euSolicitei,
       enviando: false,
       encerramentoOutro: souDono && caso.concluidoPeloOutro ? { nome: 'Carlos', solicitadoEm: demanda.encerramento_solicitado_em, automaticoEm: null } : null,
     },
