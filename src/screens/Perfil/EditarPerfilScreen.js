@@ -1,10 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator
+  TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator, AppState
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as ImagePicker from 'expo-image-picker'
+import { useAjustarFoto, cropperDisponivel } from '../../components/AjustarFoto'
+import { recuperarMidiasPendentes } from '../../utils/midia'
 import { BotaoPrimario, Input } from '../../components'
 import { useAuth } from '../../contexts/AuthContext'
 import { authService } from '../../services/api'
@@ -106,6 +108,32 @@ export default function EditarPerfilScreen({ navigation }) {
     }
   }
 
+  // Recorte NOSSO ("Ajustar foto", 1:1 com máscara circular) depois do seletor/câmera do
+  // sistema. Binário sem o expo-image-manipulator: o recorte do sistema de antes.
+  const { ajustar, elementoAjustarFoto } = useAjustarFoto()
+  const opcoesFoto = () => (cropperDisponivel() ? { allowsEditing: false, quality: 1 } : { allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+  const recortarEEnviar = async (asset) => {
+    const final = await ajustar(asset, { modo: 'perfil', qualidade: 0.8 })
+    if (final?.uri) processarFoto(final.uri)
+  }
+
+  // Recuperação pós-destruição da Activity (mesma de utils/midia): só quando ESTA tela tem
+  // uma foto em captura, para não tomar o resultado pendente de outra tela.
+  const fotoPendenteRef = useRef(false)
+  const montadoRef = useRef(true)
+  useEffect(() => {
+    const aoReceber = (assets) => {
+      if (!fotoPendenteRef.current || !assets?.[0]?.uri) return
+      fotoPendenteRef.current = false
+      recortarEEnviar(assets[0])
+    }
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active' && fotoPendenteRef.current) recuperarMidiasPendentes({ logPrefix: '[EditarPerfil]', montadoRef, aoReceber })
+    })
+    return () => { montadoRef.current = false; sub.remove() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleEscolherFoto = () => {
     Alert.alert('Foto de perfil', 'Como deseja enviar a foto?', [
       {
@@ -114,22 +142,26 @@ export default function EditarPerfilScreen({ navigation }) {
           try {
             const { status } = await ImagePicker.requestCameraPermissionsAsync()
             if (status !== 'granted') { Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.'); return }
-            const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+            fotoPendenteRef.current = true
+            const result = await ImagePicker.launchCameraAsync(opcoesFoto())
+            fotoPendenteRef.current = false
             // assets?.length como no cadastro (CadastroScreen:394): sem ele, um resultado
             // sem assets lançava aqui dentro e o catch abaixo culpava a câmera por um erro
             // que não era dela.
-            if (!result.canceled && result.assets?.length) processarFoto(result.assets[0].uri)
-          } catch (err) { console.log('[EditarPerfil] falha ao abrir câmera | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a câmera.') }
+            if (!result.canceled && result.assets?.length) recortarEEnviar(result.assets[0])
+          } catch (err) { fotoPendenteRef.current = false; console.log('[EditarPerfil] falha ao abrir câmera | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a câmera.') }
         }
       },
       {
         text: '🖼️ Galeria',
         onPress: async () => {
           try {
-            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 })
+            fotoPendenteRef.current = true
+            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], ...opcoesFoto() })
+            fotoPendenteRef.current = false
             // Mesma guarda do ramo da câmera acima, pela mesma razão.
-            if (!result.canceled && result.assets?.length) processarFoto(result.assets[0].uri)
-          } catch (err) { console.log('[EditarPerfil] falha ao abrir galeria | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a galeria.') }
+            if (!result.canceled && result.assets?.length) recortarEEnviar(result.assets[0])
+          } catch (err) { fotoPendenteRef.current = false; console.log('[EditarPerfil] falha ao abrir galeria | msg:', err.message); Alert.alert('Erro', 'Não foi possível abrir a galeria.') }
         }
       },
       { text: 'Cancelar', style: 'cancel' }
@@ -220,6 +252,7 @@ export default function EditarPerfilScreen({ navigation }) {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+      {elementoAjustarFoto}
     </SafeAreaView>
   )
 }

@@ -7,6 +7,7 @@ import api, { authService } from '../services/api'
 import { comRetry } from '../utils/rede'
 import { mascararTelefone } from '../utils/telefone'
 import { recuperarMidiasPendentes } from '../utils/midia'
+import { useAjustarFoto, cropperDisponivel } from './AjustarFoto'
 import { useAuth } from '../contexts/AuthContext'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 
@@ -92,7 +93,17 @@ const uploadFotoVerificacao = async (uri, tipo) => {
   }
 }
 
-const OPCOES_FOTO = { allowsEditing: true, aspect: [4, 3], quality: 0.6, maxWidth: 1200, maxHeight: 1200 }
+// Com o nosso "Ajustar foto" (recorte livre depois do seletor), o sistema não recorta e a
+// compressão 0.6 de sempre é aplicada uma vez só, na saída do recorte. Binário sem o
+// expo-image-manipulator: o recorte do sistema de antes.
+const OPCOES_FOTO_LEGADO = { allowsEditing: true, aspect: [4, 3], quality: 0.6, maxWidth: 1200, maxHeight: 1200 }
+const opcoesFoto = () => (cropperDisponivel() ? { allowsEditing: false, quality: 1 } : OPCOES_FOTO_LEGADO)
+const QUALIDADE_FOTO = 0.6
+const DICA_RECORTE = {
+  doc_frente: 'Arraste os cantos laranja até as bordas do documento (frente). Use dois dedos para aproximar.',
+  doc_verso:  'Arraste os cantos laranja até as bordas do documento (verso). Use dois dedos para aproximar.',
+  selfie:     'Deixe seu rosto e o documento inteiros dentro do quadro.',
+}
 
 const SLOTS = [
   { tipo: 'doc_frente', campo: 'verificacao_doc_frente_url', icone: '📷', rotulo: 'Documento\nfrente' },
@@ -234,17 +245,31 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
     }
   }
 
+  // "Ajustar foto" (recorte livre) antes de subir. O Modal dele vive DENTRO do Modal desta
+  // sheet; com a sheet fechada ele não teria onde aparecer, então a foto sobe como veio.
+  const { ajustar, elementoAjustarFoto } = useAjustarFoto()
+  const visivelRef = useRef(visivel)
+  visivelRef.current = visivel
+  const recortarESubir = async (tipo, asset) => {
+    const final = visivelRef.current
+      ? await ajustar(asset, { modo: 'livre', qualidade: QUALIDADE_FOTO, dica: DICA_RECORTE[tipo] })
+      : asset
+    // Cancelou o recorte: o slot fica como estava.
+    if (final?.uri && montadoRef.current) subir(tipo, final.uri)
+  }
+
   // Recuperação pós-destruição da Activity (Android sob pressão de memória): se a
   // câmera/galeria foi morta durante a captura, o expo-image-picker guarda o resultado
   // e o entrega via getPendingResultAsync. Reusa a MESMA lógica da criação de obra/reparo
-  // (src/utils/midia.js, sem duplicar), roteando a foto recuperada ao slot em captura.
+  // (src/utils/midia.js, sem duplicar), roteando a foto recuperada ao slot em captura —
+  // agora passando pelo "Ajustar foto", como a foto que volta direto do seletor.
   useEffect(() => {
     const aoReceber = (assets) => {
-      const uri = assets?.[0]?.uri
+      const asset = assets?.[0]
       const tipo = slotFotoPendenteRef.current
-      if (!uri || !tipo || !montadoRef.current) return
+      if (!asset?.uri || !tipo || !montadoRef.current) return
       slotFotoPendenteRef.current = null
-      subir(tipo, uri)
+      recortarESubir(tipo, asset)
     }
     recuperarMidiasPendentes({ logPrefix: '[Verificacao]', montadoRef, aoReceber })
     const sub = AppState.addEventListener('change', (estado) => {
@@ -263,7 +288,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
       try {
         const resultado = await abrir()
         if (!resultado.canceled && resultado.assets?.length) {
-          subir(tipo, resultado.assets[0].uri)
+          recortarESubir(tipo, resultado.assets[0])
         } else if (resultado.canceled && Date.now() - t0 < 1000) {
           Alert.alert('Não foi possível abrir', 'O app pode estar com pouca memória neste momento. Se as fotos pararem de abrir, feche o aplicativo completamente e abra de novo.')
         }
@@ -285,12 +310,12 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
             Alert.alert('Permissão necessária', 'Precisamos de acesso à câmera.')
             return
           }
-          lancar('camera', () => ImagePicker.launchCameraAsync(OPCOES_FOTO))
+          lancar('camera', () => ImagePicker.launchCameraAsync(opcoesFoto()))
         }
       },
       {
         text: '🖼️ Escolher da galeria',
-        onPress: () => lancar('galeria', () => ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], ...OPCOES_FOTO })),
+        onPress: () => lancar('galeria', () => ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], ...opcoesFoto() })),
       },
       { text: 'Cancelar', style: 'cancel' },
     ])
@@ -468,6 +493,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
           />
         </View>
       </KeyboardAvoidingView>
+      {elementoAjustarFoto}
     </Modal>
   )
 }
