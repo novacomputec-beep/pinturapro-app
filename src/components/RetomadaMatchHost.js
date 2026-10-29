@@ -14,15 +14,15 @@ import { navigationRef } from '../navigation/navigationRef'
 // plano. O foreground importa porque é a transição típica de quem está trabalhando —
 // atendeu uma ligação, olhou o mapa, voltou —, e é justamente aí que a pessoa quer o
 // serviço na frente. Para não sequestrar a tela, as desistências:
-//   1. DONO, voltando do 2º plano: só desiste se está AGORA dentro de um cadastro
-//      (CadastrarReparo*/CadastrarObra*) com algo digitado, mídia anexada ou a câmera/galeria
-//      ainda não devolvida (ver `cadastro` abaixo). Em qualquer outra tela o combinado de
-//      pé vem para a frente — é o compromisso com hora marcada e outra pessoa esperando.
-//      Enviado ou abandonado o cadastro, o redirecionamento volta a valer na mesma sessão.
-//      (A regra anterior, "só da tela de pouso pristina", silenciava o redirecionamento
-//      pelo resto da sessão depois de qualquer passagem pelo formulário.)
-//      PROFISSIONAL, voltando do 2º plano: só da tela de pouso (o feed), como sempre — em
-//      qualquer outra tela ele escolheu estar ali. Conferido antes e depois do fetch;
+//   1. não está na tela de pouso, voltando do 2º plano: em qualquer outra tela (detalhe,
+//      lista, perfil, um cadastro empilhado) a pessoa escolheu estar ali, e voltar de uma
+//      ligação não desfaz essa escolha. Só no foreground — no login não há escolha anterior
+//      a preservar —, e conferida duas vezes, antes e depois do fetch. Para o DONO a tela
+//      de pouso é o formulário de cadastro, e dela só se desiste enquanto ele está EM USO:
+//      algo digitado, mídia anexada ou a câmera/galeria ainda não devolvida (ver `cadastro`
+//      abaixo). Enviado ou limpo o formulário, o redirecionamento volta a valer na mesma
+//      sessão. (A regra "só da tela de pouso pristina", de ac8ccddf, marcava qualquer
+//      passagem pelo formulário e silenciava o redirecionamento pelo resto da sessão.)
 //   2. notificação, só no arranque frio: se o app SUBIU de um toque, aquele destino é mais
 //      específico e já está a caminho (AppNavigator.js:723). Nos outros disparos não se
 //      pergunta: a resposta seria aquele mesmo toque, já navegado, pelo resto do processo.
@@ -33,9 +33,8 @@ import { navigationRef } from '../navigation/navigationRef'
 // celebração — um match já comemorado deixaria de redirecionar.
 
 // Nome da tela de pouso de cada papel (`telaInicial` no perfil abaixo): a raiz da PRIMEIRA
-// aba do navegador dele, que é onde o app cai sem intervenção. Para o profissional é o único
-// lugar de onde o retorno do 2º plano redireciona; para o dono vale a regra do cadastro
-// ocupado — ver checar().
+// aba do navegador dele, que é onde o app cai sem intervenção. É o único lugar de onde o
+// retorno do 2º plano redireciona — ver a regra em checar().
 
 // As duas grafias de aceite (ver STATUS_GRUPO em ContratosScreen.js:24). Sem 'aprovada'
 // o profissional que fechou pelo endpoint legado nunca seria retomado.
@@ -117,9 +116,10 @@ export const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
   return assinatura?.status === 'ativa' && !mostrarBoasVindas
 }
 
-// Estado do cadastro do DONO, informado por quem o conhece. O redirecionamento do 2º plano
-// desiste quando a pessoa está DENTRO de um formulário de cadastro em uso — está preenchendo
-// um pedido, não parada na tela em que o app a deixou. Dois sinais, cada um de uma fonte:
+// Estado do cadastro do DONO, informado por quem o conhece. A tela de pouso do dono É o
+// formulário de cadastro, e o redirecionamento do 2º plano desiste enquanto ele está em uso
+// — a pessoa está preenchendo um pedido, não parada na tela em que o app a deixou. Dois
+// sinais, cada um de uma fonte:
 //   pickerAberto  (a) câmera/galeria lançada de um cadastro e ainda não devolvida. A captura
 //                     no Android põe o app em 2º plano; a volta é o pior momento para trocar
 //                     de tela. Curto: cai sozinho pouco depois do resultado, porque o 'active'
@@ -128,8 +128,7 @@ export const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
 //   comConteudo   (b) o formulário FOCADO tem algo digitado ou mídia anexada
 //                     (CadastrarReparoScreen / CadastrarObraScreen). Cai sozinho ao enviar
 //                     (campos limpos), ao sair da tela ou ao perder o foco.
-// Os dois só contam com a rota atual num cadastro (emCadastro): a marca de um formulário
-// pela metade deixado noutra aba não segura o redirecionamento de quem está em outra tela.
+// Só são lidos com a rota atual na tela de pouso: fora dela o redirecionamento já desistiu.
 export const cadastro = { pickerAberto: false, comConteudo: false }
 
 // Quanto a marca do picker sobrevive ao resultado. Cobre a troca de ordem entre o 'active'
@@ -145,10 +144,7 @@ export const pickerDevolvido = () => {
   clearTimeout(timerPicker)
   timerPicker = setTimeout(() => { cadastro.pickerAberto = false }, PICKER_DEVOLVIDO_MS)
 }
-// Rotas dos formulários do dono: CadastrarReparoMain, CadastrarObraMain, CadastrarObra (a cópia
-// empilhada da saída "Pedreiro ou ajudante") e CadastrarReparo/CadastrarObra do DonoStack.
-const emCadastro = (rota) => typeof rota === 'string' && rota.startsWith('Cadastrar')
-const cadastroOcupado = (rota) => emCadastro(rota) && (cadastro.pickerAberto || cadastro.comConteudo)
+const cadastroOcupado = () => cadastro.pickerAberto || cadastro.comConteudo
 
 // Arranque frio: o app SUBIU agora. Vale por processo — e não por montagem do componente
 // nem por usuário —, porque é exatamente esse o alcance de getLastNotificationResponseAsync:
@@ -174,13 +170,12 @@ export default function RetomadaMatchHost() {
     if (!cfg) return
 
     // Desistência do 2º plano (regra 1 do cabeçalho), ANTES do fetch, de propósito: sem
-    // decisão a tomar não se gasta requisição — e o foreground é frequente.
-    //   dono: desiste só dentro de um cadastro em uso (digitado, mídia ou câmera aberta);
-    //   profissional: desiste fora da tela de pouso (o feed).
-    const souDono = usuario.role === 'dono_obra'
+    // decisão a tomar não se gasta requisição — e o foreground é frequente. Só redireciona
+    // da TELA DE POUSO (CadastrarReparoMain / CadastrarObraMain para o dono, o feed para o
+    // profissional); nela, o dono ainda fica se o formulário está em uso.
     const desistir = () => {
       const rota = navigationRef.current?.getCurrentRoute?.()?.name
-      return souDono ? cadastroOcupado(rota) : rota !== cfg.telaInicial
+      return rota !== cfg.telaInicial || cadastroOcupado()
     }
     if (deForeground && desistir()) return
 
@@ -215,9 +210,9 @@ export default function RetomadaMatchHost() {
       const nav = navigationRef.current
       if (!nav) return
 
-      // Reconfere DEPOIS do fetch: entre a requisição e a navegação a pessoa pode ter entrado
-      // num cadastro (ou saído da tela de pouso), e o resultado do picker ou a primeira letra
-      // digitada podem ter chegado nesse meio tempo. A decisão vale para onde ela está agora.
+      // Reconfere DEPOIS do fetch: entre a requisição e a navegação a pessoa pode ter saído
+      // da tela de pouso, e o resultado do picker ou a primeira letra digitada podem ter
+      // chegado nesse meio tempo. A decisão vale para onde ela está agora.
       if (deForeground && desistir()) return
 
       if (abertos.length > 1) { nav.navigate(cfg.tab); return }
