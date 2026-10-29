@@ -87,12 +87,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
     }
   }
 
-  const handleEnviarAvaliacao = async (estrelas) => {
+  const handleEnviarAvaliacao = async (estrelas, etiquetas = []) => {
     try {
       await comRetry(() => api.post('/avaliacoes', {
         contrato_tipo: ehObra ? 'obra' : 'reparo',
         contrato_id: avaliandoContrato.id,
-        estrelas,
+        nota: estrelas,
+        etiquetas,
       }))
       setAvaliandoContrato(null)
       buscar()  // refresh list so ja_avaliei updates
@@ -261,6 +262,19 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
         {/* Contrapartida do Avaliar: o dono avalia, o profissional denuncia. Mesmo formato
             de gate — !ehDono e o id da outra parte presente. */}
+        {/* Profissional: a comemoração da avaliação deste contrato. Só com a avaliação
+            recebida na linha (avaliacao_recebida: { nota, etiquetas }) — sem ela não há o que
+            comemorar, e abrir "Parabéns" sobre um contrato não avaliado seria mentir. */}
+        {!ehDono && Number(item.avaliacao_recebida?.nota) > 0 && (
+          <TouchableOpacity
+            style={estilos.btnAvaliar}
+            onPress={() => navigation.navigate('Perfil', { screen: 'AvaliacaoRecebida', initial: false, params: {
+              tipo: ehObra ? 'obra' : 'reparo', id: item.id, nota: item.avaliacao_recebida.nota, etiquetas: item.avaliacao_recebida.etiquetas,
+            } })}
+          >
+            <Text style={estilos.btnAvaliarTexto}>⭐ Ver minha avaliação</Text>
+          </TouchableOpacity>
+        )}
         {!ehDono && item.dono_id && (
           <TouchableOpacity
             style={estilos.btnDenunciar}
@@ -316,6 +330,8 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       <ModalAvaliacao
         visivel={!!avaliandoContrato}
         nomeAvaliado={avaliandoContrato ? (ehDono ? avaliandoContrato.prestador_nome : avaliandoContrato.dono_nome) : ''}
+        ehObra={ehObra}
+        demanda={avaliandoContrato}
         onEnviar={handleEnviarAvaliacao}
         onFechar={() => setAvaliandoContrato(null)}
       />

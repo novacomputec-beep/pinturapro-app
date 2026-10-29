@@ -2,6 +2,8 @@ import React, { useState, useMemo, useRef } from 'react'
 import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import TelaPosMatch from '../../components/PosMatchFixo'
+import { AvaliacaoConteudo } from '../../components/ModalAvaliacao'
+import { CelebracaoAvaliacaoConteudo } from './AvaliacaoRecebidaScreen'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -22,7 +24,8 @@ const iso = (deltaMs) => new Date(Date.now() + deltaMs).toISOString()
 const EU = 'eu'
 const OUTRO = 'outro'
 
-const PROFISSIONAL = { nome: 'Carlos Henrique da Silva', foto_url: null, avaliacoes_media: 4.8, avaliacoes_total: 23, especialidades: ['eletrica', 'hidraulica'], telefone: '(11) 98765-4321' }
+// selo_bem_avaliado: true exercita o "🏅 Bem avaliado" na linha da nota do mini card.
+const PROFISSIONAL = { nome: 'Carlos Henrique da Silva', foto_url: null, avaliacoes_media: 4.8, avaliacoes_total: 23, selo_bem_avaliado: true, especialidades: ['eletrica', 'hidraulica'], telefone: '(11) 98765-4321' }
 const CLIENTE = { nome: 'Maria Aparecida Souza', foto_url: null }
 
 // Base da demanda por frente. Títulos e endereços propositalmente LONGOS: a tela corta em 1 linha.
@@ -67,7 +70,35 @@ const CASOS = [
   { lado: 'pro', fase: 'a_caminho', rotulo: 'A caminho · chegada declarada', demanda: { chegada_prevista_em: iso(10 * MIN), a_caminho_em: iso(-30 * MIN), prazo_chegada: iso(10 * MIN), chegada_declarada_em: iso(-2 * MIN), chegada_declarada_por: EU } },
   { lado: 'pro', fase: 'em_andamento', rotulo: 'Em andamento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_declarada_em: iso(-2 * H), chegada_confirmada_em: iso(-2 * H) } },
   { lado: 'pro', fase: 'em_andamento', rotulo: 'Em andamento · eu pedi o encerramento', demanda: { chegada_prevista_em: iso(-2 * H), a_caminho_em: iso(-2.5 * H), chegada_confirmada_em: iso(-2 * H), encerramento_solicitado_por: EU, encerramento_solicitado_em: iso(-20 * MIN) }, euSolicitei: true },
+  // ── Avaliação do profissional pelo dono (ModalAvaliacao → AvaliacaoConteudo) ─────────
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · sem nota', nota: 0 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 5 Excelente + etiquetas', nota: 5, etiquetas: 0 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 3 Regular', nota: 3 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 1 Péssimo', nota: 1 },
+  { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · catálogo indisponível', nota: 4, semCatalogo: true },
+  // ── Comemoração do profissional (AvaliacaoRecebidaScreen → CelebracaoAvaliacaoConteudo) ──
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 5 + destaques do cliente', nota: 5, etiquetas: ['Resolveu de primeira', 'Pontual', 'Deixou tudo limpo'], doContrato: true, selo: true },
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 4 + destaques do cliente', nota: 4, etiquetas: ['Pontual', 'Educado'], doContrato: true },
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 5, destaques gerais (sem os do contrato)', nota: 5, etiquetas: ['Pontual', 'Educado', 'Caprichoso'], doContrato: false },
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 3, sem etiquetas', nota: 3, etiquetas: [] },
 ]
+
+// Catálogo LOCAL no formato de GET /config/etiquetas-avaliacao (só para a galeria): um grupo
+// de reparo (elétrica/hidráulica), o de obra (construcao_pintura) e as universais por nível.
+const CATALOGO_GALERIA = {
+  niveis: [5, 4, 3, 2, 1].map((nota) => ({ nota, rotulo: { 5: 'Excelente', 4: 'Bom', 3: 'Regular', 2: 'Ruim', 1: 'Péssimo' }[nota] })),
+  universais: {
+    5: ['Pontual', 'Educado', 'Deixou tudo limpo'], 4: ['Pontual', 'Educado'], 3: ['Atrasou um pouco'],
+    2: ['Atrasou', 'Deixou sujeira'], 1: ['Não compareceu', 'Falta de respeito'],
+  },
+  grupos: [
+    { chave: 'eletrica_hidraulica', nome: 'Elétrica e hidráulica', especialidades: ['eletrica', 'hidraulica'],
+      etiquetas: { 5: ['Resolveu de primeira', 'Explicou o problema'], 4: ['Resolveu o problema'], 3: ['Precisou voltar'], 2: ['Não resolveu tudo'], 1: ['Piorou o problema'] } },
+    { chave: 'construcao_pintura', nome: 'Construção e pintura', especialidades: ['pintura', 'alvenaria'],
+      etiquetas: { 5: ['Acabamento impecável', 'Cumpriu o prazo'], 4: ['Bom acabamento'], 3: ['Acabamento irregular'], 2: ['Atrasou a obra'], 1: ['Abandonou a obra'] } },
+  ],
+  max_por_avaliacao: 5,
+}
 
 // Lista final: cada caso para serviço e para obra.
 const TODOS = ['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente })))
@@ -128,7 +159,44 @@ const propsDoCaso = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento' }
+// Props do AvaliacaoConteudo para um caso de avaliação: o mesmo componente do ModalAvaliacao,
+// com o catálogo local (ou {} quando o caso simula a API fora, o que cai em "a nota já basta").
+const propsAvaliacao = (caso) => {
+  const ehObra = caso.frente === 'obra'
+  const demanda = base(caso.frente)
+  const grupo = ehObra ? 'construcao_pintura' : 'eletrica_hidraulica'
+  const g = CATALOGO_GALERIA.grupos.find((x) => x.chave === grupo)
+  const etiquetasIniciais = caso.etiquetas != null && caso.nota
+    ? [...(g.etiquetas[caso.nota] || []), ...(CATALOGO_GALERIA.universais[caso.nota] || [])].slice(0, 3)
+    : []
+  return {
+    nomeAvaliado: PROFISSIONAL.nome,
+    profissional: PROFISSIONAL,
+    ehObra,
+    demanda,
+    catalogo: caso.semCatalogo ? { niveis: [], universais: {}, grupos: [] } : CATALOGO_GALERIA,
+    notaInicial: caso.nota || 0,
+    etiquetasIniciais,
+    onEnviar: noop,
+    onFechar: noop,
+  }
+}
+
+// Dados prontos da comemoração do profissional; o compartilhar é no-op (nada sai do aparelho).
+const propsCelebracao = (caso) => {
+  const demanda = base(caso.frente)
+  return {
+    dados: {
+      nome: PROFISSIONAL.nome, especialidade: 'Elétrica, Hidráulica', nota: caso.nota, etiquetas: caso.etiquetas || [],
+      etiquetasDoContrato: !!caso.doContrato, valor: caso.frente === 'obra' ? demanda.valor : demanda.valor_estimado,
+      media: PROFISSIONAL.avaliacoes_media, total: PROFISSIONAL.avaliacoes_total, selo: !!caso.selo,
+    },
+    onVerServicos: noop,
+    compartilhar: noop,
+  }
+}
+
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -144,7 +212,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   })).current
 
   // Props recalculadas por caso (as datas relativas são lidas na montagem da lista).
-  const props = useMemo(() => propsDoCaso(caso), [caso])
+  const ehAvaliacao = caso.fase === 'avaliacao'
+  const ehCelebracao = caso.fase === 'celebracao'
+  const props = useMemo(() => (
+    ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehAvaliacao, ehCelebracao])
   const rotulo = `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
   return (
@@ -169,7 +241,9 @@ export default function GaleriaEstadosScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]} {...pan.panHandlers}>
-          <TelaPosMatch key={i} {...props} />
+          {ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
+            : ehCelebracao ? <CelebracaoAvaliacaoConteudo key={i} {...props} />
+            : <TelaPosMatch key={i} {...props} />}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

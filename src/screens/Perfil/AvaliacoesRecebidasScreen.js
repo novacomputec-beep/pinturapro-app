@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
+import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 // Estrelas somente-leitura. Reproduz a MESMA renderização visual do ModalAvaliacao
@@ -51,6 +52,8 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
   const [distribuicao, setDistribuicao] = useState({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 })
   const [media, setMedia] = useState(0)
   const [total, setTotal] = useState(0)
+  // Selo "bem avaliado" (3+ avaliações 5★), calculado pela API no mesmo resumo.
+  const [selo, setSelo] = useState(false)
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [erro, setErro] = useState(null)
@@ -77,6 +80,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
       })
       setMedia(Number(data?.media) || 0)
       setTotal(Number(data?.total) || 0)
+      setSelo(temSeloBemAvaliado(data))
       setErro(null)
     } catch (err) {
       console.log('[AvaliacoesRecebidas] falha ao carregar | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -106,6 +110,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
             <Text style={estilos.resumoTotal}>{total} {total === 1 ? 'avaliação' : 'avaliações'}</Text>
           </View>
         )}
+        {selo ? <ChipBemAvaliado estilo={{ marginLeft: 0, marginTop: 8 }} /> : null}
       </View>
     </>
   )

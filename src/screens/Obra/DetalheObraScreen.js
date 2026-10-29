@@ -29,6 +29,7 @@ import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, 
 import TelaPosMatch from '../../components/PosMatchFixo'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador } from '../../components/Indicacao'
+import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
@@ -939,9 +940,11 @@ export default function DetalheObraScreen({ route, navigation }) {
     )
   }
 
-  const enviarAvaliacaoEncerrar = async (estrelas) => {
+  // (estrelas, etiquetas): a nota vai como `nota` e as etiquetas do nível (ModalAvaliacao),
+  // espelhando DetalheReparo.
+  const enviarAvaliacaoEncerrar = async (estrelas, etiquetas = []) => {
     try {
-      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, estrelas }))
+      await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'obra', contrato_id: obra.id, nota: estrelas, etiquetas }))
       // Nota alta enviada pelo dono = o melhor momento para pedir a avaliação NA LOJA. Só
       // ARMA aqui: o pedido em si sai de finalizarPosEncerrar, 1,5 s depois de o Alert de
       // bloqueio ser respondido, para nunca cair em cima dele.
@@ -2279,6 +2282,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                           <Text style={[estilos.interessadoNome, { flex: 1 }]}>{item.nome}</Text>
                           {/* Selo de quem trouxe 3 colegas aprovados (components/Indicacao). */}
                           {item.embaixador === true && <ChipEmbaixador />}
+                          {/* Selo "bem avaliado" (3+ avaliações 5★), calculado pela API na linha. */}
+                          {temSeloBemAvaliado(item) && <ChipBemAvaliado />}
                         </View>
                         {/* Cidade/endereço saem da linha do nome: em row com space-between
                             disputavam largura com ele e o endereço completo do pintor do
@@ -2692,6 +2697,9 @@ export default function DetalheObraScreen({ route, navigation }) {
       <ModalAvaliacao
         visivel={avaliarVisivel}
         nomeAvaliado={pintorMatch?.nome || 'o profissional'}
+        profissional={pintorMatch}
+        ehObra
+        demanda={obra}
         onEnviar={enviarAvaliacaoEncerrar}
         onFechar={finalizarPosEncerrar}
       />

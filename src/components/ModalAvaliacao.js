@@ -1,82 +1,150 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native'
-import { cores, raios } from '../utils/tema'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { cores, raios, larguraMaxima } from '../utils/tema'
+import { MiniPessoa } from './PosMatchFixo'
+import { carregarCatalogoEtiquetas, rotuloNivel, gruposDaDemanda, etiquetasPara, maxEtiquetas } from '../services/etiquetasAvaliacao'
 
-// Modal de avaliação por estrelas (1..5) exibido após um contrato finalizado.
-// Segue o padrão visual de CelebracaoMatchHost (backdrop escurecido + card central).
-// O envio real fica a cargo do pai via onEnviar(estrelas); aqui só controlamos a
-// seleção de estrelas e o estado local de "Enviando...".
-export default function ModalAvaliacao({ visivel, nomeAvaliado, onEnviar, onFechar }) {
-  const [estrelas, setEstrelas] = useState(0)
+// Tela FIXA de avaliação do profissional pelo dono (reparo E obra), aberta como Modal pelas
+// quatro origens de sempre (detalhe do reparo/obra, Contratos Finalizados, CelebracaoMatchHost).
+// Sem ScrollView: corpo flex:1 com 'space-evenly' entre cabeçalho e rodapé, todo texto com
+// numberOfLines — mesma construção da TelaPosMatch. Blocos, na ordem:
+//   1. título + mini card do profissional (o MiniPessoa da tela pós-match: foto, nota, selo);
+//   2. cinco estrelas tocáveis com a palavra do nível (5 Excelente … 1 Péssimo), verde → vermelho;
+//   3. chips de etiquetas do nível escolhido (multi-seleção, teto do catálogo), vindas de
+//      GET /config/etiquetas-avaliacao: as do(s) grupo(s) da demanda + as universais;
+//   4. "Enviar avaliação" → onEnviar(estrelas, etiquetas) — o POST continua nos pais.
+// NÃO há campo de texto livre: a API recusa comentário.
+//
+// Props: visivel, nomeAvaliado, onEnviar(estrelas, etiquetas), onFechar (as de sempre) +
+// profissional (objeto do mini card: nome, foto_url, avaliacoes_*, selo_bem_avaliado,
+// especialidades — opcional, cai no nome), ehObra, demanda (categorias para o grupo).
+// Trocar a nota zera as etiquetas (são do nível). Catálogo indisponível: avalia só com a nota.
+
+const COR_NIVEL = { 5: cores.sucesso, 4: '#9BD35A', 3: '#E8C14A', 2: cores.primaria, 1: cores.perigo }
+const MFS = 1.15
+const T = ({ linhas = 1, ...p }) => <Text numberOfLines={linhas} maxFontSizeMultiplier={MFS} {...p} />
+
+// Conteúdo da tela (sem o Modal), reutilizado pela galeria de estados com dados locais.
+// `catalogo` força um catálogo pronto (galeria); sem ele, busca o da API.
+export function AvaliacaoConteudo({ nomeAvaliado, profissional, ehObra, demanda, onEnviar, onFechar, catalogo: catalogoProp, notaInicial = 0, etiquetasIniciais = [] }) {
+  const [estrelas, setEstrelas] = useState(notaInicial)
+  const [etiquetas, setEtiquetas] = useState(etiquetasIniciais)
   const [enviando, setEnviando] = useState(false)
+  const [catalogo, setCatalogo] = useState(catalogoProp || null)
+  const [carregando, setCarregando] = useState(!catalogoProp)
 
-  // Zera a seleção sempre que o modal é reaberto (novo contrato a avaliar).
   useEffect(() => {
-    if (visivel) { setEstrelas(0); setEnviando(false) }
-  }, [visivel])
+    if (catalogoProp) { setCatalogo(catalogoProp); setCarregando(false); return }
+    let montado = true
+    carregarCatalogoEtiquetas().then((c) => { if (montado) { setCatalogo(c); setCarregando(false) } })
+    return () => { montado = false }
+  }, [catalogoProp])
 
+  const grupos = useMemo(() => gruposDaDemanda(catalogo, ehObra, demanda), [catalogo, ehObra, demanda])
+  const opcoes = useMemo(() => etiquetasPara(catalogo, grupos, estrelas), [catalogo, grupos, estrelas])
+  const teto = maxEtiquetas(catalogo)
+  const nivel = estrelas ? rotuloNivel(catalogo, estrelas) : ''
+  const corNivel = COR_NIVEL[estrelas] || cores.textoMedio
+
+  const escolherNota = (n) => { if (n !== estrelas) { setEstrelas(n); setEtiquetas([]) } }
+  const alternar = (e) => setEtiquetas((atual) => (
+    atual.includes(e) ? atual.filter((x) => x !== e) : (atual.length >= teto ? atual : [...atual, e])
+  ))
   const enviar = async () => {
     if (estrelas < 1 || enviando) return
     setEnviando(true)
-    try {
-      await onEnviar(estrelas)
-    } finally {
-      setEnviando(false)
-    }
+    try { await onEnviar(estrelas, etiquetas) } finally { setEnviando(false) }
   }
 
+  const pessoa = profissional || { nome: nomeAvaliado }
   return (
-    <Modal visible={visivel} transparent animationType="fade" statusBarTranslucent onRequestClose={onFechar}>
-      <View style={estilos.backdrop}>
-        <View style={estilos.card}>
-          <Text style={estilos.titulo}>Como foi sua experiência?</Text>
-          <Text style={estilos.subtitulo}>Avalie {nomeAvaliado}</Text>
-
-          <View style={estilos.estrelasRow}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <TouchableOpacity
-                key={n}
-                onPress={() => setEstrelas(n)}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                activeOpacity={0.7}
-              >
-                <Text style={[estilos.estrela, n <= estrelas ? estilos.estrelaCheia : estilos.estrelaVazia]}>
-                  {n <= estrelas ? '★' : '☆'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <TouchableOpacity
-            style={[estilos.cta, (estrelas < 1 || enviando) && estilos.ctaDesabilitado]}
-            onPress={enviar}
-            disabled={estrelas < 1 || enviando}
-            activeOpacity={0.85}
-          >
-            <Text style={estilos.ctaTexto}>{enviando ? 'Enviando...' : 'Enviar avaliação'}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={estilos.depois} onPress={onFechar} disabled={enviando} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={estilos.depoisTexto}>Agora não</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={estilos.corpo}>
+      <View>
+        <T style={estilos.titulo}>Como foi sua experiência?</T>
+        <T style={estilos.subtitulo}>Avalie {pessoa?.nome || nomeAvaliado || 'o profissional'}</T>
+        <MiniPessoa souDono outro={pessoa} />
       </View>
+
+      <View>
+        <View style={estilos.estrelasRow}>
+          {[1, 2, 3, 4, 5].map((n) => (
+            <TouchableOpacity key={n} onPress={() => escolherNota(n)} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${n} estrela${n > 1 ? 's' : ''}`}>
+              <T style={[estilos.estrela, { color: n <= estrelas ? corNivel : cores.textoFraco }]}>{n <= estrelas ? '★' : '☆'}</T>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <T style={[estilos.nivel, { color: corNivel }]}>{nivel || 'Toque nas estrelas'}</T>
+      </View>
+
+      <View style={estilos.blocoChips}>
+        {estrelas < 1 ? (
+          <T linhas={2} style={estilos.dica}>Escolha a nota para ver as etiquetas.</T>
+        ) : carregando ? (
+          <T style={estilos.dica}>Carregando etiquetas…</T>
+        ) : opcoes.length === 0 ? (
+          <T linhas={2} style={estilos.dica}>Sem etiquetas disponíveis — a nota já basta.</T>
+        ) : (
+          <>
+            <T style={estilos.dica}>O que mais marcou? (até {teto})</T>
+            <View style={estilos.chips}>
+              {opcoes.map((e) => {
+                const ligado = etiquetas.includes(e)
+                return (
+                  <TouchableOpacity key={e} onPress={() => alternar(e)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{ selected: ligado }}
+                    style={[estilos.chip, ligado && { backgroundColor: `${corNivel}22`, borderColor: corNivel }]}>
+                    <T style={[estilos.chipTexto, ligado && { color: corNivel }]}>{ligado ? '✓ ' : ''}{e}</T>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </>
+        )}
+      </View>
+
+      <View>
+        <TouchableOpacity style={[estilos.cta, (estrelas < 1 || enviando) && estilos.ctaDesabilitado]} onPress={enviar} disabled={estrelas < 1 || enviando} activeOpacity={0.85} accessibilityRole="button">
+          <T style={estilos.ctaTexto}>{enviando ? 'Enviando...' : 'Enviar avaliação'}</T>
+        </TouchableOpacity>
+        <TouchableOpacity style={estilos.depois} onPress={onFechar} disabled={enviando} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button">
+          <T style={estilos.depoisTexto}>Agora não</T>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
+export default function ModalAvaliacao({ visivel, nomeAvaliado, profissional, ehObra, demanda, onEnviar, onFechar }) {
+  return (
+    <Modal visible={visivel} animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.tela}>
+        <View style={[estilos.wrapper, larguraMaxima]}>
+          {/* key: reabrir com outro contrato zera nota e etiquetas. */}
+          <AvaliacaoConteudo key={visivel ? `${ehObra ? 'o' : 'r'}-${demanda?.id ?? nomeAvaliado}` : 'fechado'}
+            nomeAvaliado={nomeAvaliado} profissional={profissional} ehObra={ehObra} demanda={demanda} onEnviar={onEnviar} onFechar={onFechar} />
+        </View>
+      </SafeAreaView>
     </Modal>
   )
 }
 
 const estilos = StyleSheet.create({
-  backdrop:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  card:          { width: '100%', maxWidth: 380, backgroundColor: cores.fundoCard, borderRadius: 24, borderWidth: 1, borderColor: cores.primaria, padding: 28, alignItems: 'center' },
-  titulo:        { fontSize: 22, fontWeight: '800', color: cores.primaria, textAlign: 'center', marginBottom: 10, letterSpacing: -0.3 },
-  subtitulo:     { fontSize: 14, color: cores.textoMedio, textAlign: 'center', lineHeight: 21, marginBottom: 20 },
-  estrelasRow:   { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
-  estrela:       { fontSize: 40, marginHorizontal: 4 },
-  estrelaCheia:  { color: '#E8833A' },
-  estrelaVazia:  { color: cores.textoFraco },
-  cta:           { backgroundColor: cores.primaria, borderRadius: raios.grande, paddingVertical: 16, paddingHorizontal: 28, width: '100%', alignItems: 'center', marginBottom: 12 },
-  ctaDesabilitado:{ opacity: 0.5 },
-  ctaTexto:      { color: '#0A0A0A', fontSize: 16, fontWeight: '800' },
-  depois:        { paddingVertical: 8 },
-  depoisTexto:   { color: cores.textoFraco, fontSize: 13 },
+  tela:        { flex: 1, backgroundColor: cores.fundo },
+  wrapper:     { flex: 1, paddingHorizontal: 20, paddingVertical: 12 },
+  corpo:       { flex: 1, justifyContent: 'space-evenly' },
+  titulo:      { fontSize: 22, fontWeight: '800', color: cores.primaria, textAlign: 'center', letterSpacing: -0.3 },
+  subtitulo:   { fontSize: 14, color: cores.textoMedio, textAlign: 'center', marginTop: 4, marginBottom: 12 },
+  estrelasRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  estrela:     { fontSize: 44, marginHorizontal: 4, includeFontPadding: false },
+  nivel:       { fontSize: 18, fontWeight: '800', textAlign: 'center', marginTop: 4 },
+  blocoChips:  { minHeight: 120, justifyContent: 'center' },
+  dica:        { fontSize: 13, color: cores.textoMedio, textAlign: 'center', marginBottom: 8 },
+  chips:       { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  chip:        { paddingVertical: 8, paddingHorizontal: 14, borderRadius: raios.pill, borderWidth: 1, borderColor: cores.borda, backgroundColor: cores.fundoCard },
+  chipTexto:   { fontSize: 13, fontWeight: '600', color: cores.textoForte },
+  cta:         { backgroundColor: cores.primaria, borderRadius: raios.grande, paddingVertical: 16, alignItems: 'center', marginBottom: 8 },
+  ctaDesabilitado: { opacity: 0.5 },
+  ctaTexto:    { color: '#0A0A0A', fontSize: 16, fontWeight: '800' },
+  depois:      { paddingVertical: 8, alignItems: 'center' },
+  depoisTexto: { color: cores.textoFraco, fontSize: 13 },
 })

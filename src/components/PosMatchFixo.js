@@ -153,12 +153,16 @@ const CardTopo = ({ demanda, endereco, pontoReferencia, valor, faixa }) => {
   )
 }
 
-// 3. Mini card da outra parte: foto → iniciais → 🏠/👷.
-const MiniPessoa = ({ souDono, outro, linha2 }) => {
+// 3. Mini card da outra parte: foto → iniciais → 🏠/👷. Exportado: a tela de avaliação
+// (ModalAvaliacao) mostra o MESMO card do profissional.
+export const MiniPessoa = ({ souDono, outro, linha2 }) => {
   const nota = souDono
     ? (outro?.avaliacoes_total > 0
         ? `⭐ ${Number(outro.avaliacoes_media).toFixed(1)} (${outro.avaliacoes_total} ${outro.avaliacoes_total === 1 ? 'avaliação' : 'avaliações'})`
         : '🆕 Novo na plataforma')
+      // Selo "bem avaliado" na mesma linha da nota (sem altura extra): a linha do
+      // interessado/candidato escolhido já traz selo_bem_avaliado da API.
+      + (outro?.selo_bem_avaliado === true ? ' · 🏅 Bem avaliado' : '')
     : (linha2 || 'Cliente')
   const especialidades = souDono ? rotulosEspecialidades(outro?.especialidades) : null
   const iniciais = iniciaisDe(outro?.nome)
