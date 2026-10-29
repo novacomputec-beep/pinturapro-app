@@ -45,6 +45,7 @@ import SugestoesScreen     from '../screens/Perfil/SugestoesScreen'
 import RespostasEquipeScreen from '../screens/Perfil/RespostasEquipeScreen'
 import ComoFuncionaScreen  from '../screens/Perfil/ComoFuncionaScreen'
 import GaleriaEstadosScreen from '../screens/Perfil/GaleriaEstadosScreen'
+import AvaliacaoRecebidaScreen from '../screens/Perfil/AvaliacaoRecebidaScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
 import ConvidarColegaScreen from '../screens/Perfil/ConvidarColegaScreen'
@@ -333,6 +334,17 @@ const navegarParaNotificacao = (data) => {
       // Resposta da equipe a uma sugestão/pedido de suporte: a caixa de entrada vive no
       // PerfilStack (RespostasEquipe), que existe nos quatro navegadores de abas. Mesma
       // ressalva do bloco acima para o dono sem abas, que não tem Perfil.
+      // Avaliação recebida (POST /avaliacoes da API, ao profissional): { reparo_id | obra_id,
+      // nota } abre a comemoração no PerfilStack, que existe nas abas do profissional. Sem id
+      // ou fora do papel, a lista de contratos de sempre.
+      case 'avaliacao_recebida':
+        if (ehPrestador && (data.reparo_id || data.obra_id)) {
+          navigationRef.current.navigate('Perfil', { screen: 'AvaliacaoRecebida', initial: false, params: {
+            tipo: data.reparo_id ? 'reparo' : 'obra', id: data.reparo_id || data.obra_id, nota: data.nota,
+            etiquetas: Array.isArray(data.etiquetas) ? data.etiquetas : undefined,
+          } })
+        } else navegar(tabEmAndamento)
+        break
       case 'resposta_equipe':
         if (ehPrestador || ehDonoComAba) navigationRef.current.navigate('Perfil', { screen: 'RespostasEquipe', initial: false })
         else navegar(tabEmAndamento)
@@ -735,6 +747,8 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="ComoFunciona" component={ComoFuncionaScreen} />
     {/* Galeria oculta dos estados do pós-match: só por 7 toques na versão, no Perfil. */}
     <PerfilStack.Screen name="GaleriaEstados" component={GaleriaEstadosScreen} />
+    {/* Comemoração da avaliação recebida (profissional): push 'avaliacao_recebida' e o contrato finalizado. */}
+    <PerfilStack.Screen name="AvaliacaoRecebida" component={AvaliacaoRecebidaScreen} />
     <PerfilStack.Screen name="AvaliacoesRecebidas" component={AvaliacoesRecebidasScreen} />
     {/* Indicação de colegas: só o profissional chega aqui (item do Perfil e cartão do feed). */}
     <PerfilStack.Screen name="ConvidarColega" component={ConvidarColegaScreen} />

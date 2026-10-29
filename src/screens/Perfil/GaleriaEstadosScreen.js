@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanRespon
 import { SafeAreaView } from 'react-native-safe-area-context'
 import TelaPosMatch from '../../components/PosMatchFixo'
 import { AvaliacaoConteudo } from '../../components/ModalAvaliacao'
+import { CelebracaoAvaliacaoConteudo } from './AvaliacaoRecebidaScreen'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -73,6 +74,11 @@ const CASOS = [
   { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 3 Regular', nota: 3 },
   { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · 1 Péssimo', nota: 1 },
   { lado: 'dono', fase: 'avaliacao', rotulo: 'Avaliação · catálogo indisponível', nota: 4, semCatalogo: true },
+  // ── Comemoração do profissional (AvaliacaoRecebidaScreen → CelebracaoAvaliacaoConteudo) ──
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 5 + destaques do cliente', nota: 5, etiquetas: ['Resolveu de primeira', 'Pontual', 'Deixou tudo limpo'], doContrato: true, selo: true },
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 4 + destaques do cliente', nota: 4, etiquetas: ['Pontual', 'Educado'], doContrato: true },
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 5, destaques gerais (sem os do contrato)', nota: 5, etiquetas: ['Pontual', 'Educado', 'Caprichoso'], doContrato: false },
+  { lado: 'pro', fase: 'celebracao', rotulo: 'Avaliação recebida · 3, sem etiquetas', nota: 3, etiquetas: [] },
 ]
 
 // Catálogo LOCAL no formato de GET /config/etiquetas-avaliacao (só para a galeria): um grupo
@@ -168,7 +174,21 @@ const propsAvaliacao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação' }
+// Dados prontos da comemoração do profissional; o compartilhar é no-op (nada sai do aparelho).
+const propsCelebracao = (caso) => {
+  const demanda = base(caso.frente)
+  return {
+    dados: {
+      nome: PROFISSIONAL.nome, especialidade: 'Elétrica, Hidráulica', nota: caso.nota, etiquetas: caso.etiquetas || [],
+      etiquetasDoContrato: !!caso.doContrato, valor: caso.frente === 'obra' ? demanda.valor : demanda.valor_estimado,
+      media: PROFISSIONAL.avaliacoes_media, total: PROFISSIONAL.avaliacoes_total, selo: !!caso.selo,
+    },
+    onVerServicos: noop,
+    compartilhar: noop,
+  }
+}
+
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -185,7 +205,10 @@ export default function GaleriaEstadosScreen({ navigation }) {
 
   // Props recalculadas por caso (as datas relativas são lidas na montagem da lista).
   const ehAvaliacao = caso.fase === 'avaliacao'
-  const props = useMemo(() => (ehAvaliacao ? propsAvaliacao(caso) : propsDoCaso(caso)), [caso, ehAvaliacao])
+  const ehCelebracao = caso.fase === 'celebracao'
+  const props = useMemo(() => (
+    ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehAvaliacao, ehCelebracao])
   const rotulo = `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
   return (
@@ -210,7 +233,9 @@ export default function GaleriaEstadosScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }]} {...pan.panHandlers}>
-          {ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} /> : <TelaPosMatch key={i} {...props} />}
+          {ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
+            : ehCelebracao ? <CelebracaoAvaliacaoConteudo key={i} {...props} />
+            : <TelaPosMatch key={i} {...props} />}
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
