@@ -361,6 +361,13 @@ const navegarParaNotificacao = (data) => {
         if (ehPrestador || ehDonoComAba) navigationRef.current.navigate('Perfil', { screen: 'RespostasEquipe', initial: false })
         else navegar(tabEmAndamento)
         break
+      // Admin pediu correção de uma referência (usuario.referencias_problema): a tela
+      // MinhasReferencias (PerfilStack, só o profissional) já abre em edição com o motivo.
+      // Sem id de demanda; fora do papel, a lista de sempre.
+      case 'referencias_corrigir':
+        if (ehPrestador) navigationRef.current.navigate('Perfil', { screen: 'MinhasReferencias', initial: false })
+        else navegar(tabEmAndamento)
+        break
       // Boas-vindas não pede resposta: pede começar a usar. O prestador cai no feed de
       // demandas disponíveis, que é onde ele age; o dono cai na própria lista. (Se o flag
       // de boas-vindas ainda estiver ligado, quem está montado é BoasVindasPrestador e o
