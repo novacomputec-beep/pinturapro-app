@@ -5,6 +5,7 @@ import TelaPosMatch from '../../components/PosMatchFixo'
 import { AvaliacaoConteudo } from '../../components/ModalAvaliacao'
 import { CelebracaoAvaliacaoConteudo } from './AvaliacaoRecebidaScreen'
 import { AjustarFotoConteudo } from '../../components/AjustarFoto'
+import { ReferenciasDemo } from '../../components/VerificacaoIdentidadeSheet'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -116,8 +117,22 @@ const propsAjustarFoto = (caso) => {
   return { uri: fonte.uri, largura: fonte.width, altura: fonte.height, modo: caso.modo, dica: caso.dica, demo: true, semInsets: true, onConcluir: noop, onCancelar: noop }
 }
 
-// Lista final: cada caso para serviço e para obra; os de foto, uma vez.
-const TODOS = [...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))), ...CASOS_FOTO.map((c) => ({ ...c, frente: null }))]
+// Referências da verificação de identidade (components/VerificacaoIdentidadeSheet) com o
+// PROFISSIONAL como usuário logado: o nome e o telefone dele disparam "própria"/"seu telefone".
+const CASOS_REFS = [
+  { lado: 'pro', fase: 'verificacao_refs', rotulo: 'Referências · própria + seu telefone + incompleto', inicial: { ref1Nome: PROFISSIONAL.nome, ref1Tel: PROFISSIONAL.telefone, ref2Nome: 'Ana Lúcia Ferreira', ref2Tel: '(11) 9876' } },
+  { lado: 'pro', fase: 'verificacao_refs', rotulo: 'Referências · ref 2 com o mesmo telefone da 1', inicial: { ref1Nome: 'José Roberto Lima', ref1Tel: '(11) 91234-5678', ref2Nome: 'Ana Lúcia Ferreira', ref2Tel: '(11) 91234-5678' } },
+  { lado: 'pro', fase: 'verificacao_refs', rotulo: 'Referências · ref 2 pela metade (telefone incompleto)', inicial: { ref1Nome: 'José Roberto Lima', ref1Tel: '(11) 91234-5678', ref2Nome: 'Ana Lúcia Ferreira', ref2Tel: '(11) 9876' } },
+  { lado: 'pro', fase: 'verificacao_refs', rotulo: 'Referências · tudo válido (verde)', inicial: { ref1Nome: 'José Roberto Lima', ref1Tel: '(11) 91234-5678', ref2Nome: 'Ana Lúcia Ferreira', ref2Tel: '(11) 99876-5432' } },
+]
+const propsReferencias = (caso) => ({ usuario: { nome: PROFISSIONAL.nome, telefone: PROFISSIONAL.telefone }, inicial: caso.inicial })
+
+// Lista final: cada caso para serviço e para obra; os de foto e de referências, uma vez.
+const TODOS = [
+  ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
+  ...CASOS_FOTO.map((c) => ({ ...c, frente: null })),
+  ...CASOS_REFS.map((c) => ({ ...c, frente: null })),
+]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
 // com handlers no-op e os mesmos gates (quem pode o quê) derivados dos dados.
@@ -212,7 +227,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -231,10 +246,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehAvaliacao = caso.fase === 'avaliacao'
   const ehCelebracao = caso.fase === 'celebracao'
   const ehFoto = caso.fase === 'ajustar_foto'
+  const ehRefs = caso.fase === 'verificacao_refs'
   const props = useMemo(() => (
-    ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto
+    ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -261,7 +277,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
         {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, ehFoto && { paddingHorizontal: 0, paddingBottom: 0 }]} {...(ehFoto ? {} : pan.panHandlers)}>
-          {ehFoto ? <AjustarFotoConteudo key={i} {...props} />
+          {ehRefs ? <ReferenciasDemo key={i} {...props} />
+            : ehFoto ? <AjustarFotoConteudo key={i} {...props} />
             : ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
             : ehCelebracao ? <CelebracaoAvaliacaoConteudo key={i} {...props} />
             : <TelaPosMatch key={i} {...props} />}

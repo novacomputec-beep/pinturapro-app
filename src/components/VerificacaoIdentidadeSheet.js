@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable, AppState, KeyboardAvoidingView, Platform } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -202,6 +202,185 @@ const SlotFoto = ({ slot, estado, largo, onPress }) => {
 
 const SLOT_VAZIO = { uri: null, url: null, uploadando: false, erro: false }
 
+// ─── REFERÊNCIAS: validação em tempo real ─────────────────────────────────────────────
+// Espelha utils/referencias.js da API — a régua que recusa o POST /auth/verificacao com
+// REFERENCIA_PROPRIA e REFERENCIAS_TELEFONE_REPETIDO — para o erro aparecer no campo
+// enquanto a pessoa digita, e não num alerta depois do envio. Regras:
+//   - nome completo IGUAL ao do usuário (sem acento/caixa) → própria. Só a igualdade: a
+//     API também recusa nome contido ("Carlos" para "Carlos Henrique"), mas isso vermelharia
+//     cada nome que começa como o do usuário; se o servidor recusar, o erro cai no campo.
+//     Esse erro aparece só ao sair do campo (blur) ou ao tocar em Enviar, nunca digitando;
+//   - telefone igual ao do usuário → próprio; referência 2 com o mesmo da 1 → repetido;
+//   - telefone com menos de 10 dígitos → incompleto;
+//   - referência 2 só com nome ou só com telefone → pede o que falta (ou apagar).
+// Vazio não é erro aqui: a obrigatoriedade da referência 1 é cobrada ao tocar em Enviar.
+const normalizarNome = (v) => String(v || '')
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .toLowerCase().replace(/\s+/g, ' ').trim()
+// Só dígitos, sem o DDI 55 (quando vem com ele) e sem zeros à esquerda: a mesma comparação
+// da API, para "(81) 99999-0000", "+55 81 99999-0000" e "081999990000" serem o mesmo número.
+const telefoneNormalizado = (v) => {
+  let d = String(v || '').replace(/\D/g, '')
+  if (d.length >= 12 && d.startsWith('55')) d = d.slice(2)
+  return d.replace(/^0+/, '')
+}
+const nomeProprio = (nome, usuario) => {
+  const n = normalizarNome(nome)
+  const meu = normalizarNome(usuario?.nome)
+  return !!n && !!meu && n === meu
+}
+
+export const MSG_REF = {
+  propria:       'A referência precisa ser outra pessoa, não você.',
+  telProprio:    'Este é o seu telefone. Coloque o de outra pessoa.',
+  telRepetido:   'Mesmo telefone da Referência 1. Use outra pessoa.',
+  telIncompleto: 'Telefone incompleto. Use DDD + número.',
+  semTelefone:   (nome) => `Informe o telefone de ${nome} ou apague o nome.`,
+  semNome:       'Informe o nome desta referência ou apague o telefone.',
+  corrija:       'Corrija os campos em vermelho para enviar.',
+}
+
+// Erros por campo a partir do que está digitado. Por campo, a primeira regra que falha é
+// a que aparece.
+export const validarReferencias = ({ ref1Nome, ref1Tel, ref2Nome, ref2Tel }, usuario) => {
+  const erros = {}
+  const meuTel = telefoneNormalizado(usuario?.telefone)
+  const tel1 = telefoneNormalizado(ref1Tel)
+  const tel2 = telefoneNormalizado(ref2Tel)
+  const n1 = ref1Nome.trim()
+  const n2 = ref2Nome.trim()
+
+  if (n1 && nomeProprio(n1, usuario)) erros.ref1Nome = MSG_REF.propria
+  if (tel1) {
+    if (tel1.length < 10) erros.ref1Tel = MSG_REF.telIncompleto
+    else if (meuTel && tel1 === meuTel) erros.ref1Tel = MSG_REF.telProprio
+  }
+  if (n2 && nomeProprio(n2, usuario)) erros.ref2Nome = MSG_REF.propria
+  else if (!n2 && tel2) erros.ref2Nome = MSG_REF.semNome
+  if (tel2) {
+    if (tel2.length < 10) erros.ref2Tel = MSG_REF.telIncompleto
+    else if (meuTel && tel2 === meuTel) erros.ref2Tel = MSG_REF.telProprio
+    else if (tel1 && tel2 === tel1) erros.ref2Tel = MSG_REF.telRepetido
+  } else if (n2) {
+    erros.ref2Tel = MSG_REF.semTelefone(n2)
+  }
+  return erros
+}
+
+// Estado dos quatro campos e seus erros: os vivos (recalculados a cada tecla), os de
+// obrigatoriedade (postos ao tocar em Enviar, somem ao editar o campo) e os devolvidos
+// pelo servidor (somem ao editar qualquer referência). O vivo prevalece. O erro de nome
+// próprio só aparece em campo "tocado" (blur, ou Enviar); digitar de novo esconde até o
+// próximo blur. Compartilhado pela sheet e pela Galeria de estados (dados locais, sem API).
+// opcoes.tocados: começa com os nomes tocados (galeria, para o estado já aparecer).
+const NOMES = ['ref1Nome', 'ref2Nome']
+export const useReferencias = (usuario, inicial = {}, opcoes = {}) => {
+  const [valores, setValores] = useState({ ref1Nome: '', ref1Tel: '', ref2Nome: '', ref2Tel: '', ...inicial })
+  const [errosEnvio, setErrosEnvio] = useState({})
+  const [errosServidor, setErrosServidor] = useState({})
+  const [tocados, setTocados] = useState(opcoes.tocados ? { ref1Nome: true, ref2Nome: true } : {})
+  const vivos = useMemo(() => validarReferencias(valores, usuario), [valores, usuario])
+  const visiveis = { ...vivos }
+  NOMES.forEach(c => { if (visiveis[c] === MSG_REF.propria && !tocados[c]) delete visiveis[c] })
+  const erros = { ...errosServidor, ...errosEnvio, ...visiveis }
+
+  const mudar = (campo) => (texto) => {
+    const v = campo.endsWith('Tel') ? mascararTelefone(texto) : texto
+    setValores(a => ({ ...a, [campo]: v }))
+    setErrosEnvio(e => (e[campo] ? { ...e, [campo]: undefined } : e))
+    setErrosServidor(e => (Object.keys(e).length ? {} : e))
+    if (NOMES.includes(campo)) setTocados(t => (t[campo] ? { ...t, [campo]: false } : t))
+  }
+  const tocar = (campo) => () => setTocados(t => (t[campo] ? t : { ...t, [campo]: true }))
+
+  const ref2Completa = !!valores.ref2Nome.trim() && !!valores.ref2Tel.trim() && !erros.ref2Nome && !erros.ref2Tel
+  const validos = {
+    ref1Nome: !!valores.ref1Nome.trim() && !erros.ref1Nome,
+    ref1Tel:  !!valores.ref1Tel.trim() && !erros.ref1Tel,
+    ref2Nome: ref2Completa,
+    ref2Tel:  ref2Completa,
+  }
+  const temErro = Object.values(erros).some(Boolean)
+
+  // Ao tocar em Enviar: a referência 1 inteira é obrigatória, a mesma exigência do servidor,
+  // e os nomes passam a "tocados" para o erro de nome próprio (se houver) aparecer.
+  const validarObrigatorios = () => {
+    const novos = {}
+    if (!valores.ref1Nome.trim()) novos.ref1Nome = 'Informe o nome da referência 1'
+    if (!valores.ref1Tel.trim()) novos.ref1Tel = 'Informe o telefone da referência 1'
+    setErrosEnvio(novos)
+    setTocados({ ref1Nome: true, ref2Nome: true })
+    const algumVivo = Object.values(vivos).some(Boolean)
+    return Object.keys(novos).length === 0 && !algumVivo && !Object.values(errosServidor).some(Boolean)
+  }
+
+  // Lista no formato do POST /auth/verificacao. A referência 2 só vai completa.
+  const lista = () => {
+    const refs = [{ nome: valores.ref1Nome.trim(), telefone: valores.ref1Tel.trim() }]
+    if (valores.ref2Nome.trim() && valores.ref2Tel.trim()) refs.push({ nome: valores.ref2Nome.trim(), telefone: valores.ref2Tel.trim() })
+    return refs
+  }
+
+  // Recusa do servidor no campo certo. O servidor não diz QUAL referência recusou: a régua
+  // local (a mesma dele) decide; sem casar, a referência 1 leva. Devolve false para
+  // códigos que não são de referência.
+  const aplicarErroServidor = (err) => {
+    const codigo = err?.codigo
+    if (codigo === 'REFERENCIAS_OBRIGATORIAS') {
+      setErrosServidor({ ref1Nome: err?.mensagem || 'Informe ao menos uma referência com nome e telefone' })
+      return true
+    }
+    if (codigo === 'REFERENCIA_PROPRIA') {
+      const campo = nomeProprio(valores.ref2Nome, usuario) && !nomeProprio(valores.ref1Nome, usuario) ? 'ref2Nome' : 'ref1Nome'
+      setErrosServidor({ [campo]: MSG_REF.propria })
+      return true
+    }
+    if (codigo === 'REFERENCIAS_TELEFONE_REPETIDO') {
+      const tel1 = telefoneNormalizado(valores.ref1Tel)
+      const tel2 = telefoneNormalizado(valores.ref2Tel)
+      const meu = telefoneNormalizado(usuario?.telefone)
+      if (tel2 && tel2 === tel1) setErrosServidor({ ref2Tel: MSG_REF.telRepetido })
+      else if (tel2 && tel2 === meu) setErrosServidor({ ref2Tel: MSG_REF.telProprio })
+      else setErrosServidor({ ref1Tel: MSG_REF.telProprio })
+      return true
+    }
+    return false
+  }
+
+  return { valores, mudar, tocar, erros, validos, temErro, validarObrigatorios, lista, aplicarErroServidor }
+}
+
+// Os quatro campos, com vermelho + mensagem no erro e verde quando conferido.
+export const ReferenciasCampos = ({ refs }) => (
+  <>
+    <Text style={estilos.campoLabel}>Referência 1 *</Text>
+    <Input label="NOME" placeholder="Nome completo" value={refs.valores.ref1Nome} onChangeText={refs.mudar('ref1Nome')} onBlur={refs.tocar('ref1Nome')} erro={refs.erros.ref1Nome} valido={refs.validos.ref1Nome} />
+    <Input label="TELEFONE" placeholder="(34) 99999-9999" value={refs.valores.ref1Tel} onChangeText={refs.mudar('ref1Tel')} keyboardType="phone-pad" erro={refs.erros.ref1Tel} valido={refs.validos.ref1Tel} />
+    <Text style={estilos.campoLabel}>Referência 2 (opcional)</Text>
+    <Input label="NOME" placeholder="Nome completo" value={refs.valores.ref2Nome} onChangeText={refs.mudar('ref2Nome')} onBlur={refs.tocar('ref2Nome')} erro={refs.erros.ref2Nome} valido={refs.validos.ref2Nome} />
+    <Input label="TELEFONE" placeholder="(34) 99999-9999" value={refs.valores.ref2Tel} onChangeText={refs.mudar('ref2Tel')} keyboardType="phone-pad" erro={refs.erros.ref2Tel} valido={refs.validos.ref2Tel} />
+  </>
+)
+
+// Galeria de estados: os campos de referência com valores prontos e um usuário local, com
+// o mesmo aviso e o mesmo botão da sheet (no-op). Nada aqui chama a API.
+export const ReferenciasDemo = ({ usuario, inicial }) => {
+  const refs = useReferencias(usuario, inicial, { tocados: true })
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={estilos.sheetScroll} keyboardShouldPersistTaps="handled">
+        <Text style={estilos.titulo}>🪪 Confirme sua identidade</Text>
+        <Text style={estilos.texto}>Referências com validação em tempo real. Edite os campos para ver as regras.</Text>
+        <View style={estilos.campos}>
+          <ReferenciasCampos refs={refs} />
+        </View>
+      </ScrollView>
+      {refs.temErro && <Text style={estilos.avisoErros}>{MSG_REF.corrija}</Text>}
+      <BotaoPrimario titulo="Enviar para verificação" onPress={() => {}} desabilitado={refs.temErro} estilo={estilos.botao} />
+    </View>
+  )
+}
+
 // Espera pela aprovação depois do envio: relê o perfil a cada 4 s, por até 60 s.
 const INTERVALO_CONFERENCIA_MS = 4000
 const LIMITE_CONFERENCIA_MS = 60000
@@ -209,15 +388,13 @@ const LIMITE_CONFERENCIA_MS = 60000
 // `onConcluido`: "Voltar aos serviços". `onAprovado`: "Enviar minha proposta" — a tela
 // que abriu a sheet retoma ali a proposta/interesse que o usuário tinha começado.
 export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConcluido, onAprovado }) {
-  const { setUsuario } = useAuth()
+  const { usuario, setUsuario } = useAuth()
   const insets = useSafeAreaInsets()
   const montadoRef = useRef(true)
   const [fotos, setFotos] = useState({ doc_frente: SLOT_VAZIO, doc_verso: SLOT_VAZIO, selfie: SLOT_VAZIO })
   const [pixReembolso, setPixReembolso] = useState('')
-  const [ref1Nome, setRef1Nome] = useState('')
-  const [ref1Tel, setRef1Tel] = useState('')
-  const [ref2Nome, setRef2Nome] = useState('')
-  const [ref2Tel, setRef2Tel] = useState('')
+  const refs = useReferencias(usuario)
+  // Só o PIX: os erros das referências vivem no useReferencias.
   const [erros, setErros] = useState({})
   const [enviando, setEnviando] = useState(false)
   // 'form' → 'conferindo' → 'aprovado' | 'reprovado' | 'demorou'
@@ -330,23 +507,22 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
   const prontas = SLOTS.every(s => !!fotos[s.tipo].url)
 
   // Mesmas exigências do antigo passo 4 do cadastro: PIX e referência 1 obrigatórios.
+  // As duas validações rodam sempre, para todos os campos vazios ficarem marcados de uma vez.
   const validarCampos = () => {
-    const novos = {}
-    if (!pixReembolso.trim()) novos.pixReembolso = 'Informe sua chave PIX para eventual reembolso'
-    if (!ref1Nome.trim()) novos.ref1Nome = 'Informe o nome da referência 1'
-    if (!ref1Tel.trim()) novos.ref1Tel = 'Informe o telefone da referência 1'
-    setErros(novos)
-    return Object.keys(novos).length === 0
+    const pixOk = !!pixReembolso.trim()
+    setErros(pixOk ? {} : { pixReembolso: 'Informe sua chave PIX para eventual reembolso' })
+    const refsOk = refs.validarObrigatorios()
+    return pixOk && refsOk
   }
+  const mudarPix = (t) => { setPixReembolso(t); setErros(e => (e.pixReembolso ? {} : e)) }
+  const temErro = !!erros.pixReembolso || refs.temErro
 
   const enviar = async () => {
     if (enviando || !prontas) return
     if (!validarCampos()) return
     setEnviando(true)
     try {
-      const referencias = [{ nome: ref1Nome.trim(), telefone: ref1Tel.trim() }]
-      if (ref2Nome.trim()) referencias.push({ nome: ref2Nome.trim(), telefone: ref2Tel.trim() })
-      const corpo = { pix_reembolso: pixReembolso.trim(), referencias }
+      const corpo = { pix_reembolso: pixReembolso.trim(), referencias: refs.lista() }
       SLOTS.forEach(s => { corpo[s.campo] = fotos[s.tipo].url })
       const resp = await comRetry(() => api.post('/auth/verificacao', corpo))
       const status = resp?.usuario?.verificacao_status || resp?.verificacao_status || 'pendente'
@@ -354,9 +530,11 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
       if (montadoRef.current) setFase(status === 'aprovado' || status === 'reprovado' ? status : 'conferindo')
     } catch (err) {
       console.log('[Verificacao] POST /auth/verificacao FALHOU | status:', err?.status, '| code:', err?.code, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
-      // Recusas de campo do servidor voltam para o próprio campo, não para um alerta.
-      if (err?.codigo === 'PIX_OBRIGATORIO') setErros(e => ({ ...e, pixReembolso: err?.mensagem || 'Informe sua chave PIX para eventual reembolso' }))
-      else if (err?.codigo === 'REFERENCIAS_OBRIGATORIAS') setErros(e => ({ ...e, ref1Nome: err?.mensagem || 'Informe ao menos uma referência com nome e telefone' }))
+      // Recusas de campo do servidor voltam para o próprio campo, não para um alerta:
+      // PIX aqui; REFERENCIAS_OBRIGATORIAS, REFERENCIA_PROPRIA e REFERENCIAS_TELEFONE_REPETIDO
+      // no useReferencias, que escolhe o campo com a mesma régua do servidor.
+      if (err?.codigo === 'PIX_OBRIGATORIO') setErros({ pixReembolso: err?.mensagem || 'Informe sua chave PIX para eventual reembolso' })
+      else if (refs.aplicarErroServidor(err)) { /* já está no campo */ }
       // 409: o servidor não aceita novo envio (reprovado). Fecha a sheet e aponta o suporte.
       else if (err?.status === 409) { onFechar(); alertarReprovado(err?.mensagem) }
       else Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar seus documentos. Tente novamente.')
@@ -469,26 +647,22 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
                 label="CHAVE PIX (CPF, e-mail, telefone ou chave aleatória)"
                 placeholder="Ex: 000.000.000-00"
                 value={pixReembolso}
-                onChangeText={setPixReembolso}
+                onChangeText={mudarPix}
                 erro={erros.pixReembolso}
               />
-              <Text style={estilos.campoLabel}>Referência 1 *</Text>
-              <Input label="NOME" placeholder="Nome completo" value={ref1Nome} onChangeText={setRef1Nome} erro={erros.ref1Nome} />
-              <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref1Tel} onChangeText={(t) => setRef1Tel(mascararTelefone(t))} keyboardType="phone-pad" erro={erros.ref1Tel} />
-              <Text style={estilos.campoLabel}>Referência 2 (opcional)</Text>
-              <Input label="NOME" placeholder="Nome completo" value={ref2Nome} onChangeText={setRef2Nome} />
-              <Input label="TELEFONE" placeholder="(34) 99999-9999" value={ref2Tel} onChangeText={(t) => setRef2Tel(mascararTelefone(t))} keyboardType="phone-pad" />
+              <ReferenciasCampos refs={refs} />
             </View>
 
             <View style={estilos.lgpd}>
               <Text style={estilos.lgpdTexto}>🔒 Usado só para verificação. Protegido pela LGPD.</Text>
             </View>
           </ScrollView>
+          {temErro && <Text style={estilos.avisoErros}>{MSG_REF.corrija}</Text>}
           <BotaoPrimario
             titulo="Enviar para verificação"
             onPress={enviar}
             carregando={enviando}
-            desabilitado={!prontas}
+            desabilitado={!prontas || temErro}
             estilo={estilos.botao}
           />
         </View>
@@ -517,6 +691,7 @@ const estilos = StyleSheet.create({
   slotStatus:     { fontSize: 11, fontWeight: '600', color: cores.textoMedio, textAlign: 'center' },
   lgpd:           { width: '100%', borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, backgroundColor: cores.fundo, padding: 12, marginTop: 12 },
   lgpdTexto:      { fontSize: 12, color: cores.textoForte },
+  avisoErros:     { fontSize: 12, fontWeight: '600', color: cores.perigo, textAlign: 'center', marginBottom: 8 },
   botao:          { width: '100%' },
   enviadoTela:    { flex: 1, backgroundColor: cores.fundo, paddingHorizontal: espacos.tela },
   enviadoMiolo:   { flex: 1, alignItems: 'center', justifyContent: 'center' },
