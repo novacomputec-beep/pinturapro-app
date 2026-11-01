@@ -152,12 +152,16 @@ export const AuthProvider = ({ children }) => {
             registrarPushToken()
           } catch (err) {
             // Só 401/403 é o servidor dizendo que ESTE token não vale (expirado, revogado,
-            // conta suspensa): aí sim o token e a cópia local vão embora. Rede, timeout e
-            // 5xx não dizem nada sobre o token — a sessão segue com a última cópia válida,
-            // e o token fica para a próxima sincronização. Sem cópia (primeiro boot depois
-            // desta mudança, ou cache perdido) a tela de login aparece, mas o token NÃO é
-            // apagado: uma abertura com rede volta a restaurar a sessão sozinha.
-            const rejeitado = err.status === 401 || err.status === 403
+            // conta desativada, usuário inexistente — o middleware `autenticar` da API
+            // responde 401 "Usuário não encontrado" e 403 "Conta desativada"): aí sim o
+            // token e a cópia local vão embora. 404/410 entram no mesmo grupo por defesa —
+            // a API não os emite hoje no GET /auth/perfil, mas significariam "esta conta
+            // não existe mais", nunca "a rede falhou". Rede, timeout, 429 e 5xx não dizem
+            // nada sobre o token — a sessão segue com a última cópia válida, e o token fica
+            // para a próxima sincronização. Sem cópia (primeiro boot depois desta mudança,
+            // ou cache perdido) a tela de login aparece, mas o token NÃO é apagado: uma
+            // abertura com rede volta a restaurar a sessão sozinha.
+            const rejeitado = [401, 403, 404, 410].includes(err.status)
             if (rejeitado) {
               console.log('[AuthContext] token rejeitado pelo servidor — sessão encerrada | status:', err.status, '| codigo:', err.codigo, '| msg:', err.mensagem)
               await SecureStore.deleteItemAsync('token')
