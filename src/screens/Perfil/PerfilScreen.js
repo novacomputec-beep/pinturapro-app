@@ -46,10 +46,13 @@ const LinhaPerfil = ({ label, valor }) => (
 // permissão de notificação) mostram um rótulo antes da seta. As demais seguem idênticas.
 // `destaque` pinta o título de laranja (convite, não alerta) — par do `perigo` vermelho.
 // `cor` é uma cor explícita para o título (o item do canal do WhatsApp, no verde dele).
-const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor }) => (
-  <TouchableOpacity style={estilos.itemAcao} onPress={onPress} activeOpacity={0.7}>
+// `alerta` + `badge`: borda vermelha na linha e um selo (ex.: "Corrigir") antes da seta —
+// algo que o servidor pediu para a pessoa resolver, não um convite.
+const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, alerta, badge }) => (
+  <TouchableOpacity style={[estilos.itemAcao, alerta && estilos.itemAcaoAlerta]} onPress={onPress} activeOpacity={0.7}>
     <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }, destaque && { color: cores.primaria }, cor && { color: cor }]}>{titulo}</Text>
     <View style={estilos.itemAcaoDireita}>
+      {!!badge && <View style={estilos.itemAcaoBadge}><Text style={estilos.itemAcaoBadgeTexto}>{badge}</Text></View>}
       {!!estado && <Text style={[estilos.itemAcaoEstado, estadoCor && { color: estadoCor }]}>{estado}</Text>}
       <Text style={estilos.itemAcaoSeta}>→</Text>
     </View>
@@ -546,6 +549,20 @@ export default function PerfilScreen({ navigation, route }) {
                 onPress={() => navigation.navigate('Especialidades', { selecionadas: normalizarEspecialidades(dados?.especialidades), lado: dados?.tipo_prestador === 'pintor' ? 'pintura' : 'reparo', origem: 'PerfilMain' })}
               />
               <Separador />
+              {/* Só quem já enviou referências (usuario.tem_referencias, do GET /auth/perfil).
+                  Com referencias_problema o admin pediu correção: borda vermelha + "Corrigir",
+                  e a tela já abre editando. */}
+              {!!usuario?.tem_referencias && (
+                <>
+                  <ItemAcao
+                    titulo="👥 Minhas referências"
+                    alerta={!!usuario?.referencias_problema}
+                    badge={usuario?.referencias_problema ? 'Corrigir' : ''}
+                    onPress={() => navigation.navigate('MinhasReferencias')}
+                  />
+                  <Separador />
+                </>
+              )}
             </>
           )}
           {/* Para TODOS os papéis: dono e prestador dependem igualmente de push (interesse
@@ -697,6 +714,11 @@ const estilos = StyleSheet.create({
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },
   itemAcaoDireita: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   itemAcaoEstado: { fontSize: 12, fontWeight: '600', color: cores.textoFraco },
+  // Borda dentro do card (acoesWrap tem overflow hidden): 8 de margem + 8 de padding mantêm
+  // o texto alinhado aos 16 das outras linhas.
+  itemAcaoAlerta: { borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, marginHorizontal: 8, marginVertical: 4, paddingHorizontal: 8 },
+  itemAcaoBadge: { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  itemAcaoBadgeTexto: { fontSize: 11, fontWeight: '700', color: cores.perigo },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
   notifResultado: { fontSize: 12, color: cores.textoFraco, paddingHorizontal: 16, paddingBottom: 12, marginTop: -6 },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico },

@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useRef } from 'react'
-import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet, Image } from 'react-native'
+import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet, Image, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import TelaPosMatch from '../../components/PosMatchFixo'
 import { AvaliacaoConteudo } from '../../components/ModalAvaliacao'
 import { CelebracaoAvaliacaoConteudo } from './AvaliacaoRecebidaScreen'
 import { AjustarFotoConteudo } from '../../components/AjustarFoto'
 import { ReferenciasDemo } from '../../components/VerificacaoIdentidadeSheet'
+import { MinhasReferenciasConteudo } from './MinhasReferenciasScreen'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -127,11 +128,31 @@ const CASOS_REFS = [
 ]
 const propsReferencias = (caso) => ({ usuario: { nome: PROFISSIONAL.nome, telefone: PROFISSIONAL.telefone }, inicial: caso.inicial })
 
+// Tela "Minhas referências" (Perfil → MinhasReferenciasScreen → MinhasReferenciasConteudo):
+// visualização, edição e o pedido de correção do admin, com dados locais e handlers no-op.
+const REFS_SALVAS = [{ nome: 'José Roberto Lima', telefone: '(11) 91234-5678' }, { nome: 'Ana Lúcia Ferreira', telefone: '(11) 99876-5432' }]
+const CASOS_MINHAS_REFS = [
+  { lado: 'pro', fase: 'minhas_refs', rotulo: 'Minhas referências · visualização', referencias: REFS_SALVAS },
+  { lado: 'pro', fase: 'minhas_refs', rotulo: 'Minhas referências · editando', referencias: REFS_SALVAS, editando: true },
+  { lado: 'pro', fase: 'minhas_refs', rotulo: 'Minhas referências · corrigir (telefone próprio)', referencias: [{ nome: 'José Roberto Lima', telefone: PROFISSIONAL.telefone }, REFS_SALVAS[1]], problema: 'propria', editando: true },
+]
+const propsMinhasRefs = (caso) => ({
+  usuario: { nome: PROFISSIONAL.nome, telefone: PROFISSIONAL.telefone },
+  referencias: caso.referencias,
+  problema: caso.problema || null,
+  editando: !!caso.editando,
+  salvando: false,
+  onEditar: noop,
+  onSalvar: noop,
+  onCancelar: caso.problema ? undefined : noop,
+})
+
 // Lista final: cada caso para serviço e para obra; os de foto e de referências, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
   ...CASOS_FOTO.map((c) => ({ ...c, frente: null })),
   ...CASOS_REFS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_MINHAS_REFS.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -227,7 +248,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -247,10 +268,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehCelebracao = caso.fase === 'celebracao'
   const ehFoto = caso.fase === 'ajustar_foto'
   const ehRefs = caso.fase === 'verificacao_refs'
+  const ehMinhasRefs = caso.fase === 'minhas_refs'
   const props = useMemo(() => (
-    ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs
+    ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -277,7 +299,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
         {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, ehFoto && { paddingHorizontal: 0, paddingBottom: 0 }]} {...(ehFoto ? {} : pan.panHandlers)}>
-          {ehRefs ? <ReferenciasDemo key={i} {...props} />
+          {ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
+            : ehRefs ? <ReferenciasDemo key={i} {...props} />
             : ehFoto ? <AjustarFotoConteudo key={i} {...props} />
             : ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
             : ehCelebracao ? <CelebracaoAvaliacaoConteudo key={i} {...props} />

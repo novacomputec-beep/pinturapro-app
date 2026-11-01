@@ -45,6 +45,7 @@ import SugestoesScreen     from '../screens/Perfil/SugestoesScreen'
 import RespostasEquipeScreen from '../screens/Perfil/RespostasEquipeScreen'
 import ComoFuncionaScreen  from '../screens/Perfil/ComoFuncionaScreen'
 import GaleriaEstadosScreen from '../screens/Perfil/GaleriaEstadosScreen'
+import MinhasReferenciasScreen from '../screens/Perfil/MinhasReferenciasScreen'
 import AvaliacaoRecebidaScreen from '../screens/Perfil/AvaliacaoRecebidaScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
@@ -753,6 +754,8 @@ const PerfilStackNavigator = () => (
     <PerfilStack.Screen name="EditarPerfil" component={EditarPerfilScreen} />
     <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
     <PerfilStack.Screen name="Especialidades" component={EspecialidadesScreen} />
+    {/* Referências da verificação (profissional com usuario.tem_referencias). */}
+    <PerfilStack.Screen name="MinhasReferencias" component={MinhasReferenciasScreen} />
     <PerfilStack.Screen name="Sugestoes"    component={SugestoesScreen} />
     <PerfilStack.Screen name="RespostasEquipe" component={RespostasEquipeScreen} />
     <PerfilStack.Screen name="ComoFunciona" component={ComoFuncionaScreen} />
