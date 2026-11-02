@@ -26,6 +26,7 @@
     "expo-in-app-updates": "^0.12.0",
     "expo-linear-gradient": "~15.0.8",
     "expo-location": "~19.0.8",
+    "expo-network": "~8.0.8",
     "expo-notifications": "~0.32.17",
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",

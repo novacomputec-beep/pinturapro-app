@@ -46,6 +46,37 @@
 // tentativas significam mais chances de duplicar. Não muda o que é reexecutável: 4xx
 // continua definitivo, e timeout/5xx só entram se as flags deles estiverem ligadas.
 
+import * as Network from 'expo-network'
+
+// ─── Texto do erro de rede ───────────────────────────────────
+// Um erro de rede tem duas caras para quem está olhando: SEM conexão nenhuma (modo avião,
+// Wi-Fi sem internet, área sem sinal) e conexão existente que falhou (socket morto, handover,
+// Wi-Fi + dados brigando). O conselho sobre Wi-Fi e dados móveis só faz sentido na segunda;
+// na primeira a única ação útil é se conectar. expo-network diz em qual das duas se está,
+// e a consulta é local ao SO (não gera tráfego). Em dúvida (consulta falhou, campos nulos)
+// fica o texto de sempre: afirmar "sem internet" sem ter certeza seria mentir para quem
+// está conectado.
+export const MSG_SEM_INTERNET = 'Sem internet. Conecte-se e toque em Tentar novamente.'
+export const MSG_WIFI_DADOS = 'Se você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.'
+
+export const estaSemInternet = async () => {
+  try {
+    const estado = await Network.getNetworkStateAsync()
+    return estado?.isConnected === false || estado?.isInternetReachable === false
+  } catch (err) {
+    console.log('[rede] falha ao consultar o estado da rede | msg:', err?.message)
+    return false
+  }
+}
+
+// `prefixo` é a frase da ação ("Não foi possível encerrar. Verifique sua conexão."). Sem
+// internet, SÓ a mensagem de sem internet (o prefixo sai: a ação não é o assunto); com
+// internet, prefixo + conselho de Wi-Fi/dados, exatamente como o texto antigo.
+export const mensagemErroRede = async (prefixo) => {
+  if (await estaSemInternet()) return MSG_SEM_INTERNET
+  return prefixo ? `${prefixo}\n\n${MSG_WIFI_DADOS}` : MSG_WIFI_DADOS
+}
+
 // Pausa curta antes do 1º retry de erro de REDE. Não é backoff — é o tempo de o socket
 // morto sair do pool. Curta o bastante para o usuário não perceber, e é a única espera
 // deste caminho: a 2ª falha já cai no backoff normal.

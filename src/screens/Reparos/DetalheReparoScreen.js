@@ -17,7 +17,7 @@ import ModalAumentarValor from '../../components/ModalAumentarValor'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import VerificacaoIdentidadeSheet, { useVerificacaoIdentidade } from '../../components/VerificacaoIdentidadeSheet'
-import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede } from '../../utils/rede'
+import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede, mensagemErroRede } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
@@ -880,7 +880,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         } catch (e2) { console.log('[DetalheReparo] reconsulta pós-encerrar (dono) falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
-          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+          Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível encerrar. Verifique sua conexão.'), [
             { text: 'Tentar novamente', onPress: executar },
             { text: 'Cancelar', style: 'cancel' },
           ])
@@ -1007,7 +1007,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         } catch (e2) { console.log('[DetalheReparo] reconsulta pós-encerrar falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
-          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+          Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível encerrar. Verifique sua conexão.'), [
             { text: 'Tentar novamente', onPress: executar },
             { text: 'Cancelar', style: 'cancel' },
           ])
@@ -1228,7 +1228,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         setModalEstender(false)
         Alert.alert('Não encontrado', err.mensagem || 'Serviço não encontrado.')
       } else if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível aumentar o prazo. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+        Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível aumentar o prazo. Verifique sua conexão.'), [
           // Passa pela trava em vez de reentrar direto: o alerta é levantado DENTRO do
           // catch, o finally que libera o ref roda logo depois, e nada impede um segundo
           // toque enquanto um ciclo ainda corre. Ler o ref no toque resolve as duas pontas.
@@ -1274,7 +1274,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       if (alertouSuspensao(err)) return
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+        Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível enviar. Verifique sua conexão.'), [
           { text: 'Tentar novamente', onPress: () => handleResponderInteresse(interesseId, action) },
           { text: 'Cancelar', style: 'cancel' },
         ])
@@ -1310,7 +1310,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       if (alertouSuspensao(err)) return
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
-        Alert.alert('Erro de conexão', 'Não foi possível enviar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+        Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível enviar. Verifique sua conexão.'), [
           { text: 'Tentar novamente', onPress: () => handlePrestadorResponder(action, valor) },
           { text: 'Cancelar', style: 'cancel' },
         ])
