@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, ActivityIndicator, Linking, Image, Platform, Switch
+  TouchableOpacity, Pressable, Alert, ActivityIndicator, Linking, Image, Platform, Switch
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
@@ -65,13 +65,13 @@ export default function PerfilScreen({ navigation, route }) {
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
   const [mostrarExcluir, setMostrarExcluir] = useState(false)
-  // Contador dos toques na linha da versão: 7 seguidos (até 3 s entre eles) abrem a
+  // Contador dos toques na linha da versão: 7 seguidos (até 5 s entre eles) abrem a
   // galeria oculta dos estados do pós-match. Ref, não estado: nada re-renderiza por isso.
   const toquesVersaoRef = useRef({ n: 0, ultimo: 0 })
   const toqueVersao = () => {
     const agora = Date.now()
     const t = toquesVersaoRef.current
-    t.n = agora - t.ultimo < 3000 ? t.n + 1 : 1
+    t.n = agora - t.ultimo < 5000 ? t.n + 1 : 1
     t.ultimo = agora
     if (t.n >= 7) { t.n = 0; navigation.navigate('GaleriaEstados') }
   }
@@ -647,9 +647,13 @@ export default function PerfilScreen({ navigation, route }) {
             estilo={{ borderColor: cores.perigo + '44' }}
           />
           <Text style={estilos.creditoTexto}>By Nova Computec Informática</Text>
-          {/* 7 toques (em até 3 s entre eles) abrem a galeria oculta dos estados do pós-match
-              (GaleriaEstadosScreen) — único ponto de entrada, para qualquer conta. */}
-          <Text style={estilos.versaoTexto} onPress={toqueVersao} suppressHighlighting>{textoVersao}</Text>
+          {/* 7 toques (em até 5 s entre eles) abrem a galeria oculta dos estados do pós-match
+              (GaleriaEstadosScreen) — único ponto de entrada, para qualquer conta.
+              Pressable com padding e hitSlop, não onPress no Text: a linha tem 11 px e, no
+              Android, o toque só contava com o dedo descendo e subindo dentro dos glifos. */}
+          <Pressable style={estilos.versaoToque} onPress={toqueVersao} hitSlop={{ top: 16, bottom: 24, left: 40, right: 40 }}>
+            <Text style={estilos.versaoTexto}>{textoVersao}</Text>
+          </Pressable>
         </View>
 
       </ScrollView>
@@ -725,5 +729,6 @@ const estilos = StyleSheet.create({
   // O respiro de 16 passou para o crédito, que agora abre o bloco; a versão fica logo
   // abaixo dele, com o espaçamento de linha em vez do de bloco.
   creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
-  versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 2 },
+  versaoToque: { paddingVertical: 12, marginTop: 2 },
+  versaoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado },
 })
