@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
-import { comRetry } from '../../utils/rede'
+import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
@@ -241,7 +241,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
       // usuário ainda vai digitar. Ele roda no envio, sobre o endereço final.
     } catch (err) {
       console.log('[CadastrarReparo] falha ao buscar CEP | msg:', err.message)
-      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
+      Alert.alert('Erro', await mensagemErroRede('Não foi possível buscar o CEP. Verifique sua conexão.'))
     } finally {
       if (montadoRef.current) setBuscandoCep(false)
     }

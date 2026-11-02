@@ -10,7 +10,7 @@ import { AppEventsLogger } from 'react-native-fbsdk-next'
 import { pareceEmail, MSG_NOME_NAO_EMAIL } from '../../utils/nome'
 import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
-import { comRetry } from '../../utils/rede'
+import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
 import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
 import { useAuth } from '../../contexts/AuthContext'
@@ -395,7 +395,7 @@ export default function CadastroScreen({ navigation, route }) {
       }
     } catch (err) {
       console.log('[Cadastro] falha ao buscar CEP | msg:', err.message)
-      Alert.alert('Erro', 'Não foi possível buscar o CEP. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
+      Alert.alert('Erro', await mensagemErroRede('Não foi possível buscar o CEP. Verifique sua conexão.'))
     } finally {
       if (montadoRef.current) setBuscandoCep(false)
     }
@@ -662,7 +662,7 @@ export default function CadastroScreen({ navigation, route }) {
         return
       }
       if (kind === 'TIMEOUT' || kind === 'NETWORK_ERROR') {
-        Alert.alert('Conexão lenta', 'Conexão lenta detectada. Verifique sua internet e tente novamente.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.')
+        Alert.alert('Conexão lenta', await mensagemErroRede('Conexão lenta detectada. Verifique sua internet e tente novamente.'))
       } else {
         Alert.alert('Erro', err.mensagem || err.message || 'Não foi possível criar sua conta.')
       }

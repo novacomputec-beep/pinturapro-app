@@ -6,7 +6,7 @@ import { pedirAvaliacaoLoja } from '../services/avaliacaoLoja'
 import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
-import { comRetry, ehContaSuspensa, ehProfissionalSuspenso } from '../utils/rede'
+import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, mensagemErroRede } from '../utils/rede'
 import { CaixaAtencaoApp } from './Agendamento'
 import ModalAvaliacao from './ModalAvaliacao'
 import ModalDenuncia from './ModalDenuncia'
@@ -694,7 +694,7 @@ export default function CelebracaoMatchHost() {
         } catch (e2) { console.log('[Celebracao] reconsulta pós-encerrar falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
-          Alert.alert('Erro de conexão', 'Não foi possível encerrar. Verifique sua conexão.\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.', [
+          Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível encerrar. Verifique sua conexão.'), [
             { text: 'Tentar novamente', onPress: executar },
             { text: 'Cancelar', style: 'cancel' },
           ])

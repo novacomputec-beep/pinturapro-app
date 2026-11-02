@@ -2,7 +2,7 @@ import axios from 'axios'
 import { Platform } from 'react-native'
 import * as Application from 'expo-application'
 import * as SecureStore from 'expo-secure-store'
-import { comRetry, registrarSucesso, configurarAquecimento, aquecerSeOcioso } from '../utils/rede'
+import { comRetry, registrarSucesso, configurarAquecimento, aquecerSeOcioso, mensagemErroRede } from '../utils/rede'
 
 const API_URL = 'https://pinturapro-api-production.up.railway.app/api'
 
@@ -104,7 +104,9 @@ api.interceptors.response.use(
     registrarSucesso()
     return response.data
   },
-  (error) => {
+  // async: sem resposta do servidor, o texto depende de o aparelho ter internet
+  // (mensagemErroRede consulta o SO). Com resposta, nada é esperado.
+  async (error) => {
     console.log('Erro API:', error.response?.status, error.response?.data, '| network:', error.message, '| code:', error.code)
     // HOUVE resposta do servidor? Então quem fala é ele, mesmo que a mensagem venha
     // noutra chave além de `erro`. O texto de conexão só cabe quando não veio resposta
@@ -116,7 +118,7 @@ api.interceptors.response.use(
     const msgServidor = dados?.erro || dados?.mensagem || dados?.message
     const msg = error.response
       ? (msgServidor || `Não foi possível concluir (erro ${error.response.status}).`)
-      : `Erro de conexão (${error.code || error.message})\n\nSe você estiver com Wi-Fi e dados móveis ativados ao mesmo tempo, considere desativar os dados móveis temporariamente — isso pode evitar interrupções.`
+      : await mensagemErroRede(`Erro de conexão (${error.code || error.message})`)
     // `codigo` é a chave estável do backend (ex.: 'cpf_duplicado', 'email_duplicado')
     // para classificar sem depender do texto da mensagem.
     // `retryAfter` vai CRU (o valor do header, sem parse): quem decide o que fazer com ele
