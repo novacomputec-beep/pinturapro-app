@@ -11,6 +11,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { paraSeletor, CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
@@ -344,6 +345,17 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     })
   }
 
+  // Desfecho do serviço publicado com sucesso. Sem permissão de notificação, o sheet
+  // "Seu pedido foi publicado! 🎉" (AvisarPedidoSheet) substitui o alerta: ele mesmo
+  // anuncia a publicação e pede o aviso no momento de maior relevância. Com a permissão
+  // concedida (ou falha na consulta) o mostrar() devolve false e vale o fluxo de sempre —
+  // alerta, lista e o soft-ask, que nesse caso é no-op por conta própria.
+  const anunciarPublicado = async () => {
+    if (await avisarPedidoRef.mostrar?.()) { navigation.navigate('Meus Reparos'); return }
+    Alert.alert('✅ Serviço publicado!', 'Seu serviço já está visível para profissionais qualificados da sua região!',
+      [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
+  }
+
   // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes).
   // O upload/registro em si vive no hook compartilhado (useUploadMidiaDemanda);
   // aqui ficam apenas os alertas e a navegação, específicos do reparo.
@@ -352,8 +364,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     if (!montadoRef.current) return
     setCarregando(false)
     if (falhas.length === 0) {
-      Alert.alert('✅ Serviço publicado!', 'Seu serviço já está visível para profissionais qualificados da sua região!',
-        [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
+      anunciarPublicado()
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
       const dicaVideo = temVideoFalho
@@ -436,8 +447,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert('✅ Serviço publicado!', 'Seu serviço já está visível para profissionais qualificados da sua região!',
-        [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
+      anunciarPublicado()
       return
     }
     await finalizarPublicacao(reparo.id)
