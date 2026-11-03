@@ -33,6 +33,7 @@ import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAva
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
+import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 
@@ -421,6 +422,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   // "Estou a caminho" em voo: trava o botão do BlocoAgendado e o segundo toque (o POST não é
   // idempotente: repetido responde 409 e abria um segundo "✅ Confirmado!").
   const [enviandoACaminho, setEnviandoACaminho] = useState(false)
+  // "Manter meu valor" da caixa de avisados (Arte-Avisados): marca local por obra.
+  const [dicaAvisadosMantida, manterDicaAvisados] = useDicaAvisadosMantida('obra', obra?.id)
 
   // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
   // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
@@ -1394,6 +1397,18 @@ export default function DetalheObraScreen({ route, navigation }) {
   // estender já usa (:1262). Não se compara expira_em com o relógio do aparelho: a hora
   // local adiantada faria esta tela discordar do servidor sobre o que ainda está de pé.
   const expirada = !!obra?.expirada
+  // Arte-Avisados (components/CaixaAvisados): só para o DONO de obra aberta e sem match —
+  // o mesmo gate do botão "Aumentar tempo". 'linha' vai para dentro do card de valor;
+  // 'novo'/'dica' viram a caixa logo acima da lista de candidatos; null não desenha nada.
+  const estadoAvisados = isDono
+    ? modoAvisados({
+      aberta: obra?.status === 'aberta' && !obra?.match_usuario_id,
+      interessados: candidatos.length,
+      criadoEm: obra?.criado_em,
+      agora,
+      dicaMantida: dicaAvisadosMantida,
+    })
+    : null
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const pintorMatch = temMatch
@@ -1949,10 +1964,15 @@ export default function DetalheObraScreen({ route, navigation }) {
               </View>
               <View style={estilos.valorDestaqueDivisor} />
               <Text style={estilos.valorDestaqueNota}>Pagamento acertado direto com o profissional.{'\n'}O app não recebe valores.</Text>
+              {estadoAvisados === 'linha' && <LinhaAvisados avisados={obra.profissionais_avisados} />}
             </View>
           )}
 
           {!topoCompacto && <Text style={estilos.titulo}>{obra.titulo}</Text>}
+          {/* Sem card de valor (obra sem valor) a linha de avisados sai avulsa, abaixo do título. */}
+          {estadoAvisados === 'linha' && !(obra.valor || obra.valor_estimado) && (
+            <LinhaAvisados avisados={obra.profissionais_avisados} solta />
+          )}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
               cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
               O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
@@ -2221,6 +2241,20 @@ export default function DetalheObraScreen({ route, navigation }) {
               {/* Escondida na fase pós-match sem "a caminho": o bloco do topo já mostra o
                   escolhido, e os demais já perderam a disputa. */}
               {!faseAguardaHorario && (<>
+              {/* Arte-Avisados, entre o card da demanda e a lista: azul (obra recente) ou
+                  laranja (24h sem proposta) com os MESMOS fluxos dos botões acima — os
+                  modais de aumentar valor/tempo —, travados pelas mesmas regras deles. */}
+              {(estadoAvisados === 'novo' || estadoAvisados === 'dica') && (
+                <CaixaAvisados
+                  modo={estadoAvisados}
+                  avisados={obra.profissionais_avisados}
+                  onAumentarValor={() => setModalAumentar(true)}
+                  podeAumentarValor={aumentoValor.pode === true && !aumentando}
+                  onAumentarTempo={() => setModalEstender(true)}
+                  podeAumentarTempo={!obra.expirada && !emEsperaEstender}
+                  onManter={manterDicaAvisados}
+                />
+              )}
               <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🎨 Profissionais candidatos ({candidatos.length})</Text>
               {candidatos.length === 0 ? (
                 <View style={estilos.vazioInteressados}>

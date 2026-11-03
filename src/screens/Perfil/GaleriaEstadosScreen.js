@@ -8,6 +8,7 @@ import { AjustarFotoConteudo } from '../../components/AjustarFoto'
 import { ReferenciasDemo } from '../../components/VerificacaoIdentidadeSheet'
 import { MinhasReferenciasConteudo } from './MinhasReferenciasScreen'
 import { AvisarPedidoConteudo } from '../../components/AvisarPedidoSheet'
+import { CaixaAvisados, LinhaAvisados } from '../../components/CaixaAvisados'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -157,6 +158,45 @@ const CASOS_AVISAR = [
 ]
 const propsAvisar = (caso) => ({ modo: caso.modo, onAvisar: noop, onAgoraNao: noop, onAbrirAjustes: noop })
 
+// Arte-Avisados (components/CaixaAvisados), no detalhe do DONO de pedido aberto sem match:
+// azul (recente), laranja (24h sem proposta, com os atalhos) e a linha dentro do card de
+// valor (com interessados). N abaixo de 10 ou ausente sai sem número. Handlers no-op.
+const CASOS_AVISADOS = [
+  { lado: 'dono', fase: 'avisados', rotulo: 'Avisados · pedido recente (azul, N=23)', modo: 'novo', avisados: 23 },
+  { lado: 'dono', fase: 'avisados', rotulo: 'Avisados · pedido recente, N < 10 (sem número)', modo: 'novo', avisados: 4 },
+  { lado: 'dono', fase: 'avisados', rotulo: 'Avisados · 24h sem propostas (laranja, N=23)', modo: 'dica', avisados: 23 },
+  { lado: 'dono', fase: 'avisados', rotulo: 'Avisados · 24h sem propostas, N ausente', modo: 'dica', avisados: null },
+  { lado: 'dono', fase: 'avisados', rotulo: 'Avisados · com interessados (linha no card)', modo: 'linha', avisados: 23 },
+]
+const propsAvisados = (caso) => ({ modo: caso.modo, avisados: caso.avisados })
+
+// Trecho do detalhe do dono em volta da arte: o card verde de valor (onde a linha entra) e,
+// abaixo, a caixa seguida do título da lista vazia — a posição real, entre card e lista.
+function DemoAvisados({ modo, avisados }) {
+  const demanda = base('servico')
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <View style={estilos.cardValor}>
+        <Text style={estilos.cardValorLabel}>💰 VALOR PROPOSTO</Text>
+        <Text style={estilos.cardValorValor}>R$ {demanda.valor_estimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</Text>
+        <View style={estilos.cardValorDivisor} />
+        <Text style={estilos.cardValorNota}>Pagamento acertado direto com o profissional.{'\n'}O app não recebe valores.</Text>
+        {modo === 'linha' && <LinhaAvisados avisados={avisados} />}
+      </View>
+      <Text style={estilos.tituloDemanda}>{demanda.titulo}</Text>
+      {modo !== 'linha' && (
+        <CaixaAvisados modo={modo} avisados={avisados} onAumentarValor={noop} onAumentarTempo={noop} onManter={noop} />
+      )}
+      <Text style={estilos.secaoTitulo}>🔧 Profissionais interessados ({modo === 'linha' ? 2 : 0})</Text>
+      {modo !== 'linha' && (
+        <View style={estilos.vazio}>
+          <Text style={estilos.vazioTexto}>Nenhum profissional demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
+        </View>
+      )}
+    </ScrollView>
+  )
+}
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -164,6 +204,7 @@ const TODOS = [
   ...CASOS_REFS.map((c) => ({ ...c, frente: null })),
   ...CASOS_MINHAS_REFS.map((c) => ({ ...c, frente: null })),
   ...CASOS_AVISAR.map((c) => ({ ...c, frente: null })),
+  ...CASOS_AVISADOS.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -259,7 +300,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -281,10 +322,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehRefs = caso.fase === 'verificacao_refs'
   const ehMinhasRefs = caso.fase === 'minhas_refs'
   const ehAvisar = caso.fase === 'avisar_pedido'
+  const ehAvisados = caso.fase === 'avisados'
   const props = useMemo(() => (
-    ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar
+    ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -314,6 +356,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : ehAvisados ? <DemoAvisados key={i} {...props} />
             : ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
             : ehRefs ? <ReferenciasDemo key={i} {...props} />
             : ehFoto ? <AjustarFotoConteudo key={i} {...props} />
@@ -340,4 +383,15 @@ const estilos = StyleSheet.create({
   // barra de abas não existe e a folha encosta no rodapé da área útil).
   fundoSheet: { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, paddingBottom: 20, alignItems: 'center', width: '100%' },
+  // Cópia dos valorDestaque*/titulo/secaoTitulo/vazioInteressados de DetalheReparoScreen,
+  // só o bastante para a arte de avisados aparecer no lugar em que vive.
+  cardValor: { backgroundColor: cores.sucessoSuave, borderRadius: 16, padding: 16, marginBottom: 16 },
+  cardValorLabel: { fontSize: 10, color: cores.sucesso, fontWeight: '600', letterSpacing: 0.5, marginBottom: 4 },
+  cardValorValor: { fontSize: 24, fontWeight: '700', color: cores.sucesso },
+  cardValorDivisor: { height: 1, backgroundColor: cores.sucesso, opacity: 0.2, marginTop: 12, marginBottom: 8 },
+  cardValorNota: { fontSize: 11, color: cores.sucesso, fontWeight: '500', lineHeight: 16 },
+  tituloDemanda: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 26, marginBottom: 16 },
+  secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
+  vazio: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 24, alignItems: 'center', marginBottom: 16 },
+  vazioTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
 })
