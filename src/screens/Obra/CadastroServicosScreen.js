@@ -7,6 +7,7 @@ import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { mascararTelefone } from '../../utils/telefone'
 import { CATEGORIAS_SERVICO, MAX_ESPECIALIDADES, rotuloComEmoji } from '../../utils/categorias'
+import { CampoOutrosDescricao, temOutros, faltaOutrosDescricao, limparOutrosDescricao, ehErroOutrosObrigatoria, MSG_OUTROS_OBRIGATORIA } from '../../components/OutrosDescricao'
 import { ocultarConviteServicos } from '../../components/ConviteCadastroServicos'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
@@ -43,6 +44,10 @@ const Linha = ({ label, valor }) => (
 export default function CadastroServicosScreen({ navigation }) {
   const { usuario } = useAuth()
   const [selecionadas, setSelecionadas] = useState([SLUG_ALVENARIA])
+  // Descrição de ➕ Outros (components/OutrosDescricao): mesma regra do cadastro —
+  // obrigatória com "Outros" marcado, vai ao POST como outros_descricao.
+  const [outrosDescricao, setOutrosDescricao] = useState('')
+  const [erroOutros, setErroOutros] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const enviandoRef = useRef(false)
   const montadoRef = useRef(true)
@@ -66,12 +71,16 @@ export default function CadastroServicosScreen({ navigation }) {
   const confirmar = async () => {
     if (enviandoRef.current) return
     if (!selecionadas.length) { Alert.alert('Especialidades', 'Escolha pelo menos uma especialidade para continuar.'); return }
+    if (faltaOutrosDescricao(selecionadas, outrosDescricao)) { setErroOutros(MSG_OUTROS_OBRIGATORIA); return }
     enviandoRef.current = true
     setCarregando(true)
     try {
       // comRetry como authService.cadastrar: a regra de quando um POST pode ser reenviado
       // mora lá (metodo/rota), não aqui.
-      const resposta = await comRetry(() => api.post('/auth/contas/reparador', { especialidades: selecionadas }))
+      const resposta = await comRetry(() => api.post('/auth/contas/reparador', {
+        especialidades: selecionadas,
+        outros_descricao: temOutros(selecionadas) ? limparOutrosDescricao(outrosDescricao) : null,
+      }))
       // A conta existe: o convite do feed não tem mais o que convidar. Antes do alerta, para
       // a marca valer mesmo que a pessoa feche o app em cima dele.
       await ocultarConviteServicos(usuario?.id)
@@ -93,7 +102,10 @@ export default function CadastroServicosScreen({ navigation }) {
       // Já existia: é a mesma informação de "criada" para o convite — grava a marca.
       if (err?.status === 409 && err?.codigo === 'tipo_duplicado') await ocultarConviteServicos(usuario?.id)
       if (!montadoRef.current) return
-      if (err?.status === 409) {
+      if (ehErroOutrosObrigatoria(err)) {
+        // 400 OUTROS_DESCRICAO_OBRIGATORIA: vai para o campo, que está nesta mesma tela.
+        setErroOutros(MSG_OUTROS_OBRIGATORIA)
+      } else if (err?.status === 409) {
         Alert.alert('Não foi possível criar', msg409(err?.codigo) || err?.mensagem || 'Estes dados já estão em outro cadastro.')
       } else {
         Alert.alert('Erro', err?.mensagem || 'Não foi possível criar o cadastro de serviços. Tente novamente.')
@@ -106,7 +118,7 @@ export default function CadastroServicosScreen({ navigation }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={estilos.voltarIcone}>←</Text>
         </TouchableOpacity>
@@ -147,6 +159,9 @@ export default function CadastroServicosScreen({ navigation }) {
             )
           })}
         </View>
+        {temOutros(selecionadas) && (
+          <CampoOutrosDescricao valor={outrosDescricao} onChange={(t) => { setOutrosDescricao(t); if (erroOutros) setErroOutros(null) }} erro={erroOutros} />
+        )}
         {!selecionadas.length && (
           <Text style={estilos.aviso}>Escolha pelo menos uma especialidade para continuar.</Text>
         )}
