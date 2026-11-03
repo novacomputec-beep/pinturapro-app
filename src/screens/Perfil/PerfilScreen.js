@@ -20,7 +20,6 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
-import { BannerCompletarOutros, temOutros, perfilPrecisaOutros, limparOutrosDescricao, ehErroOutrosObrigatoria, MSG_OUTROS_OBRIGATORIA } from '../../components/OutrosDescricao'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
@@ -49,17 +48,11 @@ const LinhaPerfil = ({ label, valor }) => (
 // `cor` é uma cor explícita para o título (o item do canal do WhatsApp, no verde dele).
 // `alerta` + `badge`: borda vermelha na linha e um selo (ex.: "Corrigir") antes da seta —
 // algo que o servidor pediu para a pessoa resolver, não um convite.
-// `badgeCor`: cor do selo quando ele É convite ("Completar", laranja); ausente = vermelho.
-// Exportado para a Galeria de estados (o selo "Completar" de Minhas especialidades).
-export const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, alerta, badge, badgeCor }) => (
+const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, alerta, badge }) => (
   <TouchableOpacity style={[estilos.itemAcao, alerta && estilos.itemAcaoAlerta]} onPress={onPress} activeOpacity={0.7}>
     <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }, destaque && { color: cores.primaria }, cor && { color: cor }]}>{titulo}</Text>
     <View style={estilos.itemAcaoDireita}>
-      {!!badge && (
-        <View style={[estilos.itemAcaoBadge, badgeCor && { backgroundColor: badgeCor + '22', borderColor: badgeCor }]}>
-          <Text style={[estilos.itemAcaoBadgeTexto, badgeCor && { color: badgeCor }]}>{badge}</Text>
-        </View>
-      )}
+      {!!badge && <View style={estilos.itemAcaoBadge}><Text style={estilos.itemAcaoBadgeTexto}>{badge}</Text></View>}
       {!!estado && <Text style={[estilos.itemAcaoEstado, estadoCor && { color: estadoCor }]}>{estado}</Text>}
       <Text style={estilos.itemAcaoSeta}>→</Text>
     </View>
@@ -67,7 +60,7 @@ export const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estad
 )
 
 export default function PerfilScreen({ navigation, route }) {
-  const { usuario, setUsuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken } = useAuth()
+  const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
@@ -123,27 +116,16 @@ export default function PerfilScreen({ navigation, route }) {
   useEffect(() => {
     if (!espRetorno) return
     const lista = normalizarEspecialidades(espRetorno)
-    // Descrição de ➕ Outros, do mesmo retorno. Vai junto no PUT: texto com "Outros" na
-    // lista, null sem ele (apaga um texto velho). Ver components/OutrosDescricao.
-    const outrosDescricao = temOutros(lista) ? limparOutrosDescricao(route.params?.outrosDescricao) : null
-    navigation.setParams({ especialidades: undefined, outrosDescricao: undefined })
+    navigation.setParams({ especialidades: undefined })
     if (!lista.length) return
     const salvar = async () => {
       setSalvandoEsp(true)
       try {
-        await comRetry(() => authService.atualizarPerfil({ especialidades: lista, outros_descricao: outrosDescricao }), { timeout: true, servidor: true })
-        espSalvasRef.current = { seq: espSalvasRef.current.seq + 1, lista, outrosDescricao }
-        if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, especialidades: lista, outros_descricao: outrosDescricao } : d))
-        // O banner e o selo "Completar" leem o usuario do contexto: atualiza na hora.
-        setUsuario(prev => (prev ? { ...prev, especialidades: lista, outros_descricao: outrosDescricao } : prev))
+        await comRetry(() => authService.atualizarPerfil({ especialidades: lista }), { timeout: true, servidor: true })
+        espSalvasRef.current = { seq: espSalvasRef.current.seq + 1, lista }
+        if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, especialidades: lista } : d))
       } catch (err) {
-        console.log('[Perfil] falha ao salvar especialidades | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
-        // 400 OUTROS_DESCRICAO_OBRIGATORIA: reabre a escolha já com o erro no campo.
-        if (ehErroOutrosObrigatoria(err)) {
-          Alert.alert('Falta uma coisa', MSG_OUTROS_OBRIGATORIA)
-          navigation.navigate('Especialidades', { selecionadas: lista, lado: usuario?.tipo_prestador === 'pintor' ? 'pintura' : 'reparo', origem: 'PerfilMain', outrosDescricao: outrosDescricao || '', erroOutros: true })
-          return
-        }
+        console.log('[Perfil] falha ao salvar especialidades | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
         Alert.alert('Erro', err.mensagem || 'Não foi possível salvar suas especialidades.')
       } finally {
         if (montadoRef.current) setSalvandoEsp(false)
@@ -189,7 +171,7 @@ export default function PerfilScreen({ navigation, route }) {
           if (salvamentoEspRef.current) await salvamentoEspRef.current
           const salvas = espSalvasRef.current
           setDadosCompletos(salvas.seq !== seqNoInicio
-            ? { ...resposta.usuario, especialidades: salvas.lista, outros_descricao: salvas.outrosDescricao }
+            ? { ...resposta.usuario, especialidades: salvas.lista }
             : resposta.usuario)
         } catch (err) {
           console.log('[Perfil] falha ao buscar perfil | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -338,16 +320,6 @@ export default function PerfilScreen({ navigation, route }) {
   }
 
   const dados = dadosCompletos || usuario
-
-  // ➕ Outros marcado e sem outros_descricao → banner + selo "Completar" em Minhas
-  // especialidades. A tela de escolha recebe a descrição atual para editar.
-  const precisaOutros = perfilPrecisaOutros(dados)
-  const abrirEspecialidades = () => navigation.navigate('Especialidades', {
-    selecionadas: normalizarEspecialidades(dados?.especialidades),
-    lado: dados?.tipo_prestador === 'pintor' ? 'pintura' : 'reparo',
-    origem: 'PerfilMain',
-    outrosDescricao: dados?.outros_descricao || '',
-  })
 
   // "Cidade, UF" a partir do que o perfil realmente traz. Antes a UF era um 'MG' fixo no
   // JSX, que mentia para quem mora em qualquer outro estado — e o cadastro sempre enviou
@@ -559,12 +531,6 @@ export default function PerfilScreen({ navigation, route }) {
           </View>
         )}
 
-        {/* "Outros" sem descrição: convite para completar (components/OutrosDescricao). Lê
-            `dados` (perfil recém-carregado, com o usuario do contexto como reserva). */}
-        {ehPrestador && precisaOutros && (
-          <BannerCompletarOutros onPress={abrirEspecialidades} />
-        )}
-
         <View style={estilos.acoesWrap}>
           {/* Todos os papéis, em laranja (convite): some quando não há vídeo publicado. */}
           {temVideoComoFunciona && (
@@ -580,9 +546,7 @@ export default function PerfilScreen({ navigation, route }) {
               <ItemAcao
                 titulo="🛠 Minhas especialidades"
                 estado={salvandoEsp ? 'Salvando...' : String(normalizarEspecialidades(dados?.especialidades).length)}
-                badge={precisaOutros && !salvandoEsp ? 'Completar' : ''}
-                badgeCor={cores.primaria}
-                onPress={abrirEspecialidades}
+                onPress={() => navigation.navigate('Especialidades', { selecionadas: normalizarEspecialidades(dados?.especialidades), lado: dados?.tipo_prestador === 'pintor' ? 'pintura' : 'reparo', origem: 'PerfilMain' })}
               />
               <Separador />
               {/* Só quem já enviou referências (usuario.tem_referencias, do GET /auth/perfil).

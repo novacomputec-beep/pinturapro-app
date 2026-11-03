@@ -8,8 +8,6 @@ import { AjustarFotoConteudo } from '../../components/AjustarFoto'
 import { ReferenciasDemo } from '../../components/VerificacaoIdentidadeSheet'
 import { MinhasReferenciasConteudo } from './MinhasReferenciasScreen'
 import { AvisarPedidoConteudo } from '../../components/AvisarPedidoSheet'
-import { OutrosDescricaoDemo, BannerCompletarOutros, MSG_OUTROS_OBRIGATORIA } from '../../components/OutrosDescricao'
-import { ItemAcao } from './PerfilScreen'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -159,25 +157,13 @@ const CASOS_AVISAR = [
 ]
 const propsAvisar = (caso) => ({ modo: caso.modo, onAvisar: noop, onAgoraNao: noop, onAbrirAjustes: noop })
 
-// "Outros" com descrição (components/OutrosDescricao): o campo abaixo dos chips — vazio,
-// preenchido e com o erro do 400 OUTROS_DESCRICAO_OBRIGATORIA — e o Perfil com o banner e
-// o selo "Completar" em Minhas especialidades. Campo editável, com estado local.
-const CASOS_OUTROS = [
-  { lado: 'pro', fase: 'outros', rotulo: 'Outros · campo vazio', inicial: '' },
-  { lado: 'pro', fase: 'outros', rotulo: 'Outros · preenchido', inicial: 'Design de cartazes, conserto de bike' },
-  { lado: 'pro', fase: 'outros', rotulo: 'Outros · erro 400 (obrigatória)', inicial: '', erro: MSG_OUTROS_OBRIGATORIA },
-  { lado: 'pro', fase: 'outros_perfil', rotulo: 'Perfil · banner + "Completar"' },
-]
-const propsOutros = (caso) => ({ inicial: caso.inicial || '', erro: caso.erro || null })
-
-// Lista final: cada caso para serviço e para obra; os de foto, referências, aviso e Outros, uma vez.
+// Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
   ...CASOS_FOTO.map((c) => ({ ...c, frente: null })),
   ...CASOS_REFS.map((c) => ({ ...c, frente: null })),
   ...CASOS_MINHAS_REFS.map((c) => ({ ...c, frente: null })),
   ...CASOS_AVISAR.map((c) => ({ ...c, frente: null })),
-  ...CASOS_OUTROS.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -273,7 +259,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', outros: 'Outros · descrição', outros_perfil: 'Outros · Perfil' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -295,12 +281,10 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehRefs = caso.fase === 'verificacao_refs'
   const ehMinhasRefs = caso.fase === 'minhas_refs'
   const ehAvisar = caso.fase === 'avisar_pedido'
-  const ehOutros = caso.fase === 'outros'
-  const ehOutrosPerfil = caso.fase === 'outros_perfil'
   const props = useMemo(() => (
-    ehOutros ? propsOutros(caso) : ehOutrosPerfil ? {} : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehOutros, ehOutrosPerfil, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehOutros || ehOutrosPerfil
+    ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -329,18 +313,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* O sheet de aviso é ancorado ao rodapé, como o Modal real: fundo escurecido e a folha
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
-          {ehOutros ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><OutrosDescricaoDemo {...props} /></ScrollView>
-            : ehOutrosPerfil ? (
-              <View key={i}>
-                <BannerCompletarOutros onPress={noop} estilo={{ marginHorizontal: 0 }} />
-                <View style={estilos.cardAcoes}>
-                  <ItemAcao titulo="✏️ Editar perfil" onPress={noop} />
-                  <View style={estilos.separador} />
-                  <ItemAcao titulo="🛠 Minhas especialidades" estado="3" badge="Completar" badgeCor={cores.primaria} onPress={noop} />
-                </View>
-              </View>
-            )
-            : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+          {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
             : ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
             : ehRefs ? <ReferenciasDemo key={i} {...props} />
             : ehFoto ? <AjustarFotoConteudo key={i} {...props} />
@@ -367,7 +340,4 @@ const estilos = StyleSheet.create({
   // barra de abas não existe e a folha encosta no rodapé da área útil).
   fundoSheet: { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, paddingBottom: 20, alignItems: 'center', width: '100%' },
-  // Mesmo card de ações do Perfil (acoesWrap, sem a margem horizontal) e o separador dele.
-  cardAcoes: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 16, overflow: 'hidden' },
-  separador: { height: 0.5, backgroundColor: cores.bordaFraca },
 })

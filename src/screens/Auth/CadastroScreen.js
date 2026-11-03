@@ -18,7 +18,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
-import { temOutros, faltaOutrosDescricao, limparOutrosDescricao, ehErroOutrosObrigatoria, MSG_OUTROS_OBRIGATORIA } from '../../components/OutrosDescricao'
 import { buscarIndicador, codigoDoInstallReferrer } from '../../utils/indicacao'
 import EscolhaPerfil from './EscolhaPerfil'
 
@@ -178,9 +177,6 @@ export default function CadastroScreen({ navigation, route }) {
   // Array de SLUGS, não mais texto livre. normalizarEspecialidades cuida de rascunho
   // antigo (que gravava CSV) e de valor legado — ver restauração abaixo.
   const [especialidades, setEspecialidades] = useState([])
-  // Descrição de ➕ Outros (components/OutrosDescricao): digitada na EspecialidadesScreen,
-  // volta junto da lista e vai ao POST como outros_descricao. Entra no rascunho.
-  const [outrosDescricao, setOutrosDescricao] = useState('')
 
   // Retorno da EspecialidadesScreen, por params SERIALIZÁVEIS — nada de callback em
   // rota: função não sobrevive ao Android reciclar o processo, e o estado de navegação
@@ -193,10 +189,8 @@ export default function CadastroScreen({ navigation, route }) {
   useEffect(() => {
     if (!especialidadesRetorno) return
     setEspecialidades(normalizarEspecialidades(especialidadesRetorno))
-    // A descrição vem no MESMO retorno (sempre presente, string): aplicada junto da lista.
-    if (route.params?.outrosDescricao != null) setOutrosDescricao(limparOutrosDescricao(route.params.outrosDescricao))
     setErros(e => ({ ...e, especialidades: undefined }))
-    navigation.setParams({ especialidades: undefined, outrosDescricao: undefined })
+    navigation.setParams({ especialidades: undefined })
   }, [especialidadesRetorno])
   const [planoSelecionado, setPlanoSelecionado] = useState('mensal')
 
@@ -232,7 +226,7 @@ export default function CadastroScreen({ navigation, route }) {
   snapshotRef.current = {
     tipoConta, passo, nome, sobrenome, email, telefone, cidade, uf, cep,
     latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
-    cpfCnpj, anosExp, equipe, especialidades, outrosDescricao, planoSelecionado,
+    cpfCnpj, anosExp, equipe, especialidades, planoSelecionado,
     rg, rgOrgao, rgEstado, codigoIndicacao,
   }
   senhaRef.current = senha
@@ -301,7 +295,6 @@ export default function CadastroScreen({ navigation, route }) {
           setComplemento(s.complemento ?? ''); setBairro(s.bairro ?? '')
           setCpfCnpj(s.cpfCnpj ?? ''); setAnosExp(s.anosExp ?? ''); setEquipe(s.equipe ?? '')
           setEspecialidades(normalizarEspecialidades(s.especialidades)); setPlanoSelecionado(s.planoSelecionado ?? 'mensal')
-          setOutrosDescricao(limparOutrosDescricao(s.outrosDescricao))
           setRg(s.rg ?? ''); setRgOrgao(s.rgOrgao ?? 'SSP'); setRgEstado(s.rgEstado ?? '')
           // Só sobrescreve com rascunho que TEM código: um rascunho sem ele não pode apagar o
           // que o install referrer já pôs. O nome do indicador não é gravado — revalida.
@@ -412,7 +405,6 @@ export default function CadastroScreen({ navigation, route }) {
     const novos = {}
     if (isPrestador && (!cep || cep.length !== 8)) novos.cep = 'Informe um CEP válido'
     if (isPrestador && !especialidades.length) novos.especialidades = 'Escolha ao menos uma especialidade'
-    else if (isPrestador && faltaOutrosDescricao(especialidades, outrosDescricao)) novos.especialidades = MSG_OUTROS_OBRIGATORIA
     if (!uf.trim()) novos.uf = 'Selecione o estado'
     if (!cidade.trim()) novos.cidade = 'Selecione a cidade'
     if (!cpfCnpj.trim()) {
@@ -540,14 +532,6 @@ export default function CadastroScreen({ navigation, route }) {
       Alert.alert('Falta uma coisa', 'Escolha ao menos uma especialidade para concluir o cadastro.')
       return
     }
-    // Mesmo backstop para "Outros" sem descrição (rascunho antigo com 'outros' marcado e
-    // sem o texto): volta ao passo 2 com o erro no campo das especialidades.
-    if (isPrestador && faltaOutrosDescricao(especialidades, outrosDescricao)) {
-      setErros(e => ({ ...e, especialidades: MSG_OUTROS_OBRIGATORIA }))
-      setPasso(2)
-      Alert.alert('Falta uma coisa', MSG_OUTROS_OBRIGATORIA)
-      return
-    }
     if (emAndamentoRef.current) return   // já em andamento: ignora toques repetidos
     emAndamentoRef.current = true
     setCarregando(true)
@@ -603,8 +587,6 @@ export default function CadastroScreen({ navigation, route }) {
         anos_experiencia: isPrestador ? parseInt(anosExp) || 0 : 0,
         tamanho_equipe: isPrestador ? parseInt(equipe) || 1 : 1,
         especialidades: isPrestador ? especialidades : [],
-        // Só com ➕ Outros na lista; senão null (o texto guardado não vale sem o slug).
-        outros_descricao: isPrestador && temOutros(especialidades) ? limparOutrosDescricao(outrosDescricao) : null,
         // PIX e referências do prestador não vão mais no cadastro (POST /auth/verificacao).
         // O dono segue mandando os mesmos vazios de sempre.
         ...(isDono ? { pix_reembolso: null, referencias: [] } : {}),
@@ -673,14 +655,6 @@ export default function CadastroScreen({ navigation, route }) {
       // limite_contas): mesmo Alert dos duplicados, com o texto do mapa.
       if (msgErroContas(err?.codigo)) {
         Alert.alert('Atenção', msgErroContas(err?.codigo))
-        return
-      }
-      // 400 OUTROS_DESCRICAO_OBRIGATORIA: o servidor exige a descrição de "Outros". Vai para
-      // o campo das especialidades (passo 2) e reabre a tela de escolha já com o erro.
-      if (ehErroOutrosObrigatoria(err)) {
-        setErros(e => ({ ...e, especialidades: MSG_OUTROS_OBRIGATORIA }))
-        setPasso(2)
-        navigation.navigate('Especialidades', { selecionadas: especialidades, lado: tipoConta === 'pintor' ? 'pintura' : 'reparo', origem: 'Cadastro', outrosDescricao, erroOutros: true })
         return
       }
       if (err.status === 409) {
@@ -814,7 +788,7 @@ export default function CadastroScreen({ navigation, route }) {
                   <Text style={estilos.labelSecao}>ESPECIALIDADES (até {MAX_ESPECIALIDADES})</Text>
                   <TouchableOpacity
                     style={[estilos.campoEspecialidades, erros.especialidades && estilos.campoEspecialidadesErro]}
-                    onPress={() => navigation.navigate('Especialidades', { selecionadas: especialidades, lado: tipoConta === 'pintor' ? 'pintura' : 'reparo', origem: 'Cadastro', outrosDescricao })}
+                    onPress={() => navigation.navigate('Especialidades', { selecionadas: especialidades, lado: tipoConta === 'pintor' ? 'pintura' : 'reparo', origem: 'Cadastro' })}
                     activeOpacity={0.7}
                   >
                     <Text style={especialidades.length ? estilos.campoEspTexto : estilos.campoEspPlaceholder}>
@@ -837,10 +811,6 @@ export default function CadastroScreen({ navigation, route }) {
                         </TouchableOpacity>
                       ))}
                     </View>
-                  )}
-                  {/* O que a pessoa escreveu em "Outros", para conferir sem reabrir a tela. */}
-                  {temOutros(especialidades) && !!limparOutrosDescricao(outrosDescricao) && (
-                    <Text style={estilos.outrosLinha}>➕ Outros: {limparOutrosDescricao(outrosDescricao)}</Text>
                   )}
                   <Input label="RG (somente números)" placeholder="000000000" value={rg} onChangeText={(t) => setRg(t.replace(/\D/g, '').slice(0, 9))} keyboardType="numeric" />
                   <Text style={estilos.labelSecao}>ÓRGÃO EMISSOR DO RG</Text>
@@ -995,7 +965,6 @@ const estilos = StyleSheet.create({
   espPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
   espPillTexto: { fontSize: 12, color: cores.textoForte },
   espPillX: { fontSize: 12, color: cores.primaria, fontWeight: '700' },
-  outrosLinha: { fontSize: 12, color: cores.textoMedio, marginTop: 6, marginBottom: 4 },
   categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
