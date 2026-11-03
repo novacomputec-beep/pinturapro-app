@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario } from '../../components'
+import { CampoOutrosDescricao, temOutros, faltaOutrosDescricao, limparOutrosDescricao, MSG_OUTROS_OBRIGATORIA } from '../../components/OutrosDescricao'
 import {
   especialidadesPorLado, MAX_ESPECIALIDADES,
   normalizarEspecialidades, rotuloComEmoji,
@@ -26,6 +27,15 @@ export default function EspecialidadesScreen({ navigation, route }) {
   const [selecionadas, setSelecionadas] = useState(
     () => normalizarEspecialidades(route.params?.selecionadas)
   )
+  // "Outros" com descrição (components/OutrosDescricao): o texto chega por param (o que a
+  // conta já tem, ou o rascunho do cadastro) e volta junto da lista. Só é exigido enquanto
+  // ➕ Outros estiver marcado; desmarcar não apaga o texto (remarcar o recupera) — quem
+  // decide o que vai à API é o chamador, pelo temOutros da lista final.
+  // `erroOutros` vem do chamador quando a API respondeu 400 OUTROS_DESCRICAO_OBRIGATORIA:
+  // a tela reabre já com o erro no campo.
+  const [outrosDescricao, setOutrosDescricao] = useState(() => String(route.params?.outrosDescricao ?? ''))
+  const [erroOutros, setErroOutros] = useState(() => (route.params?.erroOutros ? MSG_OUTROS_OBRIGATORIA : null))
+  useEffect(() => { if (route.params?.erroOutros) navigation.setParams({ erroOutros: undefined }) }, [route.params?.erroOutros, navigation])
   // Rota que abriu a tela; é para lá que o resultado volta.
   const origem = route.params?.origem
   // Lado vem por PARÂMETRO, não por contexto: esta tela é apresentacional e os dois
@@ -51,15 +61,22 @@ export default function EspecialidadesScreen({ navigation, route }) {
   // navigate (e não goBack) porque é o navigate que carrega os params de volta. Como a
   // origem JÁ está na pilha, o navigate volta para a instância existente e só mescla os
   // params — não empilha uma segunda cópia da tela de cadastro.
+  const outrosMarcado = temOutros(selecionadas)
+  const faltaOutros = faltaOutrosDescricao(selecionadas, outrosDescricao)
+  const mudarOutros = (t) => { setOutrosDescricao(t); if (erroOutros) setErroOutros(null) }
+
   const confirmar = () => {
     if (!selecionadas.length) return
-    if (origem) navigation.navigate(origem, { especialidades: selecionadas })
+    if (faltaOutros) { setErroOutros(MSG_OUTROS_OBRIGATORIA); return }
+    // outrosDescricao vai SEMPRE (limpo): com "Outros" fora da lista o chamador manda null.
+    if (origem) navigation.navigate(origem, { especialidades: selecionadas, outrosDescricao: limparOutrosDescricao(outrosDescricao) })
     else navigation.goBack()
   }
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled">
         {/* Voltar comum: sai SEM devolver params, então o chamador mantém o que tinha. */}
         <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
@@ -92,6 +109,12 @@ export default function EspecialidadesScreen({ navigation, route }) {
           })}
         </View>
 
+        {/* Abaixo dos chips, só com ➕ Outros marcado. O botão segue tocável com o campo
+            vazio: o toque mostra o erro no campo, em vez de um botão morto sem explicação. */}
+        {outrosMarcado && (
+          <CampoOutrosDescricao valor={outrosDescricao} onChange={mudarOutros} erro={erroOutros} />
+        )}
+
         {/* A explicação só aparece com o botão travado: com algo escolhido ela seria
             ruído sobre uma ação que já funciona. */}
         {!selecionadas.length && (
@@ -105,6 +128,7 @@ export default function EspecialidadesScreen({ navigation, route }) {
           estilo={{ marginTop: espacos.sm }}
         />
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
