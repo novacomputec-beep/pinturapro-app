@@ -2278,12 +2278,17 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // 0 === 0 anunciaria um aceite que não houve. Pedido ausente vira NaN, que
                   // nunca é igual a nada, então cai no rótulo neutro.
                   // Não vale quando já é "Valor combinado" — ali o match já foi fechado.
+                  // Segundo sinal, equivalente ao primeiro: candidatura SEM valor nenhum
+                  // (valor_proposto e valor_contraproposta nulos) é o profissional que se
+                  // candidatou sem mexer no valor — aceitou o pedido como está. Mesmo rótulo
+                  // e mesma linha, com o valor pedido no lugar do proposto que não existe.
                   const valorPedidoObra = Number(obra.valor || obra.valor_estimado || 0)
+                  const semValorNenhum = item.valor_proposto == null && item.valor_contraproposta == null
                   const aceitouValorPedido = !propostoEhCombinado && valorPedidoObra > 0 &&
-                    Number(item.valor_proposto) === valorPedidoObra
+                    (Number(item.valor_proposto) === valorPedidoObra || semValorNenhum)
                   const propostoFmt = item.valor_proposto != null
                     ? Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
-                    : ''
+                    : aceitouValorPedido ? valorPedidoObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''
                   return (
                   <View key={item.id} style={estilos.interessadoCard}>
                     <View style={estilos.candidatoTopo}>
@@ -2327,7 +2332,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                         📋 Valor cadastrado: R$ {valorPedidoObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
-                    {item.valor_proposto != null && (
+                    {(item.valor_proposto != null || aceitouValorPedido) && (
                       <Text style={{ fontSize: encerrada ? 13 : 18, fontWeight: encerrada ? '400' : '700', color: cores.textoMedio, marginBottom: 4 }}>
                         {aceitouValorPedido
                           ? `💰 Seu valor proposto (R$ ${propostoFmt}) foi aceito`
