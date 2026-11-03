@@ -34,6 +34,7 @@ import ChipsCategoria from '../../components/ChipsCategoria'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
+import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 
@@ -422,6 +423,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // "Estou a caminho" em voo: trava o botão do BlocoAgendado e o segundo toque (o POST não é
   // idempotente: repetido responde 409 e abria um segundo "✅ Confirmado!").
   const [enviandoACaminho, setEnviandoACaminho] = useState(false)
+  // "Manter meu valor" da caixa de avisados (Arte-Avisados): marca local por reparo.
+  const [dicaAvisadosMantida, manterDicaAvisados] = useDicaAvisadosMantida('reparo', reparo?.id)
 
   // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
   // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
@@ -1445,6 +1448,18 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // estender já usa (:1406). Não se compara expira_em com o relógio do aparelho: a hora
   // local adiantada faria esta tela discordar do servidor sobre o que ainda está de pé.
   const expirada = !!reparo?.expirada
+  // Arte-Avisados (components/CaixaAvisados): só para o DONO de reparo aberto e sem match —
+  // o mesmo gate do botão "Aumentar tempo". 'linha' vai para dentro do card de valor;
+  // 'novo'/'dica' viram a caixa logo acima da lista de interessados; null não desenha nada.
+  const estadoAvisados = isDono
+    ? modoAvisados({
+      aberta: reparo?.status === 'aberta' && !reparo?.match_usuario_id,
+      interessados: interessados.length,
+      criadoEm: reparo?.criado_em,
+      agora,
+      dicaMantida: dicaAvisadosMantida,
+    })
+    : null
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const prestadorMatch = temMatch
@@ -2038,10 +2053,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
               </View>
               <View style={estilos.valorDestaqueDivisor} />
               <Text style={estilos.valorDestaqueNota}>Pagamento acertado direto com o profissional.{'\n'}O app não recebe valores.</Text>
+              {estadoAvisados === 'linha' && <LinhaAvisados avisados={reparo.profissionais_avisados} />}
             </View>
           )}
 
           {!topoCompacto && <Text style={estilos.titulo}>{reparo.titulo}</Text>}
+          {/* Sem card de valor (pedido sem valor) a linha de avisados sai avulsa, abaixo do título. */}
+          {estadoAvisados === 'linha' && !(valorPrincipal != null && Number(valorPrincipal) > 0) && (
+            <LinhaAvisados avisados={reparo.profissionais_avisados} solta />
+          )}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
               cidade/bairro e sem depender mais do match: basta a API devolver o endereço.
               O dono vê o mesmo dado na linha simples abaixo — os dois blocos são mutuamente
@@ -2320,6 +2340,20 @@ export default function DetalheReparoScreen({ route, navigation }) {
               {/* Escondida na fase pós-match sem "a caminho": o bloco do topo já mostra o
                   escolhido, e os demais já perderam a disputa. */}
               {!faseAguardaHorario && (<>
+              {/* Arte-Avisados, entre o card da demanda e a lista: azul (pedido recente) ou
+                  laranja (24h sem proposta) com os MESMOS fluxos dos botões acima — os
+                  modais de aumentar valor/tempo —, travados pelas mesmas regras deles. */}
+              {(estadoAvisados === 'novo' || estadoAvisados === 'dica') && (
+                <CaixaAvisados
+                  modo={estadoAvisados}
+                  avisados={reparo.profissionais_avisados}
+                  onAumentarValor={() => setModalAumentar(true)}
+                  podeAumentarValor={aumentoValor.pode === true && !aumentando}
+                  onAumentarTempo={() => setModalEstender(true)}
+                  podeAumentarTempo={!reparo.expirada && !emEsperaEstender}
+                  onManter={manterDicaAvisados}
+                />
+              )}
               <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🔧 Profissionais interessados ({interessados.length})</Text>
               {interessados.length === 0 ? (
                 <View style={estilos.vazioInteressados}>
