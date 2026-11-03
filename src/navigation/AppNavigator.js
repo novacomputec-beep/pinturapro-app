@@ -18,6 +18,7 @@ import { emitirPushRecebido } from '../utils/eventosPush'
 import { avatar } from '../utils/imagemOtimizada'
 import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
+import AvisarPedidoSheet from '../components/AvisarPedidoSheet'
 import RetomadaMatchHost from '../components/RetomadaMatchHost'
 import ModalSuporte from '../components/ModalSuporte'
 import BoasVindasPrestadorScreen from '../screens/BoasVindasPrestadorScreen'
@@ -1125,6 +1126,9 @@ export default function AppNavigator() {
           ou um <Modal>, que o RN apresenta em janela nativa própria, acima de toda a
           hierarquia de views independentemente da posição na árvore. */}
       {usuario && <SoftAskNotificacao />}
+      {/* Mesmo molde e mesmo motivo de vir antes do navegador: o avisarPedidoRef é
+          preenchido no useEffect do host, e as telas de cadastro o chamam ao publicar. */}
+      {usuario && <AvisarPedidoSheet />}
       <Stack.Navigator screenOptions={{ headerShown: false, statusBarTranslucent: false, statusBarColor: '#0A0A0A', statusBarStyle: 'light' }}>
         {usuario ? (
           usuario.role === 'dono_obra' ? (

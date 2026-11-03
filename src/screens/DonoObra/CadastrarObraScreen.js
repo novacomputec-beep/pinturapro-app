@@ -11,6 +11,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { cadastro } from '../../components/RetomadaMatchHost'
@@ -342,6 +343,23 @@ export default function CadastrarObraScreen({ navigation, route }) {
 
   const selecionarMidia = () => setShowMediaPicker(true)
 
+  // Desfecho da obra criada com sucesso. Publicada de fato (jaAprovada) e sem permissão de
+  // notificação, o sheet "Seu pedido foi publicado! 🎉" (AvisarPedidoSheet) substitui o
+  // alerta: ele mesmo anuncia a publicação e pede o aviso no momento de maior relevância.
+  // Obra ainda em análise NÃO entra no sheet — o título dele afirma "publicado", e isso
+  // seria mentira para quem só enviou; ali vale o alerta de análise e o soft-ask de sempre.
+  // Com a permissão concedida (ou falha na consulta) o mostrar() devolve false e também vale
+  // o fluxo de sempre — alerta, lista e o soft-ask, que nesse caso é no-op por conta própria.
+  const anunciarCriada = async (jaAprovada) => {
+    if (jaAprovada && await avisarPedidoRef.mostrar?.()) { irParaLista(); return }
+    Alert.alert(
+      jaAprovada ? '✅ Obra publicada!' : '✅ Obra enviada para análise!',
+      jaAprovada
+        ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
+        : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
+      [{ text: 'OK', onPress: () => { irParaLista(); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
+  }
+
   // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes).
   // O upload/registro em si vive no hook compartilhado (useUploadMidiaDemanda);
   // aqui ficam apenas os alertas e a navegação, específicos da obra.
@@ -354,12 +372,7 @@ export default function CadastrarObraScreen({ navigation, route }) {
     // alegação mais fraca — anunciar "já está visível" para uma obra que não está seria pior.
     const jaAprovada = statusAprovacao === 'aprovada'
     if (falhas.length === 0) {
-      Alert.alert(
-        jaAprovada ? '✅ Obra publicada!' : '✅ Obra enviada para análise!',
-        jaAprovada
-          ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
-          : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
-        [{ text: 'OK', onPress: () => { irParaLista(); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
+      anunciarCriada(jaAprovada)
     } else {
       const temVideoFalho = falhas.some(f => f.tipo === 'video')
       const dicaVideo = temVideoFalho
@@ -449,12 +462,7 @@ export default function CadastrarObraScreen({ navigation, route }) {
     if (midia.itens.length === 0) {
       setCarregando(false)
       if (!montadoRef.current) return
-      Alert.alert(
-        jaAprovada ? '✅ Obra publicada!' : '✅ Obra enviada para análise!',
-        jaAprovada
-          ? 'Sua obra já está visível para os profissionais qualificados da sua região. Ela ainda pode passar por uma revisão da nossa equipe no horário comercial.'
-          : 'Sua obra foi recebida e passará por uma breve aprovação. Em breve estará visível para profissionais qualificados da sua região!',
-        [{ text: 'OK', onPress: () => { irParaLista(); softAskRef.mostrar?.('dono_obra') } }], { cancelable: false })
+      anunciarCriada(jaAprovada)
       return
     }
     await finalizarPublicacao(obra.id, undefined, statusAprovacao)

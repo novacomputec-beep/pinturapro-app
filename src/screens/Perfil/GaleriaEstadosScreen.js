@@ -7,6 +7,7 @@ import { CelebracaoAvaliacaoConteudo } from './AvaliacaoRecebidaScreen'
 import { AjustarFotoConteudo } from '../../components/AjustarFoto'
 import { ReferenciasDemo } from '../../components/VerificacaoIdentidadeSheet'
 import { MinhasReferenciasConteudo } from './MinhasReferenciasScreen'
+import { AvisarPedidoConteudo } from '../../components/AvisarPedidoSheet'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -147,12 +148,22 @@ const propsMinhasRefs = (caso) => ({
   onCancelar: caso.problema ? undefined : noop,
 })
 
-// Lista final: cada caso para serviço e para obra; os de foto e de referências, uma vez.
+// Sheet "Seu pedido foi publicado! 🎉" (components/AvisarPedidoSheet), que aparece ao dono
+// logo após publicar sem permissão de notificação: o estado que ainda pede ao SO e o
+// bloqueado (canAskAgain false), que ensina o caminho das Configurações. Handlers no-op.
+const CASOS_AVISAR = [
+  { lado: 'dono', fase: 'avisar_pedido', rotulo: 'Avisar pedido · pedir permissão', modo: 'pedir' },
+  { lado: 'dono', fase: 'avisar_pedido', rotulo: 'Avisar pedido · bloqueada (abrir ajustes)', modo: 'bloqueado' },
+]
+const propsAvisar = (caso) => ({ modo: caso.modo, onAvisar: noop, onAgoraNao: noop, onAbrirAjustes: noop })
+
+// Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
   ...CASOS_FOTO.map((c) => ({ ...c, frente: null })),
   ...CASOS_REFS.map((c) => ({ ...c, frente: null })),
   ...CASOS_MINHAS_REFS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_AVISAR.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -248,7 +259,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -269,10 +280,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehFoto = caso.fase === 'ajustar_foto'
   const ehRefs = caso.fase === 'verificacao_refs'
   const ehMinhasRefs = caso.fase === 'minhas_refs'
+  const ehAvisar = caso.fase === 'avisar_pedido'
   const props = useMemo(() => (
-    ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs
+    ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -298,8 +310,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         {/* O MESMO wrapper das telas de detalhe (corpo + larguraMaxima + flex:1). */}
         {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, ehFoto && { paddingHorizontal: 0, paddingBottom: 0 }]} {...(ehFoto ? {} : pan.panHandlers)}>
-          {ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
+        {/* O sheet de aviso é ancorado ao rodapé, como o Modal real: fundo escurecido e a folha
+            com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
+          {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
             : ehRefs ? <ReferenciasDemo key={i} {...props} />
             : ehFoto ? <AjustarFotoConteudo key={i} {...props} />
             : ehAvaliacao ? <AvaliacaoConteudo key={i} {...props} />
@@ -321,4 +336,8 @@ const estilos = StyleSheet.create({
   btnNav: { width: 36, height: 36, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   btnNavTexto: { color: cores.primaria, fontSize: 22, fontWeight: '800', lineHeight: 26, includeFontPadding: false },
   corpo: { paddingHorizontal: espacos.tela, paddingBottom: 40 },
+  // Mesmos valores do backdrop/sheet do AvisarPedidoSheet (sem o inset inferior: aqui a
+  // barra de abas não existe e a folha encosta no rodapé da área útil).
+  fundoSheet: { backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, paddingBottom: 20, alignItems: 'center', width: '100%' },
 })
