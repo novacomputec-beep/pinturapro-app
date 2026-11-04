@@ -22,6 +22,7 @@ import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
 import { tiposDasContas } from '../../utils/contas'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
+import { buscarDicas, lerDicasVistas, contarNovas, rotuloNovas } from '../../services/dicas'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
 // o versionCode é gerado pelo EAS e não existe em nenhum arquivo do repositório, então
@@ -48,12 +49,17 @@ const LinhaPerfil = ({ label, valor }) => (
 // `destaque` pinta o título de laranja (convite, não alerta) — par do `perigo` vermelho.
 // `cor` é uma cor explícita para o título (o item do canal do WhatsApp, no verde dele).
 // `alerta` + `badge`: borda vermelha na linha e um selo (ex.: "Corrigir") antes da seta —
-// algo que o servidor pediu para a pessoa resolver, não um convite.
-const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, alerta, badge }) => (
+// algo que o servidor pediu para a pessoa resolver, não um convite. `badgeLaranja` pinta o
+// selo na cor primária (novidade a ver, ex.: "3 novas" das Dicas), sem a borda da linha.
+const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, alerta, badge, badgeLaranja }) => (
   <TouchableOpacity style={[estilos.itemAcao, alerta && estilos.itemAcaoAlerta]} onPress={onPress} activeOpacity={0.7}>
     <Text style={[estilos.itemAcaoTexto, perigo && { color: cores.perigo }, destaque && { color: cores.primaria }, cor && { color: cor }]}>{titulo}</Text>
     <View style={estilos.itemAcaoDireita}>
-      {!!badge && <View style={estilos.itemAcaoBadge}><Text style={estilos.itemAcaoBadgeTexto}>{badge}</Text></View>}
+      {!!badge && (
+        <View style={[estilos.itemAcaoBadge, badgeLaranja && estilos.itemAcaoBadgeLaranja]}>
+          <Text style={[estilos.itemAcaoBadgeTexto, badgeLaranja && { color: cores.primaria }]}>{badge}</Text>
+        </View>
+      )}
       {!!estado && <Text style={[estilos.itemAcaoEstado, estadoCor && { color: estadoCor }]}>{estado}</Text>}
       <Text style={estilos.itemAcaoSeta}>→</Text>
     </View>
@@ -217,6 +223,18 @@ export default function PerfilScreen({ navigation, route }) {
     })
   }, []))
 
+  // Badge "N novas" das Dicas (Arte-Dicas): dicas de GET /dicas (uma leitura por processo,
+  // services/dicas) que ainda não estão na lista de vistas do aparelho. Reconsultado a cada
+  // foco porque abrir um tema marca as dele como vistas. Falha = sem badge, em silêncio.
+  const [novasDicas, setNovasDicas] = useState(0)
+  useFocusEffect(useCallback(() => {
+    let vivo = true
+    Promise.all([buscarDicas(), lerDicasVistas(usuario?.id)])
+      .then(([r, vistas]) => { if (vivo && montadoRef.current) setNovasDicas(contarNovas(r.temas, vistas)) })
+      .catch(err => console.log('[Perfil] falha ao contar dicas novas | status:', err?.status, '| code:', err?.code))
+    return () => { vivo = false }
+  }, [usuario?.id]))
+
   // Vídeo "Como funciona": a entrada só existe com video_id publicado. Uma leitura por
   // processo (promise compartilhada no serviço); falha = sem entrada, o lado seguro.
   const [temVideoComoFunciona, setTemVideoComoFunciona] = useState(false)
@@ -260,6 +278,17 @@ export default function PerfilScreen({ navigation, route }) {
     }
     verificarPermissaoNotif()
   }
+
+  // Atalho "🔔 Ativar avisos" das Dicas (DicasTemaScreen): volta para cá com um sinal no
+  // param e dispara o MESMO fluxo da linha "Ativar notificações" — um fluxo só no app. O
+  // param é limpo antes de rodar, para o foco seguinte não repetir o diálogo.
+  const sinalAtivarNotif = route.params?.ativarNotificacoes
+  useEffect(() => {
+    if (!sinalAtivarNotif) return
+    navigation.setParams({ ativarNotificacoes: undefined })
+    handleAtivarNotificacoes()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sinalAtivarNotif])
 
   // Preferência de PROMOÇÕES (só Android). `promoLocal` é a escolha feita nesta montagem:
   // null = ainda não tocou, e o valor exibido vem do perfil carregado (ausente = true, o
@@ -550,6 +579,15 @@ export default function PerfilScreen({ navigation, route }) {
             onPress={() => navigation.navigate('MeusPerfis')}
           />
           <Separador />
+          {/* Arte-Dicas: regras e atalhos da plataforma, por lado da conta. O selo laranja
+              conta as dicas que o aparelho ainda não viu (some em zero). Todos os papéis. */}
+          <ItemAcao
+            titulo="💡 Dicas do ProTudo"
+            badge={novasDicas > 0 ? rotuloNovas(novasDicas) : ''}
+            badgeLaranja
+            onPress={() => navigation.navigate('Dicas')}
+          />
+          <Separador />
           {ehPrestador && (
             <>
               <ItemAcao
@@ -732,6 +770,7 @@ const estilos = StyleSheet.create({
   itemAcaoAlerta: { borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, marginHorizontal: 8, marginVertical: 4, paddingHorizontal: 8 },
   itemAcaoBadge: { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.pill, paddingHorizontal: 8, paddingVertical: 2 },
   itemAcaoBadgeTexto: { fontSize: 11, fontWeight: '700', color: cores.perigo },
+  itemAcaoBadgeLaranja: { backgroundColor: cores.primariaSuave, borderColor: cores.primaria },
   itemAcaoSeta: { fontSize: 14, color: cores.textoFraco },
   notifResultado: { fontSize: 12, color: cores.textoFraco, paddingHorizontal: 16, paddingBottom: 12, marginTop: -6 },
   logoutWrap: { paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico },

@@ -14,6 +14,8 @@ import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
 import { MeusPerfisConteudo } from './MeusPerfisScreen'
 import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
 import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
+import { DicasConteudo } from './DicasScreen'
+import { DicasTemaConteudo } from './DicasTemaScreen'
 import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
@@ -295,6 +297,35 @@ function DemoEditarCategorias({ originais, selecionadasIniciais, buscaInicial })
   )
 }
 
+// Arte-Dicas: a lista de temas (DicasConteudo) e os cards de um tema (DicasTemaConteudo), com
+// dados locais no formato de GET /dicas. `vistas` é o conjunto de ids já vistos: os temas
+// mostram "N novas" e o tema aberto mostra "NOVO" (nova: true) e os links de ação (no-op).
+const TEMAS_DICAS = [
+  { tema: 'Publicar o pedido', icone: '📝', ordem: 1, dicas: [
+    { id: 'd1', ordem: 1, texto: 'Até 3 categorias. **Marcar "Outros"** faz o aviso chegar a todos os profissionais da cidade.', acao: null, nova: false },
+    { id: 'd2', ordem: 2, texto: 'Esqueceu uma área? **Acrescente a categoria**: só os profissionais novos são avisados.', acao: 'meus_pedidos', nova: true },
+    { id: 'd3', ordem: 3, texto: '**Obra passa por análise** antes de aparecer, e o prazo só começa a contar depois de aprovada.', acao: null, nova: false },
+  ] },
+  { tema: 'Prazo e valor', icone: '💰', ordem: 2, dicas: [
+    { id: 'd4', ordem: 1, texto: 'Antes de vencer, você recebe **3 alertas**, só se ninguém tiver se interessado.', acao: null, nova: false },
+    { id: 'd5', ordem: 2, texto: '**Aumentar o prazo** avisa só quem já se interessou; não reenvia o pedido para todos.', acao: 'meus_pedidos', nova: false },
+  ] },
+  { tema: 'Receber pedidos', icone: '📲', ordem: 3, dicas: [
+    { id: 'd6', ordem: 1, texto: 'Os avisos chegam **só da sua cidade**. Mantenha a cidade certa.', acao: 'editar_perfil', nova: false },
+    { id: 'd7', ordem: 2, texto: 'Notificações desligadas = só e-mail, e mais devagar. **Ative os avisos.**', acao: 'ativar_avisos', nova: true },
+  ] },
+]
+const CASOS_DICAS = [
+  { lado: 'dono', fase: 'dicas', rotulo: 'Dicas · lista de temas (3 novas)', vistas: ['d1', 'd3', 'd4', 'd5'] },
+  { lado: 'dono', fase: 'dicas', rotulo: 'Dicas · tudo visto (sem badge)', vistas: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7'] },
+  { lado: 'dono', fase: 'dicas', rotulo: 'Dicas · carregando', carregando: true },
+  { lado: 'dono', fase: 'dica_tema', rotulo: 'Dicas · tema com NOVO e link', tema: 0 },
+  { lado: 'pro', fase: 'dica_tema', rotulo: 'Dicas · tema do profissional (ativar avisos)', tema: 2 },
+]
+const propsDicas = (caso) => caso.fase === 'dicas'
+  ? { temas: caso.carregando ? [] : TEMAS_DICAS, vistas: new Set(caso.vistas || []), carregando: !!caso.carregando, erro: null, onRetry: null, onAbrirTema: noop }
+  : { tema: TEMAS_DICAS[caso.tema], onAcao: noop, acaoDisponivel: null }
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -307,6 +338,7 @@ const TODOS = [
   ...CASOS_CONVITE.map((c) => ({ ...c, frente: null })),
   ...CASOS_PERFIS.map((c) => ({ ...c, frente: null })),
   ...CASOS_CATEGORIAS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -402,7 +434,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', editar_categorias: 'Categorias do pedido' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -429,10 +461,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehConvite = caso.fase === 'convite'
   const ehPerfis = caso.fase === 'perfis' || caso.fase === 'adicionar'
   const ehCategorias = caso.fase === 'editar_categorias'
+  const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const props = useMemo(() => (
-    ehCategorias ? propsCategorias(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehCategorias, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehCategorias
+    ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehDicas, ehCategorias, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehCategorias || ehDicas
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -463,6 +496,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias) && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
+            : caso.fase === 'dicas' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasConteudo {...props} /></ScrollView>
+            : caso.fase === 'dica_tema' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasTemaConteudo {...props} /></ScrollView>
             : caso.fase === 'perfis' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><MeusPerfisConteudo {...props} /></ScrollView>
             : caso.fase === 'adicionar' ? <DemoAdicionar key={i} {...props} />
             : ehConvite ? <ScrollView key={i} showsVerticalScrollIndicator={false}><ConvidarColegaConteudo {...props} /></ScrollView>
