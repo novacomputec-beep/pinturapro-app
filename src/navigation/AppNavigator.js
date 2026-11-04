@@ -53,6 +53,8 @@ import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScre
 import ConvidarColegaScreen from '../screens/Perfil/ConvidarColegaScreen'
 import MeusPerfisScreen from '../screens/Perfil/MeusPerfisScreen'
 import AdicionarPerfilScreen from '../screens/Perfil/AdicionarPerfilScreen'
+import DicasScreen from '../screens/Perfil/DicasScreen'
+import DicasTemaScreen from '../screens/Perfil/DicasTemaScreen'
 
 // App — Prestador
 import FeedReparosScreen      from '../screens/Reparos/FeedReparosScreen'
@@ -765,6 +767,9 @@ const PerfilStackNavigator = () => (
     {/* Múltiplas contas (Arte-Meus-Perfis): trocar de perfil e adicionar os que faltam. */}
     <PerfilStack.Screen name="MeusPerfis" component={MeusPerfisScreen} />
     <PerfilStack.Screen name="AdicionarPerfil" component={AdicionarPerfilScreen} />
+    {/* "💡 Dicas do ProTudo" (Arte-Dicas): temas e os cards de cada tema. Só aqui — nunca popup. */}
+    <PerfilStack.Screen name="Dicas" component={DicasScreen} />
+    <PerfilStack.Screen name="DicasTema" component={DicasTemaScreen} />
     <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
     <PerfilStack.Screen name="Especialidades" component={EspecialidadesScreen} />
     {/* Referências da verificação (profissional com usuario.tem_referencias). */}
