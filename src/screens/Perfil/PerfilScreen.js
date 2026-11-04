@@ -20,6 +20,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
+import { tiposDasContas } from '../../utils/contas'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
 
 // Lidos do build nativo, não de app.json: com `appVersionSource: "remote"` no eas.json
@@ -540,6 +541,14 @@ export default function PerfilScreen({ navigation, route }) {
             </>
           )}
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
+          <Separador />
+          {/* Arte-Meus-Perfis: os 4 tipos de cadastro da pessoa (em uso / trocar / adicionar).
+              Todos os papéis. O estado é quantos perfis o e-mail já tem (some com um só). */}
+          <ItemAcao
+            titulo="👥 Meus perfis"
+            estado={tiposDasContas(usuario?.contas).length >= 2 ? String(tiposDasContas(usuario?.contas).length) : ''}
+            onPress={() => navigation.navigate('MeusPerfis')}
+          />
           <Separador />
           {ehPrestador && (
             <>

@@ -51,6 +51,8 @@ import AvaliacaoRecebidaScreen from '../screens/Perfil/AvaliacaoRecebidaScreen'
 import EspecialidadesScreen from '../screens/Perfil/EspecialidadesScreen'
 import AvaliacoesRecebidasScreen from '../screens/Perfil/AvaliacoesRecebidasScreen'
 import ConvidarColegaScreen from '../screens/Perfil/ConvidarColegaScreen'
+import MeusPerfisScreen from '../screens/Perfil/MeusPerfisScreen'
+import AdicionarPerfilScreen from '../screens/Perfil/AdicionarPerfilScreen'
 
 // App — Prestador
 import FeedReparosScreen      from '../screens/Reparos/FeedReparosScreen'
@@ -760,6 +762,9 @@ const PerfilStackNavigator = () => (
   <PerfilStack.Navigator screenOptions={{ headerShown: false }}>
     <PerfilStack.Screen name="PerfilMain"   component={PerfilScreen} />
     <PerfilStack.Screen name="EditarPerfil" component={EditarPerfilScreen} />
+    {/* Múltiplas contas (Arte-Meus-Perfis): trocar de perfil e adicionar os que faltam. */}
+    <PerfilStack.Screen name="MeusPerfis" component={MeusPerfisScreen} />
+    <PerfilStack.Screen name="AdicionarPerfil" component={AdicionarPerfilScreen} />
     <PerfilStack.Screen name="AlterarSenha" component={AlterarSenhaScreen} />
     <PerfilStack.Screen name="Especialidades" component={EspecialidadesScreen} />
     {/* Referências da verificação (profissional com usuario.tem_referencias). */}

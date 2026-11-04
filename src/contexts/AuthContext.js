@@ -57,6 +57,13 @@ const limparSessaoCache = async () => {
 
 // Boas-vindas únicas para prestadores recém-aprovados: o backend devolve
 // boas_vindas_exibida no usuario (login e perfil). Mostra só uma vez, para
+// Múltiplas contas (Arte-Meus-Perfis): a API devolve `contas` ([{ id, tipo, nome }]) ao LADO
+// de `usuario` no perfil, no login e ao trocar/criar conta. O app guarda a lista DENTRO do
+// usuário (usuario.contas), para o cache da sessão e as telas lerem de um lugar só. Sem
+// lista na resposta, o usuário segue como veio (cache antigo, resposta sem o campo).
+const comContas = (usuario, contas) =>
+  (usuario && Array.isArray(contas)) ? { ...usuario, contas } : usuario
+
 // prestador com assinatura ativa que ainda não viu a tela. Nunca para donos.
 const deveExibirBoasVindas = (usuario, assinatura) =>
   usuario?.role === 'prestador' &&
@@ -146,7 +153,7 @@ export const AuthProvider = ({ children }) => {
         if (token) {
           try {
             const perfil = await comRetry(() => authService.perfil())
-            u = perfil.usuario
+            u = comContas(perfil.usuario, perfil.contas)
             a = perfil.assinatura
             usuarioIdRef.current = u?.id ?? null
             registrarPushToken()
@@ -404,18 +411,19 @@ export const AuthProvider = ({ children }) => {
       console.log('[AuthContext] falha ao guardar o último e-mail (login segue) | msg:', err?.message)
     }
     usuarioIdRef.current = resposta.usuario?.id ?? null
-    setUsuario(resposta.usuario)
+    setUsuario(comContas(resposta.usuario, resposta.contas))
     setAssinatura(resposta.assinatura)
     setMostrarBoasVindas(deveExibirBoasVindas(resposta.usuario, resposta.assinatura))
     setTimeout(() => registrarPushToken(), 1000)
     return resposta
   }
 
-  // Função usada após cadastro — recebe token e dados diretamente
-  const loginComToken = async (token, usuarioDados, assinaturaDados) => {
+  // Função usada após cadastro, trocar de perfil e adicionar perfil — recebe token e dados
+  // diretamente. `contas` (payload do login) vai para usuario.contas quando vier.
+  const loginComToken = async (token, usuarioDados, assinaturaDados, contas) => {
     await SecureStore.setItemAsync('token', token)
     usuarioIdRef.current = usuarioDados?.id ?? null
-    setUsuario(usuarioDados)
+    setUsuario(comContas(usuarioDados, contas))
     setAssinatura(assinaturaDados || null)
     setMostrarBoasVindas(deveExibirBoasVindas(usuarioDados, assinaturaDados || null))
     setTimeout(() => registrarPushToken(), 1000)
@@ -459,7 +467,8 @@ export const AuthProvider = ({ children }) => {
   // prestador recém-aprovado entre no app já com boas-vindas e feed corretos,
   // em vez do refresh parcial antigo que exigia relogar (B72).
   const revalidarSessao = async () => {
-    const { usuario, assinatura } = await comRetry(() => authService.perfil())
+    const { usuario: lido, assinatura, contas } = await comRetry(() => authService.perfil())
+    const usuario = comContas(lido, contas)
     usuarioIdRef.current = usuario?.id ?? null
     setUsuario(usuario)
     setAssinatura(assinatura)
