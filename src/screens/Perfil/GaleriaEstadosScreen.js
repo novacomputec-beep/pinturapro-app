@@ -11,6 +11,9 @@ import { AvisarPedidoConteudo } from '../../components/AvisarPedidoSheet'
 import { CaixaAvisados, LinhaAvisados } from '../../components/CaixaAvisados'
 import { CaixaIndicar } from '../../components/Indicacao'
 import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
+import { MeusPerfisConteudo } from './MeusPerfisScreen'
+import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
+import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
@@ -241,6 +244,31 @@ const propsConvite = (caso) => ({
   onCopiar: noop,
 })
 
+// Arte-Meus-Perfis: "Meus perfis" (MeusPerfisConteudo) com a conta em uso, as que existem
+// ("Trocar") e as que faltam ("Adicionar"), e "Adicionar perfil" (AdicionarPerfilConteudo)
+// para um tipo profissional (seletor do lado certo) e um dono (sem seletor). Handlers no-op.
+const CASOS_PERFIS = [
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · só reparador (3 para adicionar)', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · reparador + dono de serviço', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · dono de obra com os 4 (trocando)', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, trocando: 'pintor' },
+  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · serviços (2 marcadas)', tipo: 'reparador', selecionadas: ['eletrica', 'hidraulica'] },
+  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · construtor/pintor (vazio)', tipo: 'pintor', selecionadas: [] },
+  { lado: 'dono', fase: 'adicionar', rotulo: 'Adicionar perfil · preciso de um serviço', tipo: 'dono_reparo', selecionadas: [] },
+]
+const propsPerfis = (caso) => caso.fase === 'perfis'
+  ? { perfis: listarPerfis(caso.usuario), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
+  : { perfil: perfilDoTipo(caso.tipo), selecionadas: caso.selecionadas, onAlternar: noop }
+
+function DemoAdicionar(props) {
+  const precisaEsp = !!props.perfil?.profissional
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <AdicionarPerfilConteudo {...props} />
+      <BotaoPrimario titulo="Criar e entrar" onPress={noop} desabilitado={precisaEsp && !props.selecionadas.length} />
+    </ScrollView>
+  )
+}
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -251,6 +279,7 @@ const TODOS = [
   ...CASOS_AVISADOS.map((c) => ({ ...c, frente: null })),
   ...CASOS_INDICAR,
   ...CASOS_CONVITE.map((c) => ({ ...c, frente: null })),
+  ...CASOS_PERFIS.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -346,7 +375,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -371,10 +400,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehAvisados = caso.fase === 'avisados'
   const ehIndicar = caso.fase === 'indicar'
   const ehConvite = caso.fase === 'convite'
+  const ehPerfis = caso.fase === 'perfis' || caso.fase === 'adicionar'
   const props = useMemo(() => (
-    ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite
+    ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -404,6 +434,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : caso.fase === 'perfis' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><MeusPerfisConteudo {...props} /></ScrollView>
+            : caso.fase === 'adicionar' ? <DemoAdicionar key={i} {...props} />
             : ehConvite ? <ScrollView key={i} showsVerticalScrollIndicator={false}><ConvidarColegaConteudo {...props} /></ScrollView>
             : ehIndicar ? <DemoIndicar key={i} {...props} />
             : ehAvisados ? <DemoAvisados key={i} {...props} />
