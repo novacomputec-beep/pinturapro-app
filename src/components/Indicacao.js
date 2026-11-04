@@ -3,10 +3,47 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../contexts/AuthContext'
 import { espacos, larguraMaxima, cores, raios } from '../utils/tema'
-import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch } from '../utils/indicacao'
+import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch, mensagemIndicarPedido, meuCodigoIndicacao, convidarPeloWhatsApp } from '../utils/indicacao'
 
 // Peças da indicação de colegas que aparecem FORA da tela própria (ConvidarColegaScreen):
-// o selo nos cards de candidato/interessado do dono e o cartão do feed do profissional.
+// o selo nos cards de candidato/interessado do dono, o cartão do feed do profissional e a
+// caixa "Conhece quem faz esse serviço?" do detalhe (Arte-Indicar).
+
+// Código de indicação do profissional, para o ?c= do link da caixa. `ativo` false não
+// consulta nada (a caixa não vai aparecer); a resposta é compartilhada por processo.
+export const useMeuCodigoIndicacao = (ativo) => {
+  const [codigo, setCodigo] = useState('')
+  useEffect(() => {
+    if (!ativo) return undefined
+    let vivo = true
+    meuCodigoIndicacao().then((c) => { if (vivo) setCodigo(c) })
+    return () => { vivo = false }
+  }, [ativo])
+  return codigo
+}
+
+// Arte-Indicar: caixa verde no detalhe do PROFISSIONAL (nunca do dono), em pedido aberto e
+// sem match, logo acima do "Tenho interesse". O botão abre o WhatsApp com a mensagem de
+// utils/indicacao (fallback: folha de compartilhar do sistema). `demanda` é o reparo ou a
+// obra: só título, valor e bairro/cidade entram na mensagem.
+export const CaixaIndicar = ({ demanda, codigo }) => {
+  const indicar = () => convidarPeloWhatsApp(mensagemIndicarPedido({
+    titulo: demanda?.titulo,
+    valor: demanda?.valor ?? demanda?.valor_estimado,
+    bairro: demanda?.bairro,
+    cidade: demanda?.cidade,
+    codigo,
+  }))
+  return (
+    <View style={estilos.caixaIndicar}>
+      <Text style={estilos.caixaIndicarTitulo} maxFontSizeMultiplier={1.3}>🤝 Conhece quem faz esse serviço?</Text>
+      <Text style={estilos.caixaIndicarTexto} maxFontSizeMultiplier={1.3}>Indique o ProTudo. Quando ele se cadastrar, recebe pedidos como este.</Text>
+      <TouchableOpacity style={estilos.btnIndicar} onPress={indicar} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Indicar pelo WhatsApp">
+        <Text style={estilos.btnIndicarTexto} maxFontSizeMultiplier={1.3}>Indicar pelo WhatsApp</Text>
+      </TouchableOpacity>
+    </View>
+  )
+}
 
 // Selo "Embaixador ProTudo": o profissional com 3 colegas indicados aprovados. Chip
 // pequeno ao lado do nome, no tom da marca — informa, não grita.
@@ -131,4 +168,11 @@ const estilos = StyleSheet.create({
   chipTexto: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
   fechar: { position: 'absolute', top: 8, right: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
   fecharTexto: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', lineHeight: 14 },
+  // Caixa verde no tom do card de valor (sucessoSuave/sucessoBorda), mesma régua da
+  // CaixaAvisados; o botão é o verde do WhatsApp, como o do ConvidarColegaScreen.
+  caixaIndicar: { backgroundColor: cores.sucessoSuave, borderWidth: 1, borderColor: cores.sucessoBorda, borderRadius: raios.grande, padding: 16, marginBottom: 16 },
+  caixaIndicarTitulo: { fontSize: 15, fontWeight: '700', color: cores.sucesso, lineHeight: 20, marginBottom: 6 },
+  caixaIndicarTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginBottom: 12 },
+  btnIndicar: { backgroundColor: '#25D366', borderRadius: raios.medio, paddingVertical: 14, alignItems: 'center' },
+  btnIndicarTexto: { color: '#0A0A0A', fontSize: 15, fontWeight: '800' },
 })

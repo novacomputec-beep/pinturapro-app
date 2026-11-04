@@ -29,6 +29,42 @@ export const linkDeIndicacao = (codigo) => `${LINK_BASE}${encodeURIComponent(cod
 export const mensagemConvite = (codigo, link) =>
   `Estou usando o ProTudo para receber pedidos de clientes aqui da região. É grátis! Baixe pelo link e use meu código ${codigo} no cadastro: ${link}`
 
+// Arte-Indicar: o profissional vendo um pedido ABERTO e sem match indica o ProTudo a um
+// colega que faz aquele serviço. Texto aprovado; só título, valor e bairro/cidade do pedido
+// — NUNCA endereço, nome ou telefone do dono. Sem valor, a parte do valor sai; sem bairro,
+// vai a cidade; sem os dois, sai só o título. O link é o /baixar público, com ?c=CODIGO
+// quando o profissional tem código de indicação (o mesmo do ConvidarColegaScreen).
+const LINK_BAIXAR = 'protudo.app.br/baixar'
+export const mensagemIndicarPedido = ({ titulo, valor, bairro, cidade, codigo }) => {
+  const t = String(titulo ?? '').trim() || 'serviço'
+  const v = Number(valor)
+  const partes = [`Oi! Tem um pedido de ${t} aberto no ProTudo`]
+  if (Number.isFinite(v) && v > 0) partes.push(`valor de R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  const local = String(bairro ?? '').trim() || String(cidade ?? '').trim()
+  if (local) partes.push(`no ${local}`)
+  const c = String(codigo ?? '').trim()
+  const link = c ? `${LINK_BAIXAR}?c=${encodeURIComponent(c)}` : LINK_BAIXAR
+  return `${partes.join(', ')}.\n\nBaixe o app gratuito, cadastre-se e mande sua proposta:\n${link}`
+}
+
+// Código de indicação do profissional logado, UMA consulta por processo (promise guardada,
+// como em services/gruposCategorias): a caixa de indicar aparece em cada detalhe aberto e
+// não pode pagar um GET por tela. Falha devolve '' (link sem código) e zera para a próxima
+// chamada tentar de novo.
+let promessaCodigo = null
+export const meuCodigoIndicacao = () => {
+  if (!promessaCodigo) {
+    promessaCodigo = buscarMinhasIndicacoes()
+      .then((d) => d.codigo || '')
+      .catch((err) => {
+        console.log('[indicacao] código indisponível, link sem ?c | code:', err?.code)
+        promessaCodigo = null
+        return ''
+      })
+  }
+  return promessaCodigo
+}
+
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
 
 // GET /indicacoes/minhas normalizado. GET é idempotente: retry em timeout e 5xx é seguro.
