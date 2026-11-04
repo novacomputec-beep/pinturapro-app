@@ -13,6 +13,8 @@ import { CaixaIndicar } from '../../components/Indicacao'
 import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
 import { MeusPerfisConteudo } from './MeusPerfisScreen'
 import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
+import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
+import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
@@ -269,6 +271,30 @@ function DemoAdicionar(props) {
   )
 }
 
+// Arte-Editar-Categorias: a folha "Categorias do pedido" (EditarCategoriasConteudo) do dono de
+// pedido aberto sem match. Seleção e busca são estado LOCAL do demo (a folha real também os
+// guarda); "Salvar e avisar" é no-op. Casos: sem mudança (botão apagado), uma categoria nova
+// (verde com ＋), no limite com busca filtrando.
+const CASOS_CATEGORIAS = [
+  { lado: 'dono', fase: 'editar_categorias', rotulo: 'Categorias do pedido · sem mudança', originais: ['eletrica', 'hidraulica'], selecionadas: ['eletrica', 'hidraulica'], busca: '' },
+  { lado: 'dono', fase: 'editar_categorias', rotulo: 'Categorias do pedido · 1 nova (verde ＋)', originais: ['eletrica'], selecionadas: ['eletrica', 'hidraulica'], busca: '' },
+  { lado: 'dono', fase: 'editar_categorias', rotulo: `Categorias do pedido · no limite (${MAX_CATEGORIAS_DEMANDA}) + busca`, originais: ['eletrica', 'hidraulica'], selecionadas: ['eletrica', 'hidraulica', 'eletronica'], busca: 'el' },
+]
+const propsCategorias = (caso) => ({ originais: caso.originais, selecionadasIniciais: caso.selecionadas, buscaInicial: caso.busca })
+
+function DemoEditarCategorias({ originais, selecionadasIniciais, buscaInicial }) {
+  const [selecionadas, setSelecionadas] = useState(selecionadasIniciais)
+  const [busca, setBusca] = useState(buscaInicial)
+  const alternar = (slug) => setSelecionadas((atual) => (
+    atual.includes(slug) ? atual.filter((c) => c !== slug) : atual.length >= MAX_CATEGORIAS_DEMANDA ? atual : [...atual, slug]
+  ))
+  return (
+    <View style={[estilos.sheet, { alignItems: 'stretch' }]}>
+      <EditarCategoriasConteudo originais={originais} selecionadas={selecionadas} busca={busca} onBusca={setBusca} onAlternar={alternar} onSalvar={noop} />
+    </View>
+  )
+}
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -280,6 +306,7 @@ const TODOS = [
   ...CASOS_INDICAR,
   ...CASOS_CONVITE.map((c) => ({ ...c, frente: null })),
   ...CASOS_PERFIS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_CATEGORIAS.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -375,7 +402,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', editar_categorias: 'Categorias do pedido' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -401,10 +428,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehIndicar = caso.fase === 'indicar'
   const ehConvite = caso.fase === 'convite'
   const ehPerfis = caso.fase === 'perfis' || caso.fase === 'adicionar'
+  const ehCategorias = caso.fase === 'editar_categorias'
   const props = useMemo(() => (
-    ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis
+    ehCategorias ? propsCategorias(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehCategorias, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehCategorias
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -432,8 +460,9 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
         {/* O sheet de aviso é ancorado ao rodapé, como o Modal real: fundo escurecido e a folha
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias) && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
             : caso.fase === 'perfis' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><MeusPerfisConteudo {...props} /></ScrollView>
             : caso.fase === 'adicionar' ? <DemoAdicionar key={i} {...props} />
             : ehConvite ? <ScrollView key={i} showsVerticalScrollIndicator={false}><ConvidarColegaConteudo {...props} /></ScrollView>
