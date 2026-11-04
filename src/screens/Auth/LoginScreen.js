@@ -64,9 +64,11 @@ export default function LoginScreen({ navigation }) {
     else setCarregando(true)
     try {
       const resposta = await login(email.trim().toLowerCase(), senha, tipo)
-      // 2+ contas e nenhum tipo escolhido ainda: o AuthContext NÃO gravou sessão. Mostra a
-      // escolha e para aqui. Sem `contas`, ou com 1 só, nada muda.
-      if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
+      // 2+ contas, nenhum tipo escolhido e SEM token: o AuthContext NÃO gravou sessão. Mostra a
+      // escolha e para aqui. Com token a sessão já entrou — o AuthContext repetiu o login com
+      // o último perfil usado neste aparelho (utils/contas), e o payload traz `contas` junto.
+      // Sem `contas`, ou com 1 só, nada muda.
+      if (!tipo && !resposta?.token && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
         setContas(resposta.contas)
         return
       }
