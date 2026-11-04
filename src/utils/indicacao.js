@@ -32,7 +32,7 @@ export const mensagemConvite = (codigo, link) =>
 // Arte-Indicar: o profissional vendo um pedido ABERTO e sem match indica o ProTudo a um
 // colega que faz aquele serviço. Texto aprovado; só título, valor e bairro/cidade do pedido
 // — NUNCA endereço, nome ou telefone do dono. Sem valor, a parte do valor sai; sem bairro,
-// vai a cidade; sem os dois, sai só o título. O link é o /baixar público, com ?c=CODIGO
+// vai a cidade ("em Campinas", não "no Campinas"); sem os dois, sai só o título. O link é o /baixar público, com ?c=CODIGO
 // quando o profissional tem código de indicação (o mesmo do ConvidarColegaScreen).
 const LINK_BAIXAR = 'protudo.app.br/baixar'
 export const mensagemIndicarPedido = ({ titulo, valor, bairro, cidade, codigo }) => {
@@ -40,8 +40,10 @@ export const mensagemIndicarPedido = ({ titulo, valor, bairro, cidade, codigo })
   const v = Number(valor)
   const partes = [`Oi! Tem um pedido de ${t} aberto no ProTudo`]
   if (Number.isFinite(v) && v > 0) partes.push(`valor de R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-  const local = String(bairro ?? '').trim() || String(cidade ?? '').trim()
-  if (local) partes.push(`no ${local}`)
+  const b = String(bairro ?? '').trim()
+  const c2 = String(cidade ?? '').trim()
+  if (b) partes.push(`no ${b}`)
+  else if (c2) partes.push(`em ${c2}`)
   const c = String(codigo ?? '').trim()
   const link = c ? `${LINK_BAIXAR}?c=${encodeURIComponent(c)}` : LINK_BAIXAR
   return `${partes.join(', ')}.\n\nBaixe o app gratuito, cadastre-se e mande sua proposta:\n${link}`
@@ -130,6 +132,25 @@ export const convidarPeloWhatsApp = async (mensagem) => {
   try { await Share.share({ message: mensagem }) } catch (err) {
     console.log('[indicacao] compartilhar cancelado/falhou | msg:', err?.message)
   }
+}
+
+// Janela de lançamento (grátis) ativa? GET /config/lancamento → { gratis, data_fim }, o mesmo
+// endpoint público que o CadastroScreen lê. Enquanto ela vale, o "+1 mês grátis" do cartão
+// não faz sentido (todo mundo já está grátis), então o cartão fica fora. Uma consulta por
+// processo; FALHA conta como ativa (true) — na dúvida, não mostrar um convite é o lado
+// seguro, e o cartão já some sem rede pelo mesmo motivo.
+let promessaLancamento = null
+export const lancamentoGratisAtivo = () => {
+  if (!promessaLancamento) {
+    promessaLancamento = api.get('/config/lancamento')
+      .then((r) => r?.gratis === true)
+      .catch((err) => {
+        console.log('[indicacao] /config/lancamento falhou, cartão fica oculto | code:', err?.code)
+        promessaLancamento = null
+        return true
+      })
+  }
+  return promessaLancamento
 }
 
 // ── Cartão "Convide um colega" do feed ──────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../contexts/AuthContext'
 import { espacos, larguraMaxima, cores, raios } from '../utils/tema'
-import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch, mensagemIndicarPedido, meuCodigoIndicacao, convidarPeloWhatsApp } from '../utils/indicacao'
+import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch, mensagemIndicarPedido, meuCodigoIndicacao, convidarPeloWhatsApp, lancamentoGratisAtivo } from '../utils/indicacao'
 
 // Peças da indicação de colegas que aparecem FORA da tela própria (ConvidarColegaScreen):
 // o selo nos cards de candidato/interessado do dono, o cartão do feed do profissional e a
@@ -55,9 +55,9 @@ export const ChipEmbaixador = () => (
 
 // Cartão "Gostou? Convide um colega" no feed do profissional, no MESMO molde do
 // BannerComoFunciona (gradiente laranja, ✕ no canto, toque abre a tela). Regras em
-// utils/indicacao: só depois do primeiro match; volta 30 dias depois de cada ✕; para
-// de vez na 3ª dispensa. Começa oculto e só mostra depois de LER a marca, para nunca
-// piscar para quem já dispensou.
+// utils/indicacao: NUNCA na janela de lançamento grátis (/config/lancamento); só depois do
+// primeiro match; volta 30 dias depois de cada ✕; para de vez na 3ª dispensa. Começa
+// oculto e só mostra depois de LER a marca, para nunca piscar para quem já dispensou.
 export const BannerConvideColega = ({ navigation }) => {
   const { usuario } = useAuth()
   const [visivel, setVisivel] = useState(false)
@@ -73,6 +73,8 @@ export const BannerConvideColega = ({ navigation }) => {
         const e = await lerEstadoBanner(uid)
         // Caminho barato primeiro: silenciado não paga a consulta do match.
         if (bannerSilenciado(e)) return
+        // Janela grátis ligada: o "+1 mês grátis" não vale nada ainda — sem cartão.
+        if (await lancamentoGratisAtivo()) return
         let temMatch = e.temMatch
         if (!temMatch) {
           temMatch = await profissionalJaTeveMatch(usuario)

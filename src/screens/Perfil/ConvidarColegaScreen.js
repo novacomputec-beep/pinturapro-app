@@ -9,7 +9,7 @@ import * as Clipboard from 'expo-clipboard'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarAviso } from '../../utils/deepLink'
-import { buscarMinhasIndicacoes, mensagemConvite, convidarPeloWhatsApp, META_EMBAIXADOR } from '../../utils/indicacao'
+import { buscarMinhasIndicacoes, mensagemConvite, convidarPeloWhatsApp, lancamentoGratisAtivo, META_EMBAIXADOR } from '../../utils/indicacao'
 
 // "Convide um colega" — só para o profissional (o item do Perfil que abre esta tela vive no
 // bloco ehPrestador). Tudo que a tela mostra vem de GET /indicacoes/minhas (utils/indicacao):
@@ -17,6 +17,12 @@ import { buscarMinhasIndicacoes, mensagemConvite, convidarPeloWhatsApp, META_EMB
 // do PerfilStack (AvaliacoesRecebidas): seta de voltar, título, puxar-para-atualizar e o
 // banner de erro de carregamento, que nunca esconde o que já carregou. Copiar usa o
 // expo-clipboard (o Clipboard do core do RN está depreciado).
+//
+// Janela de lançamento grátis (/config/lancamento, via lancamentoGratisAtivo): enquanto
+// vale, NADA de prêmio na tela — sem "+1 mês grátis", sem selo, sem "meses ganhos" —, só o
+// convite neutro "Convide um colega para o ProTudo" com o link e os botões funcionando.
+// Começa como se a janela estivesse ativa, para o prêmio nunca piscar antes da resposta.
+// O conteúdo é exportado (ConvidarColegaConteudo) para a Galeria mostrar os dois estados.
 
 const Stat = ({ numero, rotulo }) => (
   <View style={estilos.stat}>
@@ -30,8 +36,10 @@ export default function ConvidarColegaScreen({ navigation }) {
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [erro, setErro] = useState(null)
+  const [lancamentoGratis, setLancamentoGratis] = useState(true)
 
   const buscar = async () => {
+    lancamentoGratisAtivo().then(setLancamentoGratis)
     try {
       const d = await buscarMinhasIndicacoes()
       setDados(d)
@@ -80,32 +88,55 @@ export default function ConvidarColegaScreen({ navigation }) {
           <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
         </TouchableOpacity>
 
-        {/* Hero laranja: mesmo gradiente dos cartões de convite do feed. */}
-        <LinearGradient colors={['#ff8a3d', '#f05a28', '#c2410c']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={estilos.hero}>
-          <Text style={estilos.heroEmoji}>🤝</Text>
-          <Text style={estilos.heroTitulo} maxFontSizeMultiplier={1.3}>Traga um colega para o ProTudo</Text>
-          <Text style={estilos.heroSub} maxFontSizeMultiplier={1.3}>Quanto mais profissionais, mais clientes chegam para todos.</Text>
-        </LinearGradient>
+        <ConvidarColegaConteudo
+          dados={dados}
+          carregando={carregando && !dados}
+          erro={erro}
+          onRetry={buscar}
+          lancamentoGratis={lancamentoGratis}
+          onConvidar={convidar}
+          onCopiar={copiar}
+        />
+      </ScrollView>
+    </SafeAreaView>
+  )
+}
 
-        <BannerErroCarregamento mensagem={erro} onRetry={buscar} />
+// Corpo da tela, do hero para baixo. `lancamentoGratis` true = janela grátis: hero neutro e
+// sem o card de prêmios nem os boxes de meses/selo — só "Colegas indicados".
+export function ConvidarColegaConteudo({ dados, carregando, erro, onRetry, lancamentoGratis, onConvidar, onCopiar }) {
+  const codigo = dados?.codigo || ''
+  const link = dados?.link || ''
+  const temLink = !!(codigo && link)
+  return (
+    <>
+      {/* Hero laranja: mesmo gradiente dos cartões de convite do feed. */}
+      <LinearGradient colors={['#ff8a3d', '#f05a28', '#c2410c']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={estilos.hero}>
+        <Text style={estilos.heroEmoji}>🤝</Text>
+        <Text style={estilos.heroTitulo} maxFontSizeMultiplier={1.3}>{lancamentoGratis ? 'Convide um colega para o ProTudo' : 'Traga um colega para o ProTudo'}</Text>
+        <Text style={estilos.heroSub} maxFontSizeMultiplier={1.3}>Quanto mais profissionais, mais clientes chegam para todos.</Text>
+      </LinearGradient>
 
-        {carregando && !dados ? (
-          <ActivityIndicator color={cores.primaria} style={{ marginTop: 32 }} />
-        ) : (
-          <>
-            <Text style={estilos.secaoTitulo}>Seu link pessoal</Text>
-            <View style={estilos.linkBox}>
-              <Text style={estilos.linkTexto} selectable>{temLink ? link : 'Link indisponível no momento'}</Text>
-              {!!codigo && <Text style={estilos.linkCodigo}>Código: <Text style={{ color: cores.primaria, fontWeight: '800' }}>{codigo}</Text></Text>}
-            </View>
+      {!!onRetry && <BannerErroCarregamento mensagem={erro} onRetry={onRetry} />}
 
-            <TouchableOpacity style={[estilos.btnWhats, !temLink && { opacity: 0.5 }]} onPress={convidar} disabled={!temLink} activeOpacity={0.85} accessibilityRole="button">
-              <Text style={estilos.btnWhatsTexto}>Convidar pelo WhatsApp</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[estilos.btnCopiar, !temLink && { opacity: 0.5 }]} onPress={copiar} disabled={!temLink} activeOpacity={0.8} accessibilityRole="button">
-              <Text style={estilos.btnCopiarTexto}>📋 Copiar link</Text>
-            </TouchableOpacity>
+      {carregando ? (
+        <ActivityIndicator color={cores.primaria} style={{ marginTop: 32 }} />
+      ) : (
+        <>
+          <Text style={estilos.secaoTitulo}>Seu link pessoal</Text>
+          <View style={estilos.linkBox}>
+            <Text style={estilos.linkTexto} selectable>{temLink ? link : 'Link indisponível no momento'}</Text>
+            {!!codigo && <Text style={estilos.linkCodigo}>Código: <Text style={{ color: cores.primaria, fontWeight: '800' }}>{codigo}</Text></Text>}
+          </View>
 
+          <TouchableOpacity style={[estilos.btnWhats, !temLink && { opacity: 0.5 }]} onPress={onConvidar} disabled={!temLink} activeOpacity={0.85} accessibilityRole="button">
+            <Text style={estilos.btnWhatsTexto}>Convidar pelo WhatsApp</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[estilos.btnCopiar, !temLink && { opacity: 0.5 }]} onPress={onCopiar} disabled={!temLink} activeOpacity={0.8} accessibilityRole="button">
+            <Text style={estilos.btnCopiarTexto}>📋 Copiar link</Text>
+          </TouchableOpacity>
+
+          {!lancamentoGratis && (
             <View style={estilos.card}>
               <Text style={estilos.cardTitulo}>🎁 O que você ganha</Text>
               <View style={estilos.beneficio}>
@@ -121,16 +152,16 @@ export default function ConvidarColegaScreen({ navigation }) {
                 </Text>
               </View>
             </View>
+          )}
 
-            <View style={estilos.stats}>
-              <Stat numero={dados?.indicados ?? 0} rotulo="Colegas indicados" />
-              <Stat numero={dados?.mesesGanhos ?? 0} rotulo="Meses ganhos" />
-              <Stat numero={dados?.embaixador ? '🏅' : (dados?.paraSelo ?? META_EMBAIXADOR)} rotulo={dados?.embaixador ? 'Embaixador' : 'Para o selo'} />
-            </View>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          <View style={estilos.stats}>
+            <Stat numero={dados?.indicados ?? 0} rotulo="Colegas indicados" />
+            {!lancamentoGratis && <Stat numero={dados?.mesesGanhos ?? 0} rotulo="Meses ganhos" />}
+            {!lancamentoGratis && <Stat numero={dados?.embaixador ? '🏅' : (dados?.paraSelo ?? META_EMBAIXADOR)} rotulo={dados?.embaixador ? 'Embaixador' : 'Para o selo'} />}
+          </View>
+        </>
+      )}
+    </>
   )
 }
 
