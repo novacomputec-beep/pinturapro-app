@@ -9,6 +9,8 @@ import { ReferenciasDemo } from '../../components/VerificacaoIdentidadeSheet'
 import { MinhasReferenciasConteudo } from './MinhasReferenciasScreen'
 import { AvisarPedidoConteudo } from '../../components/AvisarPedidoSheet'
 import { CaixaAvisados, LinhaAvisados } from '../../components/CaixaAvisados'
+import { CaixaIndicar } from '../../components/Indicacao'
+import { BotaoPrimario } from '../../components'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -197,6 +199,30 @@ function DemoAvisados({ modo, avisados }) {
   )
 }
 
+// Arte-Indicar (components/Indicacao), no detalhe do PROFISSIONAL de pedido aberto sem match:
+// a caixa verde acima do "Tenho interesse". Variantes da mensagem: com valor e bairro, sem
+// valor, sem bairro (cai na cidade). O botão abre o WhatsApp de verdade com a mensagem
+// montada dos dados locais — nada sai da tela sem o toque.
+const CASOS_INDICAR = [
+  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · serviço com valor e bairro (com código)', frente: 'servico', codigo: 'AB12CD' },
+  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · obra sem valor (sem código)', frente: 'obra', demanda: { valor: null }, codigo: '' },
+  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · serviço sem bairro (usa a cidade)', frente: 'servico', demanda: { bairro: null }, codigo: 'AB12CD' },
+]
+const propsIndicar = (caso) => ({ demanda: { ...base(caso.frente), ...(caso.demanda || {}) }, codigo: caso.codigo, ehObra: caso.frente === 'obra' })
+
+// Trecho do detalhe do profissional em volta da arte: a caixa e, abaixo, o botão de interesse
+// com o aviso — a posição real, logo acima do "Tenho interesse".
+function DemoIndicar({ demanda, codigo, ehObra }) {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <Text style={estilos.tituloDemanda}>{demanda.titulo}</Text>
+      <CaixaIndicar demanda={demanda} codigo={codigo} />
+      <BotaoPrimario titulo={ehObra ? 'Tenho interesse nesta obra →' : 'Tenho interesse neste serviço →'} onPress={noop} />
+      <Text style={estilos.avisoInteresse}>Ao demonstrar interesse, suas informações profissionais serão enviadas ao solicitante.</Text>
+    </ScrollView>
+  )
+}
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -205,6 +231,7 @@ const TODOS = [
   ...CASOS_MINHAS_REFS.map((c) => ({ ...c, frente: null })),
   ...CASOS_AVISAR.map((c) => ({ ...c, frente: null })),
   ...CASOS_AVISADOS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_INDICAR,
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -300,7 +327,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -323,10 +350,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehMinhasRefs = caso.fase === 'minhas_refs'
   const ehAvisar = caso.fase === 'avisar_pedido'
   const ehAvisados = caso.fase === 'avisados'
+  const ehIndicar = caso.fase === 'indicar'
   const props = useMemo(() => (
-    ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados
+    ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -356,6 +384,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : ehIndicar ? <DemoIndicar key={i} {...props} />
             : ehAvisados ? <DemoAvisados key={i} {...props} />
             : ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
             : ehRefs ? <ReferenciasDemo key={i} {...props} />
@@ -394,4 +423,6 @@ const estilos = StyleSheet.create({
   secaoTitulo: { fontSize: 11, fontWeight: '600', color: cores.textoFraco, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
   vazio: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 24, alignItems: 'center', marginBottom: 16 },
   vazioTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
+  // Cópia do `aviso` sob o "Tenho interesse" das telas de detalhe.
+  avisoInteresse: { fontSize: 11, color: cores.textoFraco, textAlign: 'center', marginTop: 10, lineHeight: 16 },
 })

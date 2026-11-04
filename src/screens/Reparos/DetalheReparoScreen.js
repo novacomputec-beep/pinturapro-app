@@ -28,7 +28,7 @@ import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import TelaPosMatch from '../../components/PosMatchFixo'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
-import { ChipEmbaixador } from '../../components/Indicacao'
+import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import ChipsCategoria from '../../components/ChipsCategoria'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
@@ -1460,6 +1460,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
       dicaMantida: dicaAvisadosMantida,
     })
     : null
+  // Arte-Indicar (components/Indicacao): só para o PROFISSIONAL (nunca o dono) em reparo
+  // aberto e sem match — o mesmo "aberta" da arte de avisados. O código de indicação só é
+  // consultado quando a caixa vai aparecer.
+  const mostrarIndicar = isPrestador && !isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada
+  const codigoIndicacao = useMeuCodigoIndicacao(mostrarIndicar)
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
   const prestadorMatch = temMatch
@@ -2675,6 +2680,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   )}
                 </>
               )}
+              {/* Arte-Indicar: logo ACIMA do painel de interesse, só em pedido aberto sem match. */}
+              {mostrarIndicar && <CaixaIndicar demanda={reparo} codigo={codigoIndicacao} />}
               {!temMatch && !encerrada && (
                 meuInteresse ? (
                   <View style={estilos.interesseFeito}>
