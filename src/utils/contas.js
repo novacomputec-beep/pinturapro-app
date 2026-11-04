@@ -1,5 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
+
 // Múltiplas contas da mesma pessoa (Arte-Meus-Perfis). O que NÃO é tela mora aqui: os 4
-// tipos de cadastro, o tipo da conta atual e a lista pronta para a tela "Meus perfis".
+// tipos de cadastro, o tipo da conta atual, a lista pronta para a tela "Meus perfis" e a
+// memória do último perfil usado por aparelho.
 //
 // Contrato com a API (pinturapro-api e53ffae):
 //   GET  /auth/perfil         → { usuario, assinatura, contas: [{ id, tipo, nome }] } — o
@@ -51,6 +54,34 @@ export const listarPerfis = (usuario) => {
     ...t,
     estado: t.tipo === atual ? 'em_uso' : existentes.has(t.tipo) ? 'trocar' : 'adicionar',
   }))
+}
+
+// ── Último perfil usado, por aparelho e por e-mail ─────────────────────────────────────
+// Gravado no login, ao trocar de perfil e ao "Criar e entrar" (AuthContext). No PRÓXIMO login
+// do mesmo e-mail com 2+ contas, se o tipo salvo ainda existe entre as `contas` devolvidas, o
+// AuthContext repete o login com ele e entra direto — o "Entrar como:" só aparece sem tipo
+// salvo ou com o tipo que não existe mais. Sobrevive ao logout DE PROPÓSITO: o ponto é o
+// próximo login ser direto. AsyncStorage, não SecureStore: tipo não é credencial. Best-effort
+// nos dois sentidos — falhar só faz o "Entrar como:" voltar.
+const CHAVE_ULTIMO_TIPO = 'ultimo_tipo_conta'
+const chaveUltimoTipo = (email) => `${CHAVE_ULTIMO_TIPO}:${String(email || '').trim().toLowerCase()}`
+
+export const lerUltimoTipo = async (email) => {
+  if (!email) return null
+  try {
+    const v = await AsyncStorage.getItem(chaveUltimoTipo(email))
+    return v && TIPOS_PERFIL.some((t) => t.tipo === v) ? v : null
+  } catch (err) {
+    console.log('[contas] falha ao ler o último perfil | msg:', err?.message)
+    return null
+  }
+}
+
+export const gravarUltimoTipo = async (email, tipo) => {
+  if (!email || !tipo) return
+  try { await AsyncStorage.setItem(chaveUltimoTipo(email), tipo) } catch (err) {
+    console.log('[contas] falha ao gravar o último perfil | msg:', err?.message)
+  }
 }
 
 // Mensagens por `codigo` dos erros de criar/trocar (mesma convenção do cadastro). Não há

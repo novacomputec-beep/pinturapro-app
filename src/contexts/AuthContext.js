@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import * as SecureStore from 'expo-secure-store'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { tipoDaConta, tiposDasContas, lerUltimoTipo, gravarUltimoTipo } from '../utils/contas'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
@@ -384,11 +385,25 @@ export const AuthProvider = ({ children }) => {
   }
 
   const login = async (email, senha, tipo) => {
-    const resposta = await authService.login(email, senha, tipo)
+    let resposta = await authService.login(email, senha, tipo)
     // Múltiplas contas no mesmo e-mail: sem `tipo` e com 2+ itens em `contas`, a sessão NÃO
     // é gravada — a LoginScreen mostra o "Entrar como:" e repete o login com o tipo
     // escolhido. Sem o campo `contas`, ou com 1 conta só, segue o fluxo de sempre.
-    if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) return resposta
+    if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
+      // Último perfil usado neste aparelho (utils/contas): se ainda existe entre as contas
+      // devolvidas, repete o login com ele e entra direto, sem "Entrar como:". Falhando a
+      // repetição (conta sumiu entre as duas chamadas, rede), volta a resposta com `contas`
+      // e a LoginScreen mostra a escolha como antes.
+      const salvo = await lerUltimoTipo(email)
+      if (!salvo || !tiposDasContas(resposta.contas).includes(salvo)) return resposta
+      try {
+        resposta = await authService.login(email, senha, salvo)
+      } catch (err) {
+        console.log('[AuthContext] login direto no último perfil falhou, mostrando a escolha | tipo:', salvo, '| status:', err?.status, '| codigo:', err?.codigo)
+        return resposta
+      }
+      if (Array.isArray(resposta?.contas) && !resposta?.token) return resposta
+    }
     // Defensivo: em aparelho compartilhado, um login (de qualquer usuário) descarta
     // um eventual rascunho de cadastro pré-auth que tenha ficado, para não ressurgir
     // para outra pessoa. Best-effort, não bloqueia o login.
@@ -415,6 +430,8 @@ export const AuthProvider = ({ children }) => {
     setAssinatura(resposta.assinatura)
     setMostrarBoasVindas(deveExibirBoasVindas(resposta.usuario, resposta.assinatura))
     setTimeout(() => registrarPushToken(), 1000)
+    // Memória do perfil que entrou: é ela que faz o próximo login deste e-mail ser direto.
+    gravarUltimoTipo(email, tipoDaConta(resposta.usuario))
     return resposta
   }
 
@@ -424,6 +441,8 @@ export const AuthProvider = ({ children }) => {
     await SecureStore.setItemAsync('token', token)
     usuarioIdRef.current = usuarioDados?.id ?? null
     setUsuario(comContas(usuarioDados, contas))
+    // Trocar de perfil e "Criar e entrar" passam por aqui: o perfil novo vira o lembrado.
+    gravarUltimoTipo(usuarioDados?.email, tipoDaConta(usuarioDados))
     setAssinatura(assinaturaDados || null)
     setMostrarBoasVindas(deveExibirBoasVindas(usuarioDados, assinaturaDados || null))
     setTimeout(() => registrarPushToken(), 1000)
@@ -441,6 +460,7 @@ export const AuthProvider = ({ children }) => {
     // com o token da conta e o próximo login registra o mesmo token na conta seguinte.
     await SecureStore.deleteItemAsync('token')
     await limparSessaoCache()
+    // O último perfil usado (utils/contas) fica DE PROPÓSITO: o próximo login é direto.
     setUsuario(null)
     setAssinatura(null)
     setMostrarBoasVindas(false)
