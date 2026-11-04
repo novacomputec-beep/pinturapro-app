@@ -10,14 +10,76 @@ import { AvisoContatoOculto } from './index'
 //
 // Formato de cada pergunta (GET /reparos/:id e /obras/:id, campo `perguntas`):
 //   { id, pergunta, resposta, criado_em, respondido_em, minha }
-// Sem nomes de autor, de propósito: a pergunta é pública para todos os profissionais e
-// o que importa é a dúvida, não quem a teve.
+// Para os profissionais, sem nome de autor, de propósito: a pergunta é pública para todos e
+// o que importa é a dúvida, não quem a teve. Para o DONO (Arte-Quem-Perguntou), a API pode
+// acrescentar `autor_id` (ou autor_usuario_id), `autor_nome` e `autor_candidato` (true quando
+// quem perguntou já se candidatou/interessou): com eles, cada pergunta ganha a linha de quem
+// perguntou e cada card de interessado mostra a pergunta dele. Sem esses campos nada disso
+// aparece — a tela fica como era.
 
 const LIMITE_PERGUNTA = 200
 const LIMITE_RESPOSTA = 300
 const AMBAR = '#FFC107'
 
 const respondida = (p) => !!(p?.resposta && String(p.resposta).trim())
+
+// ── Arte-Quem-Perguntou (só o dono) ──────────────────────────────────────────────────────
+const idAutorDe = (p) => p?.autor_id ?? p?.autor_usuario_id ?? null
+const iniciaisDe = (nome) =>
+  (nome || '').split(' ').map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?'
+
+// A lista traz autor? Só então os cards de interessado podem afirmar "Não fez pergunta.".
+export const perguntasTemAutor = (perguntas) => (perguntas || []).some((p) => idAutorDe(p) != null)
+
+// A pergunta de um profissional (pelo usuario_id do interessado/candidato), ou null.
+export const perguntaDoAutor = (perguntas, usuarioId) => {
+  if (usuarioId == null) return null
+  return (perguntas || []).find((p) => idAutorDe(p) != null && String(idAutorDe(p)) === String(usuarioId)) || null
+}
+
+// Linha acima da pergunta: avatar de iniciais, nome e a etiqueta de candidatura. Sem
+// autor_nome não renderiza nada (resposta antiga da API / lado do profissional).
+export const LinhaAutorPergunta = ({ pergunta }) => {
+  const nome = String(pergunta?.autor_nome ?? '').trim()
+  if (!nome) return null
+  const candidato = pergunta?.autor_candidato === true
+  return (
+    <View style={estilos.autorLinha}>
+      <View style={estilos.autorAvatar}><Text style={estilos.autorIniciais}>{iniciaisDe(nome)}</Text></View>
+      <Text style={estilos.autorNome} numberOfLines={1}>{nome}</Text>
+      <View style={[estilos.autorTag, candidato ? estilos.autorTagSim : estilos.autorTagNao]}>
+        <Text style={[estilos.autorTagTexto, { color: candidato ? cores.sucesso : cores.textoMedio }]}>
+          {candidato ? '✓ Interessado(a)' : 'Ainda não se candidatou'}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+// Dentro do card do interessado/candidato: a pergunta dele e a sua resposta (ou o convite a
+// responder, que abre o ModalResponderPergunta). `atribuivel` false (lista sem autor) =
+// nada; sem pergunta = "Não fez pergunta." em cinza.
+export const CaixaPerguntaInteressado = ({ pergunta, atribuivel, podeResponder, onResponder }) => {
+  if (!atribuivel) return null
+  if (!pergunta) return <Text style={estilos.semPergunta}>Não fez pergunta.</Text>
+  return (
+    <View style={estilos.caixaPergunta}>
+      <Text style={estilos.caixaPerguntou}>💬 Perguntou: "{pergunta.pergunta}"</Text>
+      {respondida(pergunta) ? (
+        <Text style={estilos.caixaRespondeu}>Você respondeu: "{pergunta.resposta}"</Text>
+      ) : (
+        <View style={estilos.caixaAguardandoLinha}>
+          <Text style={estilos.caixaAguardando}>⏳ Aguardando sua resposta</Text>
+          {podeResponder && (
+            <TouchableOpacity onPress={() => onResponder(pergunta)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="link" accessibilityLabel="Responder a pergunta">
+              <Text style={estilos.caixaLink}>Responder →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+    </View>
+  )
+}
 
 // ── Lado do PROFISSIONAL ─────────────────────────────────────────────────────────────────
 
@@ -157,12 +219,15 @@ export const CardPerguntasDono = ({ perguntas, respondendoId, onResponder }) => 
         <View style={estilos.cardNova}>
           <Text style={estilos.cardNovaTitulo}>❓ Pergunta nova · responda para atrair propostas</Text>
           {novas.map((p, i) => (
-            <ItemResponder
-              key={p.id ?? i}
-              pergunta={p}
-              respondendo={respondendoId != null && String(respondendoId) === String(p.id)}
-              onResponder={onResponder}
-            />
+            <View key={p.id ?? i}>
+              {/* Quem perguntou (Arte-Quem-Perguntou): só quando a API manda autor_nome. */}
+              <LinhaAutorPergunta pergunta={p} />
+              <ItemResponder
+                pergunta={p}
+                respondendo={respondendoId != null && String(respondendoId) === String(p.id)}
+                onResponder={onResponder}
+              />
+            </View>
           ))}
         </View>
       )}
@@ -171,6 +236,7 @@ export const CardPerguntasDono = ({ perguntas, respondendoId, onResponder }) => 
           <Text style={estilos.cardTitulo}>Já respondidas ({feitas.length})</Text>
           {feitas.map((p, i) => (
             <View key={p.id ?? i} style={[estilos.item, i === feitas.length - 1 && { marginBottom: 0 }]}>
+              <LinhaAutorPergunta pergunta={p} />
               <Text style={estilos.pergunta}>{p.pergunta}</Text>
               <View style={estilos.respostaBox}>
                 <Text style={estilos.resposta}>{p.resposta}</Text>
@@ -183,7 +249,54 @@ export const CardPerguntasDono = ({ perguntas, respondendoId, onResponder }) => 
   )
 }
 
+// "Responder →" do card do interessado: a mesma caixa de resposta (ItemResponder) num modal,
+// com a linha de quem perguntou. onResponder é o handler da tela (não lança; falha vira
+// alerta lá), então o modal fecha ao terminar e a recarga traz a resposta para os cards.
+//   pergunta: a pergunta aberta (null = fechado); respondendo: o envio desta está em voo.
+export const ModalResponderPergunta = ({ pergunta, respondendo, onResponder, onFechar }) => {
+  const fechar = () => { if (!respondendo) onFechar() }
+  return (
+    <Modal visible={!!pergunta} transparent animationType="fade" onRequestClose={fechar}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.modalFundo}>
+        <View style={estilos.modalCard}>
+          <Text style={estilos.modalTitulo}>❓ Responder ao profissional</Text>
+          {!!pergunta && (
+            <>
+              <LinhaAutorPergunta pergunta={pergunta} />
+              <ItemResponder
+                pergunta={pergunta}
+                respondendo={!!respondendo}
+                onResponder={async (id, texto) => { await onResponder(id, texto); onFechar() }}
+              />
+            </>
+          )}
+          <TouchableOpacity style={[estilos.btnCancelar, { marginTop: 10 }]} onPress={fechar} disabled={!!respondendo}>
+            <Text style={estilos.btnCancelarTexto}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  )
+}
+
 const estilos = StyleSheet.create({
+  // Arte-Quem-Perguntou: linha do autor (avatar de iniciais como o dos candidatos, nome e a
+  // etiqueta pill) e a caixa escura da pergunta dentro do card do interessado.
+  autorLinha:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  autorAvatar:   { width: 28, height: 28, borderRadius: 14, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center' },
+  autorIniciais: { color: cores.primaria, fontSize: 11, fontWeight: '700' },
+  autorNome:     { flex: 1, minWidth: 0, fontSize: 13, fontWeight: '600', color: cores.textoForte },
+  autorTag:      { borderRadius: raios.pill, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 2 },
+  autorTagSim:   { backgroundColor: cores.sucessoSuave, borderColor: cores.sucessoBorda },
+  autorTagNao:   { backgroundColor: cores.fundoElevado, borderColor: cores.borda },
+  autorTagTexto: { fontSize: 10, fontWeight: '700' },
+  semPergunta:   { fontSize: 12, color: cores.textoFraco, marginTop: 6, fontStyle: 'italic' },
+  caixaPergunta: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, marginTop: 6, gap: 4 },
+  caixaPerguntou:{ fontSize: 13, color: cores.textoForte, lineHeight: 19 },
+  caixaRespondeu:{ fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
+  caixaAguardandoLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 },
+  caixaAguardando: { fontSize: 12, color: AMBAR, fontWeight: '600' },
+  caixaLink:     { fontSize: 12, fontWeight: '700', color: cores.info },
   // Card neutro (lista do profissional / já respondidas do dono): mesmo molde dos demais
   // cards de detalhe — fundo de card, borda fina, raio médio.
   card:        { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 16 },

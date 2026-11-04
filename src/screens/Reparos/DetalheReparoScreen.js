@@ -29,7 +29,7 @@ import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import TelaPosMatch from '../../components/PosMatchFixo'
-import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono } from '../../components/PerguntasDemanda'
+import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import ChipsCategoria from '../../components/ChipsCategoria'
@@ -341,6 +341,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [modalPergunta, setModalPergunta] = useState(false)
   const [enviandoPergunta, setEnviandoPergunta] = useState(false)
   const [respondendoPerguntaId, setRespondendoPerguntaId] = useState(null)
+  // Arte-Quem-Perguntou: pergunta aberta pelo "Responder →" do card do interessado (modal).
+  const [perguntaResponder, setPerguntaResponder] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -1915,6 +1917,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
         onFechar={() => setModalPergunta(false)}
         onEnviar={enviarPergunta}
       />
+      {/* Arte-Quem-Perguntou (dono): responder a partir do card do interessado. */}
+      <ModalResponderPergunta
+        pergunta={perguntaResponder}
+        respondendo={perguntaResponder != null && respondendoPerguntaId != null && String(respondendoPerguntaId) === String(perguntaResponder.id)}
+        onResponder={responderPergunta}
+        onFechar={() => setPerguntaResponder(null)}
+      />
 
       <SheetCancelamento
         visivel={sheetCancelar}
@@ -2561,6 +2570,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
                       </View>
                     )}
+                    {/* Arte-Quem-Perguntou: a pergunta DESTE profissional e a sua resposta (ou
+                        o "Responder →"), quando a lista de perguntas traz o autor. */}
+                    <CaixaPerguntaInteressado
+                      pergunta={perguntaDoAutor(perguntas, item.usuario_id)}
+                      atribuivel={perguntasTemAutor(perguntas)}
+                      podeResponder={!temMatch && !encerrada}
+                      onResponder={setPerguntaResponder}
+                    />
                     {item.status === 'pendente' && !temMatch && !encerrada && (
                       <View style={{ marginTop: 10 }}>
                         {contrapropostaInteresseId === item.id ? (
