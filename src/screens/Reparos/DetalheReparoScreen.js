@@ -14,6 +14,7 @@ import { BotaoPrimario, BotaoSecundario, AvisoContatoOculto } from '../../compon
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ModalAumentarValor from '../../components/ModalAumentarValor'
+import EditarCategoriasSheet, { listarRotulos } from '../../components/EditarCategoriasSheet'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
 import VerificacaoIdentidadeSheet, { useVerificacaoIdentidade } from '../../components/VerificacaoIdentidadeSheet'
@@ -22,7 +23,8 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
-import { emojiReparo, rotulosEspecialidades } from '../../utils/categorias'
+import { emojiReparo, rotulosEspecialidades, categoriasDe } from '../../utils/categorias'
+import { mostrarAviso } from '../../utils/deepLink'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
@@ -387,6 +389,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [modalAumentar, setModalAumentar] = useState(false)
   const [aumentando, setAumentando] = useState(false)
   const aumentandoRef = useRef(false)
+  // Edição das categorias do pedido (só dono, aberto e sem match — Arte-Editar-Categorias):
+  // a folha guarda a seleção e a trava de envio; aqui só abre/fecha e faz o PATCH.
+  const [sheetCategorias, setSheetCategorias] = useState(false)
   // Guarda a janela EM VOO (o id, não um boolean): trava as três opções de uma vez e
   // ainda permite marcar qual delas está sendo enviada.
   const [enviandoJanela, setEnviandoJanela] = useState(null)
@@ -1160,6 +1165,41 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
+  // "Salvar e avisar" da folha de categorias: PATCH /reparos/dono/:id/categorias { categorias }.
+  // Resolvida, a folha fecha, o pedido é relido e um toast confirma — com os rótulos das
+  // categorias que ENTRARAM (resposta.adicionadas), porque são elas que avisam profissionais.
+  // Rejeitada, a folha fica aberta com a escolha (a trava é dela). O 409 reparo_fechado
+  // (alguém foi escolhido ou o pedido fechou enquanto a folha estava aberta) é o único que
+  // fecha a folha: a tela recarrega e passa a mostrar o estado real, sem o "Editar".
+  const handleSalvarCategorias = async (categorias) => {
+    try {
+      const r = await comRetry(() => api.patch(`/reparos/dono/${reparo.id}/categorias`, { categorias }))
+      setSheetCategorias(false)
+      await buscar()
+      const adicionadas = Array.isArray(r?.adicionadas) ? r.adicionadas : []
+      mostrarAviso(adicionadas.length
+        ? `Categorias atualizadas. Os profissionais de ${listarRotulos(adicionadas)} foram avisados do seu pedido.`
+        : 'Categorias atualizadas.')
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao editar categorias | status:', err?.status, '| code:', err?.code, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { setSheetCategorias(false); throw err }
+      const isNetwork = err?.code === 'ERR_NETWORK' || err?.message === 'Network Error'
+      if (isNetwork) {
+        Alert.alert('Erro de conexão', 'Não foi possível salvar as categorias. Verifique sua conexão.')
+      } else if (err?.status === 409 && err?.codigo === 'reparo_fechado') {
+        setSheetCategorias(false)
+        Alert.alert('Pedido já encaminhado', 'As categorias só podem ser alteradas enquanto o pedido está aberto e sem profissional escolhido.')
+        recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-409 falhou | code:', e?.code))
+      } else if (err?.status === 404) {
+        setSheetCategorias(false)
+        Alert.alert('Não encontrado', err?.mensagem || 'Serviço não encontrado.')
+      } else {
+        Alert.alert('Não foi possível salvar', err?.mensagem || 'Tente novamente.')
+      }
+      throw err
+    }
+  }
+
   // Porta de entrada do modal (onEstender). O modal entrega horas já validadas (inteiro
   // ≥ 1); aqui entram as duas verificações que só a tela tem como fazer, ANTES do POST:
   //   1. Teto local: extensao_maxima_horas vem do detalhe quando o servidor o expõe. Sem
@@ -1464,6 +1504,22 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // aberto e sem match — o mesmo "aberta" da arte de avisados. O código de indicação só é
   // consultado quando a caixa vai aparecer.
   const mostrarIndicar = isPrestador && !isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada
+  // "✏️ Editar" ao lado dos chips de categoria (Arte-Editar-Categorias): o espelho do dono da
+  // mesma janela — aberto e sem profissional escolhido, a única em que a API aceita o PATCH.
+  const podeEditarCategorias = isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada
+  const linhaCategoriasDono = podeEditarCategorias ? (
+    <View style={estilos.categoriasEditaveis}>
+      <ChipsCategoria demanda={reparo} estilo={{ justifyContent: 'flex-end' }} />
+      <TouchableOpacity
+        onPress={() => setSheetCategorias(true)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel="Editar categorias do pedido"
+      >
+        <Text style={estilos.editarCategorias}>✏️ Editar</Text>
+      </TouchableOpacity>
+    </View>
+  ) : null
   const codigoIndicacao = useMeuCodigoIndicacao(mostrarIndicar)
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
@@ -2053,8 +2109,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     R$ {Number(valorPrincipal).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Text>
                 </View>
-                {/* Até 2 chips + "+N" (components/ChipsCategoria); reparo antigo = o chip de sempre. */}
-                <ChipsCategoria demanda={reparo} estilo={{ justifyContent: 'flex-end', maxWidth: '55%' }} />
+                {/* Até 2 chips + "+N" (components/ChipsCategoria); reparo antigo = o chip de sempre.
+                    Dono de pedido aberto sem match ganha o "✏️ Editar" ao lado. */}
+                {linhaCategoriasDono
+                  ? <View style={{ maxWidth: '55%' }}>{linhaCategoriasDono}</View>
+                  : <ChipsCategoria demanda={reparo} estilo={{ justifyContent: 'flex-end', maxWidth: '55%' }} />}
               </View>
               <View style={estilos.valorDestaqueDivisor} />
               <Text style={estilos.valorDestaqueNota}>Pagamento acertado direto com o profissional.{'\n'}O app não recebe valores.</Text>
@@ -2063,6 +2122,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
 
           {!topoCompacto && <Text style={estilos.titulo}>{reparo.titulo}</Text>}
+          {/* Sem card de valor (pedido sem valor) os chips do dono + "✏️ Editar" saem avulsos,
+              abaixo do título — senão o dono não teria onde tocar. */}
+          {linhaCategoriasDono && !(valorPrincipal != null && Number(valorPrincipal) > 0) && (
+            <View style={estilos.categoriasEditaveisSoltas}>{linhaCategoriasDono}</View>
+          )}
           {/* Sem card de valor (pedido sem valor) a linha de avisados sai avulsa, abaixo do título. */}
           {estadoAvisados === 'linha' && !(valorPrincipal != null && Number(valorPrincipal) > 0) && (
             <LinhaAvisados avisados={reparo.profissionais_avisados} solta />
@@ -2256,6 +2320,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 valorMinimo={aumentoValor.minimo}
                 onAumentar={handleAumentarValor}
                 onFechar={() => setModalAumentar(false)}
+              />
+              {/* Folha "Categorias do pedido" (Arte-Editar-Categorias), aberta pelo "✏️ Editar". */}
+              <EditarCategoriasSheet
+                visivel={sheetCategorias}
+                categorias={categoriasDe(reparo)}
+                onSalvar={handleSalvarCategorias}
+                onFechar={() => setSheetCategorias(false)}
               />
               {/* Agendamento (dia + hora) negociado entre as partes — proposta a responder,
                   aguardando o profissional ou AGENDADO: um card só, ver components/Agendamento.
@@ -2900,6 +2971,11 @@ const estilos = StyleSheet.create({
   valorDestaqueLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   valorDestaqueDivisor: { height: 1, backgroundColor: cores.sucesso, opacity: 0.2, marginTop: 12, marginBottom: 8 },
   valorDestaqueNota: { fontSize: 11, color: cores.sucesso, fontWeight: '500', lineHeight: 16 },
+  // Chips do dono + "✏️ Editar" (Arte-Editar-Categorias): os chips à direita, o link embaixo
+  // deles, para caber nos 55% do card de valor sem empurrar o valor.
+  categoriasEditaveis: { alignItems: 'flex-end', gap: 6 },
+  categoriasEditaveisSoltas: { marginTop: -8, marginBottom: 12, alignItems: 'flex-end' },
+  editarCategorias: { fontSize: 12, fontWeight: '700', color: cores.primaria },
   // Pill de categoria: mesmo padrão tintado dos cards do feed (laranja sobre o
   // próprio tom), para a categoria não trocar de cor entre feed e detalhe.
   // O #444444 sobre #1A1A1A dava 1.79:1 — o mesmo par que o redesign do feed já
