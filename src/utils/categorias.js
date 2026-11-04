@@ -79,6 +79,10 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'aluguel_festas',  rotulo: 'Aluguel para festas', emoji: '🎪' },
   { slug: 'decoracao_festas', rotulo: 'Decoração de festas', emoji: '🎈' },
   { slug: 'recreacao_infantil', rotulo: 'Recreação infantil', emoji: '🤹' },
+  // Mesmos slugs da API (utils/especialidades.js); grupos: Beleza e Reparos da casa.
+  { slug: 'design_sobrancelhas', rotulo: 'Design de sobrancelhas', emoji: '✨' },
+  { slug: 'vidraceiro',      rotulo: 'Vidraceiro',         emoji: '🪟' },
+  { slug: 'serralheria',     rotulo: 'Serralheria',        emoji: '🔩' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
