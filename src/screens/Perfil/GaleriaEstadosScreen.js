@@ -16,6 +16,7 @@ import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
 import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
 import { DicasConteudo } from './DicasScreen'
 import { DicasTemaConteudo } from './DicasTemaScreen'
+import { CardPerguntasDono, CaixaPerguntaInteressado, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
@@ -326,6 +327,45 @@ const propsDicas = (caso) => caso.fase === 'dicas'
   ? { temas: caso.carregando ? [] : TEMAS_DICAS, vistas: new Set(caso.vistas || []), carregando: !!caso.carregando, erro: null, onRetry: null, onAbrirTema: noop }
   : { tema: TEMAS_DICAS[caso.tema], onAcao: noop, acaoDisponivel: null }
 
+// Arte-Quem-Perguntou (visão do DONO): as perguntas com autor (linha de iniciais + nome +
+// etiqueta) no CardPerguntasDono, e três cards de interessado — um que perguntou e aguarda
+// resposta, um que não perguntou e um já respondido. `posMatch` tira o "Responder →".
+const PERGUNTAS_DEMO = [
+  { id: 'p1', autor_id: 'u1', autor_nome: 'Carlos Henrique da Silva', autor_candidato: true, pergunta: 'O material já está comprado ou preciso levar?', resposta: null },
+  { id: 'p2', autor_id: 'u2', autor_nome: 'João Pedro Santos', autor_candidato: false, pergunta: 'Tem escada no local?', resposta: 'Sim, tem uma escada de 6 degraus na área de serviço.' },
+]
+const INTERESSADOS_DEMO = [
+  { usuario_id: 'u1', nome: 'Carlos Henrique da Silva' },
+  { usuario_id: 'u3', nome: 'Maria Aparecida Souza' },
+  { usuario_id: 'u2', nome: 'João Pedro Santos' },
+]
+const CASOS_QUEM_PERGUNTOU = [
+  { lado: 'dono', fase: 'quem_perguntou', rotulo: 'Quem perguntou · aberto (pendente + respondida + sem pergunta)' },
+  { lado: 'dono', fase: 'quem_perguntou', rotulo: 'Quem perguntou · pós-match (sem "Responder →")', posMatch: true },
+]
+const propsQuemPerguntou = (caso) => ({ posMatch: !!caso.posMatch })
+
+function DemoQuemPerguntou({ posMatch }) {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <CardPerguntasDono perguntas={PERGUNTAS_DEMO} respondendoId={null} onResponder={noop} />
+      <Text style={estilos.secaoTitulo}>🔧 Profissionais interessados ({INTERESSADOS_DEMO.length})</Text>
+      {INTERESSADOS_DEMO.map((item) => (
+        <View key={item.usuario_id} style={estilos.cardInteressado}>
+          <Text style={estilos.cardInteressadoNome}>{item.nome}</Text>
+          <Text style={estilos.cardInteressadoMeta}>⭐ 4.8 (23 avaliações) · 📍 São Paulo</Text>
+          <CaixaPerguntaInteressado
+            pergunta={perguntaDoAutor(PERGUNTAS_DEMO, item.usuario_id)}
+            atribuivel={perguntasTemAutor(PERGUNTAS_DEMO)}
+            podeResponder={!posMatch}
+            onResponder={noop}
+          />
+        </View>
+      ))}
+    </ScrollView>
+  )
+}
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -339,6 +379,7 @@ const TODOS = [
   ...CASOS_PERFIS.map((c) => ({ ...c, frente: null })),
   ...CASOS_CATEGORIAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -434,7 +475,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -462,10 +503,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehPerfis = caso.fase === 'perfis' || caso.fase === 'adicionar'
   const ehCategorias = caso.fase === 'editar_categorias'
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
+  const ehQuemPerguntou = caso.fase === 'quem_perguntou'
   const props = useMemo(() => (
-    ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehDicas, ehCategorias, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehCategorias || ehDicas
+    ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehQuemPerguntou, ehDicas, ehCategorias, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehCategorias || ehDicas || ehQuemPerguntou
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -496,6 +538,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias) && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
+            : ehQuemPerguntou ? <DemoQuemPerguntou key={i} {...props} />
             : caso.fase === 'dicas' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasConteudo {...props} /></ScrollView>
             : caso.fase === 'dica_tema' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasTemaConteudo {...props} /></ScrollView>
             : caso.fase === 'perfis' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><MeusPerfisConteudo {...props} /></ScrollView>
@@ -542,4 +585,9 @@ const estilos = StyleSheet.create({
   vazioTexto: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20 },
   // Cópia do `aviso` sob o "Tenho interesse" das telas de detalhe.
   avisoInteresse: { fontSize: 11, color: cores.textoFraco, textAlign: 'center', marginTop: 10, lineHeight: 16 },
+  // Card de interessado reduzido (interessadoCard dos detalhes), só o bastante para a caixa
+  // "💬 Perguntou" aparecer onde vive.
+  cardInteressado: { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 14, marginBottom: 10 },
+  cardInteressadoNome: { fontSize: 15, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
+  cardInteressadoMeta: { fontSize: 12, color: cores.textoMedio },
 })
