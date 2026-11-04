@@ -10,6 +10,7 @@ import { MinhasReferenciasConteudo } from './MinhasReferenciasScreen'
 import { AvisarPedidoConteudo } from '../../components/AvisarPedidoSheet'
 import { CaixaAvisados, LinhaAvisados } from '../../components/CaixaAvisados'
 import { CaixaIndicar } from '../../components/Indicacao'
+import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
 import { BotaoPrimario } from '../../components'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
@@ -223,6 +224,23 @@ function DemoIndicar({ demanda, codigo, ehObra }) {
   )
 }
 
+// "Convide um colega" (ConvidarColegaConteudo) nos dois estados: janela de lançamento grátis
+// (neutro, sem prêmio) e fora dela (card "O que você ganha" + meses/selo). Dados locais,
+// compartilhar e copiar no-op.
+const CASOS_CONVITE = [
+  { lado: 'pro', fase: 'convite', rotulo: 'Convidar colega · janela grátis (sem prêmio)', lancamentoGratis: true },
+  { lado: 'pro', fase: 'convite', rotulo: 'Convidar colega · fora da janela (com prêmio)', lancamentoGratis: false },
+]
+const propsConvite = (caso) => ({
+  dados: { codigo: 'AB12CD', link: 'https://protudo.app.br/baixar?c=AB12CD', indicados: 2, aprovados: 1, mesesGanhos: 1, paraSelo: 2, embaixador: false },
+  carregando: false,
+  erro: null,
+  onRetry: null,
+  lancamentoGratis: caso.lancamentoGratis,
+  onConvidar: noop,
+  onCopiar: noop,
+})
+
 // Lista final: cada caso para serviço e para obra; os de foto, referências e aviso, uma vez.
 const TODOS = [
   ...['servico', 'obra'].flatMap((frente) => CASOS.map((c) => ({ ...c, frente }))),
@@ -232,6 +250,7 @@ const TODOS = [
   ...CASOS_AVISAR.map((c) => ({ ...c, frente: null })),
   ...CASOS_AVISADOS.map((c) => ({ ...c, frente: null })),
   ...CASOS_INDICAR,
+  ...CASOS_CONVITE.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -327,7 +346,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -351,10 +370,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehAvisar = caso.fase === 'avisar_pedido'
   const ehAvisados = caso.fase === 'avisados'
   const ehIndicar = caso.fase === 'indicar'
+  const ehConvite = caso.fase === 'convite'
   const props = useMemo(() => (
-    ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar
+    ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -384,6 +404,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar) && { paddingHorizontal: 0, paddingBottom: 0 }, ehAvisar && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
           {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : ehConvite ? <ScrollView key={i} showsVerticalScrollIndicator={false}><ConvidarColegaConteudo {...props} /></ScrollView>
             : ehIndicar ? <DemoIndicar key={i} {...props} />
             : ehAvisados ? <DemoAvisados key={i} {...props} />
             : ehMinhasRefs ? <ScrollView key={i} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}><MinhasReferenciasConteudo {...props} /></ScrollView>
