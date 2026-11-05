@@ -250,13 +250,16 @@ const propsConvite = (caso) => ({
   onCopiar: noop,
 })
 
-// Arte-Meus-Perfis: "Meus perfis" (MeusPerfisConteudo) com a conta em uso, as que existem
-// ("Trocar") e as que faltam ("Adicionar"), e "Adicionar perfil" (AdicionarPerfilConteudo)
-// para um tipo profissional (seletor do lado certo) e um dono (sem seletor). Handlers no-op.
+// Arte-Meus-Perfis (ordem da Arte-Meus-Perfis-Ordem: serviço-contratar, serviço-trabalhar,
+// obra-contratar, obra-trabalhar): "Meus perfis" (MeusPerfisConteudo) com a conta em uso
+// (borda verde, ✓ e "EM USO" sob o título), as que existem (seta, trocam ao toque) e as que
+// faltam (＋), e "Adicionar perfil" (AdicionarPerfilConteudo) para um tipo profissional
+// (seletor do lado certo) e um dono (sem seletor). Handlers no-op.
 const CASOS_PERFIS = [
-  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · só reparador (3 para adicionar)', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
-  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · reparador + dono de serviço', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
-  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · dono de obra com os 4 (trocando)', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, trocando: 'pintor' },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · só reparador em uso (2º card, 3 com ＋)', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · dono de serviço em uso (1º card) + reparador', usuario: { role: 'dono_obra', tipo_dono: 'reparo', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · dono de obra com os 4, trocando para pintor', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, trocando: 'pintor' },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · pintor em uso (último card) + os 2 donos', usuario: { role: 'prestador', tipo_prestador: 'pintor', contas: [{ tipo: 'pintor' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }] } },
   { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · serviços (2 marcadas)', tipo: 'reparador', selecionadas: ['eletrica', 'hidraulica'] },
   { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · construtor/pintor (vazio)', tipo: 'pintor', selecionadas: [] },
   { lado: 'dono', fase: 'adicionar', rotulo: 'Adicionar perfil · preciso de um serviço', tipo: 'dono_reparo', selecionadas: [] },

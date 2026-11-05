@@ -9,41 +9,50 @@ import { listarPerfis, msgErroContas } from '../../utils/contas'
 import { CARTOES_TIPO, CartaoEscolha } from '../Auth/EscolhaPerfil'
 import { cores, espacos, alturas, larguraMaxima } from '../../utils/tema'
 
-// "Meus perfis" (Arte-Meus-Perfis): os 4 tipos de cadastro da mesma pessoa, lidos de
-// usuario.contas (GET /auth/perfil, guardado pelo AuthContext). Cards no molde do
-// "Entrar como:" (CartaoEscolha de EscolhaPerfil: ilustração, rótulo, título, borda laranja
-// = trabalhar / azul = contratar). A conta logada leva a tag "EM USO" e o ✓, sem toque; as
-// que existem no mesmo e-mail trocam ao toque (POST /auth/trocar-conta e loginComToken, sem
-// senha); as que faltam mostram ＋ e abrem a AdicionarPerfilScreen. Ao abrir, relê o perfil
-// (best-effort) para a lista refletir uma conta criada em outro aparelho; falhando, fica com
-// o que a sessão já tem. O conteúdo é exportado para a Galeria.
+// "Meus perfis" (Arte-Meus-Perfis, ordem da Arte-Meus-Perfis-Ordem): os 4 tipos de cadastro
+// da mesma pessoa, lidos de usuario.contas (GET /auth/perfil, guardado pelo AuthContext).
+// Cards no molde do "Entrar como:" (CartaoEscolha de EscolhaPerfil: ilustração, rótulo,
+// título, borda azul = contratar / laranja = trabalhar), na ordem serviço-contratar,
+// serviço-trabalhar, obra-contratar, obra-trabalhar. O rótulo é "ÁREA · AÇÃO": a área em
+// branco e a ação na cor do lado. A conta logada fica com borda verde, ✓ verde e a tag
+// "EM USO" numa linha sob o título, sem toque; as que existem no mesmo e-mail trocam ao
+// toque (POST /auth/trocar-conta e loginComToken, sem senha); as que faltam mostram ＋ e
+// abrem a AdicionarPerfilScreen. Ao abrir, relê o perfil (best-effort) para a lista refletir
+// uma conta criada em outro aparelho; falhando, fica com o que a sessão já tem. O conteúdo é
+// exportado para a Galeria.
 
+const ORDEM = ['dono_reparo', 'reparador', 'dono_obra', 'pintor']
+const AREA = { dono_reparo: 'SERVIÇOS', reparador: 'SERVIÇOS', dono_obra: 'OBRAS', pintor: 'OBRAS' }
+const ACAO = { contratar: 'CONTRATAR', trabalhar: 'TRABALHAR' }
 const ROTULO_ESTADO = { em_uso: 'Em uso', trocar: 'Trocar para', adicionar: 'Adicionar' }
 
 export function MeusPerfisConteudo({ perfis, trocando, onTrocar, onAdicionar }) {
+  const ordenados = ORDEM.map((tipo) => perfis.find((p) => p.tipo === tipo)).filter(Boolean)
   return (
     <>
       <Text style={estilos.titulo}>Meus perfis</Text>
       <Text style={estilos.subtitulo}>Um e-mail, uma senha, até quatro perfis. Troque de perfil sem sair da conta.</Text>
-      {perfis.map((p) => {
+      {ordenados.map((p) => {
         const c = CARTOES_TIPO[p.tipo]
         const emUso = p.estado === 'em_uso'
         const adicionar = p.estado === 'adicionar'
+        const rotuloTexto = `${AREA[p.tipo]} · ${ACAO[c.lado]}`
         return (
           <CartaoEscolha
             key={p.tipo}
             cor={c.cor}
+            corBorda={emUso ? cores.sucesso : undefined}
             imagem={c.imagem}
-            rotulo={c.rotulo}
+            rotulo={<><Text style={{ color: cores.textoForte }}>{AREA[p.tipo]}</Text> · {ACAO[c.lado]}</>}
             tamanhoRotulo={14}
             titulo={c.titulo}
-            etiqueta={emUso ? 'EM USO' : null}
+            etiquetaAbaixo={emUso ? 'EM USO' : null}
             iconeSeta={emUso ? 'check' : adicionar ? 'plus' : 'arrow-right'}
             corSeta={emUso ? cores.sucesso : undefined}
             onPress={() => (adicionar ? onAdicionar(p.tipo) : onTrocar(p.tipo))}
             disabled={emUso || !!trocando}
             carregando={trocando === p.tipo}
-            accessibilityLabel={`${ROTULO_ESTADO[p.estado]} ${c.rotulo}: ${c.titulo}`}
+            accessibilityLabel={`${ROTULO_ESTADO[p.estado]} ${rotuloTexto}: ${c.titulo}`}
           />
         )
       })}
