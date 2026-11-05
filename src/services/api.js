@@ -252,6 +252,10 @@ export const authService = {
   // no mesmo e-mail). Sem ele o payload é byte a byte o de sempre.
   login: (email, senha, tipo) =>
     comRetry(() => api.post('/auth/login', tipo ? { email, senha, tipo } : { email, senha })),
+  // Google/Apple: { provedor, id_token, nome? } vem de services/loginSocial; `tipo` só com a
+  // escolha do "Entrar como:". Resposta igual à do login, ou { novo, nome, email, ticket }.
+  loginSocial: ({ provedor, id_token, nome, tipo }) =>
+    comRetry(() => api.post('/auth/social', { provedor, id_token, ...(nome ? { nome } : {}), ...(tipo ? { tipo } : {}) })),
   cadastrar: (dados) =>
     comRetry(() => api.post('/auth/cadastro', dados)),
   perfil: () =>

@@ -15,6 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.pinturapro.app",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "O ProTudo usa sua localização para mostrar serviços e obras perto de você e calcular a distância até o endereço — por exemplo, exibir primeiro os serviços a menos de 5 km da sua posição.",
         "NSCameraUsageDescription": "O ProTudo usa a câmera para você fotografar seu documento e tirar uma selfie na verificação do cadastro, e para registrar o serviço — por exemplo, fotografar a parede que precisa de pintura ao cadastrar uma demanda.",
@@ -81,6 +82,12 @@
         }
       ],
       "./plugins/withProTudoNative.js",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.592909036534-2dh75e9op84ek9h6p3k4mlog1fjk1pf3"
+        }
+      ],
       [
         "react-native-fbsdk-next",
         {
