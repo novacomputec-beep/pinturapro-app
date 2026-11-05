@@ -394,13 +394,18 @@ export const AuthProvider = ({ children }) => {
       // devolvidas, repete o login com ele e entra direto, sem "Entrar como:". Falhando a
       // repetição (conta sumiu entre as duas chamadas, rede), volta a resposta com `contas`
       // e a LoginScreen mostra a escolha como antes.
+      //
+      // A API devolve `token` (da conta mais antiga) JUNTO de `contas`; devolver a resposta
+      // inteira deixava a LoginScreen sem reação, porque ela só mostra a escolha sem token.
+      // Por isso a saída para a escolha é só `{ contas }`: sessão não gravada, token fora.
       const salvo = await lerUltimoTipo(email)
-      if (!salvo || !tiposDasContas(resposta.contas).includes(salvo)) return resposta
+      const escolha = { contas: resposta.contas }
+      if (!salvo || !tiposDasContas(resposta.contas).includes(salvo)) return escolha
       try {
         resposta = await authService.login(email, senha, salvo)
       } catch (err) {
         console.log('[AuthContext] login direto no último perfil falhou, mostrando a escolha | tipo:', salvo, '| status:', err?.status, '| codigo:', err?.codigo)
-        return resposta
+        return escolha
       }
       if (Array.isArray(resposta?.contas) && !resposta?.token) return resposta
     }
