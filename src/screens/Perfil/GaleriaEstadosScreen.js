@@ -12,6 +12,7 @@ import { CaixaAvisados, LinhaAvisados } from '../../components/CaixaAvisados'
 import { CaixaIndicar } from '../../components/Indicacao'
 import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
 import { MeusPerfisConteudo } from './MeusPerfisScreen'
+import { EntrarComoConteudo } from '../Auth/EntrarComoScreen'
 import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
 import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
 import { DicasConteudo } from './DicasScreen'
@@ -264,6 +265,17 @@ const propsPerfis = (caso) => caso.fase === 'perfis'
   ? { perfis: listarPerfis(caso.usuario), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
   : { perfil: perfilDoTipo(caso.tipo), selecionadas: caso.selecionadas, onAlternar: noop }
 
+// Arte-Entrar-Como: o miolo do "Entrar como:" (EntrarComoConteudo) com só os lados que a
+// pessoa tem, a tag "ÚLTIMO USADO", o spinner no card que está entrando e um tipo que esta
+// versão do app não conhece. Handlers no-op.
+const CASOS_ENTRAR_COMO = [
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · reparador + dono de serviço (último usado)', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }], ultimoTipo: 'reparador' },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · os 4, entrando como pintor', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }], ultimoTipo: 'dono_obra', tipoCarregando: 'pintor' },
+  { lado: 'dono', fase: 'entrar_como', rotulo: 'Entrar como · só contratar (2 donos)', contas: ['dono_reparo', 'dono_obra'] },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · tipo desconhecido no fim', contas: [{ tipo: 'pintor' }, { tipo: 'sindico' }] },
+]
+const propsEntrarComo = (caso) => ({ contas: caso.contas, tipoCarregando: caso.tipoCarregando || null, ultimoTipo: caso.ultimoTipo || null, onEscolher: noop })
+
 function DemoAdicionar(props) {
   const precisaEsp = !!props.perfil?.profissional
   return (
@@ -377,6 +389,7 @@ const TODOS = [
   ...CASOS_INDICAR,
   ...CASOS_CONVITE.map((c) => ({ ...c, frente: null })),
   ...CASOS_PERFIS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_ENTRAR_COMO.map((c) => ({ ...c, frente: null })),
   ...CASOS_CATEGORIAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
@@ -475,7 +488,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -501,13 +514,14 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehIndicar = caso.fase === 'indicar'
   const ehConvite = caso.fase === 'convite'
   const ehPerfis = caso.fase === 'perfis' || caso.fase === 'adicionar'
+  const ehEntrarComo = caso.fase === 'entrar_como'
   const ehCategorias = caso.fase === 'editar_categorias'
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const ehQuemPerguntou = caso.fase === 'quem_perguntou'
   const props = useMemo(() => (
-    ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehQuemPerguntou, ehDicas, ehCategorias, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehCategorias || ehDicas || ehQuemPerguntou
+    ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -542,6 +556,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             : caso.fase === 'dicas' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasConteudo {...props} /></ScrollView>
             : caso.fase === 'dica_tema' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasTemaConteudo {...props} /></ScrollView>
             : caso.fase === 'perfis' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><MeusPerfisConteudo {...props} /></ScrollView>
+            : ehEntrarComo ? <ScrollView key={i} showsVerticalScrollIndicator={false}><EntrarComoConteudo {...props} /></ScrollView>
             : caso.fase === 'adicionar' ? <DemoAdicionar key={i} {...props} />
             : ehConvite ? <ScrollView key={i} showsVerticalScrollIndicator={false}><ConvidarColegaConteudo {...props} /></ScrollView>
             : ehIndicar ? <DemoIndicar key={i} {...props} />
