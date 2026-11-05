@@ -10,6 +10,7 @@ import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
+import { lerUltimoTipo } from '../../utils/contas'
 import EntrarComoScreen from './EntrarComoScreen'
 
 export default function LoginScreen({ navigation }) {
@@ -21,6 +22,7 @@ export default function LoginScreen({ navigation }) {
   const [erros, setErros] = useState({})
   const [linkPagamento, setLinkPagamento] = useState(null)
   const [contas, setContas] = useState(null)               // 2+ contas no e-mail → tela "Entrar como:"
+  const [ultimoTipo, setUltimoTipo] = useState(null)       // tag "ÚLTIMO USADO" do "Entrar como:"
   const [tipoCarregando, setTipoCarregando] = useState(null)
 
   // Semente do campo de e-mail: o do último login bem-sucedido. O SecureStore é assíncrono,
@@ -69,6 +71,9 @@ export default function LoginScreen({ navigation }) {
       // o último perfil usado neste aparelho (utils/contas), e o payload traz `contas` junto.
       // Sem `contas`, ou com 1 só, nada muda.
       if (!tipo && !resposta?.token && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
+        // Último perfil usado neste aparelho (utils/contas): só vira tag — quando ele existe
+        // o AuthContext já entrou direto; chega aqui se a repetição falhou ou o tipo sumiu.
+        setUltimoTipo(await lerUltimoTipo(email.trim().toLowerCase()))
         setContas(resposta.contas)
         return
       }
@@ -102,6 +107,7 @@ export default function LoginScreen({ navigation }) {
       <EntrarComoScreen
         contas={contas}
         tipoCarregando={tipoCarregando}
+        ultimoTipo={ultimoTipo}
         onEscolher={(tipo) => handleLogin(tipo)}
         onVoltar={() => setContas(null)}
       />

@@ -1,21 +1,24 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native'
+import { Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
 import { listarPerfis, msgErroContas } from '../../utils/contas'
-import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { CARTOES_TIPO, CartaoEscolha } from '../Auth/EscolhaPerfil'
+import { cores, espacos, alturas, larguraMaxima } from '../../utils/tema'
 
 // "Meus perfis" (Arte-Meus-Perfis): os 4 tipos de cadastro da mesma pessoa, lidos de
-// usuario.contas (GET /auth/perfil, guardado pelo AuthContext). A conta logada aparece em
-// verde "Em uso"; as que existem no mesmo e-mail ganham "Trocar" (POST /auth/trocar-conta e
-// loginComToken, sem senha); as que faltam ganham "Adicionar", que abre a AdicionarPerfilScreen.
-// Ao abrir, relê o perfil (best-effort) para a lista refletir uma conta criada em outro
-// aparelho; falhando, fica com o que a sessão já tem. O conteúdo é exportado para a Galeria.
+// usuario.contas (GET /auth/perfil, guardado pelo AuthContext). Cards no molde do
+// "Entrar como:" (CartaoEscolha de EscolhaPerfil: ilustração, rótulo, título, borda laranja
+// = trabalhar / azul = contratar). A conta logada leva a tag "EM USO" e o ✓, sem toque; as
+// que existem no mesmo e-mail trocam ao toque (POST /auth/trocar-conta e loginComToken, sem
+// senha); as que faltam mostram ＋ e abrem a AdicionarPerfilScreen. Ao abrir, relê o perfil
+// (best-effort) para a lista refletir uma conta criada em outro aparelho; falhando, fica com
+// o que a sessão já tem. O conteúdo é exportado para a Galeria.
 
-const ROTULO_BOTAO = { em_uso: 'Em uso', trocar: 'Trocar', adicionar: 'Adicionar' }
+const ROTULO_ESTADO = { em_uso: 'Em uso', trocar: 'Trocar para', adicionar: 'Adicionar' }
 
 export function MeusPerfisConteudo({ perfis, trocando, onTrocar, onAdicionar }) {
   return (
@@ -23,33 +26,25 @@ export function MeusPerfisConteudo({ perfis, trocando, onTrocar, onAdicionar }) 
       <Text style={estilos.titulo}>Meus perfis</Text>
       <Text style={estilos.subtitulo}>Um e-mail, uma senha, até quatro perfis. Troque de perfil sem sair da conta.</Text>
       {perfis.map((p) => {
+        const c = CARTOES_TIPO[p.tipo]
         const emUso = p.estado === 'em_uso'
-        const trocar = p.estado === 'trocar'
-        const ocupado = trocando === p.tipo
+        const adicionar = p.estado === 'adicionar'
         return (
-          <View key={p.tipo} style={[estilos.card, emUso && estilos.cardEmUso]}>
-            <Text style={estilos.cardIcone}>{p.icone}</Text>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={[estilos.cardTitulo, emUso && { color: cores.sucesso }]} maxFontSizeMultiplier={1.3}>{p.rotulo}</Text>
-              <Text style={estilos.cardDesc} maxFontSizeMultiplier={1.3}>{p.descricao}</Text>
-            </View>
-            {emUso ? (
-              <View style={estilos.chipEmUso}><Text style={estilos.chipEmUsoTexto}>✓ {ROTULO_BOTAO.em_uso}</Text></View>
-            ) : (
-              <TouchableOpacity
-                style={[estilos.btn, trocar ? estilos.btnTrocar : estilos.btnAdicionar, !!trocando && { opacity: 0.6 }]}
-                onPress={() => (trocar ? onTrocar(p.tipo) : onAdicionar(p.tipo))}
-                disabled={!!trocando}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={`${ROTULO_BOTAO[p.estado]} ${p.rotulo}`}
-              >
-                {ocupado
-                  ? <ActivityIndicator color={trocar ? cores.fundo : cores.primaria} />
-                  : <Text style={[estilos.btnTexto, trocar ? estilos.btnTrocarTexto : estilos.btnAdicionarTexto]}>{ROTULO_BOTAO[p.estado]}</Text>}
-              </TouchableOpacity>
-            )}
-          </View>
+          <CartaoEscolha
+            key={p.tipo}
+            cor={c.cor}
+            imagem={c.imagem}
+            rotulo={c.rotulo}
+            tamanhoRotulo={14}
+            titulo={c.titulo}
+            etiqueta={emUso ? 'EM USO' : null}
+            iconeSeta={emUso ? 'check' : adicionar ? 'plus' : 'arrow-right'}
+            corSeta={emUso ? cores.sucesso : undefined}
+            onPress={() => (adicionar ? onAdicionar(p.tipo) : onTrocar(p.tipo))}
+            disabled={emUso || !!trocando}
+            carregando={trocando === p.tipo}
+            accessibilityLabel={`${ROTULO_ESTADO[p.estado]} ${c.rotulo}: ${c.titulo}`}
+          />
         )
       })}
     </>
@@ -117,18 +112,5 @@ const estilos = StyleSheet.create({
   voltarIcone: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
   titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, lineHeight: 20, marginBottom: 20 },
-  // Card no molde do "Entrar como:", só que com o botão à direita no lugar do toque no card.
-  card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, padding: 14, marginBottom: 12 },
-  cardEmUso: { backgroundColor: cores.sucessoSuave, borderColor: cores.sucessoBorda },
-  cardIcone: { fontSize: 28 },
-  cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte, lineHeight: 20 },
-  cardDesc: { fontSize: 12, color: cores.textoMedio, lineHeight: 16, marginTop: 2 },
-  chipEmUso: { backgroundColor: cores.sucesso, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
-  chipEmUsoTexto: { fontSize: 12, fontWeight: '800', color: cores.fundo },
-  btn: { minWidth: 92, alignItems: 'center', justifyContent: 'center', borderRadius: raios.pill, paddingHorizontal: 14, paddingVertical: 9 },
-  btnTrocar: { backgroundColor: cores.primaria },
-  btnAdicionar: { backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.primaria },
-  btnTexto: { fontSize: 13, fontWeight: '800' },
-  btnTrocarTexto: { color: cores.fundo },
-  btnAdicionarTexto: { color: cores.primaria },
+  // Os cards são o CartaoEscolha (EscolhaPerfil): nenhum estilo de card mora aqui.
 })

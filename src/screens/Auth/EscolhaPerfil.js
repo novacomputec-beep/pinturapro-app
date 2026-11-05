@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { LinearGradient } from 'expo-linear-gradient'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
@@ -33,7 +33,8 @@ const misturar = (cor, fundo, t) => {
 // na cor de cada lado. LinearGradient é linear e não faz um halo redondo; o png faz.
 const GLOW = require('../../../assets/escolha/glow.png')
 
-const IMG = {
+// Exportado: o "Entrar como:" (EntrarComoScreen) usa as mesmas ilustrações por tipo.
+export const IMG = {
   escolhaTrabalhar:  require('../../../assets/escolha/escolha-trabalhar.png'),
   escolhaContratar:  require('../../../assets/escolha/escolha-contratar.png'),
   trabalharServicos: require('../../../assets/escolha/trabalhar-servicos.png'),
@@ -60,27 +61,38 @@ const LADOS = {
   contratar: { cor: COR_CONTRATAR, rotulo: 'QUERO CONTRATAR', titulo: 'O que você precisa?',    subtitulo: 'Profissionais da sua região respondem no app' },
 }
 
+// Card por tipo de conta EXISTENTE, para o "Entrar como:" e o "Meus perfis": a chave é o
+// tipo como a API devolve em `contas` e em tipoDaConta (utils/contas) — 'reparador', e não
+// o 'prestador' do cadastro acima. Mesma ilustração, rótulo, título e cor do lado.
+export const CARTOES_TIPO = {
+  reparador:   { lado: 'trabalhar', cor: COR_TRABALHAR, imagem: IMG.trabalharServicos, rotulo: 'SERVIÇOS', titulo: 'Gerais e domésticos' },
+  pintor:      { lado: 'trabalhar', cor: COR_TRABALHAR, imagem: IMG.trabalharObras,    rotulo: 'OBRAS',    titulo: 'Construção e pintura' },
+  dono_reparo: { lado: 'contratar', cor: COR_CONTRATAR, imagem: IMG.contratarServico, rotulo: 'SERVIÇO',  titulo: 'Um serviço doméstico' },
+  dono_obra:   { lado: 'contratar', cor: COR_CONTRATAR, imagem: IMG.contratarObra,    rotulo: 'OBRA',     titulo: 'Obra, reforma ou pintura' },
+}
+export const ROTULO_LADO = { trabalhar: LADOS.trabalhar.rotulo, contratar: LADOS.contratar.rotulo }
+
 const Chip = ({ texto, verde }) => (
   <View style={[s.chip, verde && s.chipVerde]}>
     <Text style={[s.chipTexto, verde && s.chipTextoVerde]} maxFontSizeMultiplier={1.6}>{texto}</Text>
   </View>
 )
 
-const Wordmark = ({ tamanho }) => (
+export const Wordmark = ({ tamanho }) => (
   <Text style={[s.wordmark, { fontSize: tamanho }]} maxFontSizeMultiplier={1.3}>
     <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
   </Text>
 )
 
-const BotaoVoltar = ({ onPress, estilo }) => (
-  <TouchableOpacity style={[s.btnVoltar, estilo]} onPress={onPress} accessibilityRole="button" accessibilityLabel="Voltar" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+export const BotaoVoltar = ({ onPress, estilo, disabled }) => (
+  <TouchableOpacity style={[s.btnVoltar, estilo]} onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel="Voltar" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
     <Feather name="arrow-left" size={20} color={cores.textoForte} />
   </TouchableOpacity>
 )
 
 // Fundo da tela: dois halos nos cantos (cores do mockup), atrás do conteúdo e sem toque.
 // Tamanho fixo em px e não em % — a tela rola, e o halo tem que ficar preso ao canto.
-const FundoBrilhos = ({ corTopo, corBaixo }) => (
+export const FundoBrilhos = ({ corTopo, corBaixo }) => (
   <View style={StyleSheet.absoluteFill} pointerEvents="none">
     <Image source={GLOW} style={[s.brilhoTopo, { tintColor: corTopo }]} resizeMode="stretch" />
     <Image source={GLOW} style={[s.brilhoBaixo, { tintColor: corBaixo }]} resizeMode="stretch" />
@@ -89,11 +101,14 @@ const FundoBrilhos = ({ corTopo, corBaixo }) => (
 
 // Imagem do card com um halo da cor do lado por trás. O halo é 1.5x a imagem, centrado;
 // o card recorta (overflow hidden) o pouco que passa da borda esquerda, e isso é
-// intencional: o brilho morre antes de chegar lá.
-const ImagemComBrilho = ({ imagem, tamanho, cor }) => (
+// intencional: o brilho morre antes de chegar lá. Sem `imagem` (tipo de conta que esta
+// versão do app não conhece, no "Entrar como:"), entra um emoji no lugar.
+const ImagemComBrilho = ({ imagem, icone, tamanho, cor }) => (
   <View style={{ width: tamanho, height: tamanho, alignItems: 'center', justifyContent: 'center' }}>
     <Image source={GLOW} style={{ position: 'absolute', width: tamanho * 1.5, height: tamanho * 1.5, tintColor: cor, opacity: 0.55 }} resizeMode="stretch" />
-    <Image source={imagem} style={{ width: tamanho, height: tamanho }} resizeMode="contain" />
+    {imagem
+      ? <Image source={imagem} style={{ width: tamanho, height: tamanho }} resizeMode="contain" />
+      : <Text style={{ fontSize: Math.round(tamanho * 0.5) }}>{icone}</Text>}
   </View>
 )
 
@@ -103,13 +118,21 @@ const ImagemComBrilho = ({ imagem, tamanho, cor }) => (
 // O fundo é um gradiente diagonal: canto superior esquerdo com um toque da cor do lado,
 // escurecendo até o canto oposto. A borda e o raio ficam no Touchable, que recorta o
 // gradiente; o gradiente só carrega o padding.
-const CartaoEscolha = ({ cor, imagem, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18 }) => (
+// `desc`, `chips` e `rodape` são opcionais (o "Entrar como:" e o "Meus perfis" usam só
+// imagem, rótulo e título); `tamanhoRotulo` deixa o rótulo maior que o 11 do cadastro;
+// `etiqueta` é a tag verde ao lado do rótulo ("ÚLTIMO USADO", "EM USO"); `carregando` troca
+// a seta por um spinner; `iconeSeta`/`corSeta` trocam a seta (＋ para adicionar, ✓ em uso).
+export const CartaoEscolha = ({
+  cor, imagem, icone, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18,
+  tamanhoRotulo = 11, etiqueta, disabled, carregando, iconeSeta = 'arrow-right', corSeta, accessibilityLabel,
+}) => (
   <TouchableOpacity
     style={[s.card, { borderColor: cor + '99' }]}
     onPress={onPress}
+    disabled={disabled}
     activeOpacity={0.8}
     accessibilityRole="button"
-    accessibilityLabel={`${rotulo}: ${titulo}`}
+    accessibilityLabel={accessibilityLabel || `${rotulo}: ${titulo}`}
   >
     <LinearGradient
       colors={[misturar(cor, '#1C1C22', 0.16), '#141418', '#0E0E11']}
@@ -118,20 +141,25 @@ const CartaoEscolha = ({ cor, imagem, tamanhoImagem = 80, rotulo, titulo, desc, 
       end={{ x: 1, y: 1 }}
       style={s.cardMiolo}
     >
-    <View style={s.cardTopo}>
-      <ImagemComBrilho imagem={imagem} tamanho={tamanhoImagem} cor={cor} />
+    <View style={[s.cardTopo, !desc && !chips?.length && !rodape && { marginBottom: 0 }]}>
+      <ImagemComBrilho imagem={imagem} icone={icone} tamanho={tamanhoImagem} cor={cor} />
       <View style={s.cardTitulos}>
-        <Text style={[s.cardRotulo, { color: cor }]} maxFontSizeMultiplier={1.5}>{rotulo}</Text>
+        <View style={s.cardRotuloLinha}>
+          <Text style={[s.cardRotulo, { color: cor, fontSize: tamanhoRotulo }]} maxFontSizeMultiplier={1.5}>{rotulo}</Text>
+          {!!etiqueta && <Chip texto={etiqueta} verde />}
+        </View>
         <Text style={[s.cardTitulo, { fontSize: tamanhoTitulo, lineHeight: Math.round(tamanhoTitulo * 1.2) }]}>{titulo}</Text>
       </View>
-      <View style={[s.seta, { borderColor: cor + 'AA', backgroundColor: cor + '22' }]}>
-        <Feather name="arrow-right" size={18} color={cor} />
+      <View style={[s.seta, { borderColor: (corSeta || cor) + 'AA', backgroundColor: (corSeta || cor) + '22' }]}>
+        {carregando ? <ActivityIndicator color={corSeta || cor} /> : <Feather name={iconeSeta} size={18} color={corSeta || cor} />}
       </View>
     </View>
-    <Text style={s.cardDesc}>{desc}</Text>
-    <View style={s.chips}>
-      {chips.map(c => <Chip key={c} texto={c} />)}
-    </View>
+    {!!desc && <Text style={s.cardDesc}>{desc}</Text>}
+    {!!chips?.length && (
+      <View style={s.chips}>
+        {chips.map(c => <Chip key={c} texto={c} />)}
+      </View>
+    )}
     {rodape}
     </LinearGradient>
   </TouchableOpacity>
@@ -149,6 +177,20 @@ const RodapePreco = ({ preco, mostrarCobranca, lancamentoGratis }) => {
     </View>
   )
 }
+
+// Caixa tracejada do rodapé (ícone azul num círculo, título e texto). Exportada: o
+// "Entrar como:" usa a mesma para "Dá para trocar depois".
+export const CaixaAviso = ({ icone, titulo, children, estilo }) => (
+  <View style={[s.avisoCadastros, estilo]}>
+    <View style={s.avisoIcone}>
+      <Feather name={icone} size={18} color={COR_CONTRATAR} />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={s.avisoTitulo}>{titulo}</Text>
+      <Text style={s.avisoTexto}>{children}</Text>
+    </View>
+  </View>
+)
 
 export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, paddingTop, mostrarCobranca, lancamentoGratis }) {
   if (!lado) {
@@ -201,17 +243,9 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           onPress={() => setLado('contratar')}
         />
 
-        <View style={s.avisoCadastros}>
-          <View style={s.avisoIcone}>
-            <Feather name="users" size={18} color={COR_CONTRATAR} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.avisoTitulo}>Até 4 cadastros por pessoa</Text>
-            <Text style={s.avisoTexto}>
-              Com o <Text style={s.avisoDestaque}>mesmo e-mail, CPF e senha</Text>: profissional e cliente, de obra e de serviço.
-            </Text>
-          </View>
-        </View>
+        <CaixaAviso icone="users" titulo="Até 4 cadastros por pessoa">
+          Com o <Text style={s.avisoDestaque}>mesmo e-mail, CPF e senha</Text>: profissional e cliente, de obra e de serviço.
+        </CaixaAviso>
       </ScrollView>
       </View>
     )
@@ -277,7 +311,9 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
   )
 }
 
-const s = StyleSheet.create({
+// Exportado como `estilosEscolha`: o "Entrar como:" monta o topo (tela, scroll, logo,
+// título centrado) com ESTES estilos, em vez de copiar os valores.
+export const estilosEscolha = StyleSheet.create({
   tela: { flex: 1, backgroundColor: cores.fundo, overflow: 'hidden' },
   // Halos de canto: metade para fora da tela, opacidade baixa (o png é branco cheio no centro).
   brilhoTopo:  { position: 'absolute', width: 460, height: 460, top: -200, left: -200, opacity: 0.32 },
@@ -313,7 +349,8 @@ const s = StyleSheet.create({
   cardMiolo: { padding: 14 },
   cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   cardTitulos: { flex: 1 },
-  cardRotulo: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, marginBottom: 2 },
+  cardRotuloLinha: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 2 },
+  cardRotulo: { fontWeight: '800', letterSpacing: 1.2 },
   cardTitulo: { fontWeight: '700', color: cores.textoForte, letterSpacing: -0.3 },
   seta: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   cardDesc: { fontSize: 14, lineHeight: 20, color: TEXTO_DESC, marginBottom: 10 },
@@ -331,3 +368,4 @@ const s = StyleSheet.create({
   avisoTexto: { fontSize: 12, lineHeight: 17, color: cores.textoMedio },
   avisoDestaque: { color: cores.primaria },
 })
+const s = estilosEscolha
