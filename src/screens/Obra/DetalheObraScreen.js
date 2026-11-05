@@ -31,6 +31,7 @@ import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPergunta
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
+import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } from '../../components/DesfazerEscolha'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
@@ -228,12 +229,13 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 
 // GET /obras/:id devolve alguns campos AO LADO de `obra` (routes/index.js, res.json do
 // detalhe): prazo_chegada / tolerancia_ate / atrasado / pedido_atraso / pedidos_atraso_restantes
-// (camposAtraso), dono_nome / dono_foto_url e sugestoes_restantes. Os blocos pós-match leem
-// tudo da linha, então eles entram nela aqui. Linha nula/ausente fica como veio.
+// (camposAtraso), dono_nome / dono_foto_url, sugestoes_restantes e desfazer_liberado_em (só ao
+// dono). Os blocos pós-match leem tudo da linha, então eles entram nela aqui. Linha
+// nula/ausente fica como veio.
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes']) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em']) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -406,6 +408,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [simulacaoCancelar, setSimulacaoCancelar] = useState(null)
   const [cancelando, setCancelando] = useState(false)
   const [respondendoCancelamento, setRespondendoCancelamento] = useState(false)
+  // Desfazer a escolha (Arte-Desfazer-Escolha, components/DesfazerEscolha): a folha e o envio.
+  const [sheetDesfazer, setSheetDesfazer] = useState(false)
+  const [desfazendo, setDesfazendo] = useState(false)
   // "🚩 Denunciar um problema" da tela de em andamento: pedido ao suporte (ModalSuporte) —
   // POST /denuncias só aceita contrato encerrado, e pelo profissional.
   const [suporteAberto, setSuporteAberto] = useState(false)
@@ -1645,6 +1650,43 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
+  // Desfazer a escolha (dono, aguardando horário, depois de desfazer_liberado_em): POST
+  // /obras/dono/:id/desfazer-match. Espelha DetalheReparo: sem { timeout }, o buscar() traz a
+  // obra reaberta (sem match → o corpo rolável volta, com o "Aumentar tempo" e o
+  // ModalEstenderPrazo); com menos de 24h para o prazo, o alerta de sucesso oferece o fluxo
+  // de estender de sempre. 409 por código → mensagemErroDesfazer, e a tela relê.
+  const outrosCandidatosDesfazer = candidatos.filter(c =>
+    c?.usuario_id != null && String(c.usuario_id) !== String(obra?.match_usuario_id) &&
+    c.status !== 'cancelado' && c.status !== 'cancelada').length
+  const handleDesfazerEscolha = async () => {
+    if (desfazendo) return
+    setDesfazendo(true)
+    const prazoCurto = prazoCurtoParaDesfazer(obra?.expira_em)
+    try {
+      const resp = await api.post(`/obras/dono/${obra.id}/desfazer-match`)
+      if (mountedRef.current) setSheetDesfazer(false)
+      await buscar()
+      const n = Number(resp?.interessados_avisados) || 0
+      const corpo = `${n > 0 ? `Avisamos ${n} ${n === 1 ? 'candidato' : 'candidatos'}. ` : ''}Escolha o novo profissional quando quiser.`
+      if (prazoCurto) {
+        Alert.alert('Obra reaberta', `${corpo}\n\nFalta menos de 1 dia para o prazo. Quer aumentar o tempo para receber mais propostas?`, [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Aumentar tempo', onPress: () => { if (mountedRef.current) setModalEstender(true) } },
+        ])
+      } else {
+        Alert.alert('Obra reaberta', corpo)
+      }
+    } catch (err) {
+      console.log('[DetalheObra] falha ao desfazer a escolha | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      if (mountedRef.current) setSheetDesfazer(false)
+      if (await recarregarSeFalhaDeRede(err, recarregarObra)) return
+      Alert.alert(err.status === 409 ? 'Não foi possível desfazer' : 'Erro', mensagemErroDesfazer(err))
+      if (err.status != null) recarregarObra().catch(e => console.log('[DetalheObra] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setDesfazendo(false)
+    }
+  }
+
   const abrirWhatsApp = (telefone) => {
     const digitos = (telefone || '').replace(/\D/g, '')
     if (!digitos) { console.log('[DetalheObra] abrirWhatsApp chamado sem número — ignorado'); return }
@@ -1796,6 +1838,17 @@ export default function DetalheObraScreen({ route, navigation }) {
         onPedirAcordo={(motivo, texto) => handleCancelarMatch(motivo, texto, true)}
       />
 
+      {/* Arte-Desfazer-Escolha (dono): confirmação do desfazer-match. */}
+      <SheetDesfazerEscolha
+        visivel={sheetDesfazer}
+        nome={primeiroNome(pintorMatch?.nome)}
+        interessados={outrosCandidatosDesfazer}
+        prazoCurto={prazoCurtoParaDesfazer(obra.expira_em, agora)}
+        enviando={desfazendo}
+        onFechar={() => setSheetDesfazer(false)}
+        onDesfazer={handleDesfazerEscolha}
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       {fasePosMatch ? (
         /* Tela FIXA do pós-match (components/PosMatchFixo): as cinco fases, sem rolagem. Os
@@ -1881,6 +1934,13 @@ export default function DetalheObraScreen({ route, navigation }) {
               onResponder: handleResponderCancelamento,
               onAbrir: abrirCancelar,
               desabilitado: cancelando,
+            } : null}
+            /* Desfazer a escolha (dono, aguardando): nota antes de desfazer_liberado_em, caixa
+               vermelha + folha depois. Sem o campo (não se aplica) nada aparece. */
+            desfazer={isDono && fasePosMatch === 'aguardando' && obra.desfazer_liberado_em ? {
+              liberadoEm: obra.desfazer_liberado_em,
+              onAbrir: () => setSheetDesfazer(true),
+              desabilitado: desfazendo || cancelando,
             } : null}
             links={{
               onReferencia: isDono ? abrirReferencia : undefined,

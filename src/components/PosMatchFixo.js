@@ -308,14 +308,47 @@ const FolhaPicker = ({ visivel, onFechar, titulo, limite, rotuloBotao, enviando,
 // ---------------------------------------------------------------------------------------
 
 // AGUARDANDO HORÁRIO — dono: banner "aguarde"; profissional: banner "envie" + botão do picker.
-const EstadoAguardando = ({ demanda, frente, souDono, onAbrirPicker, rodape }) => {
+// Dono (Arte-Desfazer-Escolha), com `desfazer` = { liberadoEm, onAbrir, desabilitado }:
+//   - antes de liberadoEm (desfazer_liberado_em de GET /:id): nota tracejada sob o banner com
+//     a hora a partir da qual dá para escolher outro;
+//   - depois: a caixa vermelha "não marcou o horário" toma o LUGAR do banner, com o botão
+//     que abre a folha (SheetDesfazerEscolha). O relógio de 30 s faz a troca sozinho.
+const EstadoAguardando = ({ demanda, frente, souDono, onAbrirPicker, desfazer, rodape }) => {
+  const agora = useAgora()
   const ehObra = frente === 'obra'
+  const liberadoMs = souDono && desfazer?.liberadoEm ? new Date(desfazer.liberadoEm).getTime() : NaN
+  if (Number.isFinite(liberadoMs) && liberadoMs <= agora) {
+    const matchMs = demanda?.match_feito_em ? new Date(demanda.match_feito_em).getTime() : NaN
+    const desde = Number.isFinite(matchMs) ? duracaoCurta(agora - matchMs) : null
+    return (
+      <View style={estilos.vermelho}>
+        <T linhas={2} style={estilos.vermelhoTitulo}>⚠️ O profissional não marcou o horário</T>
+        <T linhas={3} style={estilos.caixaLinha}>Escolhido {desde ? `há ${desde}` : 'há pouco'} e ainda sem dia e horário. Você pode desfazer a escolha e escolher outro profissional entre os interessados.</T>
+        <TouchableOpacity
+          style={[estilos.btnVermelho, desfazer.desabilitado && { opacity: 0.5 }]}
+          onPress={desfazer.onAbrir}
+          disabled={!!desfazer.desabilitado}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+        >
+          <T style={estilos.btnVermelhoTexto} adjustsFontSizeToFit minimumFontScale={0.8}>Desfazer escolha e escolher outro</T>
+        </TouchableOpacity>
+        {rodape}
+      </View>
+    )
+  }
+  const notaDesfazer = Number.isFinite(liberadoMs) ? (
+    <View style={estilos.notaTracejada}>
+      <T linhas={3} style={estilos.notaTracejadaTexto}>Se ele não marcar o horário, você poderá escolher outro profissional a partir de {formatarLimiteSP(desfazer.liberadoEm, agora)}.</T>
+    </View>
+  ) : null
   const limiteTexto = formatarLimiteSP(demanda?.expira_em)
   const prazoCurto = !ehObra && !!demanda?.expira_em && (new Date(demanda.expira_em).getTime() - Date.now()) < 86400000
   const tituloDono = prazoCurto ? 'AGUARDE O PROFISSIONAL ENVIAR O HORÁRIO' : 'AGUARDE O PROFISSIONAL ENVIAR O DIA E O HORÁRIO'
   const tituloPro = ehObra ? 'ENVIE AO CLIENTE O DIA E O HORÁRIO DE INÍCIO DA OBRA' : prazoCurto ? 'ENVIE AO CLIENTE O HORÁRIO QUE VOCÊ PODE ATENDER' : 'ENVIE AO CLIENTE O DIA E O HORÁRIO QUE VOCÊ PODE ATENDER'
   const linhaLimite = ehObra ? 'O início precisa ser até' : prazoCurto ? 'O horário precisa ser até' : 'O dia e o horário precisam ser até'
   return (
+    <View>
     <View style={estilos.banner}>
       <T linhas={2} style={estilos.bannerTitulo}>{souDono ? '⏳ ' : '📅 '}{souDono ? tituloDono : tituloPro}</T>
       {limiteTexto ? <T style={estilos.bannerLinha}>⏱️ {linhaLimite}: <T style={estilos.bannerForte}>{limiteTexto}</T></T> : null}
@@ -330,6 +363,8 @@ const EstadoAguardando = ({ demanda, frente, souDono, onAbrirPicker, rodape }) =
         </TouchableOpacity>
       )}
       {rodape}
+    </View>
+    {notaDesfazer}
     </View>
   )
 }
@@ -568,10 +603,11 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 //   onResponder, respondendo }, onNaoChegou }.
 // emAndamento: { telefone, onWhatsApp, rotuloBotao, onConcluir, desabilitado, enviando, encerramentoOutro }.
 // cancelamento: { pedido, paraMim, nomeOutro, respondendo, onResponder, onAbrir, desabilitado } | null.
+// desfazer (dono, fase aguardando): { liberadoEm, onAbrir, desabilitado } | null — Arte-Desfazer-Escolha.
 // links: { onReferencia, onDetalhes, onContrato, onDenunciar }.
 export default function TelaPosMatch({
   fase, demanda, frente, souDono, valor, endereco, pontoReferencia, outro, usuarioId, onExpirar,
-  agendamento, agendado, aCaminho, emAndamento, cancelamento, links,
+  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links,
 }) {
   const ehObra = frente === 'obra'
   const [picker, setPicker] = useState(null) // null | 'propor' | 'sugerir'
@@ -615,7 +651,7 @@ export default function TelaPosMatch({
   if (cancelParaMim) {
     estado = <CardCancelamentoParaMim pedido={cancelamento.pedido} nomeOutro={cancelamento.nomeOutro} respondendo={cancelamento.respondendo} onResponder={cancelamento.onResponder} />
   } else if (fase === 'aguardando') {
-    estado = <EstadoAguardando demanda={demanda} frente={frente} souDono={souDono} onAbrirPicker={() => setPicker('propor')} rodape={rodapeCancel} />
+    estado = <EstadoAguardando demanda={demanda} frente={frente} souDono={souDono} onAbrirPicker={() => setPicker('propor')} desfazer={souDono ? desfazer : null} rodape={rodapeCancel} />
   } else if (fase === 'proposto') {
     estado = (
       <EstadoProposto
@@ -718,6 +754,14 @@ const estilos = StyleSheet.create({
   bannerChipTexto: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
   btnBranco: { backgroundColor: '#FFFFFF', borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
   btnBrancoTexto: { fontSize: 14, fontWeight: '800', color: '#f05a28' },
+  // Desfazer escolha (dono, aguardando): nota tracejada sob o banner; caixa vermelha no
+  // lugar dele (mesmos tons da caixaVermelha/btnVermelho da folha de cancelamento).
+  notaTracejada: { borderWidth: 1, borderStyle: 'dashed', borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8 },
+  notaTracejadaTexto: { fontSize: 11, color: cores.textoMedio, lineHeight: 15 },
+  vermelho: { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.grande, padding: 12 },
+  vermelhoTitulo: { fontSize: 15, fontWeight: '800', color: cores.perigo, lineHeight: 20, marginBottom: 6 },
+  btnVermelho: { backgroundColor: cores.perigo, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
+  btnVermelhoTexto: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 
   cardLaranja: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.grande, padding: 12 },
   rotuloLaranja: { fontSize: 11, fontWeight: '800', color: cores.primaria, letterSpacing: 0.5, marginBottom: 4 },
