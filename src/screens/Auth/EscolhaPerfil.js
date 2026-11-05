@@ -72,7 +72,7 @@ export const CARTOES_TIPO = {
 }
 export const ROTULO_LADO = { trabalhar: LADOS.trabalhar.rotulo, contratar: LADOS.contratar.rotulo }
 
-const Chip = ({ texto, verde }) => (
+export const Chip = ({ texto, verde }) => (
   <View style={[s.chip, verde && s.chipVerde]}>
     <Text style={[s.chipTexto, verde && s.chipTextoVerde]} maxFontSizeMultiplier={1.6}>{texto}</Text>
   </View>
@@ -120,14 +120,17 @@ const ImagemComBrilho = ({ imagem, icone, tamanho, cor }) => (
 // gradiente; o gradiente só carrega o padding.
 // `desc`, `chips` e `rodape` são opcionais (o "Entrar como:" e o "Meus perfis" usam só
 // imagem, rótulo e título); `tamanhoRotulo` deixa o rótulo maior que o 11 do cadastro;
-// `etiqueta` é a tag verde ao lado do rótulo ("ÚLTIMO USADO", "EM USO"); `carregando` troca
-// a seta por um spinner; `iconeSeta`/`corSeta` trocam a seta (＋ para adicionar, ✓ em uso).
+// `etiqueta` é a tag verde ao lado do rótulo ("ÚLTIMO USADO") e `etiquetaAbaixo` a tag
+// numa linha própria sob o título ("EM USO"); `rotulo` pode ser texto ou nós de Text (o
+// "Meus perfis" pinta a área de branco e a ação na cor); `corBorda` troca só a borda (verde
+// no perfil em uso); `carregando` troca a seta por um spinner; `iconeSeta`/`corSeta` trocam
+// a seta (＋ para adicionar, ✓ em uso).
 export const CartaoEscolha = ({
-  cor, imagem, icone, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18,
-  tamanhoRotulo = 11, etiqueta, disabled, carregando, iconeSeta = 'arrow-right', corSeta, accessibilityLabel,
+  cor, corBorda, imagem, icone, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18,
+  tamanhoRotulo = 11, etiqueta, etiquetaAbaixo, disabled, carregando, iconeSeta = 'arrow-right', corSeta, accessibilityLabel,
 }) => (
   <TouchableOpacity
-    style={[s.card, { borderColor: cor + '99' }]}
+    style={[s.card, { borderColor: (corBorda || cor) + '99' }]}
     onPress={onPress}
     disabled={disabled}
     activeOpacity={0.8}
@@ -149,6 +152,7 @@ export const CartaoEscolha = ({
           {!!etiqueta && <Chip texto={etiqueta} verde />}
         </View>
         <Text style={[s.cardTitulo, { fontSize: tamanhoTitulo, lineHeight: Math.round(tamanhoTitulo * 1.2) }]}>{titulo}</Text>
+        {!!etiquetaAbaixo && <View style={s.cardEtiquetaAbaixo}><Chip texto={etiquetaAbaixo} verde /></View>}
       </View>
       <View style={[s.seta, { borderColor: (corSeta || cor) + 'AA', backgroundColor: (corSeta || cor) + '22' }]}>
         {carregando ? <ActivityIndicator color={corSeta || cor} /> : <Feather name={iconeSeta} size={18} color={corSeta || cor} />}
@@ -352,6 +356,7 @@ export const estilosEscolha = StyleSheet.create({
   cardRotuloLinha: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 2 },
   cardRotulo: { fontWeight: '800', letterSpacing: 1.2 },
   cardTitulo: { fontWeight: '700', color: cores.textoForte, letterSpacing: -0.3 },
+  cardEtiquetaAbaixo: { flexDirection: 'row', marginTop: 6 },
   seta: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   cardDesc: { fontSize: 14, lineHeight: 20, color: TEXTO_DESC, marginBottom: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
