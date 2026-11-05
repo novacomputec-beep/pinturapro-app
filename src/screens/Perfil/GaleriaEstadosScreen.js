@@ -13,6 +13,7 @@ import { CaixaIndicar } from '../../components/Indicacao'
 import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
 import { MeusPerfisConteudo } from './MeusPerfisScreen'
 import { EntrarComoConteudo } from '../Auth/EntrarComoScreen'
+import { SheetDesfazerEscolha } from '../../components/DesfazerEscolha'
 import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
 import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
 import { DicasConteudo } from './DicasScreen'
@@ -57,6 +58,9 @@ const CASOS = [
   { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando horário' },
   { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · pedido de cancelamento p/ mim', cancel: 'mim' },
   { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · meu pedido de cancelamento', cancel: 'meu' },
+  // Arte-Desfazer-Escolha: nota tracejada antes de desfazer_liberado_em; caixa vermelha depois.
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · desfazer libera em 1h30 (nota)', desfazerEm: 90 * MIN },
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · profissional não marcou (desfazer liberado)', desfazerEm: -20 * MIN },
   { lado: 'dono', fase: 'proposto', rotulo: 'Horário proposto (recebido)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: OUTRO, sugestoes_restantes: 2 } },
   { lado: 'dono', fase: 'proposto', rotulo: 'Horário proposto (enviei)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: EU } },
   { lado: 'dono', fase: 'agendado', rotulo: 'Agendado', demanda: { chegada_prevista_em: iso(3 * H) } },
@@ -360,6 +364,16 @@ const CASOS_QUEM_PERGUNTOU = [
 ]
 const propsQuemPerguntou = (caso) => ({ posMatch: !!caso.posMatch })
 
+// Arte-Desfazer-Escolha: a folha "Desfazer a escolha de <nome>?" (SheetDesfazerEscolha), o
+// Modal REAL: com N interessados e prazo curto (sugere aumentar o tempo) e sem outros
+// interessados. Um Modal cobre o cabeçalho da galeria, então os dois botões da folha (e o
+// toque fora / voltar do Android) avançam para o próximo caso em vez de serem no-op.
+const CASOS_DESFAZER = [
+  { lado: 'dono', fase: 'desfazer_sheet', rotulo: 'Desfazer escolha · 3 interessados, prazo < 24h', interessados: 3, prazoCurto: true },
+  { lado: 'dono', fase: 'desfazer_sheet', rotulo: 'Desfazer escolha · sem outros interessados', interessados: 0, prazoCurto: false },
+]
+const propsDesfazer = (caso) => ({ visivel: true, nome: 'Carlos', interessados: caso.interessados, prazoCurto: !!caso.prazoCurto, enviando: false })
+
 function DemoQuemPerguntou({ posMatch }) {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
@@ -396,6 +410,7 @@ const TODOS = [
   ...CASOS_CATEGORIAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
+  ...CASOS_DESFAZER.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -450,6 +465,7 @@ const propsDoCaso = (caso) => {
       encerramentoOutro: souDono && caso.concluidoPeloOutro ? { nome: 'Carlos', solicitadoEm: demanda.encerramento_solicitado_em, automaticoEm: null } : null,
     },
     cancelamento: mostrarCancelamento ? { pedido: pedidoCancel, paraMim: caso.cancel === 'mim', nomeOutro, respondendo: false, onResponder: noop, onAbrir: noop, desabilitado: false } : null,
+    desfazer: souDono && caso.desfazerEm != null ? { liberadoEm: iso(caso.desfazerEm), onAbrir: noop, desabilitado: false } : null,
     links: { onReferencia: souDono ? noop : undefined, onDetalhes: noop, onContrato: noop, onDenunciar: caso.fase === 'em_andamento' ? noop : undefined },
   }
 }
@@ -491,7 +507,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -521,10 +537,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehCategorias = caso.fase === 'editar_categorias'
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const ehQuemPerguntou = caso.fase === 'quem_perguntou'
+  const ehDesfazer = caso.fase === 'desfazer_sheet'
   const props = useMemo(() => (
-    ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou
+    ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -553,7 +570,10 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* O sheet de aviso é ancorado ao rodapé, como o Modal real: fundo escurecido e a folha
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
         <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias) && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
-          {ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+          {/* A folha de desfazer é um Modal de verdade e cobre o cabeçalho: qualquer saída dela
+              (os dois botões, o toque fora, o voltar do Android) vai para o próximo caso. */}
+          {ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
+            : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
             : ehQuemPerguntou ? <DemoQuemPerguntou key={i} {...props} />
             : caso.fase === 'dicas' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasConteudo {...props} /></ScrollView>
