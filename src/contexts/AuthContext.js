@@ -404,6 +404,39 @@ export const AuthProvider = ({ children }) => {
       }
       if (Array.isArray(resposta?.contas) && !resposta?.token) return resposta
     }
+    await gravarSessao(email, resposta)
+    return resposta
+  }
+
+  // "Continuar com Google/Apple": `credencial` = { provedor, id_token, nome } (services/
+  // loginSocial). Mesmo caminho do login por senha a partir da resposta — POST /auth/social
+  // responde byte a byte como /auth/login quando o e-mail tem conta — com duas saídas a mais:
+  //   { novo: true, nome, email, ticket }  → sem conta: a tela abre o cadastro com o ticket.
+  //   { escolher: true, contas, email, ultimoTipo } → 2+ contas e nenhum perfil lembrado que
+  //     sirva: a tela mostra o "Entrar como:" e repete com `tipo` (o token NÃO é gravado).
+  // A credencial é reaproveitada na repetição (o id_token vale ~1h no Google, 10 min na Apple).
+  const loginSocial = async (credencial, tipo) => {
+    let resposta = await authService.loginSocial({ ...credencial, ...(tipo ? { tipo } : {}) })
+    if (resposta?.novo) return resposta
+    const email = String(resposta?.usuario?.email || '').trim().toLowerCase()
+    if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
+      const salvo = await lerUltimoTipo(email)
+      const escolha = { escolher: true, contas: resposta.contas, email, ultimoTipo: salvo || null }
+      if (!salvo || !tiposDasContas(resposta.contas).includes(salvo)) return escolha
+      try {
+        resposta = await authService.loginSocial({ ...credencial, tipo: salvo })
+      } catch (err) {
+        console.log('[AuthContext] login social direto no último perfil falhou, mostrando a escolha | tipo:', salvo, '| status:', err?.status, '| codigo:', err?.codigo)
+        return escolha
+      }
+      if (!resposta?.token) return escolha
+    }
+    await gravarSessao(email, resposta)
+    return resposta
+  }
+
+  // Grava a sessão de uma resposta de login (senha ou social) que trouxe `token`.
+  const gravarSessao = async (email, resposta) => {
     // Defensivo: em aparelho compartilhado, um login (de qualquer usuário) descarta
     // um eventual rascunho de cadastro pré-auth que tenha ficado, para não ressurgir
     // para outra pessoa. Best-effort, não bloqueia o login.
@@ -432,7 +465,6 @@ export const AuthProvider = ({ children }) => {
     setTimeout(() => registrarPushToken(), 1000)
     // Memória do perfil que entrou: é ela que faz o próximo login deste e-mail ser direto.
     gravarUltimoTipo(email, tipoDaConta(resposta.usuario))
-    return resposta
   }
 
   // Função usada após cadastro, trocar de perfil e adicionar perfil — recebe token e dados
@@ -509,6 +541,7 @@ export const AuthProvider = ({ children }) => {
       confirmarBoasVindas,
       revalidarSessao,
       login,
+      loginSocial,
       loginComToken,
       logout,
       setUsuario,

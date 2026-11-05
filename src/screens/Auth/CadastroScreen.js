@@ -12,7 +12,8 @@ import { BotaoPrimario, Input, SeletorLocalidade } from '../../components'
 import api, { authService } from '../../services/api'
 import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { mascararTelefone } from '../../utils/telefone'
-import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
+import { RASCUNHO_KEY, RASCUNHO_SENHA_KEY, RASCUNHO_TICKET_KEY, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
+import { NOME_PROVEDOR } from '../../services/loginSocial'
 import { useAuth } from '../../contexts/AuthContext'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
@@ -160,6 +161,15 @@ export default function CadastroScreen({ navigation, route }) {
   const [telefone, setTelefone] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
+  // Cadastro via "Continuar com Google/Apple" (Arte-Login-Google-Apple): { provedor, nome,
+  // email, ticket } vindo da LoginScreen (POST /auth/social respondeu `novo`). Com ele não há
+  // senha — o ticket (JWT de 15 min) entra no lugar dela em POST /auth/cadastro — e nome e
+  // e-mail chegam preenchidos e travados (o e-mail é o do ticket; o nome só trava quando o
+  // provedor o informou — a Apple pode não informar). Sobrevive ao rascunho: os campos
+  // comuns vão no AsyncStorage e o ticket no SecureStore, como a senha.
+  const [social, setSocial] = useState(null)
+  const socialRef = useRef(null)
+  socialRef.current = social
   const [cidade, setCidade] = useState('')
   const [uf, setUf] = useState('')
   const [cep, setCep] = useState('')
@@ -228,6 +238,7 @@ export default function CadastroScreen({ navigation, route }) {
     latitude, longitude, logradouro, numero, complemento, bairro, enderecoEncontrado,
     cpfCnpj, anosExp, equipe, especialidades, planoSelecionado,
     rg, rgOrgao, rgEstado, codigoIndicacao,
+    social: social ? { provedor: social.provedor, nome: social.nome, email: social.email } : null,
   }
   senhaRef.current = senha
 
@@ -241,6 +252,8 @@ export default function CadastroScreen({ navigation, route }) {
       await AsyncStorage.setItem(RASCUNHO_KEY, JSON.stringify({ ...s, _ts: Date.now() }))
       if (senhaRef.current) await SecureStore.setItemAsync(RASCUNHO_SENHA_KEY, senhaRef.current)
       else await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY).catch(() => {})
+      if (socialRef.current?.ticket) await SecureStore.setItemAsync(RASCUNHO_TICKET_KEY, socialRef.current.ticket)
+      else await SecureStore.deleteItemAsync(RASCUNHO_TICKET_KEY).catch(() => {})
     } catch (err) {
       console.log('[CadastroScreen] falha ao salvar rascunho | msg:', err.message)
     }
@@ -278,13 +291,37 @@ export default function CadastroScreen({ navigation, route }) {
     })
   }, [])
 
+  // Cadastro vindo do login social: nome/e-mail do provedor nos campos e o ticket no estado.
+  // O param é serializável, então sobrevive ao Android reciclar o processo.
+  const aplicarSocial = (dados) => {
+    const partes = String(dados.nome || '').trim().split(/\s+/).filter(Boolean)
+    setNome(partes[0] || '')
+    setSobrenome(partes.slice(1).join(' '))
+    setEmail(String(dados.email || '').trim().toLowerCase())
+    setSocial({ provedor: dados.provedor, nome: dados.nome || null, email: dados.email, ticket: dados.ticket })
+  }
+
   // Restaura o rascunho na montagem, ANTES de qualquer interação.
   useEffect(() => {
     (async () => {
       try {
+        const socialParam = route.params?.social
         const bruto = await AsyncStorage.getItem(RASCUNHO_KEY)
-        if (bruto && montadoRef.current) {
-          const s = JSON.parse(bruto)
+        let s = bruto ? JSON.parse(bruto) : null
+        if (socialParam?.ticket) {
+          // Rascunho social do MESMO e-mail (o ticket anterior venceu e a pessoa entrou de
+          // novo): continua de onde parou, só com o ticket novo. Qualquer outro rascunho é
+          // descartado — o que o provedor acabou de confirmar ganha de uma tentativa antiga.
+          if (s?.social?.email && s.social.email === socialParam.email) {
+            s = { ...s, social: { ...s.social, ticket: socialParam.ticket } }
+            await SecureStore.setItemAsync(RASCUNHO_TICKET_KEY, socialParam.ticket)
+          } else {
+            await limparRascunhoCadastro()
+            if (montadoRef.current) aplicarSocial(socialParam)
+            return
+          }
+        }
+        if (s && montadoRef.current) {
           setTipoConta(s.tipoConta ?? null)
           setNome(s.nome ?? ''); setSobrenome(s.sobrenome ?? '')
           setEmail(s.email ?? ''); setTelefone(s.telefone ?? '')
@@ -301,6 +338,12 @@ export default function CadastroScreen({ navigation, route }) {
           if (s.codigoIndicacao) { setCodigoIndicacao(s.codigoIndicacao); validarCodigoIndicacao(s.codigoIndicacao) }
           const senhaSalva = await SecureStore.getItemAsync(RASCUNHO_SENHA_KEY)
           if (senhaSalva && montadoRef.current) setSenha(senhaSalva)
+          // Rascunho social: só vale com o ticket ainda guardado. Sem ele, o formulário volta
+          // a pedir senha (nome e e-mail restaurados seguem, agora editáveis).
+          if (s.social) {
+            const ticketSalvo = s.social.ticket || await SecureStore.getItemAsync(RASCUNHO_TICKET_KEY)
+            if (ticketSalvo && montadoRef.current) setSocial({ provedor: s.social.provedor, nome: s.social.nome ?? null, email: s.social.email, ticket: ticketSalvo })
+          }
           // Rascunho antigo podia estar no passo 4 (PIX/referências), que não existe mais.
           setPasso(s.passo === 4 ? 2 : (s.passo ?? 0))   // por último: renderiza direto a tela onde parou
         }
@@ -355,8 +398,10 @@ export default function CadastroScreen({ navigation, route }) {
     // Nome ou sobrenome com cara de e-mail: o erro sai no campo NOME, o único com `erro`.
     else if (pareceEmail(nome) || pareceEmail(sobrenome)) novos.nome = MSG_NOME_NAO_EMAIL
     if (!email.trim()) novos.email = 'Informe o e-mail'
-    if (!senha.trim()) novos.senha = 'Informe a senha'
-    if (senha.length < 8) novos.senha = 'Mínimo 8 caracteres'
+    if (!social) {
+      if (!senha.trim()) novos.senha = 'Informe a senha'
+      if (senha.length < 8) novos.senha = 'Mínimo 8 caracteres'
+    }
     setErros(novos)
     return Object.keys(novos).length === 0
   }
@@ -568,7 +613,9 @@ export default function CadastroScreen({ navigation, route }) {
         nome: `${nome.trim()} ${sobrenome.trim()}`.trim(),
         email: email.trim().toLowerCase(),
         telefone: telefone.trim(),
-        senha,
+        // Social: o ticket entra no lugar da senha (a API ignora o e-mail do corpo e usa o do
+        // ticket; os dois são o mesmo, porque o campo está travado).
+        ...(social ? { ticket: social.ticket } : { senha }),
         cidade: cidade.trim(),
         cpf_cnpj: cpfCnpj.trim(),
         tipo_conta: tipoConta,
@@ -598,7 +645,7 @@ export default function CadastroScreen({ navigation, route }) {
       }
 
       setProgresso('Finalizando cadastro...')
-      console.log('[cadastro] ▶ step4 POST /auth/cadastro', { ...dados, senha: '[REDACTED]' })
+      console.log('[cadastro] ▶ step4 POST /auth/cadastro', { ...dados, ...(social ? { ticket: '[REDACTED]' } : { senha: '[REDACTED]' }) })
       let resposta
       try {
         // POST cria recurso (não-idempotente) → comRetry padrão: só reexecuta em ERR_NETWORK
@@ -655,6 +702,16 @@ export default function CadastroScreen({ navigation, route }) {
       // limite_contas): mesmo Alert dos duplicados, com o texto do mapa.
       if (msgErroContas(err?.codigo)) {
         Alert.alert('Atenção', msgErroContas(err?.codigo))
+        return
+      }
+      // Ticket do login social vencido (15 min) ou recusado: o jeito é entrar de novo pelo
+      // provedor. O rascunho fica — ao voltar com um ticket novo ele é descartado de propósito.
+      if (err?.codigo === 'ticket_invalido' && social) {
+        Alert.alert(
+          `Login com ${NOME_PROVEDOR[social.provedor] || 'o provedor'} expirado`,
+          `Passou o tempo de concluir o cadastro. Toque em "Continuar com ${NOME_PROVEDOR[social.provedor] || 'o provedor'}" de novo para seguir de onde parou.`,
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        )
         return
       }
       if (err.status === 409) {
@@ -729,18 +786,27 @@ export default function CadastroScreen({ navigation, route }) {
           {/* PASSO 1 — Dados pessoais */}
           {passo === 1 && (
             <View>
+              {/* Social: nome (quando o provedor o informou) e e-mail vêm travados — o
+                  e-mail é o do ticket, e o servidor ignora qualquer outro. Sem senha. */}
+              {social ? (
+                <Text style={estilos.notaSocial}>
+                  ✓ Entrando com {NOME_PROVEDOR[social.provedor] || 'o provedor'} · sem senha
+                </Text>
+              ) : null}
               <View style={estilos.duasColunas}>
-                <Input label="NOME" placeholder="Primeiro nome" value={nome} onChangeText={setNome} erro={erros.nome} estilo={{ flex: 1 }} />
-                <Input label="SOBRENOME" placeholder="Sobrenome" value={sobrenome} onChangeText={setSobrenome} estilo={{ flex: 1 }} />
+                <Input label="NOME" placeholder="Primeiro nome" value={nome} onChangeText={setNome} erro={erros.nome} estilo={{ flex: 1 }} editable={!(social && social.nome)} estiloInput={social && social.nome ? estilos.inputTravado : undefined} />
+                <Input label="SOBRENOME" placeholder="Sobrenome" value={sobrenome} onChangeText={setSobrenome} estilo={{ flex: 1 }} editable={!(social && social.nome)} estiloInput={social && social.nome ? estilos.inputTravado : undefined} />
               </View>
-              <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={(t) => { setEmail(t); invalidarDisponibilidade() }} keyboardType="email-address" autoCapitalize="none" erro={erros.email} />
+              <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={(t) => { setEmail(t); invalidarDisponibilidade() }} keyboardType="email-address" autoCapitalize="none" erro={erros.email} editable={!social} estiloInput={social ? estilos.inputTravado : undefined} />
               <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
-              <View>
-                <Input label="SENHA" placeholder="Mínimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
-                <TouchableOpacity style={estilos.olhoBtn} onPress={() => setMostrarSenha(!mostrarSenha)}>
-                  <Text style={estilos.olhoTexto}>{mostrarSenha ? 'ocultar' : 'mostrar'}</Text>
-                </TouchableOpacity>
-              </View>
+              {!social && (
+                <View>
+                  <Input label="SENHA" placeholder="Mínimo 8 caracteres" value={senha} onChangeText={setSenha} secureTextEntry={!mostrarSenha} erro={erros.senha} />
+                  <TouchableOpacity style={estilos.olhoBtn} onPress={() => setMostrarSenha(!mostrarSenha)}>
+                    <Text style={estilos.olhoTexto}>{mostrarSenha ? 'ocultar' : 'mostrar'}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
 
@@ -935,6 +1001,9 @@ const estilos = StyleSheet.create({
   indicadorDotFeito: { backgroundColor: cores.sucesso },
   duasColunas: { flexDirection: 'row', gap: 12 },
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
+  // Cadastro via Google/Apple: linha de contexto e campos travados (esmaecidos, sem teclado).
+  notaSocial: { fontSize: 12, color: cores.sucesso, marginBottom: 12, fontWeight: '600' },
+  inputTravado: { opacity: 0.55 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
   planoSubtitulo: { fontSize: 13, color: cores.textoMedio, marginBottom: 16 },
   planoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },

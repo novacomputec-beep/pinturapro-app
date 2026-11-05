@@ -12,9 +12,12 @@ import * as SecureStore from 'expo-secure-store'
 //  - RASCUNHO_FOTOS_KEY (SecureStore): as secure_urls das fotos de verificação —
 //    PII (documentos), por isso NUNCA no AsyncStorage. Só secure_urls duráveis do
 //    Cloudinary; jamais URIs locais file://.
+//  - RASCUNHO_TICKET_KEY (SecureStore): o ticket do cadastro via Google/Apple (JWT de
+//    15 min de POST /auth/social) — entra no lugar da senha, logo vai onde a senha iria.
 export const RASCUNHO_KEY = 'cadastro_rascunho_v1'
 export const RASCUNHO_SENHA_KEY = 'cadastro_rascunho_senha_v1'
 export const RASCUNHO_FOTOS_KEY = 'cadastro_rascunho_fotos_v1'
+export const RASCUNHO_TICKET_KEY = 'cadastro_rascunho_ticket_v1'
 
 // Janela de validade do rascunho: passado esse tempo, é tratado como inexistente.
 export const RASCUNHO_VALIDADE_MS = 24 * 60 * 60 * 1000 // 24h
@@ -25,6 +28,7 @@ export const limparRascunhoCadastro = async () => {
   try { await AsyncStorage.removeItem(RASCUNHO_KEY) } catch (e) {}
   try { await SecureStore.deleteItemAsync(RASCUNHO_SENHA_KEY) } catch (e) {}
   try { await SecureStore.deleteItemAsync(RASCUNHO_FOTOS_KEY) } catch (e) {}
+  try { await SecureStore.deleteItemAsync(RASCUNHO_TICKET_KEY) } catch (e) {}
 }
 
 // Estado do rascunho para o resume de cold-start:
