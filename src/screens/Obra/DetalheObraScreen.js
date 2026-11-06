@@ -37,6 +37,7 @@ import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
+import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -235,7 +236,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em']) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em']) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -583,6 +584,9 @@ export default function DetalheObraScreen({ route, navigation }) {
       // Suspenso: sai antes da reconsulta — não há candidatura nova a descobrir, e o
       // motivo real precisa aparecer no lugar do "não foi possível registrar".
       if (alertouSuspensao(err)) return
+      // Obra já excluída/fechada pelo dono (409 PEDIDO_INDISPONIVEL): nada foi gravado;
+      // avisa, tira o card do feed e volta.
+      if (alertouPedidoIndisponivel(err, { tipo: 'obra', id: obra.id, navigation })) return
       // Rede de segurança: o servidor recusou por falta de verificação (403
       // VERIFICACAO_NECESSARIA) mesmo com o usuario local dizendo o contrário.
       if (await verificacao.tratouErro(err)) return
@@ -1262,6 +1266,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     } catch (err) {
       console.log('[DetalheObra] falha ao pintor responder contraproposta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (alertouSuspensao(err)) return
+      if (alertouPedidoIndisponivel(err, { tipo: 'obra', id: obra.id, navigation })) return
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível enviar. Verifique sua conexão.'), [
@@ -1938,7 +1943,15 @@ export default function DetalheObraScreen({ route, navigation }) {
             /* Desfazer a escolha (dono, aguardando): nota antes de desfazer_liberado_em, caixa
                vermelha + folha depois. Sem o campo (não se aplica) nada aparece. */
             desfazer={isDono && fasePosMatch === 'aguardando' && obra.desfazer_liberado_em ? {
+              // Arte-Nao-Marcou-Horario: desfazer_liberado_em é o instante dos 25% restantes
+              // (amarelo antes, vermelho depois); lembretes_agendar_enviados e
+              // proximo_lembrete_agendar_em vêm da API, só ao dono.
               liberadoEm: obra.desfazer_liberado_em,
+              escolhidoEm: obra.match_feito_em || null,
+              prazoEm: obra.chegada_prevista_em || obra.expira_em || null,
+              lembretes: obra.lembretes_agendar_enviados ?? 0,
+              proximoLembreteEm: obra.proximo_lembrete_agendar_em || null,
+              nome: primeiroNome(pintorMatch?.nome) || null,
               onAbrir: () => setSheetDesfazer(true),
               desabilitado: desfazendo || cancelando,
             } : null}

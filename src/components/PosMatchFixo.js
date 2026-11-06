@@ -307,41 +307,77 @@ const FolhaPicker = ({ visivel, onFechar, titulo, limite, rotuloBotao, enviando,
 // Blocos de estado
 // ---------------------------------------------------------------------------------------
 
+// Fase do "não marcou o horário" do DONO (Arte-Nao-Marcou-Horario), a partir de `desfazer`:
+//   'amarelo'  — do match até desfazer_liberado_em (API: o instante em que restam 25% do tempo
+//                entre o match e o prazo): caixa amarela calma, com os lembretes
+//                (lembretes_agendar_enviados / proximo_lembrete_agendar_em), SEM botão;
+//   'vermelho' — a partir de desfazer_liberado_em: caixa vermelha "falta pouco" com o botão;
+//   null       — sem desfazer_liberado_em (não se aplica): o banner de sempre.
+export const faseDesfazer = (desfazer, agoraMs) => {
+  if (!desfazer?.liberadoEm) return null
+  const liberadoMs = new Date(desfazer.liberadoEm).getTime()
+  if (!Number.isFinite(liberadoMs)) return null
+  return liberadoMs <= agoraMs ? 'vermelho' : 'amarelo'
+}
+
+export const NOTA_AVISO_ESCOLHER_OUTRO = 'Se faltar pouco tempo e ele não marcar, o app vai te avisar para escolher outro.'
+
 // AGUARDANDO HORÁRIO — dono: banner "aguarde"; profissional: banner "envie" + botão do picker.
-// Dono (Arte-Desfazer-Escolha), com `desfazer` = { liberadoEm, onAbrir, desabilitado }:
-//   - antes de liberadoEm (desfazer_liberado_em de GET /:id): nota tracejada sob o banner com
-//     a hora a partir da qual dá para escolher outro;
-//   - depois: a caixa vermelha "não marcou o horário" toma o LUGAR do banner, com o botão
-//     que abre a folha (SheetDesfazerEscolha). O relógio de 30 s faz a troca sozinho.
+// Dono (Arte-Desfazer-Escolha + Arte-Nao-Marcou-Horario), com `desfazer` = { liberadoEm,
+// escolhidoEm, prazoEm, lembretes, proximoLembreteEm, nome, onAbrir, desabilitado }:
+//   - 'amarelo' (até desfazer_liberado_em): a caixa amarela "ainda não marcou" toma o LUGAR do
+//     banner (escolhido há X, lembretes enviados e o próximo, faltam Z), sem botão; a nota sob
+//     o card do profissional avisa que o app chama o dono se faltar pouco;
+//   - 'vermelho' (depois): a caixa vermelha "falta pouco" com o botão que abre a folha
+//     (SheetDesfazerEscolha). O relógio de 30 s faz a troca sozinho.
 const EstadoAguardando = ({ demanda, frente, souDono, onAbrirPicker, desfazer, rodape }) => {
   const agora = useAgora()
   const ehObra = frente === 'obra'
-  const liberadoMs = souDono && desfazer?.liberadoEm ? new Date(desfazer.liberadoEm).getTime() : NaN
-  if (Number.isFinite(liberadoMs) && liberadoMs <= agora) {
-    const matchMs = demanda?.match_feito_em ? new Date(demanda.match_feito_em).getTime() : NaN
-    const desde = Number.isFinite(matchMs) ? duracaoCurta(agora - matchMs) : null
+  const faseD = souDono ? faseDesfazer(desfazer, agora) : null
+  const matchMs = (desfazer?.escolhidoEm || demanda?.match_feito_em) ? new Date(desfazer?.escolhidoEm || demanda.match_feito_em).getTime() : NaN
+  const desde = Number.isFinite(matchMs) ? duracaoCurta(agora - matchMs) : null
+  const prazoMs = (desfazer?.prazoEm || demanda?.chegada_prevista_em || demanda?.expira_em) ? new Date(desfazer?.prazoEm || demanda.chegada_prevista_em || demanda.expira_em).getTime() : NaN
+  const faltam = Number.isFinite(prazoMs) && prazoMs > agora ? duracaoCurta(prazoMs - agora) : null
+  const nome = desfazer?.nome || null
+  const lembretes = Number(desfazer?.lembretes) || 0
+  const botaoDesfazer = (
+    <TouchableOpacity
+      style={[estilos.btnVermelho, desfazer?.desabilitado && { opacity: 0.5 }]}
+      onPress={desfazer?.onAbrir}
+      disabled={!!desfazer?.desabilitado}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+    >
+      <T style={estilos.btnVermelhoTexto} adjustsFontSizeToFit minimumFontScale={0.8}>Desfazer escolha e escolher outro</T>
+    </TouchableOpacity>
+  )
+  if (faseD === 'vermelho') {
     return (
       <View style={estilos.vermelho}>
-        <T linhas={2} style={estilos.vermelhoTitulo}>⚠️ O profissional não marcou o horário</T>
-        <T linhas={3} style={estilos.caixaLinha}>Escolhido {desde ? `há ${desde}` : 'há pouco'} e ainda sem dia e horário. Você pode desfazer a escolha e escolher outro profissional entre os interessados.</T>
-        <TouchableOpacity
-          style={[estilos.btnVermelho, desfazer.desabilitado && { opacity: 0.5 }]}
-          onPress={desfazer.onAbrir}
-          disabled={!!desfazer.desabilitado}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-        >
-          <T style={estilos.btnVermelhoTexto} adjustsFontSizeToFit minimumFontScale={0.8}>Desfazer escolha e escolher outro</T>
-        </TouchableOpacity>
+        <T linhas={2} style={estilos.vermelhoTitulo}>⚠️ Falta pouco e {nome || 'o profissional'} não marcou</T>
+        <T linhas={3} style={estilos.caixaLinha}>Faltam só {faltam || 'pouco tempo'} e ele não respondeu a {lembretes} {lembretes === 1 ? 'lembrete' : 'lembretes'}. Recomendamos escolher outro profissional entre os interessados.</T>
+        {botaoDesfazer}
         {rodape}
       </View>
     )
   }
-  const notaDesfazer = Number.isFinite(liberadoMs) ? (
-    <View style={estilos.notaTracejada}>
-      <T linhas={3} style={estilos.notaTracejadaTexto}>Se ele não marcar o horário, você poderá escolher outro profissional a partir de {formatarLimiteSP(desfazer.liberadoEm, agora)}.</T>
-    </View>
-  ) : null
+  if (faseD === 'amarelo') {
+    const proximoMs = desfazer?.proximoLembreteEm ? new Date(desfazer.proximoLembreteEm).getTime() : NaN
+    const proximo = Number.isFinite(proximoMs) && proximoMs > agora ? duracaoCurta(proximoMs - agora) : null
+    const linhaLembretes = lembretes === 0
+      ? `🔔 Nenhum lembrete ainda${proximo ? ` (o primeiro em ${proximo})` : ''}`
+      : `🔔 ${lembretes} ${lembretes === 1 ? 'lembrete enviado' : 'lembretes enviados'}${proximo ? ` (o próximo em ${proximo})` : ''}`
+    return (
+      <View style={estilos.amarelo}>
+        <T linhas={2} style={estilos.amareloTitulo}>⏳ {nome ? `${nome} ainda não marcou o horário` : 'O profissional ainda não marcou o horário'}</T>
+        <T linhas={2} style={estilos.caixaLinha}>Ainda dá tempo. Ele está sendo avisado pelo app e por e-mail até marcar.</T>
+        <T style={estilos.amareloLinha}>✓ Escolhido {desde ? `há ${desde}` : 'há pouco'}</T>
+        <T style={estilos.amareloLinha}>{linhaLembretes}</T>
+        {faltam ? <T style={estilos.amareloLinha}>⏱️ Faltam {faltam} para o prazo</T> : null}
+        {rodape}
+      </View>
+    )
+  }
   const limiteTexto = formatarLimiteSP(demanda?.expira_em)
   const prazoCurto = !ehObra && !!demanda?.expira_em && (new Date(demanda.expira_em).getTime() - Date.now()) < 86400000
   const tituloDono = prazoCurto ? 'AGUARDE O PROFISSIONAL ENVIAR O HORÁRIO' : 'AGUARDE O PROFISSIONAL ENVIAR O DIA E O HORÁRIO'
@@ -364,7 +400,6 @@ const EstadoAguardando = ({ demanda, frente, souDono, onAbrirPicker, desfazer, r
       )}
       {rodape}
     </View>
-    {notaDesfazer}
     </View>
   )
 }
@@ -611,6 +646,7 @@ export default function TelaPosMatch({
 }) {
   const ehObra = frente === 'obra'
   const [picker, setPicker] = useState(null) // null | 'propor' | 'sugerir'
+  const agoraTela = useAgora()
   const pendente = demanda?.chegada_pendente_em
   const propostaPor = demanda?.chegada_proposta_por || demanda?.match_usuario_id
   const minhaPendente = !!pendente && propostaPor != null && usuarioId != null && String(propostaPor) === String(usuarioId)
@@ -700,6 +736,13 @@ export default function TelaPosMatch({
       <CardTopo demanda={demanda} endereco={endereco} pontoReferencia={pontoReferencia} valor={valor} faixa={faixa} />
       {estado}
       <MiniPessoa souDono={souDono} outro={outro} linha2={linha2Cliente} />
+      {/* Fase amarela do "não marcou" (dono, aguardando): a nota fica SOB o card do
+          profissional, não dentro da caixa — é sobre o que o app fará, não sobre ele. */}
+      {!cancelParaMim && fase === 'aguardando' && souDono && faseDesfazer(desfazer, agoraTela) === 'amarelo' ? (
+        <View style={estilos.notaProfissional}>
+          <T linhas={2} style={estilos.notaTracejadaTexto}>{NOTA_AVISO_ESCOLHER_OUTRO}</T>
+        </View>
+      ) : null}
       {mostraAviso ? <AvisoAmbar /> : null}
       <LinhaLinks itens={[
         souDono && links?.onReferencia ? { texto: pontoReferencia ? '📍 Editar referência' : '📍 Ponto de referência', onPress: links.onReferencia } : null,
@@ -759,6 +802,12 @@ const estilos = StyleSheet.create({
   notaTracejada: { borderWidth: 1, borderStyle: 'dashed', borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 7, marginTop: 8 },
   notaTracejadaTexto: { fontSize: 11, color: cores.textoMedio, lineHeight: 15 },
   vermelho: { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.grande, padding: 12 },
+  // Caixa amarela calma do "ainda não marcou" (fase 1): mesmo molde da vermelha, em âmbar.
+  amarelo: { backgroundColor: 'rgba(255,193,7,0.10)', borderWidth: 1, borderColor: 'rgba(255,193,7,0.55)', borderRadius: raios.grande, padding: 12 },
+  amareloTitulo: { fontSize: 15, fontWeight: '800', color: '#FFC107', lineHeight: 20, marginBottom: 6 },
+  amareloLinha: { fontSize: 12, color: cores.textoForte, lineHeight: 17, marginTop: 4 },
+  // Nota sob o card do profissional (fase 1): a mesma tracejada da nota de desfazer.
+  notaProfissional: { borderWidth: 1, borderStyle: 'dashed', borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 7 },
   vermelhoTitulo: { fontSize: 15, fontWeight: '800', color: cores.perigo, lineHeight: 20, marginBottom: 6 },
   btnVermelho: { backgroundColor: cores.perigo, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
   btnVermelhoTexto: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },

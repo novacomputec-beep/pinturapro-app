@@ -63,9 +63,12 @@ const CASOS = [
   { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando horário' },
   { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · pedido de cancelamento p/ mim', cancel: 'mim' },
   { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · meu pedido de cancelamento', cancel: 'meu' },
-  // Arte-Desfazer-Escolha: nota tracejada antes de desfazer_liberado_em; caixa vermelha depois.
-  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · desfazer libera em 1h30 (nota)', desfazerEm: 90 * MIN },
-  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · profissional não marcou (desfazer liberado)', desfazerEm: -20 * MIN },
+  // Arte-Nao-Marcou-Horario: desfazer_liberado_em (API) é o instante dos 25% restantes. Antes
+  // dele, caixa amarela (escolhido há X, lembretes enviados e o próximo, faltam Z, nota sob o
+  // profissional); depois, caixa vermelha "falta pouco" com o botão de desfazer.
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · ainda não marcou (amarelo, nenhum lembrete)', desfazerEm: 19 * H, lembretes: 0, proximoEm: 40 * MIN },
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · ainda não marcou (amarelo, 2 lembretes)', desfazerEm: 19 * H, lembretes: 2, proximoEm: 40 * MIN },
+  { lado: 'dono', fase: 'aguardando', rotulo: 'Aguardando · falta pouco e não marcou (vermelho, 4 lembretes)', desfazerEm: -5 * H, demanda: { match_feito_em: iso(-23 * H), expira_em: iso(1 * H) }, lembretes: 4, proximoEm: 20 * MIN },
   { lado: 'dono', fase: 'proposto', rotulo: 'Horário proposto (recebido)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: OUTRO, sugestoes_restantes: 2 } },
   { lado: 'dono', fase: 'proposto', rotulo: 'Horário proposto (enviei)', demanda: { chegada_pendente_em: iso(5 * H), chegada_proposta_por: EU } },
   { lado: 'dono', fase: 'agendado', rotulo: 'Agendado', demanda: { chegada_prevista_em: iso(3 * H) } },
@@ -675,7 +678,16 @@ const propsDoCaso = (caso) => {
       encerramentoOutro: souDono && caso.concluidoPeloOutro ? { nome: 'Carlos', solicitadoEm: demanda.encerramento_solicitado_em, automaticoEm: null } : null,
     },
     cancelamento: mostrarCancelamento ? { pedido: pedidoCancel, paraMim: caso.cancel === 'mim', nomeOutro, respondendo: false, onResponder: noop, onAbrir: noop, desabilitado: false } : null,
-    desfazer: souDono && caso.desfazerEm != null ? { liberadoEm: iso(caso.desfazerEm), onAbrir: noop, desabilitado: false } : null,
+    desfazer: souDono && caso.desfazerEm != null ? {
+      liberadoEm: iso(caso.desfazerEm),
+      escolhidoEm: demanda.match_feito_em,
+      prazoEm: demanda.chegada_prevista_em || demanda.expira_em,
+      lembretes: caso.lembretes ?? 0,
+      proximoLembreteEm: caso.proximoEm != null ? iso(caso.proximoEm) : null,
+      nome: 'Carlos',
+      onAbrir: noop,
+      desabilitado: false,
+    } : null,
     links: { onReferencia: souDono ? noop : undefined, onDetalhes: noop, onContrato: noop, onDenunciar: caso.fase === 'em_andamento' ? noop : undefined },
   }
 }

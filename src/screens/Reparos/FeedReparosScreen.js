@@ -20,6 +20,7 @@ import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
+import { aoPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { BannerConvideColega } from '../../components/Indicacao'
@@ -190,6 +191,8 @@ const GPS_CACHE_TTL = 300000 // 5 minutos
 export default function FeedReparosScreen({ navigation }) {
   const { usuario } = useAuth()
   const [reparos, setReparos] = useState([])
+  // Pedido recusado com 409 PEDIDO_INDISPONIVEL no detalhe (dono excluiu): o card sai na hora.
+  useEffect(() => aoPedidoIndisponivel(({ tipo, id }) => { if (tipo === 'reparo') setReparos(prev => prev.filter(r => r.id !== id)) }), [])
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
