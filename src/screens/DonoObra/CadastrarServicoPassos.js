@@ -1,0 +1,430 @@
+import React from 'react'
+import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
+import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { TILE_OUTROS, SLUG_OUTROS } from '../../utils/gruposServico'
+
+// Peças APRESENTACIONAIS do wizard "Cadastrar serviço" (Arte-Cadastrar-Servico), em 4 passos:
+// grupos → detalhes → prazo e valor → endereço. A tela (CadastrarReparoScreen) é dona de todo
+// o estado, das validações e do envio — aqui só render, alimentado por props. A Galeria de
+// estados renderiza as mesmas peças com dados locais.
+
+export const TOTAL_PASSOS = 4
+
+export const TITULOS_PASSO = {
+  1: { titulo: 'Do que você precisa?', subtitulo: `Escolha até ${MAX_CATEGORIAS_DEMANDA} categorias. Quanto mais certas, mais profissionais recebem o seu pedido.` },
+  2: { titulo: 'Conte o que precisa',  subtitulo: 'Um título curto, a descrição e, se ajudar, um vídeo ou fotos.' },
+  3: { titulo: 'Para quando?',         subtitulo: 'O prazo para começar e quanto você quer pagar.' },
+  4: { titulo: 'Onde é?',              subtitulo: 'O endereço do serviço. Comece pelo CEP.' },
+}
+
+export const URGENCIAS = [
+  { id: 1,   label: '🔴 1 hora',      desc: 'Urgência máxima' },
+  { id: 2,   label: '🟠 2 horas',     desc: 'Muito urgente'   },
+  { id: 4,   label: '🟡 4 horas',     desc: 'Urgente'         },
+  { id: 8,   label: '🟢 8 horas',     desc: 'Hoje'            },
+  { id: 12,  label: '🔵 12 horas',    desc: 'Ainda hoje'      },
+  { id: 24,  label: '📅 Amanhã',      desc: 'Sem pressa'      },
+  { id: 168, label: '📆 Esta semana', desc: 'Flexível'        },
+  { id: 720, label: '🗓️ Este mês',     desc: 'Sem urgência'    },
+  { id: 1440, label: '📋 Mês que vem', desc: 'Pode esperar'    },
+]
+
+const CATEGORIA_POR_SLUG = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
+
+// ─── Moldura: cabeçalho com barra de progresso, miolo rolável e rodapé fixo ───────────────
+// O rodapé fica FORA da ScrollView e dentro do KeyboardAvoidingView: visível sempre, com o
+// teclado aberto e em tela baixa. reservaInferior: altura extra (a barra "Agendado" flutua
+// sobre o rodapé da aba; a tela passa alturas.barraServico só enquanto ela existe).
+// tituloTela: o título grande e laranja da tela ("Cadastrar serviço" / "Cadastrar obra"), ao
+// lado do ←; a pergunta do passo (titulos[passo]) vem menor, abaixo da barra de progresso.
+// titulos: mapa passo → { titulo, subtitulo } (TITULOS_PASSO por padrão; a obra passa o seu).
+export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulos = TITULOS_PASSO, onVoltar, mostrarVoltar, children, rodape, scrollRef, reservaInferior = 0, acimaDoTitulo }) {
+  const t = titulos[passo] || titulos[1]
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={estilos.cabecalhoLinha}>
+          {mostrarVoltar ? (
+            <TouchableOpacity style={estilos.btnVoltar} onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar">
+              <Text style={estilos.btnVoltarTexto}>←</Text>
+            </TouchableOpacity>
+          ) : null}
+          <Text style={estilos.tituloTela} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tituloTela}</Text>
+        </View>
+        <Text style={estilos.passoDe}>Passo {passo} de {TOTAL_PASSOS}</Text>
+        <BarraProgresso passo={passo} />
+        {acimaDoTitulo}
+        <Text style={estilos.titulo}>{t.titulo}</Text>
+        <Text style={estilos.subtitulo}>{t.subtitulo}</Text>
+        {children}
+      </ScrollView>
+      <View style={[estilos.rodape, larguraMaxima, { paddingBottom: 12 + reservaInferior }]}>
+        {rodape}
+      </View>
+    </KeyboardAvoidingView>
+  )
+}
+
+export const BarraProgresso = ({ passo }) => (
+  <View style={estilos.progresso} accessibilityLabel={`Passo ${passo} de ${TOTAL_PASSOS}`}>
+    {Array.from({ length: TOTAL_PASSOS }).map((_, i) => (
+      <View key={i} style={[estilos.progressoSegmento, i < passo && estilos.progressoFeito]} />
+    ))}
+  </View>
+)
+
+// Botão grande do rodapé. `nota`: texto curto acima dele (o "Enviando mídias…" do envio).
+export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota }) => (
+  <>
+    {nota ? <Text style={estilos.rodapeNota}>{nota}</Text> : null}
+    <BotaoPrimario titulo={rotulo} onPress={onPress} carregando={carregando} desabilitado={desabilitado} estilo={estilos.rodapeBotao} />
+  </>
+)
+
+// ─── Passo 1: grade de grupos + chips escolhidos + sugestões ──────────────────────────────
+// grupos: gruposComCategorias(). contagem: { idGrupo: n } das marcadas. bloqueado: no limite
+// (os tiles sem marcada apagam, o de um grupo com marcada segue abrindo para desmarcar).
+export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros }) {
+  return (
+    <View style={estilos.grade}>
+      {grupos.map((g) => {
+        const n = contagem?.[g.id] || 0
+        const apagado = bloqueado && n === 0
+        return (
+          <TouchableOpacity
+            key={g.id}
+            style={[estilos.tile, n > 0 && estilos.tileAtivo, apagado && estilos.tileApagado]}
+            onPress={() => onAbrir(g)}
+            disabled={apagado}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: n > 0, disabled: apagado }}
+            accessibilityLabel={`${g.titulo}${n ? `, ${n} escolhida${n > 1 ? 's' : ''}` : ''}`}
+          >
+            {n > 0 ? <View style={estilos.tileBadge}><Text style={estilos.tileBadgeTexto}>{n}</Text></View> : null}
+            <Text style={estilos.tileEmoji}>{g.emoji}</Text>
+            <Text style={[estilos.tileTitulo, n > 0 && { color: cores.primaria }]} numberOfLines={2}>{g.titulo}</Text>
+          </TouchableOpacity>
+        )
+      })}
+      <TouchableOpacity
+        style={[estilos.tileLargo, outrosMarcado && estilos.tileAtivo, bloqueado && !outrosMarcado && estilos.tileApagado]}
+        onPress={onOutros}
+        disabled={bloqueado && !outrosMarcado}
+        activeOpacity={0.8}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: !!outrosMarcado }}
+      >
+        <Text style={estilos.tileEmoji}>{TILE_OUTROS.emoji}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[estilos.tileTitulo, { textAlign: 'left' }, outrosMarcado && { color: cores.primaria }]}>{TILE_OUTROS.titulo}</Text>
+          <Text style={estilos.tileDesc}>{TILE_OUTROS.desc}</Text>
+        </View>
+        <Caixa marcada={!!outrosMarcado} />
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+// Chips das categorias escolhidas (com ✕), na ordem em que entraram, mais o contador.
+export function ChipsEscolhidos({ categorias, onRemover }) {
+  const noLimite = categorias.length >= MAX_CATEGORIAS_DEMANDA
+  return (
+    <View style={estilos.chipsBloco}>
+      <View style={estilos.chipsCabecalho}>
+        <Text style={estilos.label}>ESCOLHIDAS</Text>
+        <Text style={[estilos.contador, noLimite && { color: cores.primaria }]}>{categorias.length} de {MAX_CATEGORIAS_DEMANDA}</Text>
+      </View>
+      {categorias.length === 0 ? (
+        <Text style={estilos.chipsVazio}>Toque num grupo acima para escolher.</Text>
+      ) : (
+        <View style={estilos.chips}>
+          {categorias.map((slug) => {
+            const c = CATEGORIA_POR_SLUG.get(slug)
+            return (
+              <TouchableOpacity key={slug} style={estilos.chip} onPress={() => onRemover(slug)} accessibilityRole="button" accessibilityLabel={`Remover ${c?.rotulo || slug}`}>
+                <Text style={estilos.chipTexto}>{c ? `${c.emoji} ${c.rotulo}` : slug}</Text>
+                <Text style={estilos.chipX}>✕</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </View>
+      )}
+      {noLimite ? <Text style={estilos.limite}>Limite de {MAX_CATEGORIAS_DEMANDA} categorias atingido</Text> : null}
+    </View>
+  )
+}
+
+// Card azul "Também podem atender este pedido" — o mesmo de antes, só mudou de arquivo.
+export function Sugestoes({ sugestoes, onAdicionar }) {
+  if (!sugestoes?.length) return null
+  return (
+    <View style={estilos.sugestaoCard}>
+      <Text style={estilos.sugestaoTitulo}>💡 Também podem atender este pedido:</Text>
+      <View style={estilos.chips}>
+        {sugestoes.map((c) => (
+          <TouchableOpacity key={c.slug} style={estilos.sugestaoChip} onPress={() => onAdicionar(c.slug)} activeOpacity={0.7}>
+            <Text style={estilos.sugestaoChipTexto}>+ {c.emoji} {c.rotulo}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+const Caixa = ({ marcada, apagada }) => (
+  <View style={[estilos.caixa, marcada && estilos.caixaMarcada, apagada && { opacity: 0.35 }]}>
+    {marcada ? <Text style={estilos.caixaCheck}>✓</Text> : null}
+  </View>
+)
+
+// Conteúdo da folha de um grupo: linhas grandes (emoji, nome, exemplos, caixa) e "Pronto".
+// `selecionadas` são TODAS as marcadas (o contador do botão é o total do pedido).
+export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto }) {
+  const total = selecionadas.length
+  const noLimite = total >= MAX_CATEGORIAS_DEMANDA
+  return (
+    <>
+      <View style={estilos.alca} />
+      <Text style={estilos.folhaTitulo}>{grupo.emoji} {grupo.titulo}</Text>
+      <Text style={estilos.folhaSub}>Marque o que precisa · até {MAX_CATEGORIAS_DEMANDA} no pedido</Text>
+      <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
+        {grupo.categorias.map((c) => {
+          const marcada = selecionadas.includes(c.slug)
+          const apagada = !marcada && noLimite
+          return (
+            <TouchableOpacity
+              key={c.slug}
+              style={[estilos.linha, marcada && estilos.linhaMarcada, apagada && { opacity: 0.45 }]}
+              onPress={() => onAlternar(c.slug)}
+              disabled={apagada}
+              activeOpacity={0.8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: marcada, disabled: apagada }}
+              accessibilityLabel={c.rotulo}
+            >
+              <Text style={estilos.linhaEmoji}>{c.emoji}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[estilos.linhaNome, marcada && { color: cores.primaria }]}>{c.rotulo}</Text>
+                {c.exemplos ? <Text style={estilos.linhaExemplos} numberOfLines={2}>{c.exemplos}</Text> : null}
+              </View>
+              <Caixa marcada={marcada} />
+            </TouchableOpacity>
+          )
+        })}
+      </ScrollView>
+      <BotaoPrimario titulo={`Pronto · ${total} ${total === 1 ? 'escolhida' : 'escolhidas'}`} onPress={onPronto} estilo={{ marginTop: 12 }} />
+    </>
+  )
+}
+
+// A folha como Modal de verdade (a tela). O toque fora e o voltar do Android fecham como
+// o "Pronto": o que está marcado fica — não há escolha obrigatória aqui.
+export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto }) {
+  const insets = useSafeAreaInsets()
+  return (
+    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onPronto}>
+      <View style={estilos.overlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onPronto} accessibilityRole="button" accessibilityLabel="Fechar" />
+        <View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }]}>
+          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} /> : null}
+        </View>
+      </View>
+    </Modal>
+  )
+}
+
+// ─── Passo 2: título, descrição (com o aviso de contato), mídia ───────────────────────────
+export function PassoDetalhes({ titulo, descricao, onTitulo, onDescricao, erros, registrarY, midia }) {
+  return (
+    <>
+      <View onLayout={registrarY?.('titulo')}>
+        <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Instalar 3 tomadas na sala" value={titulo} onChangeText={onTitulo} erro={erros?.titulo} estiloInput={estilos.tituloBordaAzul} />
+      </View>
+      <View onLayout={registrarY?.('descricao')}>
+        <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={onDescricao} erro={erros?.descricao} multiline numberOfLines={4} avisoContato />
+      </View>
+      <PainelMidiaDemanda itens={midia.itens} onRemover={midia.onRemover} onReenviar={midia.onReenviar} acoes={{ onGravarVideo: midia.onGravarVideo, onTirarFotos: midia.onTirarFotos, onGaleria: midia.onGaleria }} />
+    </>
+  )
+}
+
+// ─── Passo 3: prazo (9 opções, as mesmas) + valor em destaque ─────────────────────────────
+export function PassoPrazoValor({ urgencia, onUrgencia, valor, onValor, erros, registrarY }) {
+  return (
+    <>
+      <View onLayout={registrarY?.('urgencia')}>
+        <Text style={estilos.label}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
+        {erros?.urgencia ? <Text style={estilos.erroTexto}>{erros.urgencia}</Text> : null}
+        <View style={estilos.urgenciasGrid}>
+          {URGENCIAS.map((u) => (
+            <TouchableOpacity key={u.id} style={[estilos.urgenciaCard, urgencia === u.id && estilos.urgenciaCardAtivo]} onPress={() => onUrgencia(u.id)} accessibilityRole="radio" accessibilityState={{ selected: urgencia === u.id }}>
+              <Text style={estilos.urgenciaLabel}>{u.label}</Text>
+              <Text style={estilos.urgenciaDesc}>{u.desc}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      <View onLayout={registrarY?.('valorEstimado')}>
+        <Text style={estilos.secaoTitulo}>Quanto quer pagar?</Text>
+        <View style={[estilos.valorCaixa, erros?.valorEstimado && { borderColor: cores.perigo }]}>
+          <Text style={estilos.valorPrefixo}>R$</Text>
+          <Input
+            placeholder="0,00"
+            value={valor}
+            onChangeText={onValor}
+            keyboardType="numeric"
+            estilo={estilos.valorInputWrap}
+            estiloInput={estilos.valorInput}
+            accessibilityLabel="Quanto você quer pagar, em reais"
+          />
+        </View>
+        {erros?.valorEstimado ? <Text style={estilos.erroTexto}>{erros.valorEstimado}</Text> : null}
+        <Text style={estilos.valorNota}>Os profissionais podem aceitar o seu valor ou sugerir outro. Você escolhe.</Text>
+      </View>
+    </>
+  )
+}
+
+// ─── Passo 4: endereço (os mesmos campos e regras de sempre, CEP primeiro) ────────────────
+export function PassoEndereco({ cep, onCep, buscandoCep, enderecoEncontrado, pontoReferencia, onPontoReferencia, logradouro, onLogradouro, numero, onNumero, complemento, onComplemento, bairro, onBairro, uf, cidade, onLocalidade, erros, registrarY, rodapeTexto }) {
+  return (
+    <>
+      <Text style={estilos.label}>📍 LOCALIZAÇÃO DO SERVIÇO</Text>
+      <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
+      <View style={estilos.cepRow} onLayout={registrarY?.('cep')}>
+        <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="00000-000" value={cep} onChangeText={onCep} keyboardType="numeric" maxLength={8} erro={erros?.cep} estilo={{ flex: 1 }} />
+        {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
+        {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
+      </View>
+      {/* Sempre visível: é em endereço difícil (CEP geral) que a referência mais ajuda. */}
+      <Input label="PONTO DE REFERÊNCIA (opcional)" placeholder="Ex: portão azul, em frente à padaria" value={pontoReferencia} onChangeText={onPontoReferencia} />
+      {enderecoEncontrado && (
+        <>
+          {/* Editável: em cidade de "CEP geral" o ViaCEP não devolve logradouro. */}
+          <View onLayout={registrarY?.('logradouro')}>
+            <Input label="LOGRADOURO (rua/avenida)" placeholder="Preenchido pelo CEP — ou digite a rua" value={logradouro} onChangeText={onLogradouro} erro={erros?.logradouro} />
+          </View>
+          <View style={estilos.duasColunas} onLayout={registrarY?.('numero')}>
+            <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={onNumero} keyboardType="numeric" erro={erros?.numero} estilo={{ flex: 1 }} />
+            <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={onComplemento} estilo={{ flex: 1 }} />
+          </View>
+          <Input label="BAIRRO" value={bairro} onChangeText={onBairro} />
+          {logradouro.trim() !== '' && (
+            <View style={estilos.geoConfirm}>
+              <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — profissionais próximos serão notificados!</Text>
+            </View>
+          )}
+        </>
+      )}
+      <View onLayout={registrarY?.('uf', 'cidade')}>
+        <SeletorLocalidade uf={uf} cidade={cidade} onChange={onLocalidade} erroEstado={erros?.uf} erroCidade={erros?.cidade} />
+      </View>
+      {rodapeTexto}
+    </>
+  )
+}
+
+// Textos de confirmação acima do "Publicar pedido" (os mesmos de antes).
+export const AvisosPublicar = () => (
+  <>
+    <Text style={[estilos.avisoUpload, { fontSize: 15, fontWeight: '700', lineHeight: 22 }]}>Confira os dados antes de publicar!</Text>
+    <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
+    <Text style={estilos.aviso}>Seu serviço será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
+  </>
+)
+
+export const PASSO_DO_CAMPO = {
+  categorias: 1,
+  titulo: 2, descricao: 2,
+  urgencia: 3, valorEstimado: 3,
+  cep: 4, logradouro: 4, numero: 4, uf: 4, cidade: 4,
+}
+
+export { SLUG_OUTROS }
+
+const estilos = StyleSheet.create({
+  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 24, paddingTop: 12 },
+  // Cabeçalho: ← e o título da tela lado a lado (28, peso 900, laranja da arte), depois
+  // "Passo N de 4" pequeno em cinza e a barra; a pergunta do passo vem menor (22).
+  cabecalhoLinha: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  btnVoltarTexto: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
+  tituloTela: { flex: 1, fontSize: 28, fontWeight: '900', color: '#E08A44', letterSpacing: -0.5, lineHeight: 34 },
+  passoDe: { fontSize: 12, color: cores.textoMedio, fontWeight: '700', letterSpacing: 0.3, marginBottom: 6 },
+  progresso: { flexDirection: 'row', gap: 6, marginBottom: 18 },
+  progressoSegmento: { flex: 1, height: 6, borderRadius: 3, backgroundColor: cores.fundoElevado },
+  progressoFeito: { backgroundColor: cores.primaria },
+  titulo: { fontSize: 22, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.4, lineHeight: 28, marginBottom: 6 },
+  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
+  // Rodapé fixo: linha fina em cima, mesmo fundo da tela.
+  rodape: { paddingHorizontal: espacos.tela, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: cores.borda, backgroundColor: cores.fundo },
+  rodapeBotao: { marginTop: 0 },
+  rodapeNota: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginBottom: 8, fontWeight: '600', lineHeight: 18 },
+  label: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
+  // Grade 2 colunas: tiles grandes (emoji 32, título 14) e o tile largo de "Outros".
+  grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  tile: { width: '48%', flexGrow: 1, minHeight: 104, backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, alignItems: 'center', justifyContent: 'center', padding: 12, gap: 8 },
+  tileAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  tileApagado: { opacity: 0.4 },
+  tileEmoji: { fontSize: 32, lineHeight: 38 },
+  tileTitulo: { fontSize: 14, fontWeight: '600', color: cores.textoForte, textAlign: 'center', lineHeight: 19 },
+  tileDesc: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginTop: 2 },
+  tileBadge: { position: 'absolute', top: 8, right: 8, minWidth: 22, height: 22, borderRadius: 11, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  tileBadgeTexto: { fontSize: 12, fontWeight: '800', color: '#0A0A0A' },
+  tileLargo: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, padding: 14 },
+  chipsBloco: { marginBottom: 16 },
+  chipsCabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  contador: { fontSize: 11, color: cores.textoMedio, fontWeight: '600', marginBottom: 8, fontVariant: ['tabular-nums'] },
+  chipsVazio: { fontSize: 12, color: cores.textoMedio, lineHeight: 17 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 8 },
+  chipTexto: { fontSize: 13, color: '#0A0A0A', fontWeight: '600' },
+  chipX: { fontSize: 12, color: '#0A0A0A', fontWeight: '800' },
+  limite: { fontSize: 12, color: cores.primaria, fontWeight: '600', marginTop: 8 },
+  sugestaoCard: { backgroundColor: cores.info + '14', borderWidth: 1, borderColor: cores.info, borderRadius: raios.medio, padding: 12, marginTop: -4, marginBottom: 16 },
+  sugestaoTitulo: { fontSize: 12, fontWeight: '700', color: cores.info, marginBottom: 8 },
+  sugestaoChip: { borderWidth: 1, borderStyle: 'dashed', borderColor: cores.info, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
+  sugestaoChipTexto: { fontSize: 12, color: cores.info, fontWeight: '600' },
+  // Folha do grupo (mesmo molde das outras folhas: fundoCard, cantos 24, alça).
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  folha: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, maxHeight: '88%', ...larguraMaxima },
+  alca: { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo, marginBottom: 14 },
+  folhaTitulo: { fontSize: 20, fontWeight: '800', color: cores.textoForte, letterSpacing: -0.3, marginBottom: 2 },
+  folhaSub: { fontSize: 12, color: cores.textoMedio, marginBottom: 12 },
+  linha: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, padding: 12, marginBottom: 8, minHeight: 64 },
+  linhaMarcada: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  linhaEmoji: { fontSize: 26, width: 34, textAlign: 'center' },
+  linhaNome: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  linhaExemplos: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginTop: 2 },
+  caixa: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, borderColor: cores.bordaCampo, alignItems: 'center', justifyContent: 'center' },
+  caixaMarcada: { backgroundColor: cores.primaria, borderColor: cores.primaria },
+  caixaCheck: { fontSize: 16, fontWeight: '800', color: '#0A0A0A', lineHeight: 20 },
+  // Passo 2
+  tituloBordaAzul: { borderColor: cores.info, borderWidth: 1.5 },
+  // Passo 3
+  urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
+  urgenciaCard: { width: '31%', flexGrow: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 8, paddingVertical: 10 },
+  urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  urgenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
+  urgenciaDesc: { fontSize: 10, color: cores.textoFraco, textAlign: 'center' },
+  secaoTitulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.3, marginBottom: 10 },
+  valorCaixa: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoInput, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.grande, paddingHorizontal: 16 },
+  valorPrefixo: { fontSize: 22, fontWeight: '700', color: cores.textoFraco },
+  valorInputWrap: { flex: 1, marginBottom: 0 },
+  valorInput: { borderWidth: 0, backgroundColor: 'transparent', fontSize: 28, fontWeight: '700', paddingHorizontal: 0, height: 64 },
+  valorNota: { fontSize: 12, color: cores.textoMedio, lineHeight: 18, marginTop: 10, marginBottom: 16 },
+  // Passo 4
+  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
+  dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: -2 },
+  duasColunas: { flexDirection: 'row', gap: 12 },
+  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
+  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
+  aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
+  avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
+})

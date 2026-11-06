@@ -21,9 +21,36 @@ import { cores, raios, alturas } from '../utils/tema'
 // Os dados saem dos MESMOS predicados do RetomadaMatchHost (perfilDe/tabsMontadas): o que
 // conta como "em andamento" e para onde se navega é uma decisão só. Duplicá-la faria a barra
 // apontar para um lugar diferente do que a retomada da abertura escolhe, com os mesmos dados.
+// Presença da barra, para telas com rodapé FIXO (CadastrarReparoScreen, o "Continuar" do
+// wizard) reservarem a altura dela só enquanto ela existe — sem isto o botão ficava atrás da
+// barra, ou a tela gastava 48 px à toa quando não há serviço em andamento. A barra publica
+// depois de cada render (effect sem deps lendo um ref): hooks ficam antes dos `return null`
+// e a ordem deles não muda. Nada do comportamento da barra depende disto.
+const ouvintesPresenca = new Set()
+let presencaAtual = false
+const publicarPresenca = (v) => {
+  if (v === presencaAtual) return
+  presencaAtual = v
+  ouvintesPresenca.forEach((fn) => fn(v))
+}
+export const useBarraServicoVisivel = () => {
+  const [visivel, setVisivel] = useState(presencaAtual)
+  useEffect(() => {
+    ouvintesPresenca.add(setVisivel)
+    setVisivel(presencaAtual)
+    return () => { ouvintesPresenca.delete(setVisivel) }
+  }, [])
+  return visivel
+}
+
 const BarraServicoEmAndamento = () => {
   const { usuario, assinatura, mostrarBoasVindas } = useAuth()
   const { bottom } = useSafeAreaInsets()
+  // Começa false a cada render; só vira true logo antes do return que desenha a barra.
+  const presencaRef = useRef(false)
+  presencaRef.current = false
+  useEffect(() => { publicarPresenca(presencaRef.current) })
+  useEffect(() => () => publicarPresenca(false), [])
   // Começa vazia: durante a consulta a barra não aparece, para nunca anunciar um serviço
   // antes de saber que ele existe. Mesma disciplina do `bloqueada` do banner de notificação.
   const [abertos, setAbertos] = useState([])
@@ -167,6 +194,7 @@ const BarraServicoEmAndamento = () => {
     nav.navigate(cfg.tab, { screen: cfg.detalhe, params: { [cfg.param]: { id } }, initial: false })
   }
 
+  presencaRef.current = true
   return (
     <TouchableOpacity
       style={[estilos.barra, { bottom: alturas.tabBar + bottom }]}

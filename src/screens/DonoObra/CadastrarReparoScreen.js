@@ -1,23 +1,30 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import {
-  View, Text, StyleSheet, ScrollView, Modal,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
-} from 'react-native'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, Keyboard, BackHandler } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
 import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { useFocusEffect, useIsFocused } from '@react-navigation/native'
-import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
-import { paraSeletor, CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { cadastro } from '../../components/RetomadaMatchHost'
+import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
+import {
+  MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupo,
+  PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, PASSO_DO_CAMPO, TOTAL_PASSOS,
+} from './CadastrarServicoPassos'
 
-const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
+// Cadastro de serviço do dono em 4 passos (Arte-Cadastrar-Servico): grupos → detalhes →
+// prazo e valor → endereço. SÓ o layout mudou: estado, validações, payload de POST
+// /reparos/dono, fluxo de mídia, bifurcação de Alvenaria, sugestões, reset pós-envio e o
+// sinal para a RetomadaMatchHost são os de sempre. As peças de tela moram em
+// ./CadastrarServicoPassos; os grupos e exemplos em utils/gruposServico.
+//
 // Até MAX_CATEGORIAS_DEMANDA (3) categorias por serviço, começando sem nenhuma marcada: a
 // escolha é da pessoa (e obrigatória, ver validar/CAMPOS_OBRIGATORIOS). A primeira marcada
 // vai como `categoria` (a coluna de sempre) e a lista inteira como `categorias`.
@@ -27,26 +34,14 @@ const CATEGORIAS = paraSeletor(CATEGORIAS_SERVICO)
 // não rótulo: o rótulo é apresentação e pode mudar; o slug é o contrato.
 const SLUG_ALVENARIA = 'alvenaria'
 
-const URGENCIAS = [
-  { id: 1,   label: '🔴 1 hora',      desc: 'Urgência máxima' },
-  { id: 2,   label: '🟠 2 horas',     desc: 'Muito urgente'   },
-  { id: 4,   label: '🟡 4 horas',     desc: 'Urgente'         },
-  { id: 8,   label: '🟢 8 horas',     desc: 'Hoje'            },
-  { id: 12,  label: '🔵 12 horas',    desc: 'Ainda hoje'      },
-  { id: 24,  label: '📅 Amanhã',      desc: 'Sem pressa'      },
-  { id: 168, label: '📆 Esta semana', desc: 'Flexível'        },
-  { id: 720, label: '🗓️ Este mês',     desc: 'Sem urgência'    },
-  { id: 1440, label: '📋 Mês que vem', desc: 'Pode esperar'    },
-]
-
-// Campos obrigatórios em ordem visual (de cima p/ baixo). Usado para, quando o usuário
-// tenta publicar incompleto, rolar até o 1º campo com erro e exibir um alerta claro —
-// antes a única sinalização era o erro inline (fora da tela, junto ao botão de baixo).
+// Campos obrigatórios em ordem visual (de cima p/ baixo, passo a passo). Quando a pessoa
+// tenta avançar/publicar incompleto, a tela vai ao passo do 1º campo com erro, rola até ele
+// e mostra um alerta claro.
 const CAMPOS_OBRIGATORIOS = [
   { chave: 'categorias',    msg: 'Escolha ao menos uma categoria antes de continuar.' },
-  { chave: 'urgencia',      msg: 'Selecione o prazo para iniciar o serviço antes de continuar.' },
   { chave: 'titulo',        msg: 'Por favor, informe o título do serviço antes de continuar.' },
   { chave: 'descricao',     msg: 'Descreva o serviço necessário antes de continuar.' },
+  { chave: 'urgencia',      msg: 'Selecione o prazo para iniciar o serviço antes de continuar.' },
   { chave: 'valorEstimado', msg: 'Informe quanto você quer pagar antes de continuar.' },
   { chave: 'cep',           msg: 'Informe um CEP válido antes de continuar.' },
   { chave: 'logradouro',    msg: 'Informe a rua/avenida do endereço antes de continuar.' },
@@ -62,14 +57,17 @@ const gerarRequestId = () =>
     return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
   })
 
+const CATEGORIA_POR_SLUG = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
+
 export default function CadastrarReparoScreen({ navigation, route }) {
+  const [passo, setPasso] = useState(1)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
   const [categorias, setCategorias] = useState([])
   // slug → slugs do grupo dele (services/gruposCategorias). Vazio até a resposta chegar, e
   // vazio de vez se ela falhar: sem grupos não há sugestão, e o cadastro segue igual.
-  const [grupoDoSlug, setGrupoDoSlug] = useState({})
+  const [grupoDoSlugApi, setGrupoDoSlugApi] = useState({})
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
   const [urgencia, setUrgencia] = useState(null)
@@ -87,7 +85,11 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [longitude, setLongitude] = useState(null)
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
-  const [showMediaPicker, setShowMediaPicker] = useState(false)
+  // Picker de mídia: null = fechado; 'video' / 'foto' (vindo dos dois botões grandes, cada
+  // um oferece câmera OU galeria) / 'todas' (as três opções de sempre).
+  const [pickerMidia, setPickerMidia] = useState(null)
+  // Folha do grupo aberto no passo 1 (objeto de gruposComCategorias) ou null.
+  const [grupoAberto, setGrupoAberto] = useState(null)
   // Folha de escolha de Alvenaria. null = fechada; { anterior } = aberta, guardando a
   // categoria que estava selecionada antes do toque, para o "voltar" do Android desfazer
   // a seleção: a escolha é obrigatória, então sair sem escolher NÃO deixa Alvenaria marcada.
@@ -101,11 +103,19 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const montadoRef = useRef(true)
   const scrollRef = useRef(null)
   // Posição vertical (offset no ScrollView) de cada campo obrigatório, para rolar até ele.
+  // Só os campos do passo atual estão montados, então a troca de passo zera o mapa.
   const camposYRef = useRef({})
+  // Campo a rolar DEPOIS de trocar de passo por erro (o layout do passo novo ainda não existe
+  // no momento do setPasso).
+  const rolarAteRef = useRef(null)
   const registrarY = (...chaves) => (e) => {
     const y = e.nativeEvent.layout.y
     chaves.forEach(c => { camposYRef.current[c] = y })
   }
+
+  const grupos = useMemo(() => gruposComCategorias(), [])
+  // A barra "Agendado" flutua sobre o rodapé da aba: enquanto ela existe, o rodapé fixo sobe.
+  const reservaInferior = useBarraServicoVisivel() ? alturas.barraServico : 0
 
   useEffect(() => {
     return () => { montadoRef.current = false }
@@ -127,7 +137,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // já preenchido. Só a criação confirmada arma o reset, e ele se desarma ao rodar.
   // Extraído para uma função porque tem DOIS gatilhos: o foco pós-envio (abaixo) e a obra
   // publicada a partir deste formulário (efeito seguinte). midia.resetar é estável.
+  // Volta ao passo 1: depois de publicar, a próxima composição começa limpa, do começo.
   const limparFormulario = useCallback(() => {
+    setPasso(1)
     setTitulo('')
     setCategorias([])
     setDescricao('')
@@ -148,6 +160,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     setEnderecoEncontrado(false)
     setBuscandoCep(false)
     setEscolhaAlvenaria(null)
+    setGrupoAberto(null)
     enviandoRef.current = false
   }, [midia.resetar])
 
@@ -176,6 +189,31 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, []))
 
+  // Troca de passo: zera as posições (o passo novo registra as suas) e rola — ao topo, ou
+  // até o campo com erro que motivou a troca, depois de o layout dele existir.
+  useEffect(() => {
+    camposYRef.current = {}
+    const chave = rolarAteRef.current
+    rolarAteRef.current = null
+    if (!chave) { scrollRef.current?.scrollTo({ y: 0, animated: false }); return }
+    const t = setTimeout(() => {
+      const y = camposYRef.current[chave]
+      scrollRef.current?.scrollTo({ y: y != null ? Math.max(y - 24, 0) : 0, animated: true })
+    }, 120)
+    return () => clearTimeout(t)
+  }, [passo])
+
+  // Voltar do Android: com folha aberta o Modal cuida (onRequestClose); senão, passo
+  // anterior sem perder nada. No passo 1 segue o comportamento de sempre (sai da tela).
+  useFocusEffect(useCallback(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (grupoAberto || escolhaAlvenaria || pickerMidia) return false
+      if (passo > 1) { setPasso(p => p - 1); return true }
+      return false
+    })
+    return () => sub.remove()
+  }, [passo, grupoAberto, escolhaAlvenaria, pickerMidia]))
+
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
   // destruição da MainActivity (Android). Implementação única em utils/midia.
   const { usarCameraFoto, usarCameraVideo, usarGaleria } = useSelecaoMidia({
@@ -195,10 +233,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     midia.itens.length > 0
   )
 
-  // Grupos de categorias relacionadas, uma vez por montagem (a requisição é uma por
-  // processo, ver o serviço). Guardado por montadoRef para não escrever em tela desmontada.
+  // Grupos de categorias relacionadas (sugestões), uma vez por montagem (a requisição é uma
+  // por processo, ver o serviço). Guardado por montadoRef para não escrever em tela desmontada.
   useEffect(() => {
-    carregarGruposCategorias().then(g => { if (montadoRef.current) setGrupoDoSlug(g || {}) })
+    carregarGruposCategorias().then(g => { if (montadoRef.current) setGrupoDoSlugApi(g || {}) })
   }, [])
   useEffect(() => {
     if (!focado) return
@@ -248,7 +286,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     }
   }
 
-  const validar = () => {
+  // As MESMAS regras de sempre, de uma vez. `validarPasso` filtra o resultado para o passo.
+  const validarTudo = () => {
     const novos = {}
     if (categorias.length === 0) novos.categorias = 'Escolha ao menos uma categoria'
     if (!titulo.trim()) novos.titulo = 'Informe o título'
@@ -260,8 +299,51 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     if (enderecoEncontrado && !logradouro.trim()) novos.logradouro = 'Informe a rua/avenida'
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
     if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
+    return novos
+  }
+  const validarPasso = (p) => {
+    const tudo = validarTudo()
+    const doPasso = {}
+    for (const chave of Object.keys(tudo)) if (PASSO_DO_CAMPO[chave] === p) doPasso[chave] = tudo[chave]
+    setErros(doPasso)
+    return doPasso
+  }
+  const validar = () => {
+    const novos = validarTudo()
     setErros(novos)
     return novos
+  }
+
+  // Vai ao passo do 1º campo com erro (na ordem visual), rola até ele e avisa.
+  const apontarErro = (novosErros) => {
+    Keyboard.dismiss()
+    const primeiro = CAMPOS_OBRIGATORIOS.find(c => novosErros[c.chave])
+    if (!primeiro) return
+    const alvo = PASSO_DO_CAMPO[primeiro.chave] || passo
+    if (alvo !== passo) {
+      rolarAteRef.current = primeiro.chave
+      setPasso(alvo)
+    } else {
+      const y = camposYRef.current[primeiro.chave]
+      if (scrollRef.current && y != null) scrollRef.current.scrollTo({ y: Math.max(y - 24, 0), animated: true })
+    }
+    Alert.alert('Campo obrigatório', primeiro.msg)
+  }
+
+  // "Continuar": valida só o passo atual e segue.
+  const avancar = () => {
+    const novos = validarPasso(passo)
+    if (Object.keys(novos).length > 0) { apontarErro(novos); return }
+    Keyboard.dismiss()
+    setPasso(p => Math.min(p + 1, TOTAL_PASSOS))
+  }
+
+  // "←" e voltar do Android: passo anterior, sem perder nada. No passo 1, a seta só existe
+  // fora da raiz da aba (fluxo empilhado legado) e aí volta de fato.
+  const voltarPasso = () => {
+    Keyboard.dismiss()
+    if (passo > 1) setPasso(p => p - 1)
+    else navigation.goBack()
   }
 
   // Geocodifica o endereço FINAL — com o logradouro que o usuário pode ter digitado.
@@ -291,25 +373,24 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     return { lat: null, lng: null }
   }
 
-  const selecionarMidia = () => setShowMediaPicker(true)
-
-  // Toque numa pill (ou num chip de sugestão). Marcada → desmarca. Não marcada → entra, se
-  // ainda há vaga (no limite as pills restantes ficam desabilitadas, então este guarda é
-  // para o chip de sugestão e para toques em sequência). Alvenaria entrando abre a folha
-  // de escolha obrigatória; a pill já fica marcada para a folha aparecer sobre o estado
-  // que a pessoa acabou de pedir, e o "voltar" sem escolher devolve a lista anterior.
+  // Toque numa linha da folha, no tile "Não achei" ou num chip de sugestão. Marcada →
+  // desmarca. Não marcada → entra, se ainda há vaga (no limite as linhas restantes ficam
+  // desabilitadas, então este guarda é para o chip de sugestão e para toques em sequência).
+  // Alvenaria entrando abre a folha de escolha obrigatória — fechando antes a folha do grupo,
+  // porque dois Modals empilhados não convivem no Android; a categoria já fica marcada para a
+  // folha aparecer sobre o estado que a pessoa acabou de pedir, e o "voltar" sem escolher
+  // devolve a lista anterior.
   const noLimite = categorias.length >= MAX_CATEGORIAS_DEMANDA
   const selecionarCategoria = (id) => {
     if (categorias.includes(id)) { setCategorias(categorias.filter(c => c !== id)); return }
     if (noLimite) return
-    if (id === SLUG_ALVENARIA) setEscolhaAlvenaria({ anterior: categorias })
+    if (id === SLUG_ALVENARIA) { setGrupoAberto(null); setEscolhaAlvenaria({ anterior: categorias }) }
     setCategorias([...categorias, id])
   }
 
-  // Sugestões: vizinhas de grupo do que já está marcado, ainda não marcadas, com a pill
-  // correspondente (rótulo com emoji) para o chip "+ 🚿 Hidráulica".
-  const sugestoes = sugerirRelacionadas(grupoDoSlug, categorias)
-    .map(slug => CATEGORIAS.find(c => c.id === slug))
+  // Sugestões: vizinhas de grupo (da API) do que já está marcado, ainda não marcadas.
+  const sugestoes = sugerirRelacionadas(grupoDoSlugApi, categorias)
+    .map(slug => CATEGORIA_POR_SLUG.get(slug))
     .filter(Boolean)
 
   // "🧱 Pequeno reparo": fica aqui, com Alvenaria selecionada.
@@ -385,20 +466,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
     if (midia.algumEnviando) { Alert.alert('Aguarde o envio das mídias', 'Suas fotos/vídeos ainda estão sendo enviados. Aguarde a conclusão para publicar.'); return }
-    // Validação roda ANTES de qualquer chamada de API ou navegação.
+    // Validação COMPLETA roda ANTES de qualquer chamada de API ou navegação.
     const novosErros = validar()
-    if (Object.keys(novosErros).length > 0) {
-      Keyboard.dismiss()
-      const primeiro = CAMPOS_OBRIGATORIOS.find(c => novosErros[c.chave])
-      if (primeiro) {
-        const y = camposYRef.current[primeiro.chave]
-        if (scrollRef.current && y != null) {
-          scrollRef.current.scrollTo({ y: Math.max(y - 24, 0), animated: true })
-        }
-        Alert.alert('Campo obrigatório', primeiro.msg)
-      }
-      return
-    }
+    if (Object.keys(novosErros).length > 0) { apontarErro(novosErros); return }
     enviandoRef.current = true
     setCarregando(true)
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -453,168 +523,118 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     await finalizarPublicacao(reparo.id)
   }
 
+  // Picker: fecha, solta o teclado e abre a câmera/galeria com a mesma folga de sempre.
+  const abrirMidia = (fn) => { Keyboard.dismiss(); setPickerMidia(null); setTimeout(() => fn(), 500) }
+
+  // Esta tela é a RAIZ da aba "Novo Reparo" (dono_reparo): a stack da aba só contém esta rota
+  // (index 0) e não existe "voltar" no passo 1 — a seta nem é renderizada. No fluxo empilhado
+  // legado (DonoApp, tipo_dono indefinido) a mesma tela é empilhada (index > 0) e aí a seta
+  // aparece e volta de fato. Checamos o index da PRÓPRIA stack — canGoBack() sobe para o
+  // tab/root e podia resolver true nesta raiz de aba. Nos passos 2–4 a seta volta um passo.
+  const naRaiz = (navigation.getState()?.index ?? 0) === 0
+  const mostrarVoltar = passo > 1 || !naRaiz
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* Esta tela é a RAIZ da aba "Novo Reparo" (dono_reparo): a stack da aba só contém
-              esta rota (index 0) e não existe "voltar" — por isso a seta nem é renderizada.
-              No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a mesma tela é
-              empilhada (index > 0) e aí a seta aparece e volta de fato. Checamos o index da
-              PRÓPRIA stack — canGoBack() sobe para o tab/root e podia resolver true nesta
-              raiz de aba, disparando um goBack() que saía da área do dono. */}
-          {(navigation.getState()?.index ?? 0) > 0 && (
-            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-              <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Text style={estilos.titulo}>Cadastrar{'\n'}serviço</Text>
-          <Text style={estilos.subtitulo}>Descreva o serviço e encontre um profissional qualificado</Text>
-          {/* Só na raiz da aba "Novo Serviço" (rota *Main): é a tela inicial do dono_reparo e
-              a aba Perfil existe. No stack legado (rota 'CadastrarReparo') não há Perfil. */}
-          {route?.name === 'CadastrarReparoMain' && <BannerComoFunciona navigation={navigation} semRecuo />}
-          <View style={estilos.avisoBanner}>
-            <Text style={estilos.avisoIcone}>🎥</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE NO MÁXIMO 30 SEGUNDOS!</Text>
-              <Text style={estilos.avisoTexto}>Mostre o problema e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
-            </View>
-          </View>
+      <MolduraWizard
+        passo={passo}
+        onVoltar={voltarPasso}
+        mostrarVoltar={mostrarVoltar}
+        scrollRef={scrollRef}
+        reservaInferior={reservaInferior}
+        // Só na raiz da aba "Novo Serviço" (rota *Main) e no 1º passo: é a tela inicial do
+        // dono_reparo e a aba Perfil existe. No stack legado (rota 'CadastrarReparo') não há Perfil.
+        acimaDoTitulo={passo === 1 && route?.name === 'CadastrarReparoMain' ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
+        rodape={passo < TOTAL_PASSOS
+          ? <RodapeWizard rotulo="Continuar →" onPress={avancar} />
+          : <RodapeWizard
+              rotulo="Publicar pedido →"
+              onPress={handleCadastrar}
+              carregando={carregando}
+              desabilitado={midia.algumEnviando}
+              nota={carregando ? '📤 Enviando mídias, aguarde... Seu serviço já está publicado; o envio das mídias pode levar alguns minutos em conexões lentas.' : null}
+            />}
+      >
+        {passo === 1 && (
           <View onLayout={registrarY('categorias')}>
-            <View style={estilos.categoriaCabecalho}>
-              <Text style={estilos.labelCategoria}>CATEGORIAS</Text>
-              <Text style={[estilos.categoriaContador, noLimite && { color: cores.primaria }]}>{categorias.length} de {MAX_CATEGORIAS_DEMANDA}</Text>
-            </View>
-            <Text style={estilos.categoriaDica}>Escolha até {MAX_CATEGORIAS_DEMANDA} categorias. Quanto mais certas, mais profissionais recebem o seu pedido.</Text>
             {erros.categorias && <Text style={estilos.erroTexto}>{erros.categorias}</Text>}
-            <View style={estilos.categoriasRow}>
-              {CATEGORIAS.map(c => {
-                const ativa = categorias.includes(c.id)
-                const bloqueada = !ativa && noLimite
-                return (
-                  <TouchableOpacity
-                    key={c.id}
-                    style={[estilos.categoriaPill, ativa && estilos.categoriaPillAtivo, bloqueada && estilos.categoriaPillBloqueada]}
-                    onPress={() => selecionarCategoria(c.id)}
-                    disabled={bloqueada}
-                    accessibilityState={{ selected: ativa, disabled: bloqueada }}
-                  >
-                    <Text style={[estilos.categoriaPillTexto, ativa && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
-                  </TouchableOpacity>
-                )
-              })}
-            </View>
-            {noLimite && <Text style={estilos.categoriaLimite}>Limite de {MAX_CATEGORIAS_DEMANDA} categorias atingido</Text>}
-            {/* Sugestões: só depois da primeira marcada e enquanto há vaga. Chips tracejados
-                no azul informativo — convidam, não competem com as pills marcadas. */}
-            {!noLimite && sugestoes.length > 0 && (
-              <View style={estilos.sugestaoCard}>
-                <Text style={estilos.sugestaoTitulo}>💡 Também podem atender este pedido:</Text>
-                <View style={estilos.sugestaoChips}>
-                  {sugestoes.map(c => (
-                    <TouchableOpacity key={c.id} style={estilos.sugestaoChip} onPress={() => selecionarCategoria(c.id)} activeOpacity={0.7}>
-                      <Text style={estilos.sugestaoChipTexto}>+ {c.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-          <View onLayout={registrarY('urgencia')}>
-            <Text style={estilos.labelCategoria}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
-            {erros.urgencia && <Text style={estilos.erroTexto}>{erros.urgencia}</Text>}
-            <View style={estilos.urgenciasGrid}>
-              {URGENCIAS.map(u => (
-                <TouchableOpacity key={u.id} style={[estilos.urgenciaCard, urgencia === u.id && estilos.urgenciaCardAtivo]} onPress={() => setUrgencia(u.id)}>
-                  <Text style={estilos.urgenciaLabel}>{u.label}</Text>
-                  <Text style={estilos.urgenciaDesc}>{u.desc}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          <View onLayout={registrarY('titulo')}>
-            <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Instalar 3 tomadas na sala" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
-          </View>
-          <View onLayout={registrarY('descricao')}>
-            <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} avisoContato />
-          </View>
-          <View onLayout={registrarY('valorEstimado')}>
-            <Input label="QUANTO VOCÊ QUER PAGAR (R$)" placeholder="Ex: 150,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
-          </View>
-          <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
-          <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
-          <View style={estilos.cepRow} onLayout={registrarY('cep')}>
-            <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
-            {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
-            {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
-          </View>
-          {/* Sempre visível: não depende de enderecoEncontrado, porque é justamente em
-              endereço difícil (CEP geral, sem logradouro) que a referência mais ajuda. */}
-          <Input
-            label="PONTO DE REFERÊNCIA (opcional)"
-            placeholder="Ex: portão azul, em frente à padaria"
-            value={pontoReferencia}
-            onChangeText={setPontoReferencia}
-          />
-          {enderecoEncontrado && (
-            <>
-              {/* Editável: em cidade pequena de "CEP geral" o ViaCEP não devolve logradouro,
-                  e travar o campo deixava o usuário sem nenhuma forma de informar a rua. */}
-              <View onLayout={registrarY('logradouro')}>
-                <Input label="LOGRADOURO (rua/avenida)" placeholder="Preenchido pelo CEP — ou digite a rua" value={logradouro} onChangeText={setLogradouro} erro={erros.logradouro} />
-              </View>
-              <View style={estilos.duasColunas} onLayout={registrarY('numero')}>
-                <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" erro={erros.numero} estilo={{ flex: 1 }} />
-                <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={setComplemento} estilo={{ flex: 1 }} />
-              </View>
-              <Input label="BAIRRO" value={bairro} onChangeText={setBairro} />
-              {/* Antes dependia de `latitude`, preenchida na busca do CEP. O geocode passou
-                  para o envio, então o gatilho aqui é ter a rua — que é o que de fato
-                  permite localizar o reparo. */}
-              {logradouro.trim() !== '' && (
-                <View style={estilos.geoConfirm}>
-                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — profissionais próximos serão notificados!</Text>
-                </View>
-              )}
-            </>
-          )}
-          <View onLayout={registrarY('uf', 'cidade')}>
-            <SeletorLocalidade
-              uf={uf}
-              cidade={cidade}
-              onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
-              erroEstado={erros.uf}
-              erroCidade={erros.cidade}
+            <GradeGrupos
+              grupos={grupos}
+              contagem={contagemPorGrupo(categorias)}
+              outrosMarcado={categorias.includes(SLUG_OUTROS)}
+              bloqueado={noLimite}
+              onAbrir={(g) => { Keyboard.dismiss(); setGrupoAberto(g) }}
+              onOutros={() => selecionarCategoria(SLUG_OUTROS)}
             />
+            <ChipsEscolhidos categorias={categorias} onRemover={selecionarCategoria} />
+            {/* Sugestões: só depois da primeira marcada e enquanto há vaga. */}
+            {!noLimite && <Sugestoes sugestoes={sugestoes} onAdicionar={selecionarCategoria} />}
           </View>
-          <PainelMidiaDemanda
-            itens={midia.itens}
-            onAbrirPicker={selecionarMidia}
-            onRemover={midia.remover}
-            onReenviar={midia.reenviar}
+        )}
+        {passo === 2 && (
+          <PassoDetalhes
+            titulo={titulo} onTitulo={setTitulo}
+            descricao={descricao} onDescricao={setDescricao}
+            erros={erros} registrarY={registrarY}
+            midia={{
+              itens: midia.itens, onRemover: midia.remover, onReenviar: midia.reenviar,
+              onGravarVideo: () => setPickerMidia('video'),
+              onTirarFotos: () => setPickerMidia('foto'),
+              onGaleria: () => abrirMidia(usarGaleria),
+            }}
           />
-          <Text style={[estilos.avisoUpload, { fontSize: 15, fontWeight: '700', lineHeight: 22 }]}>Confira os dados antes de publicar!</Text>
-          <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
-          <BotaoPrimario titulo="Publicar serviço →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
-          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando mídias, aguarde... Seu serviço já está publicado; o envio das mídias pode levar alguns minutos em conexões lentas.</Text>}
-          <Text style={estilos.aviso}>Seu serviço será publicado imediatamente e profissionais qualificados da sua região poderão demonstrar interesse.</Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        )}
+        {passo === 3 && (
+          <PassoPrazoValor
+            urgencia={urgencia} onUrgencia={setUrgencia}
+            valor={valorEstimado} onValor={(t) => setValorEstimado(mascararValor(t))}
+            erros={erros} registrarY={registrarY}
+          />
+        )}
+        {passo === 4 && (
+          <PassoEndereco
+            cep={cep} onCep={buscarCep} buscandoCep={buscandoCep} enderecoEncontrado={enderecoEncontrado}
+            pontoReferencia={pontoReferencia} onPontoReferencia={setPontoReferencia}
+            logradouro={logradouro} onLogradouro={setLogradouro}
+            numero={numero} onNumero={setNumero}
+            complemento={complemento} onComplemento={setComplemento}
+            bairro={bairro} onBairro={setBairro}
+            uf={uf} cidade={cidade} onLocalidade={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erros={erros} registrarY={registrarY}
+            rodapeTexto={<AvisosPublicar />}
+          />
+        )}
+      </MolduraWizard>
 
-      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
-        <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
+      {/* Folha do grupo (passo 1): linhas grandes com exemplos e caixa; "Pronto" fecha. */}
+      <FolhaGrupo
+        visivel={grupoAberto != null}
+        grupo={grupoAberto}
+        selecionadas={categorias}
+        onAlternar={selecionarCategoria}
+        onPronto={() => setGrupoAberto(null)}
+      />
+
+      {/* Picker de mídia: as opções de sempre, filtradas pelo botão que abriu ('video' =
+          câmera-vídeo ou galeria; 'foto' = câmera-foto ou galeria; 'todas' = as três). */}
+      <Modal visible={pickerMidia != null} transparent animationType="slide" onRequestClose={() => setPickerMidia(null)}>
+        <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
           <View style={estilos.modalSheet}>
-            <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarCameraFoto(), 500) }}>
-              <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarCameraVideo(), 500) }}>
-              <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarGaleria(), 500) }}>
+            <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+            {pickerMidia !== 'video' && (
+              <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>
+                <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
+              </TouchableOpacity>
+            )}
+            {pickerMidia !== 'foto' && (
+              <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraVideo)}>
+                <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarGaleria)}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
+            <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setPickerMidia(null)}>
               <Text style={[estilos.modalOpcaoTexto, { color: cores.textoFraco }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -661,56 +681,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico, paddingTop: 16 },
-  btnVoltar: { marginTop: 60, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
-  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
-  avisoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1a2a1a', borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
-  avisoIcone: { fontSize: 32 },
-  avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
-  avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
-  // Borda azul SÓ no título (destaca o campo). Aplicada via estiloInput no box do
-  // TextInput — o estilo compartilhado (components: estilos.input) não é alterado.
-  tituloBordaAzul: { borderColor: cores.info, borderWidth: 1.5 },
-  labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
-  categoriasRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
-  categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
-  categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
-  categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  // No limite, as pills que sobraram apagam em vez de sumir: a lista continua inteira e
-  // legível, só não aceita toque.
-  categoriaPillBloqueada: { opacity: 0.4 },
-  categoriaCabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  categoriaContador: { fontSize: 11, color: cores.textoMedio, fontWeight: '600', marginBottom: 8, fontVariant: ['tabular-nums'] },
-  categoriaDica: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginBottom: 10 },
-  categoriaLimite: { fontSize: 12, color: cores.primaria, fontWeight: '600', marginTop: -8, marginBottom: 16 },
-  // Card azul de sugestão: mesma tinta e borda do card de pergunta nova (PerguntasDemanda);
-  // os chips tracejados seguem o contorno do uploadBtn de PainelMidiaDemanda.
-  sugestaoCard: { backgroundColor: cores.info + '14', borderWidth: 1, borderColor: cores.info, borderRadius: raios.medio, padding: 12, marginTop: -4, marginBottom: 16 },
-  sugestaoTitulo: { fontSize: 12, fontWeight: '700', color: cores.info, marginBottom: 8 },
-  sugestaoChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  sugestaoChip: { borderWidth: 1, borderStyle: 'dashed', borderColor: cores.info, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  sugestaoChipTexto: { fontSize: 12, color: cores.info, fontWeight: '600' },
-  // Três por linha e fonte menor, na mesma medida das pills de CATEGORIA (31% de
-  // largura, paddingVertical 7, rótulo em 12): as seis opções passam de 3 linhas para 2
-  // e devolvem a altura que a nova linha de categorias consumiu. O raio continua o de
-  // card, não o de pill — são dois textos empilhados, e o formato arredondado de pill
-  // só assenta em rótulo de uma linha.
-  urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  urgenciaCard: { width: '31%', alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 8, paddingVertical: 7 },
-  urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
-  urgenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
-  urgenciaDesc: { fontSize: 10, color: cores.textoFraco, textAlign: 'center' },
-  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
-  dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: -2 },
-  duasColunas: { flexDirection: 'row', gap: 12 },
-  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
-  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
-  aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
-  avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
