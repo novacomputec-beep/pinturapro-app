@@ -5,6 +5,8 @@ import { BotaoPrimario, BotaoSecundario } from '../../components'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import api from '../../services/api'
 import { estadoRascunhoCadastro, limparRascunhoCadastro } from '../../utils/rascunhoCadastro'
+import { useLoginSocial, useAssinaturaPosLogin, BotoesSociais, TelaPagamentoPendente } from './LoginSocial'
+import EntrarComoScreen from './EntrarComoScreen'
 
 // Vitrine ESTÁTICA do que a plataforma cobre, na tela pré-login. Não é a lista de
 // categorias do cadastro (CadastrarReparoScreen/CadastrarObraScreen, que são a fonte da
@@ -99,6 +101,41 @@ export default function SplashScreen({ navigation }) {
   // ("vagas ativas agora"), ou o contrário — "—" sobre "12 vagas ativas agora", que
   // anuncia vagas e esconde quanto elas somam. Falta um, caem os dois.
   const temStats = stats.total_valor_obras != null && stats.total_obras_ativas != null
+
+  // "Continuar com Google/Apple" logo abaixo de "Criar minha conta": o MESMO fluxo da
+  // LoginScreen (./LoginSocial) — conta existente entra (último perfil lembrado ou o
+  // "Entrar como:" aqui mesmo), quem não tem conta vai ao cadastro com o ticket.
+  const [contas, setContas] = useState(null)
+  const [ultimoTipo, setUltimoTipo] = useState(null)
+  const [tipoCarregando, setTipoCarregando] = useState(null)
+  const [provedorContas, setProvedorContas] = useState(null)
+  const { linkPagamento, setLinkPagamento, tratarAssinatura } = useAssinaturaPosLogin()
+  const social = useLoginSocial({
+    navigation,
+    ocupado: !!tipoCarregando,
+    onEscolher: ({ provedor, contas: lista, ultimoTipo: salvo }) => {
+      setUltimoTipo(salvo)
+      setProvedorContas(provedor)
+      setContas(lista)
+    },
+    onSessao: tratarAssinatura,
+  })
+
+  if (contas && !linkPagamento) {
+    return (
+      <EntrarComoScreen
+        contas={contas}
+        tipoCarregando={tipoCarregando}
+        ultimoTipo={ultimoTipo}
+        onEscolher={(tipo) => social.handleSocial(provedorContas, tipo, setTipoCarregando)}
+        onVoltar={() => { social.limparCredencial(); setContas(null) }}
+      />
+    )
+  }
+
+  if (linkPagamento) {
+    return <TelaPagamentoPendente link={linkPagamento} onDepois={() => setLinkPagamento(null)} />
+  }
 
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
@@ -248,6 +285,16 @@ export default function SplashScreen({ navigation }) {
             onPress={() => navigation.navigate('Cadastro')}
             estilo={{ marginBottom: 10 }}
           />
+          {/* Divisor "ou, sem precisar de senha" + Google (+ Apple no iOS), entre o criar
+              e o entrar: quem já tem conta Google/Apple pula o formulário dos dois lados. */}
+          <BotoesSociais
+            carregandoSocial={social.carregandoSocial}
+            temApple={social.temApple}
+            onGoogle={() => social.handleSocial('google')}
+            onApple={() => social.handleSocial('apple')}
+            divisorAntes="ou, sem precisar de senha"
+            estilo={estilos.social}
+          />
           <BotaoSecundario
             titulo="Entrar na plataforma"
             onPress={() => navigation.navigate('Login')}
@@ -383,6 +430,12 @@ const estilos = StyleSheet.create({
   },
   acoes: {
     paddingBottom: 40,
+  },
+  // Bloco social (./LoginSocial): o divisor traz 20 acima e 20 abaixo; os 10 de baixo
+  // batem com o respiro que o "Criar minha conta" tem até o botão seguinte.
+  social: {
+    marginTop: -10,
+    marginBottom: 20,
   },
   // Os TRÊS vãos verticais da tela — logo→card, card→vitrine, vitrine→botão — são estes
   // espaçadores, e não padding de bloco nenhum. Mesmo flex e mesmo piso nos três: a folga
