@@ -14,6 +14,7 @@ import { ConvidarColegaConteudo } from './ConvidarColegaScreen'
 import { MeusPerfisConteudo } from './MeusPerfisScreen'
 import { EntrarComoConteudo } from '../Auth/EntrarComoScreen'
 import { SheetDesfazerEscolha } from '../../components/DesfazerEscolha'
+import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu } from '../../components/ProfissionalDesistiu'
 import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
 import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
 import { DicasConteudo } from './DicasScreen'
@@ -382,6 +383,49 @@ const CASOS_DESFAZER = [
 ]
 const propsDesfazer = (caso) => ({ visivel: true, nome: 'Carlos', interessados: caso.interessados, prazoCurto: !!caso.prazoCurto, enviando: false })
 
+// Arte-Profissional-Desistiu: a folha (Modal REAL, como a de desfazer: os dois botões e o
+// toque fora avançam de caso) e o detalhe do dono com a caixa âmbar no topo, a lista sem os
+// desistentes e a seção apagada "QUEM DESISTIU". Dados no formato de `desistencias` da API.
+const DESISTENCIAS_DEMO = [
+  { id: 'd1', usuario_id: 'u1', nome: 'Carlos', foto_url: null, cancelado_em: iso(-35 * MIN), motivo: 'nao_consigo_horario', motivo_texto: 'Não consegue no horário', detalhe: 'surgiu um serviço grande na mesma semana', acordo: false },
+  { id: 'd2', usuario_id: 'u9', nome: 'Roberto', foto_url: null, cancelado_em: iso(-26 * H), motivo: 'imprevisto', motivo_texto: 'Imprevisto', detalhe: null, acordo: true },
+]
+// Quem segue na disputa no demo do detalhe: a lista de interessados SEM quem desistiu.
+const NA_DISPUTA_DEMO = INTERESSADOS_DEMO.filter((i) => !DESISTENCIAS_DEMO.some((d) => d.usuario_id === i.usuario_id))
+const CASOS_DESISTIU = [
+  { lado: 'dono', fase: 'desistiu_sheet', rotulo: 'Profissional desistiu · folha (2 interessados esperando)', frente: 'servico', ativos: 2 },
+  { lado: 'dono', fase: 'desistiu_sheet', rotulo: 'Profissional desistiu · folha (obra, sem interessados)', frente: 'obra', ativos: 0 },
+  { lado: 'dono', fase: 'desistiu_detalhe', rotulo: 'Profissional desistiu · detalhe (card âmbar + quem desistiu)', frente: 'servico' },
+]
+const propsDesistiu = (caso) => ({
+  desistencia: DESISTENCIAS_DEMO[0],
+  desistencias: DESISTENCIAS_DEMO,
+  titulo: base(caso.frente || 'servico').titulo,
+  frente: caso.frente || 'servico',
+  interessadosAtivos: caso.ativos ?? 0,
+})
+
+function DemoDesistiuDetalhe({ desistencia, desistencias }) {
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <CardDesistiu desistencia={desistencia} />
+      <View style={estilos.cardValor}>
+        <Text style={estilos.cardValorLabel}>💰 VALOR PROPOSTO</Text>
+        <Text style={estilos.cardValorValor}>R$ 350,00</Text>
+      </View>
+      <Text style={estilos.tituloDemanda} numberOfLines={2}>{base('servico').titulo}</Text>
+      <Text style={estilos.secaoTitulo}>🔧 Profissionais interessados ({NA_DISPUTA_DEMO.length})</Text>
+      {NA_DISPUTA_DEMO.map((item) => (
+        <View key={item.usuario_id} style={estilos.cardInteressado}>
+          <Text style={estilos.cardInteressadoNome}>{item.nome}</Text>
+          <Text style={estilos.cardInteressadoMeta}>⭐ 4.8 (23 avaliações) · 📍 São Paulo</Text>
+        </View>
+      ))}
+      <SecaoQuemDesistiu desistencias={desistencias} />
+    </ScrollView>
+  )
+}
+
 // Arte-Cadastrar-Servico: o wizard "Cadastrar serviço" do dono em 4 passos (as peças de
 // DonoObra/CadastrarServicoPassos, com estado local e sem API) e a folha de um grupo. No
 // demo o "Continuar" avança e o "←" volta de verdade, sem validar; "Publicar pedido",
@@ -621,6 +665,7 @@ const TODOS = [
   ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
   ...CASOS_DESFAZER.map((c) => ({ ...c, frente: null })),
+  ...CASOS_DESISTIU,
   ...CASOS_WIZARD.map((c) => ({ ...c, frente: null })),
   ...CASOS_WIZARD_OBRA.map((c) => ({ ...c, frente: null })),
   ...CASOS_ESPECIALIDADES.map((c) => ({ ...c, frente: null })),
@@ -729,7 +774,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -760,12 +805,13 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const ehQuemPerguntou = caso.fase === 'quem_perguntou'
   const ehDesfazer = caso.fase === 'desfazer_sheet'
+  const ehDesistiu = caso.fase === 'desistiu_sheet' || caso.fase === 'desistiu_detalhe'
   const ehEspecialidades = caso.fase === 'especialidades' || caso.fase === 'especialidades_grupo'
   const ehWizard = caso.fase === 'cadastrar_servico' || caso.fase === 'cadastrar_grupo' || caso.fase === 'cadastrar_obra' || ehEspecialidades
   const props = useMemo(() => (
-    ehEspecialidades ? propsEspecialidades(caso) : caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehWizard, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehWizard
+    ehEspecialidades ? propsEspecialidades(caso) : caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehDesistiu || ehWizard
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -803,6 +849,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
             : caso.fase === 'cadastrar_obra' ? <DemoWizardObra key={i} {...props} />
             : caso.fase === 'cadastrar_grupo' ? <DemoFolhaGrupo key={i} {...props} />
             : ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
+            : caso.fase === 'desistiu_sheet' ? <SheetProfissionalDesistiu key={i} {...props} visivel onVerInteressados={() => ir(1)} onEsperar={() => ir(1)} />
+            : caso.fase === 'desistiu_detalhe' ? <DemoDesistiuDetalhe key={i} {...props} />
             : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
             : ehQuemPerguntou ? <DemoQuemPerguntou key={i} {...props} />

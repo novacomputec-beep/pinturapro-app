@@ -38,6 +38,7 @@ import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } fr
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
+import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
@@ -239,7 +240,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em']) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos']) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -320,7 +321,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // abre o modal "O profissional veio?" assim que o detalhe confirma que a pergunta vale.
   // abrirAvaliacao: vem do toque no push 'reparo_encerrado' ao DONO e abre o ModalAvaliacao
   // se ele ainda não avaliou este contrato.
-  const { reparo: reparoInicial, abrirComparecimento, abrirAvaliacao } = route.params
+  // rolarAteInteressados: vem do "Ver interessados e escolher outro" da folha de desistência na
+  // home do dono (MinhasObrasScreen): depois da carga, rola o corpo até a lista uma vez.
+  const { reparo: reparoInicial, abrirComparecimento, abrirAvaliacao, rolarAteInteressados } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const verificacao = useVerificacaoIdentidade()
   const [reparo, setReparo] = useState(reparoInicial)
@@ -438,6 +441,30 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [enviandoACaminho, setEnviandoACaminho] = useState(false)
   // "Manter meu valor" da caixa de avisados (Arte-Avisados): marca local por reparo.
   const [dicaAvisadosMantida, manterDicaAvisados] = useDicaAvisadosMantida('reparo', reparo?.id)
+  // Arte-Profissional-Desistiu: `desistencias` e `interessados_ativos` chegam ao lado da linha
+  // (mesclarTopo) só ao dono. A folha aparece uma vez por desistência (marca local por
+  // reparo + id do interesse); o "Ver interessados" rola o corpo até a lista (scrollRef +
+  // a posição medida no onLayout do título da seção).
+  const desistencias = Array.isArray(reparo?.desistencias) ? reparo.desistencias : []
+  const desistenciaRecente = desistenciaMaisRecente(desistencias)
+  const [desistenciaPendente, marcarDesistenciaVista] = useDesistenciaNaoVista('reparo', reparo?.id, desistenciaRecente)
+  const scrollRef = useRef(null)
+  const listaInteressadosY = useRef(0)
+  const rolarListaInteressados = () => scrollRef.current?.scrollTo({ y: Math.max(0, listaInteressadosY.current - 12), animated: true })
+  const verInteressadosDesistencia = () => {
+    marcarDesistenciaVista()
+    // Depois que o Modal fecha, senão o scroll disputa com a animação da folha.
+    setTimeout(rolarListaInteressados, 350)
+  }
+  // Chegou da home pedindo a lista: uma vez, depois da primeira carga (o onLayout do título
+  // já mediu a posição quando o timeout dispara).
+  const rolouDaHomeRef = useRef(false)
+  useEffect(() => {
+    if (!rolarAteInteressados || carregando || rolouDaHomeRef.current) return
+    rolouDaHomeRef.current = true
+    const t = setTimeout(rolarListaInteressados, 450)
+    return () => clearTimeout(t)
+  }, [rolarAteInteressados, carregando])
 
   // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
   // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
@@ -1591,6 +1618,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // aceito, ainda sem match_feito_em e com o reparo não encerrado. (Só lado dono_reparo.)
   const aguardandoPrestadorPartir = isDono && reparo?.status !== 'encerrada' && !temMatch && !!interesseAceitoDono
 
+  // Arte-Profissional-Desistiu: vale enquanto NÃO há profissional escolhido (nem match, nem
+  // interesse aceito) e o pedido segue aberto. Os interesses que constam em `desistencias`
+  // (mesmo id) saem da lista principal e vão para a seção "QUEM DESISTIU".
+  const semEscolhido = isDono && !encerrada && !temMatch && !reparo?.match_usuario_id && !interesseAceitoDono
+  const mostrarDesistencia = semEscolhido && desistencias.length > 0
+  const idsDesistentes = new Set(desistencias.map(d => String(d?.id)))
+  const interessadosNaDisputa = idsDesistentes.size > 0 ? interessados.filter(i => !idsDesistentes.has(String(i?.id))) : interessados
+
   // "Estou a caminho" já dado (POST /match grava a_caminho_em): é o que libera a troca de
   // telefones nos dois lados — antes dele a API devolve telefone/dono_telefone nulos.
   const aCaminho = !!reparo?.a_caminho_em
@@ -1997,6 +2032,17 @@ export default function DetalheReparoScreen({ route, navigation }) {
         onDesfazer={handleDesfazerEscolha}
       />
 
+      {/* Arte-Profissional-Desistiu (dono): a desistência mais recente ainda não vista. */}
+      <SheetProfissionalDesistiu
+        visivel={mostrarDesistencia && desistenciaPendente}
+        desistencia={desistenciaRecente}
+        titulo={reparo.titulo}
+        frente="servico"
+        interessadosAtivos={reparo.interessados_ativos ?? interessadosNaDisputa.filter(i => i.status === 'pendente' || i.status === 'contraproposta_dono').length}
+        onVerInteressados={verInteressadosDesistencia}
+        onEsperar={marcarDesistenciaVista}
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       {fasePosMatch ? (
         /* Tela FIXA do pós-match (components/PosMatchFixo): as cinco fases, sem rolagem. Os
@@ -2144,8 +2190,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
           )}
         </View>
       ) : (
-      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
+
+          {/* Arte-Profissional-Desistiu: caixa âmbar no topo enquanto não há escolhido. */}
+          {mostrarDesistencia && <CardDesistiu desistencia={desistenciaRecente} />}
 
           {/* !encerrada: o rótulo ("📅 Amanhã") descreve o prazo CONFIGURADO, não o tempo
               que resta — não muda com a aproximação e não sabia nada do encerramento. Num
@@ -2513,13 +2562,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   onManter={manterDicaAvisados}
                 />
               )}
-              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🔧 Profissionais interessados ({interessados.length})</Text>
-              {interessados.length === 0 ? (
+              {/* Título e contagem SEM os desistentes (eles vão para a seção abaixo). O onLayout
+                  guarda a posição da lista para o "Ver interessados" da folha de desistência. */}
+              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]} onLayout={(e) => { listaInteressadosY.current = e.nativeEvent.layout.y }}>🔧 Profissionais interessados ({interessadosNaDisputa.length})</Text>
+              {interessadosNaDisputa.length === 0 ? (
                 <View style={estilos.vazioInteressados}>
                   <Text style={estilos.vazioInteressadosTexto}>Nenhum profissional demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
                 </View>
               ) : (
-                interessados.map((item) => {
+                interessadosNaDisputa.map((item) => {
                   // Contato (telefone/endereço completo) só é liberado para o prestador MATCHED,
                   // não em 'aceito'. Deriva do match, não do status. (Novo contrato da API:
                   // telefone/logradouro voltam null até o prestador confirmar que está a caminho.)
@@ -2763,6 +2814,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   )
                 })
               )}
+              {/* Arte-Profissional-Desistiu: quem já foi escolhido e saiu, apagado, abaixo da lista. */}
+              {mostrarDesistencia && <SecaoQuemDesistiu desistencias={desistencias} />}
               </>)}
             </>
           )}

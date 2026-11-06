@@ -35,6 +35,7 @@ import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } fr
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
+import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
@@ -236,7 +237,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em']) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos']) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -317,7 +318,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   // abre o modal "O profissional veio?" assim que o detalhe confirma que a pergunta vale.
   // abrirAvaliacao: vem do toque no push 'obra_encerrada' ao DONO e abre o ModalAvaliacao
   // se ele ainda não avaliou este contrato.
-  const { obra: obraInicial, abrirComparecimento, abrirAvaliacao } = route.params
+  // rolarAteInteressados: vem do "Ver interessados e escolher outro" da folha de desistência na
+  // home do dono (MinhasObrasScreen): depois da carga, rola o corpo até a lista uma vez.
+  const { obra: obraInicial, abrirComparecimento, abrirAvaliacao, rolarAteInteressados } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const verificacao = useVerificacaoIdentidade()
   const [obra, setObra] = useState(obraInicial)
@@ -432,6 +435,30 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [enviandoACaminho, setEnviandoACaminho] = useState(false)
   // "Manter meu valor" da caixa de avisados (Arte-Avisados): marca local por obra.
   const [dicaAvisadosMantida, manterDicaAvisados] = useDicaAvisadosMantida('obra', obra?.id)
+  // Arte-Profissional-Desistiu: `desistencias` e `interessados_ativos` chegam ao lado da linha
+  // (mesclarTopo) só ao dono. A folha aparece uma vez por desistência (marca local por
+  // obra + id da candidatura); o "Ver interessados" rola o corpo até a lista (scrollRef +
+  // a posição medida no onLayout do título da seção).
+  const desistencias = Array.isArray(obra?.desistencias) ? obra.desistencias : []
+  const desistenciaRecente = desistenciaMaisRecente(desistencias)
+  const [desistenciaPendente, marcarDesistenciaVista] = useDesistenciaNaoVista('obra', obra?.id, desistenciaRecente)
+  const scrollRef = useRef(null)
+  const listaCandidatosY = useRef(0)
+  const rolarListaCandidatos = () => scrollRef.current?.scrollTo({ y: Math.max(0, listaCandidatosY.current - 12), animated: true })
+  const verCandidatosDesistencia = () => {
+    marcarDesistenciaVista()
+    // Depois que o Modal fecha, senão o scroll disputa com a animação da folha.
+    setTimeout(rolarListaCandidatos, 350)
+  }
+  // Chegou da home pedindo a lista: uma vez, depois da primeira carga (o onLayout do título
+  // já mediu a posição quando o timeout dispara).
+  const rolouDaHomeRef = useRef(false)
+  useEffect(() => {
+    if (!rolarAteInteressados || carregando || rolouDaHomeRef.current) return
+    rolouDaHomeRef.current = true
+    const t = setTimeout(rolarListaCandidatos, 450)
+    return () => clearTimeout(t)
+  }, [rolarAteInteressados, carregando])
 
   // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
   // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
@@ -1361,6 +1388,15 @@ export default function DetalheObraScreen({ route, navigation }) {
   // da conclusão. Este flag é o gate único de todas as ações; os botões de Encerrar já testam
   // o status por conta própria e ficam como estão.
   const encerrada = obra?.status === 'encerrada'
+  // Arte-Profissional-Desistiu: vale enquanto NÃO há profissional escolhido (nem match, nem
+  // candidatura aceita — nas duas grafias, ver STATUS_GRUPO em ContratosScreen.js) e a obra
+  // segue aberta. As candidaturas que constam em `desistencias` (mesmo id) saem da lista
+  // principal e vão para a seção "QUEM DESISTIU".
+  const candidatoAceitoDono = isDono ? candidatos.find(c => c.status === 'aceito' || c.status === 'aprovada') : null
+  const semEscolhido = isDono && !encerrada && !temMatch && !obra?.match_usuario_id && !candidatoAceitoDono
+  const mostrarDesistencia = semEscolhido && desistencias.length > 0
+  const idsDesistentes = new Set(desistencias.map(d => String(d?.id)))
+  const candidatosNaDisputa = idsDesistentes.size > 0 ? candidatos.filter(c => !idsDesistentes.has(String(c?.id))) : candidatos
   // Encerramento em duas etapas: quando uma parte pede, o servidor devolve
   // encerramento 'pendente' e a obra NÃO fecha — fecha só quando a outra confirma.
   // Enquanto pende, o status segue 'aberta', então `encerrada` continua false e a tela
@@ -1854,6 +1890,17 @@ export default function DetalheObraScreen({ route, navigation }) {
         onDesfazer={handleDesfazerEscolha}
       />
 
+      {/* Arte-Profissional-Desistiu (dono): a desistência mais recente ainda não vista. */}
+      <SheetProfissionalDesistiu
+        visivel={mostrarDesistencia && desistenciaPendente}
+        desistencia={desistenciaRecente}
+        titulo={obra.titulo}
+        frente="obra"
+        interessadosAtivos={obra.interessados_ativos ?? candidatosNaDisputa.filter(c => c.status === 'pendente' || c.status === 'contraproposta_dono').length}
+        onVerInteressados={verCandidatosDesistencia}
+        onEsperar={marcarDesistenciaVista}
+      />
+
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       {fasePosMatch ? (
         /* Tela FIXA do pós-match (components/PosMatchFixo): as cinco fases, sem rolagem. Os
@@ -2001,8 +2048,11 @@ export default function DetalheObraScreen({ route, navigation }) {
           )}
         </View>
       ) : (
-      <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.corpo}>
+
+          {/* Arte-Profissional-Desistiu: caixa âmbar no topo enquanto não há escolhido. */}
+          {mostrarDesistencia && <CardDesistiu desistencia={desistenciaRecente} />}
 
           {/* !encerrada: o rótulo ("📅 Hoje") descreve o prazo CONFIGURADO, não o tempo que
               resta — não muda com a aproximação e não sabia nada do encerramento. Numa obra
@@ -2342,13 +2392,15 @@ export default function DetalheObraScreen({ route, navigation }) {
                   onManter={manterDicaAvisados}
                 />
               )}
-              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]}>🎨 Profissionais candidatos ({candidatos.length})</Text>
-              {candidatos.length === 0 ? (
+              {/* Título e contagem SEM os desistentes (eles vão para a seção abaixo). O onLayout
+                  guarda a posição da lista para o "Ver interessados" da folha de desistência. */}
+              <Text style={[estilos.secaoTitulo, { marginTop: 20 }]} onLayout={(e) => { listaCandidatosY.current = e.nativeEvent.layout.y }}>🎨 Profissionais candidatos ({candidatosNaDisputa.length})</Text>
+              {candidatosNaDisputa.length === 0 ? (
                 <View style={estilos.vazioInteressados}>
                   <Text style={estilos.vazioInteressadosTexto}>Nenhum profissional demonstrou interesse ainda.{'\n'}Aguarde as notificações!</Text>
                 </View>
               ) : (
-                candidatos.map((item) => {
+                candidatosNaDisputa.map((item) => {
                   // Contato (telefone/endereço completo) só é liberado para o pintor MATCHED,
                   // não em 'aceito'. Deriva do match, não do status. (Novo contrato da API:
                   // telefone/logradouro voltam null até o pintor confirmar que está a caminho.)
@@ -2589,6 +2641,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                   )
                 })
               )}
+              {/* Arte-Profissional-Desistiu: quem já foi escolhido e saiu, apagado, abaixo da lista. */}
+              {mostrarDesistencia && <SecaoQuemDesistiu desistencias={desistencias} />}
               </>)}
             </>
           )}
