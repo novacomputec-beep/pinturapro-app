@@ -1,47 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet,
-  TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image, Linking, ActivityIndicator
+  TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as SecureStore from 'expo-secure-store'
-import * as AppleAuthentication from 'expo-apple-authentication'
-import { AntDesign } from '@expo/vector-icons'
 import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
-import api from '../../services/api'
-import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
-import { mostrarCobranca } from '../../utils/plataforma'
+import { cores, espacos, larguraMaxima } from '../../utils/tema'
 import { lerUltimoTipo } from '../../utils/contas'
-import { appleDisponivel, obterCredencialSocial, mensagemErroSocial, NOME_PROVEDOR } from '../../services/loginSocial'
+import { useLoginSocial, useAssinaturaPosLogin, BotoesSociais, TelaPagamentoPendente } from './LoginSocial'
 import EntrarComoScreen from './EntrarComoScreen'
 
 export default function LoginScreen({ navigation }) {
-  const { login, loginSocial } = useAuth()
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
-  const [linkPagamento, setLinkPagamento] = useState(null)
   const [contas, setContas] = useState(null)               // 2+ contas no e-mail → tela "Entrar como:"
   const [ultimoTipo, setUltimoTipo] = useState(null)       // tag "ÚLTIMO USADO" do "Entrar como:"
   const [tipoCarregando, setTipoCarregando] = useState(null)
-  // "Continuar com Google/Apple" (Arte-Login-Google-Apple). carregandoSocial: o provedor cujo
-  // botão está girando. temApple: iOS 13+ com a capability — só aí o botão da Apple aparece.
-  // credencialRef guarda { provedor, id_token, nome } entre o POST sem `tipo` e a repetição
-  // com o tipo escolhido no "Entrar como:"; modoContasRef diz por onde o "Entrar como:"
-  // entrou ('senha' | 'google' | 'apple'), para a escolha repetir o login certo.
-  const [carregandoSocial, setCarregandoSocial] = useState(null)
-  const [temApple, setTemApple] = useState(false)
-  const credencialRef = useRef(null)
+  // Por onde o "Entrar como:" entrou ('senha' | 'google' | 'apple'): a escolha repete o
+  // login certo. O fluxo social inteiro (diálogo, POST /auth/social, cadastro via ticket)
+  // mora em ./LoginSocial, compartilhado com a SplashScreen.
   const modoContasRef = useRef('senha')
-
-  useEffect(() => {
-    let vivo = true
-    appleDisponivel().then((ok) => { if (vivo) setTemApple(ok) })
-    return () => { vivo = false }
-  }, [])
+  const { linkPagamento, setLinkPagamento, tratarAssinatura } = useAssinaturaPosLogin()
+  const social = useLoginSocial({
+    navigation,
+    ocupado: carregando || !!tipoCarregando,
+    onEscolher: ({ provedor, contas: lista, ultimoTipo: salvo }) => {
+      setUltimoTipo(salvo)
+      modoContasRef.current = provedor
+      setContas(lista)
+    },
+    onSessao: tratarAssinatura,
+  })
 
   // Semente do campo de e-mail: o do último login bem-sucedido. O SecureStore é assíncrono,
   // então não dá para ser o valor inicial do useState — o campo nasce vazio e recebe o valor
@@ -106,111 +101,20 @@ export default function LoginScreen({ navigation }) {
     }
   }
 
-  // Pós-login comum (senha e social): profissional sem assinatura ativa ganha a cobrança.
-  const tratarAssinatura = async (resposta) => {
-    if (resposta?.assinatura?.status === 'pendente' || !resposta?.assinatura) {
-      if (resposta?.usuario?.role === 'prestador' || resposta?.usuario?.role === 'assinante') {
-        try {
-          const pagamento = await api.post('/pagamentos/criar-assinatura', { plano: 'mensal' })
-          // No iOS a chamada acima continua (a assinatura nasce do mesmo jeito), mas o
-          // link não vira tela: a 3.1.1 proíbe o checkout externo. Quem acolhe esse
-          // usuário é a PagamentoPendenteScreen, que no iOS mostra só a frase.
-          if (pagamento.init_point && mostrarCobranca) {
-            setLinkPagamento(pagamento.init_point)
-          }
-        } catch (err) {
-          console.log('[Login] falha ao criar assinatura pós-login | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-        }
-      }
-    }
-  }
-
-  // "Continuar com Google/Apple". Sem `tipo`: abre o diálogo do provedor (cancelou → nada
-  // acontece) e manda a credencial a POST /auth/social via AuthContext.loginSocial. Com conta:
-  // o mesmo caminho do login por senha (último perfil lembrado ou "Entrar como:"). Sem conta:
-  // abre o cadastro completo com nome/e-mail travados e o ticket no lugar da senha. `tipo`
-  // só vem do "Entrar como:" e repete o POST com a credencial guardada, sem novo diálogo.
-  const handleSocial = async (provedor, tipo) => {
-    if (carregando || carregandoSocial || tipoCarregando) return
-    let credencial = tipo ? credencialRef.current : null
-    if (!credencial) {
-      setCarregandoSocial(provedor)
-      try {
-        credencial = await obterCredencialSocial(provedor)
-      } catch (err) {
-        console.log('[Login] falha no diálogo do provedor | provedor:', provedor, '| code:', err?.code, '| msg:', err?.message)
-        const msg = mensagemErroSocial(err, provedor)
-        if (msg) Alert.alert(`Não foi possível entrar com ${NOME_PROVEDOR[provedor]}`, msg)
-        setCarregandoSocial(null)
-        return
-      }
-      if (!credencial) { setCarregandoSocial(null); return }   // cancelou: silêncio
-      credencialRef.current = credencial
-    }
-    if (tipo) setTipoCarregando(tipo)
-    else setCarregandoSocial(provedor)
-    try {
-      const resposta = await loginSocial(credencial, tipo)
-      if (resposta?.novo) {
-        credencialRef.current = null
-        navigation.navigate('Cadastro', { social: { provedor, nome: resposta.nome || null, email: resposta.email, ticket: resposta.ticket } })
-        return
-      }
-      if (resposta?.escolher) {
-        setUltimoTipo(resposta.ultimoTipo || null)
-        modoContasRef.current = provedor
-        setContas(resposta.contas)
-        return
-      }
-      credencialRef.current = null
-      await tratarAssinatura(resposta)
-    } catch (err) {
-      console.log('[Login] falha no login social | provedor:', provedor, '| status:', err?.status, '| codigo:', err?.codigo, '| code:', err?.code, '| msg:', err?.mensagem || err?.message)
-      // Resposta da API (401 token recusado, 403 desativada…): a credencial não serve mais.
-      if (err?.status) credencialRef.current = null
-      const msg = mensagemErroSocial(err, provedor)
-      if (msg) Alert.alert(`Não foi possível entrar com ${NOME_PROVEDOR[provedor]}`, msg)
-    } finally {
-      setCarregandoSocial(null)
-      setTipoCarregando(null)
-    }
-  }
-
   if (contas && !linkPagamento) {
     return (
       <EntrarComoScreen
         contas={contas}
         tipoCarregando={tipoCarregando}
         ultimoTipo={ultimoTipo}
-        onEscolher={(tipo) => (modoContasRef.current === 'senha' ? handleLogin(tipo) : handleSocial(modoContasRef.current, tipo))}
-        onVoltar={() => { credencialRef.current = null; setContas(null) }}
+        onEscolher={(tipo) => (modoContasRef.current === 'senha' ? handleLogin(tipo) : social.handleSocial(modoContasRef.current, tipo, setTipoCarregando))}
+        onVoltar={() => { social.limparCredencial(); setContas(null) }}
       />
     )
   }
 
   if (linkPagamento) {
-    return (
-      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
-        <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima, { alignItems: 'center', paddingTop: 60 }]}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>💳</Text>
-          <Text style={[estilos.titulo, { textAlign: 'center' }]}>Pagamento pendente</Text>
-          <Text style={[estilos.subtitulo, { textAlign: 'center', marginBottom: 32 }]}>
-            Sua conta foi criada! Para acessar as obras disponíveis, finalize seu pagamento.
-          </Text>
-          <BotaoPrimario
-            titulo="Pagar agora via PagBank →"
-            onPress={() => Linking.openURL(linkPagamento)}
-            estilo={{ marginBottom: 12, width: '100%' }}
-          />
-          <TouchableOpacity style={estilos.btnDepois} onPress={() => setLinkPagamento(null)}>
-            <Text style={estilos.btnDepoisTexto}>Pagar depois</Text>
-          </TouchableOpacity>
-          <Text style={{ fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 20, lineHeight: 18, paddingHorizontal: 20 }}>
-            Após o pagamento ser confirmado, seu acesso será ativado automaticamente.
-          </Text>
-        </ScrollView>
-      </SafeAreaView>
-    )
+    return <TelaPagamentoPendente link={linkPagamento} onDepois={() => setLinkPagamento(null)} />
   }
 
   return (
@@ -233,42 +137,16 @@ export default function LoginScreen({ navigation }) {
           <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
           <Text style={estilos.subtitulo}>Acesse sua conta</Text>
 
-          {/* Google (branco, em todas as plataformas) e Apple (botão oficial, só no iOS que
-              tem o recurso). O da Apple é preto como manda a arte; o aro de 1px é o que o
-              separa do fundo #0A0A0A. Enquanto um gira, o outro fica desligado. */}
-          <View style={estilos.social}>
-            <TouchableOpacity
-              style={[estilos.btnGoogle, carregandoSocial && carregandoSocial !== 'google' && { opacity: 0.6 }]}
-              onPress={() => handleSocial('google')}
-              disabled={!!carregandoSocial || carregando}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Continuar com Google"
-            >
-              {carregandoSocial === 'google' ? <ActivityIndicator color="#1F1F1F" /> : (
-                <>
-                  <AntDesign name="google" size={18} color="#1F1F1F" />
-                  <Text style={estilos.btnGoogleTexto}>Continuar com Google</Text>
-                </>
-              )}
-            </TouchableOpacity>
-            {temApple ? (
-              <View style={[estilos.appleWrap, carregandoSocial && { opacity: 0.6 }]} pointerEvents={carregandoSocial || carregando ? 'none' : 'auto'}>
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={raios.medio}
-                  style={estilos.btnApple}
-                  onPress={() => handleSocial('apple')}
-                />
-              </View>
-            ) : null}
-            <View style={estilos.ouDivisor}>
-              <View style={estilos.ouLinha} />
-              <Text style={estilos.ouTexto}>ou entre com e-mail</Text>
-              <View style={estilos.ouLinha} />
-            </View>
-          </View>
+          {/* Google e Apple acima do formulário, com o divisor "ou entre com e-mail" abaixo. */}
+          <BotoesSociais
+            carregandoSocial={social.carregandoSocial}
+            temApple={social.temApple}
+            desabilitado={carregando}
+            onGoogle={() => social.handleSocial('google')}
+            onApple={() => social.handleSocial('apple')}
+            divisorDepois="ou entre com e-mail"
+            estilo={estilos.social}
+          />
 
           <View style={estilos.form}>
             <Input
@@ -361,13 +239,9 @@ const estilos = StyleSheet.create({
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 26 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
   form: {},
-  // Botões sociais: 48 de altura (o mesmo do BotaoPrimario) e 10 entre eles. O divisor
-  // reaproveita ouDivisor/ouLinha/ouTexto, com a margem vertical reduzida pelo `social`.
+  // Bloco social (./LoginSocial): o divisor de baixo já traz 20 de margem, então aqui só
+  // se desconta um pouco para o formulário não ficar longe.
   social: { marginBottom: -4 },
-  btnGoogle: { height: 48, borderRadius: raios.medio, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1, borderColor: '#DADCE0' },
-  btnGoogleTexto: { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
-  appleWrap: { marginTop: 10, borderRadius: raios.medio, borderWidth: 1, borderColor: cores.bordaCampo },
-  btnApple: { height: 48, width: '100%' },
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
   esqueciBtn: { alignSelf: 'flex-end', marginBottom: 20, marginTop: -4 },
@@ -376,6 +250,4 @@ const estilos = StyleSheet.create({
   ouLinha: { flex: 1, height: 0.5, backgroundColor: cores.bordaFraca },
   ouTexto: { fontSize: 11, color: cores.textoMutado },
   creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 32 },
-  btnDepois: { padding: 14, alignItems: 'center' },
-  btnDepoisTexto: { fontSize: 14, color: cores.textoFraco },
 })
