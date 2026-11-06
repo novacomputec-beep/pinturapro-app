@@ -11,16 +11,43 @@ import { cores, raios } from '../utils/tema'
 // telas tinham inline. Os badges de status (Enviando/✓/⚠) só aparecem para itens
 // que NÃO estão 'pendente' — como o upload em 2º plano só roda com a flag ligada,
 // no fluxo antigo todos os itens ficam 'pendente' e a tira fica visualmente igual.
-export default function PainelMidiaDemanda({ itens, onAbrirPicker, onRemover, onReenviar }) {
+//
+// `acoes` (opcional, Arte-Cadastrar-Servico): { onGravarVideo, onTirarFotos, onGaleria } troca
+// o botão único por dois botões grandes tracejados ("Gravar vídeo" / "Tirar fotos"), o link
+// "Escolher da galeria" e a dica do vídeo de 30 s. Sem `acoes` é o painel de sempre (obra).
+// A tira de pré-visualização e os badges são os mesmos nos dois modos.
+export default function PainelMidiaDemanda({ itens, onAbrirPicker, onRemover, onReenviar, acoes }) {
   return (
     <>
-      <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
-      <TouchableOpacity style={estilos.uploadBtn} onPress={onAbrirPicker}>
-        <Text style={estilos.uploadIcone}>📎</Text>
-        <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
-      </TouchableOpacity>
-      <Text style={estilos.avisoUpload}>📸 Opcional: filme e/ou tire foto(s) se realmente fizer diferença para informar o problema relatado.</Text>
-      <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
+      {acoes ? (
+        <>
+          <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS (opcional)</Text>
+          <View style={estilos.acoesLinha}>
+            <TouchableOpacity style={estilos.acaoBtn} onPress={acoes.onGravarVideo} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Gravar vídeo">
+              <Text style={estilos.acaoIcone}>🎥</Text>
+              <Text style={estilos.acaoTexto}>Gravar vídeo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.acaoBtn} onPress={acoes.onTirarFotos} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Tirar fotos">
+              <Text style={estilos.acaoIcone}>📷</Text>
+              <Text style={estilos.acaoTexto}>Tirar fotos</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={estilos.galeriaLink} onPress={acoes.onGaleria} accessibilityRole="button">
+            <Text style={estilos.galeriaLinkTexto}>🖼️ Escolher da galeria</Text>
+          </TouchableOpacity>
+          <Text style={estilos.dicaMidia}>💡 Um vídeo de até 30 segundos mostrando o problema acelera muito o atendimento e evita mal-entendidos.</Text>
+        </>
+      ) : (
+        <>
+          <Text style={estilos.labelCategoria}>FOTOS E VÍDEOS</Text>
+          <TouchableOpacity style={estilos.uploadBtn} onPress={onAbrirPicker}>
+            <Text style={estilos.uploadIcone}>📎</Text>
+            <Text style={estilos.uploadTexto}>Adicionar fotos e vídeos</Text>
+          </TouchableOpacity>
+          <Text style={estilos.avisoUpload}>📸 Opcional: filme e/ou tire foto(s) se realmente fizer diferença para informar o problema relatado.</Text>
+          <Text style={estilos.dicaMidia}>📹 Filme no máximo 30 segundos para melhor resultado</Text>
+        </>
+      )}
       {itens.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
           {itens.map((item) => (
@@ -69,6 +96,13 @@ const estilos = StyleSheet.create({
   uploadBtn: { borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, padding: 20, alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center', gap: 10 },
   uploadIcone: { fontSize: 20 },
   uploadTexto: { fontSize: 14, color: cores.textoMedio },
+  // Dois botões grandes do wizard: mesmo tracejado do uploadBtn, lado a lado, 84 de altura.
+  acoesLinha: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  acaoBtn: { flex: 1, minHeight: 84, borderWidth: 1.5, borderColor: cores.borda, borderStyle: 'dashed', borderRadius: raios.medio, backgroundColor: cores.fundoCard, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 12 },
+  acaoIcone: { fontSize: 28 },
+  acaoTexto: { fontSize: 14, fontWeight: '600', color: cores.textoForte },
+  galeriaLink: { alignSelf: 'center', paddingVertical: 6, paddingHorizontal: 12, marginBottom: 6 },
+  galeriaLinkTexto: { fontSize: 13, color: cores.primaria, fontWeight: '600' },
   avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
   dicaMidia: { fontSize: 12, color: cores.textoFraco, marginBottom: 10, lineHeight: 18 },
   midiaItem: { width: 100, height: 100, marginRight: 8, borderRadius: 10, overflow: 'hidden', position: 'relative' },

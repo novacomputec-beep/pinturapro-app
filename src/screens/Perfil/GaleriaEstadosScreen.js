@@ -20,6 +20,8 @@ import { DicasConteudo } from './DicasScreen'
 import { DicasTemaConteudo } from './DicasTemaScreen'
 import { CardPerguntasDono, CaixaPerguntaInteressado, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
+import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupoConteudo, PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, TOTAL_PASSOS } from '../DonoObra/CadastrarServicoPassos'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
@@ -374,6 +376,95 @@ const CASOS_DESFAZER = [
 ]
 const propsDesfazer = (caso) => ({ visivel: true, nome: 'Carlos', interessados: caso.interessados, prazoCurto: !!caso.prazoCurto, enviando: false })
 
+// Arte-Cadastrar-Servico: o wizard "Cadastrar serviço" do dono em 4 passos (as peças de
+// DonoObra/CadastrarServicoPassos, com estado local e sem API) e a folha de um grupo. No
+// demo o "Continuar" avança e o "←" volta de verdade, sem validar; "Publicar pedido",
+// mídia e CEP são no-op.
+const GRUPOS_DEMO = gruposComCategorias()
+const CASOS_WIZARD = [
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 1 vazio', passo: 1, categorias: [] },
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: `Cadastrar serviço · passo 1 no limite (${MAX_CATEGORIAS_DEMANDA}) + sugestão`, passo: 1, categorias: ['hidraulica', 'eletrica', 'outros'] },
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 2 (detalhes e mídia)', passo: 2, categorias: ['hidraulica'] },
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 3 (prazo e valor)', passo: 3, categorias: ['hidraulica'] },
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 4 (endereço)', passo: 4, categorias: ['hidraulica'] },
+  { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Casa e reparos" (2 marcadas)', grupo: 'casa', categorias: ['hidraulica', 'eletrica'] },
+  { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Festas" no limite', grupo: 'festas', categorias: ['garcom', 'dj', 'hidraulica'] },
+]
+const propsWizard = (caso) => ({ passoInicial: caso.passo || 1, categoriasIniciais: caso.categorias || [], grupoId: caso.grupo || null })
+
+function DemoWizard({ passoInicial, categoriasIniciais }) {
+  const [passo, setPasso] = useState(passoInicial)
+  const [categorias, setCategorias] = useState(categoriasIniciais)
+  const [grupoAberto, setGrupoAberto] = useState(null)
+  const [titulo, setTitulo] = useState(passoInicial >= 2 ? 'Trocar a torneira da cozinha' : '')
+  const [descricao, setDescricao] = useState(passoInicial >= 2 ? 'A torneira está pingando e o registro de baixo está duro.' : '')
+  const [urgencia, setUrgencia] = useState(passoInicial >= 3 ? 24 : null)
+  const [valor, setValor] = useState(passoInicial >= 3 ? '150,00' : '')
+  const [cep, setCep] = useState(passoInicial >= 4 ? '38400000' : '')
+  const [logradouro, setLogradouro] = useState(passoInicial >= 4 ? 'Rua das Flores' : '')
+  const [numero, setNumero] = useState(passoInicial >= 4 ? '123' : '')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState(passoInicial >= 4 ? 'Centro' : '')
+  const [pontoReferencia, setPontoReferencia] = useState('')
+  const [uf, setUf] = useState(passoInicial >= 4 ? 'MG' : '')
+  const [cidade, setCidade] = useState(passoInicial >= 4 ? 'Uberlândia' : '')
+  const noLimite = categorias.length >= MAX_CATEGORIAS_DEMANDA
+  const alternar = (slug) => setCategorias((atual) => (atual.includes(slug) ? atual.filter((c) => c !== slug) : atual.length >= MAX_CATEGORIAS_DEMANDA ? atual : [...atual, slug]))
+  const sugestoes = categorias.includes('hidraulica') && !categorias.includes('eletrica') ? [{ slug: 'eletrica', emoji: '⚡', rotulo: 'Elétrica' }] : []
+  const midia = { itens: [], onRemover: noop, onReenviar: noop, onGravarVideo: noop, onTirarFotos: noop, onGaleria: noop }
+  return (
+    <View style={{ flex: 1 }}>
+      <MolduraWizard
+        passo={passo}
+        mostrarVoltar={passo > 1}
+        onVoltar={() => setPasso((p) => Math.max(1, p - 1))}
+        rodape={passo < TOTAL_PASSOS
+          ? <RodapeWizard rotulo="Continuar →" onPress={() => setPasso((p) => p + 1)} />
+          : <RodapeWizard rotulo="Publicar pedido →" onPress={noop} />}
+      >
+        {passo === 1 && (
+          <>
+            <GradeGrupos grupos={GRUPOS_DEMO} contagem={contagemPorGrupo(categorias)} outrosMarcado={categorias.includes(SLUG_OUTROS)} bloqueado={noLimite} onAbrir={setGrupoAberto} onOutros={() => alternar(SLUG_OUTROS)} />
+            <ChipsEscolhidos categorias={categorias} onRemover={alternar} />
+            {!noLimite && <Sugestoes sugestoes={sugestoes} onAdicionar={alternar} />}
+          </>
+        )}
+        {passo === 2 && <PassoDetalhes titulo={titulo} onTitulo={setTitulo} descricao={descricao} onDescricao={setDescricao} erros={{}} midia={midia} />}
+        {passo === 3 && <PassoPrazoValor urgencia={urgencia} onUrgencia={setUrgencia} valor={valor} onValor={setValor} erros={{}} />}
+        {passo === 4 && (
+          <PassoEndereco
+            cep={cep} onCep={setCep} buscandoCep={false} enderecoEncontrado={cep.length === 8}
+            pontoReferencia={pontoReferencia} onPontoReferencia={setPontoReferencia}
+            logradouro={logradouro} onLogradouro={setLogradouro} numero={numero} onNumero={setNumero}
+            complemento={complemento} onComplemento={setComplemento} bairro={bairro} onBairro={setBairro}
+            uf={uf} cidade={cidade} onLocalidade={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erros={{}} rodapeTexto={<AvisosPublicar />}
+          />
+        )}
+      </MolduraWizard>
+      {/* A folha do grupo, sem Modal (para não cobrir o cabeçalho da galeria): sobre a tela. */}
+      {grupoAberto ? (
+        <View style={[StyleSheet.absoluteFill, estilos.fundoSheet]}>
+          <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
+            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={categorias} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} />
+          </View>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function DemoFolhaGrupo({ grupoId, categoriasIniciais }) {
+  const [categorias, setCategorias] = useState(categoriasIniciais)
+  const grupo = GRUPOS_DEMO.find((g) => g.id === grupoId) || GRUPOS_DEMO[0]
+  const alternar = (slug) => setCategorias((atual) => (atual.includes(slug) ? atual.filter((c) => c !== slug) : atual.length >= MAX_CATEGORIAS_DEMANDA ? atual : [...atual, slug]))
+  return (
+    <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
+      <FolhaGrupoConteudo grupo={grupo} selecionadas={categorias} onAlternar={alternar} onPronto={noop} />
+    </View>
+  )
+}
+
 function DemoQuemPerguntou({ posMatch }) {
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
@@ -411,6 +502,7 @@ const TODOS = [
   ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
   ...CASOS_DESFAZER.map((c) => ({ ...c, frente: null })),
+  ...CASOS_WIZARD.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -507,7 +599,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -538,10 +630,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const ehQuemPerguntou = caso.fase === 'quem_perguntou'
   const ehDesfazer = caso.fase === 'desfazer_sheet'
+  const ehWizard = caso.fase === 'cadastrar_servico' || caso.fase === 'cadastrar_grupo'
   const props = useMemo(() => (
-    ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer
+    ehWizard ? propsWizard(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehWizard, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehWizard
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -569,10 +662,13 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
         {/* O sheet de aviso é ancorado ao rodapé, como o Modal real: fundo escurecido e a folha
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias) && estilos.fundoSheet]} {...(ehFoto ? {} : pan.panHandlers)}>
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias || ehWizard) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias || caso.fase === 'cadastrar_grupo') && estilos.fundoSheet]} {...(ehFoto || ehWizard ? {} : pan.panHandlers)}>
           {/* A folha de desfazer é um Modal de verdade e cobre o cabeçalho: qualquer saída dela
               (os dois botões, o toque fora, o voltar do Android) vai para o próximo caso. */}
-          {ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
+          {/* O wizard tem rolagem e grade próprias: sem o deslize da galeria (só ‹ ›). */}
+          {caso.fase === 'cadastrar_servico' ? <DemoWizard key={i} {...props} />
+            : caso.fase === 'cadastrar_grupo' ? <DemoFolhaGrupo key={i} {...props} />
+            : ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
             : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
             : ehQuemPerguntou ? <DemoQuemPerguntou key={i} {...props} />
