@@ -427,7 +427,7 @@ const EstadoAgendado = ({ demanda, frente, souDono, nomeOutro, podeDizerACaminho
           </TouchableOpacity>
         </View>
       ) : souDono ? (
-        <T linhas={2} style={estilos.verdeLinha}>O app lembra você: na véspera às 18h, 2 horas antes e na hora de sair.</T>
+        <T linhas={3} style={estilos.verdeLinha}>O app lembra você na véspera às 18h e 2 horas antes, e avisa quando o profissional sair a caminho.</T>
       ) : (
         <>
           <T style={estilos.verdeLinha}>Na hora de sair, avise o cliente:</T>
