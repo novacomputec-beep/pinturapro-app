@@ -1,28 +1,31 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import {
-  View, Text, StyleSheet, ScrollView, Modal,
-  TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, Keyboard
-} from 'react-native'
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, Keyboard, BackHandler } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import api from '../../services/api'
 import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { useFocusEffect, useIsFocused } from '@react-navigation/native'
-import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
-import { paraSeletor, CATEGORIAS_OBRA } from '../../utils/categorias'
+import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { cadastro } from '../../components/RetomadaMatchHost'
+import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
+import {
+  MolduraWizard, RodapeWizard, GradeTiposObra, PassoDetalhes, PassoPrazoValorObra, PassoEndereco,
+  CaixaAvisosObra, TITULOS_PASSO_OBRA, PASSO_DO_CAMPO_OBRA, TOTAL_PASSOS,
+} from './CadastrarServicoPassos'
 
-const CATEGORIAS = paraSeletor(CATEGORIAS_OBRA)
-// Seleção inicial = PRIMEIRO item da lista ordenada, e não um slug fixo: o 'residencial'
-// que morava aqui era o primeiro da lista ANTES de utils/categorias.js passar a ordenar
-// por rótulo, e ficou para trás — o seletor abria em Residencial no meio da lista. Lido
-// da lista, acompanha qualquer reordenação ou categoria nova sem ninguém lembrar daqui.
-// Mesmo molde de CadastrarReparoScreen.
-const CATEGORIA_INICIAL = CATEGORIAS[0].id
+// Cadastro de obra do dono em 4 passos (Arte-Cadastrar-Obra), na MESMA moldura do cadastro de
+// serviço (./CadastrarServicoPassos): tipo → detalhes → prazo e valor → endereço. SÓ o layout
+// mudou: estado, validações, payload de POST /obras/dono (prazo_modo/timezone de "Hoje",
+// data inicial), aprovação, fluxo de mídia, pré-preenchimento vindo do serviço, reset
+// pós-envio e o sinal para a RetomadaMatchHost são os de sempre.
+
+// O tipo da obra começa SEM seleção (antes abria no primeiro da lista): a escolha é da pessoa
+// e obrigatória — "Continuar" do passo 1 e "Publicar obra" validam (ver validarTudo).
+const CATEGORIA_INICIAL = null
 
 const PRAZOS = [
   { id: 24,   label: '📅 Hoje',           desc: 'Início hoje'          },
@@ -33,14 +36,21 @@ const PRAZOS = [
   { id: 'data', label: '📅 Defina a data', desc: 'Escolha uma data' },
 ]
 
-// Linhas de três, como na SplashScreen: agrupa em <View>s de linha para as pills usarem
-// flex: 1 e fecharem a largura exata (borda direita alinhada ao input). flex: 1 sozinho,
-// sob flexWrap, colapsaria os 9 itens numa linha só — o agrupamento é parte do padrão.
-const emLinhasDeTres = (itens) => {
-  const linhas = []
-  for (let i = 0; i < itens.length; i += 3) linhas.push(itens.slice(i, i + 3))
-  return linhas
-}
+// Campos obrigatórios em ordem visual (passo a passo). Ao avançar/publicar incompleto, a
+// tela vai ao passo do 1º campo com erro, rola até ele e mostra um alerta claro.
+const CAMPOS_OBRIGATORIOS = [
+  { chave: 'categoria',     msg: 'Escolha o tipo da obra' },
+  { chave: 'titulo',        msg: 'Por favor, informe o título da obra antes de continuar.' },
+  { chave: 'descricao',     msg: 'Descreva a obra necessária antes de continuar.' },
+  { chave: 'prazo',         msg: 'Selecione o prazo para iniciar a obra antes de continuar.' },
+  { chave: 'dataInicial',   msg: 'Informe uma data futura válida (dd/mm/aaaa) antes de continuar.' },
+  { chave: 'valorEstimado', msg: 'Informe o valor oferecido antes de continuar.' },
+  { chave: 'cep',           msg: 'Informe um CEP válido antes de continuar.' },
+  { chave: 'logradouro',    msg: 'Informe a rua/avenida do endereço antes de continuar.' },
+  { chave: 'numero',        msg: 'Informe o número do endereço antes de continuar.' },
+  { chave: 'uf',            msg: 'Selecione o estado antes de continuar.' },
+  { chave: 'cidade',        msg: 'Selecione a cidade antes de continuar.' },
+]
 
 // Gera uma chave de idempotência por sessão de composição (formato UUID v4)
 const gerarRequestId = () =>
@@ -97,6 +107,7 @@ export default function CadastrarObraScreen({ navigation, route }) {
   // Chegada a partir de CadastrarReparoScreen (Alvenaria → "Pedreiro ou ajudante"): traz
   // o que já foi preenchido lá e o nome da rota de origem. undefined nos outros caminhos.
   const deReparo = route?.params?.deReparo
+  const [passo, setPasso] = useState(1)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
@@ -119,7 +130,9 @@ export default function CadastrarObraScreen({ navigation, route }) {
   const [longitude, setLongitude] = useState(null)
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [enderecoEncontrado, setEnderecoEncontrado] = useState(false)
-  const [showMediaPicker, setShowMediaPicker] = useState(false)
+  // Picker de mídia: null = fechado; 'video' / 'foto' (cada botão grande oferece câmera OU
+  // galeria) / 'todas' (as três opções de sempre).
+  const [pickerMidia, setPickerMidia] = useState(null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -128,6 +141,18 @@ export default function CadastrarObraScreen({ navigation, route }) {
   const scrollRef = useRef(null)
   const clientRequestIdRef = useRef(gerarRequestId())
   const montadoRef = useRef(true)
+  // Posição (offset no ScrollView) de cada campo obrigatório do passo atual, para rolar até
+  // ele; e o campo a rolar DEPOIS de trocar de passo por erro.
+  const camposYRef = useRef({})
+  const rolarAteRef = useRef(null)
+  const registrarY = (...chaves) => (e) => {
+    const y = e.nativeEvent.layout.y
+    chaves.forEach(c => { camposYRef.current[c] = y })
+  }
+
+  const tipos = useMemo(() => tiposObraComExemplos(), [])
+  // A barra "Agendado" flutua sobre o rodapé da aba: enquanto ela existe, o rodapé fixo sobe.
+  const reservaInferior = useBarraServicoVisivel() ? alturas.barraServico : 0
 
   useEffect(() => {
     return () => { montadoRef.current = false }
@@ -143,9 +168,11 @@ export default function CadastrarObraScreen({ navigation, route }) {
   // duas telas: título, descrição, endereço e mídias. Categoria da obra, prazo e valor
   // ficam para a pessoa escolher aqui — são outras escalas. Roda por efeito, e não como
   // valor inicial do useState, para valer também quando esta tela já estiver montada e
-  // receber um novo deReparo (mesmo comportamento nos dois casos).
+  // receber um novo deReparo (mesmo comportamento nos dois casos). Começa no passo 1: o
+  // tipo da obra é a primeira coisa que falta.
   useEffect(() => {
     if (!deReparo) return
+    setPasso(1)
     setTitulo(deReparo.titulo || '')
     setDescricao(deReparo.descricao || '')
     setCep(deReparo.cep || '')
@@ -187,9 +214,11 @@ export default function CadastrarObraScreen({ navigation, route }) {
   // O foco sozinho não diz POR QUE a tela foi focada: sem a trava abaixo, uma simples
   // ida-e-volta de aba era indistinguível do retorno pós-envio e apagava um formulário
   // já preenchido. Só a criação confirmada arma o reset, e ele se desarma ao rodar.
+  // Volta ao passo 1: a próxima composição começa limpa, do começo.
   useFocusEffect(useCallback(() => {
     if (!submetidoRef.current) return
     submetidoRef.current = false
+    setPasso(1)
     setTitulo('')
     setCategoria(CATEGORIA_INICIAL)
     setDescricao('')
@@ -220,13 +249,38 @@ export default function CadastrarObraScreen({ navigation, route }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false })
   }, []))
 
+  // Troca de passo: zera as posições (o passo novo registra as suas) e rola — ao topo, ou
+  // até o campo com erro que motivou a troca, depois de o layout dele existir.
+  useEffect(() => {
+    camposYRef.current = {}
+    const chave = rolarAteRef.current
+    rolarAteRef.current = null
+    if (!chave) { scrollRef.current?.scrollTo({ y: 0, animated: false }); return }
+    const t = setTimeout(() => {
+      const y = camposYRef.current[chave]
+      scrollRef.current?.scrollTo({ y: y != null ? Math.max(y - 24, 0) : 0, animated: true })
+    }, 120)
+    return () => clearTimeout(t)
+  }, [passo])
+
+  // Voltar do Android: com o picker aberto o Modal cuida; senão, passo anterior sem perder
+  // nada. No passo 1 segue o comportamento de sempre (sai da tela / volta ao serviço).
+  useFocusEffect(useCallback(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pickerMidia) return false
+      if (passo > 1) { setPasso(p => p - 1); return true }
+      return false
+    })
+    return () => sub.remove()
+  }, [passo, pickerMidia]))
+
   // Sinal de cadastro em uso para o RetomadaMatchHost (ver `cadastro` lá), espelhando
   // CadastrarReparoScreen: qualquer campo fora do valor inicial ou mídia anexada, enquanto
   // ESTA instância está focada (vale também para a cópia empilhada sobre o formulário de
   // serviço do dono_reparo). Cai ao enviar, ao perder o foco ou ao desmontar.
   const focado = useIsFocused()
   const temConteudo = !!(
-    titulo || descricao || valorEstimado || prazo != null || dataInicial || categoria !== CATEGORIA_INICIAL ||
+    titulo || descricao || valorEstimado || prazo != null || dataInicial || categoria != null ||
     cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
     midia.itens.length > 0
   )
@@ -295,8 +349,10 @@ export default function CadastrarObraScreen({ navigation, route }) {
     }
   }
 
-  const validar = () => {
+  // As MESMAS regras de sempre, de uma vez. `validarPasso` filtra o resultado para o passo.
+  const validarTudo = () => {
     const novos = {}
+    if (!categoria) novos.categoria = 'Escolha o tipo da obra'
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva a obra necessária'
     if (!prazo) novos.prazo = 'Selecione o prazo para iniciar o serviço'
@@ -310,8 +366,51 @@ export default function CadastrarObraScreen({ navigation, route }) {
     if (enderecoEncontrado && !logradouro.trim()) novos.logradouro = 'Informe a rua/avenida'
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
     if (!valorEstimado.trim()) novos.valorEstimado = 'Informe o valor oferecido'
+    return novos
+  }
+  const validarPasso = (p) => {
+    const tudo = validarTudo()
+    const doPasso = {}
+    for (const chave of Object.keys(tudo)) if (PASSO_DO_CAMPO_OBRA[chave] === p) doPasso[chave] = tudo[chave]
+    setErros(doPasso)
+    return doPasso
+  }
+  const validar = () => {
+    const novos = validarTudo()
     setErros(novos)
-    return Object.keys(novos).length === 0
+    return novos
+  }
+
+  // Vai ao passo do 1º campo com erro (na ordem visual), rola até ele e avisa.
+  const apontarErro = (novosErros) => {
+    Keyboard.dismiss()
+    const primeiro = CAMPOS_OBRIGATORIOS.find(c => novosErros[c.chave])
+    if (!primeiro) return
+    const alvo = PASSO_DO_CAMPO_OBRA[primeiro.chave] || passo
+    if (alvo !== passo) {
+      rolarAteRef.current = primeiro.chave
+      setPasso(alvo)
+    } else {
+      const y = camposYRef.current[primeiro.chave]
+      if (scrollRef.current && y != null) scrollRef.current.scrollTo({ y: Math.max(y - 24, 0), animated: true })
+    }
+    Alert.alert('Campo obrigatório', primeiro.msg)
+  }
+
+  // "Continuar": valida só o passo atual e segue.
+  const avancar = () => {
+    const novos = validarPasso(passo)
+    if (Object.keys(novos).length > 0) { apontarErro(novos); return }
+    Keyboard.dismiss()
+    setPasso(p => Math.min(p + 1, TOTAL_PASSOS))
+  }
+
+  // "←" e voltar do Android: passo anterior, sem perder nada. No passo 1, a seta só existe
+  // fora da raiz da aba (empilhada sobre o serviço ou no fluxo legado) e aí volta de fato.
+  const voltarPasso = () => {
+    Keyboard.dismiss()
+    if (passo > 1) setPasso(p => p - 1)
+    else navigation.goBack()
   }
 
   // Geocodifica o endereço FINAL — com o logradouro que o usuário pode ter digitado.
@@ -340,8 +439,6 @@ export default function CadastrarObraScreen({ navigation, route }) {
     }
     return { lat: null, lng: null }
   }
-
-  const selecionarMidia = () => setShowMediaPicker(true)
 
   // Desfecho da obra criada com sucesso. Publicada de fato (jaAprovada) e sem permissão de
   // notificação, o sheet "Seu pedido foi publicado! 🎉" (AvisarPedidoSheet) substitui o
@@ -399,7 +496,9 @@ export default function CadastrarObraScreen({ navigation, route }) {
   const handleCadastrar = async () => {
     if (enviandoRef.current) return
     if (midia.algumEnviando) { Alert.alert('Aguarde o envio das mídias', 'Suas fotos/vídeos ainda estão sendo enviados. Aguarde a conclusão para publicar.'); return }
-    if (!validar()) return
+    // Validação COMPLETA roda ANTES de qualquer chamada de API ou navegação.
+    const novosErros = validar()
+    if (Object.keys(novosErros).length > 0) { apontarErro(novosErros); return }
     enviandoRef.current = true
     setCarregando(true)
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -468,145 +567,104 @@ export default function CadastrarObraScreen({ navigation, route }) {
     await finalizarPublicacao(obra.id, undefined, statusAprovacao)
   }
 
+  // Picker: fecha, solta o teclado e abre a câmera/galeria com a mesma folga de sempre.
+  const abrirMidia = (fn) => { Keyboard.dismiss(); setPickerMidia(null); setTimeout(() => fn(), 500) }
+
+  // Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém esta rota
+  // (index 0) e não existe "voltar" no passo 1 — a seta nem é renderizada. Empilhada (sobre o
+  // serviço do dono_reparo, ou no fluxo legado) a seta aparece e volta de fato. Checamos o
+  // index da PRÓPRIA stack — canGoBack() sobe para o tab/root e podia resolver true nesta
+  // raiz de aba. Nos passos 2–4 a seta volta um passo.
+  const naRaiz = (navigation.getState()?.index ?? 0) === 0
+  const mostrarVoltar = passo > 1 || !naRaiz
+
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {/* Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém
-              esta rota (index 0) e não existe "voltar" — por isso a seta nem é renderizada.
-              No fluxo empilhado legado (DonoApp, tipo_dono indefinido) a mesma tela é
-              empilhada (index > 0) e aí a seta aparece e volta de fato. Checamos o index da
-              PRÓPRIA stack — canGoBack() sobe para o tab/root e podia resolver true nesta
-              raiz de aba, disparando um goBack() que saía da área do dono. */}
-          {(navigation.getState()?.index ?? 0) > 0 && (
-            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-              <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Text style={estilos.titulo}>Cadastrar{'\n'}obra</Text>
-          <Text style={estilos.subtitulo}>Descreva a obra e encontre um profissional qualificado</Text>
-          {/* Só na raiz da aba "Nova Obra" (rota *Main): é a tela inicial do dono_obra e a
-              aba Perfil existe. Empilhada (NovoReparoStack/legado) a rota é 'CadastrarObra'. */}
-          {route?.name === 'CadastrarObraMain' && <BannerComoFunciona navigation={navigation} semRecuo />}
-          <View style={estilos.avisoBanner}>
-            <Text style={estilos.avisoIcone}>🎥</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.avisoTitulo}>GRAVE UM VÍDEO DE NO MÁXIMO 30 SEGUNDOS!</Text>
-              <Text style={estilos.avisoTexto}>Mostre o local da obra e narre detalhadamente. Isso acelera muito o atendimento e evita mal-entendidos!</Text>
-            </View>
+      <MolduraWizard
+        passo={passo}
+        tituloTela="Cadastrar obra"
+        titulos={TITULOS_PASSO_OBRA}
+        onVoltar={voltarPasso}
+        mostrarVoltar={mostrarVoltar}
+        scrollRef={scrollRef}
+        reservaInferior={reservaInferior}
+        // Só na raiz da aba "Nova Obra" (rota *Main) e no 1º passo: é a tela inicial do
+        // dono_obra e a aba Perfil existe. Empilhada (NovoReparoStack/legado) a rota é 'CadastrarObra'.
+        acimaDoTitulo={passo === 1 && route?.name === 'CadastrarObraMain' ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
+        rodape={passo < TOTAL_PASSOS
+          ? <RodapeWizard rotulo="Continuar →" onPress={avancar} />
+          : <RodapeWizard
+              rotulo="Publicar obra →"
+              onPress={handleCadastrar}
+              carregando={carregando}
+              desabilitado={midia.algumEnviando}
+              nota={carregando ? '📤 Enviando mídias, aguarde... Sua obra já está cadastrada; o envio das mídias pode levar alguns minutos em conexões lentas.' : null}
+            />}
+      >
+        {passo === 1 && (
+          <View onLayout={registrarY('categoria')}>
+            {erros.categoria && <Text style={estilos.erroTexto}>{erros.categoria}</Text>}
+            <GradeTiposObra tipos={tipos} tileOutros={TILE_OUTROS_OBRA} selecionado={categoria} onEscolher={(slug) => { setCategoria(slug); setErros(e => ({ ...e, categoria: undefined })) }} />
           </View>
-          <Input label="TÍTULO DA OBRA" placeholder="Ex: Pintura interna residência 3 quartos" value={titulo} onChangeText={setTitulo} erro={erros.titulo} estiloInput={estilos.tituloBordaAzul} />
-          <Text style={estilos.labelCategoria}>CATEGORIA</Text>
-          <View style={estilos.categoriasRow}>
-            {emLinhasDeTres(CATEGORIAS).map((linha, i) => (
-              <View key={i} style={estilos.pillLinha}>
-                {linha.map(c => (
-                  <TouchableOpacity key={c.id} style={[estilos.categoriaPill, categoria === c.id && estilos.categoriaPillAtivo]} onPress={() => setCategoria(c.id)}>
-                    <Text style={[estilos.categoriaPillTexto, categoria === c.id && estilos.categoriaPillTextoAtivo]}>{c.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
-          </View>
-          <Text style={estilos.labelCategoria}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
-          {erros.prazo && <Text style={estilos.erroTexto}>{erros.prazo}</Text>}
-          <View style={estilos.urgenciasGrid}>
-            {emLinhasDeTres(PRAZOS).map((linha, i) => (
-              <View key={i} style={estilos.pillLinha}>
-                {linha.map(p => (
-                  <TouchableOpacity key={p.id} style={[estilos.urgenciaCard, prazo === p.id && estilos.urgenciaCardAtivo]} onPress={() => setPrazo(p.id)}>
-                    <Text style={estilos.urgenciaLabel}>{p.label}</Text>
-                    <Text style={estilos.urgenciaDesc}>{p.desc}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ))}
-          </View>
-          {prazo === 'data' && (
-            <Input
-              label="DATA INICIAL DA OBRA"
-              placeholder="dd/mm/aaaa"
-              value={dataInicial}
-              onChangeText={(t) => setDataInicial(mascararData(t))}
-              keyboardType="numeric"
-              maxLength={10}
-              erro={erros.dataInicial}
-            />
-          )}
-          <Input label="DESCRIÇÃO DA OBRA" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={setDescricao} erro={erros.descricao} multiline numberOfLines={4} avisoContato />
-          <Input label="VALOR OFERECIDO PARA A OBRA (R$)" placeholder="Ex: 2.500,00" value={valorEstimado} onChangeText={(t) => setValorEstimado(mascararValor(t))} keyboardType="numeric" erro={erros.valorEstimado} />
-          <Text style={estilos.labelCategoria}>📍 LOCALIZAÇÃO DA OBRA</Text>
-          <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
-          <View style={estilos.cepRow}>
-            <Input label="CEP DO LOCAL DA OBRA" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
-            {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
-            {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
-          </View>
-          {/* Sempre visível: não depende de enderecoEncontrado, porque é justamente em
-              endereço difícil (CEP geral, sem logradouro) que a referência mais ajuda. */}
-          <Input
-            label="PONTO DE REFERÊNCIA (opcional)"
-            placeholder="Ex: portão azul, em frente à padaria"
-            value={pontoReferencia}
-            onChangeText={setPontoReferencia}
+        )}
+        {passo === 2 && (
+          <PassoDetalhes
+            titulo={titulo} onTitulo={setTitulo}
+            descricao={descricao} onDescricao={setDescricao}
+            erros={erros} registrarY={registrarY}
+            rotuloTitulo="TÍTULO DA OBRA" placeholderTitulo="Ex: Pintura interna residência 3 quartos" rotuloDescricao="DESCRIÇÃO DA OBRA"
+            midia={{
+              itens: midia.itens, onRemover: midia.remover, onReenviar: midia.reenviar,
+              onGravarVideo: () => setPickerMidia('video'),
+              onTirarFotos: () => setPickerMidia('foto'),
+              onGaleria: () => abrirMidia(usarGaleria),
+            }}
           />
-          {enderecoEncontrado && (
-            <>
-              {/* Editável: em cidade pequena de "CEP geral" o ViaCEP não devolve logradouro,
-                  e travar o campo deixava o usuário sem nenhuma forma de informar a rua. */}
-              <Input label="LOGRADOURO (rua/avenida)" placeholder="Preenchido pelo CEP — ou digite a rua" value={logradouro} onChangeText={setLogradouro} erro={erros.logradouro} />
-              <View style={estilos.duasColunas}>
-                <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" erro={erros.numero} estilo={{ flex: 1 }} />
-                <Input label="COMPLEMENTO" placeholder="Ap, sala..." value={complemento} onChangeText={setComplemento} estilo={{ flex: 1 }} />
-              </View>
-              <Input label="BAIRRO" value={bairro} onChangeText={setBairro} />
-              {/* Antes dependia de `latitude`, preenchida na busca do CEP. O geocode passou
-                  para o envio, então o gatilho aqui é ter a rua — que é o que de fato
-                  permite localizar a obra. */}
-              {logradouro.trim() !== '' && (
-                <View style={estilos.geoConfirm}>
-                  <Text style={estilos.geoConfirmTexto}>📍 Endereço completo — profissionais próximos serão notificados!</Text>
-                </View>
-              )}
-            </>
-          )}
-          <SeletorLocalidade
-            uf={uf}
-            cidade={cidade}
-            onChange={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
-            erroEstado={erros.uf}
-            erroCidade={erros.cidade}
+        )}
+        {passo === 3 && (
+          <PassoPrazoValorObra
+            prazos={PRAZOS} prazo={prazo} onPrazo={setPrazo}
+            dataInicial={dataInicial} onDataInicial={(t) => setDataInicial(mascararData(t))}
+            valor={valorEstimado} onValor={(t) => setValorEstimado(mascararValor(t))}
+            erros={erros} registrarY={registrarY}
           />
-          <PainelMidiaDemanda
-            itens={midia.itens}
-            onAbrirPicker={selecionarMidia}
-            onRemover={midia.remover}
-            onReenviar={midia.reenviar}
+        )}
+        {passo === 4 && (
+          <PassoEndereco
+            rotuloLocal="📍 LOCALIZAÇÃO DA OBRA" rotuloCep="CEP DO LOCAL DA OBRA"
+            cep={cep} onCep={buscarCep} buscandoCep={buscandoCep} enderecoEncontrado={enderecoEncontrado}
+            pontoReferencia={pontoReferencia} onPontoReferencia={setPontoReferencia}
+            logradouro={logradouro} onLogradouro={setLogradouro}
+            numero={numero} onNumero={setNumero}
+            complemento={complemento} onComplemento={setComplemento}
+            bairro={bairro} onBairro={setBairro}
+            uf={uf} cidade={cidade} onLocalidade={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erros={erros} registrarY={registrarY}
+            rodapeTexto={<CaixaAvisosObra />}
           />
-          <Text style={[estilos.avisoUpload, { fontSize: 15, fontWeight: '700', lineHeight: 22 }]}>Confira os dados antes de publicar!</Text>
-          <Text style={estilos.avisoUpload}>⏳ A publicação pode demorar até 1 minuto. Não saia da tela até ser notificado!</Text>
-          {/* Acima do botão, e não abaixo: embaixo o aviso ficava fora da dobra, em 11px
-              apagados, e era lido depois de publicar — quando já não informa decisão nenhuma. */}
-          <Text style={estilos.avisoUpload}>Sua obra passará por uma breve aprovação antes de ser publicada. Após aprovação, profissionais qualificados da sua região serão notificados.</Text>
-          <BotaoPrimario titulo="Publicar obra →" onPress={handleCadastrar} carregando={carregando} desabilitado={midia.algumEnviando} estilo={{ marginTop: 8 }} />
-          {carregando && <Text style={estilos.avisoUpload}>📤 Enviando mídias, aguarde... Sua obra já está cadastrada; o envio das mídias pode levar alguns minutos em conexões lentas.</Text>}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        )}
+      </MolduraWizard>
 
-      <Modal visible={showMediaPicker} transparent animationType="slide" onRequestClose={() => setShowMediaPicker(false)}>
-        <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setShowMediaPicker(false)}>
+      {/* Picker de mídia: as opções de sempre, filtradas pelo botão que abriu ('video' =
+          câmera-vídeo ou galeria; 'foto' = câmera-foto ou galeria; 'todas' = as três). */}
+      <Modal visible={pickerMidia != null} transparent animationType="slide" onRequestClose={() => setPickerMidia(null)}>
+        <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
           <View style={estilos.modalSheet}>
-            <Text style={estilos.modalTitulo}>Adicionar mídia</Text>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarCameraFoto(), 500) }}>
-              <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarCameraVideo(), 500) }}>
-              <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={estilos.modalOpcao} onPress={() => { Keyboard.dismiss(); setShowMediaPicker(false); setTimeout(() => usarGaleria(), 500) }}>
+            <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+            {pickerMidia !== 'video' && (
+              <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>
+                <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
+              </TouchableOpacity>
+            )}
+            {pickerMidia !== 'foto' && (
+              <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraVideo)}>
+                <Text style={estilos.modalOpcaoTexto}>🎬 Câmera — Vídeo</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarGaleria)}>
               <Text style={estilos.modalOpcaoTexto}>🖼️ Galeria</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setShowMediaPicker(false)}>
+            <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setPickerMidia(null)}>
               <Text style={[estilos.modalOpcaoTexto, { color: cores.textoFraco }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
@@ -618,38 +676,7 @@ export default function CadastrarObraScreen({ navigation, route }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40 + alturas.barraServico, paddingTop: 16 },
-  btnVoltar: { marginTop: 60, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  titulo: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 36, marginBottom: 6 },
-  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16, lineHeight: 20 },
-  avisoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#1a2a1a', borderWidth: 1.5, borderColor: cores.sucesso, borderRadius: raios.grande, padding: 16, marginBottom: 20 },
-  avisoIcone: { fontSize: 32 },
-  avisoTitulo: { fontSize: 13, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5, marginBottom: 4 },
-  avisoTexto: { fontSize: 12, color: '#a0c8a0', lineHeight: 18 },
-  // Borda azul SÓ no título (destaca o campo). Aplicada via estiloInput no box do
-  // TextInput — o estilo compartilhado (components: estilos.input) não é alterado.
-  tituloBordaAzul: { borderColor: cores.info, borderWidth: 1.5 },
-  labelCategoria: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
-  categoriasRow: { gap: 8, marginBottom: 16 },
-  pillLinha: { flexDirection: 'row', gap: 8 },
-  categoriaPill: { flex: 1, alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
-  categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
-  categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
-  categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
-  urgenciasGrid: { gap: 8, marginBottom: 16 },
-  urgenciaCard: { flex: 1, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
-  urgenciaCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
-  urgenciaLabel: { fontSize: 12, fontWeight: '600', color: cores.textoForte, marginBottom: 2, textAlign: 'center' },
-  urgenciaDesc: { fontSize: 11, color: cores.textoFraco, textAlign: 'center' },
-  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
-  dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: -2 },
-  duasColunas: { flexDirection: 'row', gap: 12 },
-  geoConfirm: { backgroundColor: '#1a2a1a', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, padding: 10, marginBottom: 16 },
-  geoConfirmTexto: { fontSize: 12, color: cores.sucesso, textAlign: 'center' },
-  aviso: { fontSize: 11, color: cores.textoMutado, textAlign: 'center', marginTop: 12, lineHeight: 18 },
-  avisoUpload: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginTop: 12, marginBottom: 4, fontWeight: '600', lineHeight: 18 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   modalSheet: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 },
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },

@@ -238,14 +238,15 @@ export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto 
 }
 
 // ─── Passo 2: título, descrição (com o aviso de contato), mídia ───────────────────────────
-export function PassoDetalhes({ titulo, descricao, onTitulo, onDescricao, erros, registrarY, midia }) {
+// rotuloTitulo/placeholderTitulo/rotuloDescricao: "do serviço" (padrão) ou "da obra".
+export function PassoDetalhes({ titulo, descricao, onTitulo, onDescricao, erros, registrarY, midia, rotuloTitulo = 'TÍTULO DO SERVIÇO', placeholderTitulo = 'Ex: Instalar 3 tomadas na sala', rotuloDescricao = 'DESCRIÇÃO DO SERVIÇO' }) {
   return (
     <>
       <View onLayout={registrarY?.('titulo')}>
-        <Input label="TÍTULO DO SERVIÇO" placeholder="Ex: Instalar 3 tomadas na sala" value={titulo} onChangeText={onTitulo} erro={erros?.titulo} estiloInput={estilos.tituloBordaAzul} />
+        <Input label={rotuloTitulo} placeholder={placeholderTitulo} value={titulo} onChangeText={onTitulo} erro={erros?.titulo} estiloInput={estilos.tituloBordaAzul} />
       </View>
       <View onLayout={registrarY?.('descricao')}>
-        <Input label="DESCRIÇÃO DO SERVIÇO" placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={onDescricao} erro={erros?.descricao} multiline numberOfLines={4} avisoContato />
+        <Input label={rotuloDescricao} placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={onDescricao} erro={erros?.descricao} multiline numberOfLines={4} avisoContato />
       </View>
       <PainelMidiaDemanda itens={midia.itens} onRemover={midia.onRemover} onReenviar={midia.onReenviar} acoes={{ onGravarVideo: midia.onGravarVideo, onTirarFotos: midia.onTirarFotos, onGaleria: midia.onGaleria }} />
     </>
@@ -290,13 +291,14 @@ export function PassoPrazoValor({ urgencia, onUrgencia, valor, onValor, erros, r
 }
 
 // ─── Passo 4: endereço (os mesmos campos e regras de sempre, CEP primeiro) ────────────────
-export function PassoEndereco({ cep, onCep, buscandoCep, enderecoEncontrado, pontoReferencia, onPontoReferencia, logradouro, onLogradouro, numero, onNumero, complemento, onComplemento, bairro, onBairro, uf, cidade, onLocalidade, erros, registrarY, rodapeTexto }) {
+// rotuloLocal/rotuloCep: "do serviço" (padrão) ou "da obra".
+export function PassoEndereco({ cep, onCep, buscandoCep, enderecoEncontrado, pontoReferencia, onPontoReferencia, logradouro, onLogradouro, numero, onNumero, complemento, onComplemento, bairro, onBairro, uf, cidade, onLocalidade, erros, registrarY, rodapeTexto, rotuloLocal = '📍 LOCALIZAÇÃO DO SERVIÇO', rotuloCep = 'CEP DO LOCAL DO SERVIÇO' }) {
   return (
     <>
-      <Text style={estilos.label}>📍 LOCALIZAÇÃO DO SERVIÇO</Text>
+      <Text style={estilos.label}>{rotuloLocal}</Text>
       <Text style={estilos.dicaCep}>Comece pelo CEP — estado e cidade são preenchidos automaticamente</Text>
       <View style={estilos.cepRow} onLayout={registrarY?.('cep')}>
-        <Input label="CEP DO LOCAL DO SERVIÇO" placeholder="00000-000" value={cep} onChangeText={onCep} keyboardType="numeric" maxLength={8} erro={erros?.cep} estilo={{ flex: 1 }} />
+        <Input label={rotuloCep} placeholder="00000-000" value={cep} onChangeText={onCep} keyboardType="numeric" maxLength={8} erro={erros?.cep} estilo={{ flex: 1 }} />
         {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
         {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
       </View>
@@ -346,6 +348,114 @@ export const PASSO_DO_CAMPO = {
 
 export { SLUG_OUTROS }
 
+// ─── OBRA (Arte-Cadastrar-Obra): a mesma moldura, com as peças que só a obra tem ──────────
+export const TITULOS_PASSO_OBRA = {
+  1: { titulo: 'Que tipo de obra?',   subtitulo: 'Escolha um tipo. Ele diz aos profissionais certos que a obra existe.' },
+  2: { titulo: 'Conte sobre a obra',  subtitulo: 'Um título curto, a descrição e, se ajudar, um vídeo ou fotos.' },
+  3: { titulo: 'Quando começa?',      subtitulo: 'O prazo para o início e quanto você quer pagar.' },
+  4: { titulo: 'Onde é a obra?',      subtitulo: 'O endereço da obra. Comece pelo CEP.' },
+}
+
+export const PASSO_DO_CAMPO_OBRA = {
+  categoria: 1,
+  titulo: 2, descricao: 2,
+  prazo: 3, dataInicial: 3, valorEstimado: 3,
+  cep: 4, logradouro: 4, numero: 4, uf: 4, cidade: 4,
+}
+
+// Grade 2 colunas de escolha ÚNICA (tipos de obra), cada tile com emoji, nome e a linha de
+// exemplos; o tile largo do fim é "Outro tipo de obra". tipos: tiposObraComExemplos().
+export function GradeTiposObra({ tipos, tileOutros, selecionado, onEscolher }) {
+  return (
+    <View style={estilos.grade} accessibilityRole="radiogroup">
+      {tipos.map((t) => {
+        const ativo = selecionado === t.slug
+        return (
+          <TouchableOpacity
+            key={t.slug}
+            style={[estilos.tile, estilos.tileObra, ativo && estilos.tileAtivo]}
+            onPress={() => onEscolher(t.slug)}
+            activeOpacity={0.8}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: ativo }}
+            accessibilityLabel={t.rotulo}
+          >
+            {ativo ? <View style={estilos.tileCheck}><Text style={estilos.caixaCheck}>✓</Text></View> : null}
+            <Text style={estilos.tileEmoji}>{t.emoji}</Text>
+            <Text style={[estilos.tileTitulo, ativo && { color: cores.primaria }]} numberOfLines={1}>{t.rotulo}</Text>
+            {t.exemplos ? <Text style={estilos.tileExemplos} numberOfLines={2}>{t.exemplos}</Text> : null}
+          </TouchableOpacity>
+        )
+      })}
+      <TouchableOpacity
+        style={[estilos.tileLargo, selecionado === tileOutros.id && estilos.tileAtivo]}
+        onPress={() => onEscolher(tileOutros.id)}
+        activeOpacity={0.8}
+        accessibilityRole="radio"
+        accessibilityState={{ selected: selecionado === tileOutros.id }}
+      >
+        <Text style={estilos.tileEmoji}>{tileOutros.emoji}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[estilos.tileTitulo, { textAlign: 'left' }, selecionado === tileOutros.id && { color: cores.primaria }]}>{tileOutros.titulo}</Text>
+          <Text style={estilos.tileDesc}>{tileOutros.desc}</Text>
+        </View>
+        <Caixa marcada={selecionado === tileOutros.id} />
+      </TouchableOpacity>
+    </View>
+  )
+}
+
+// Passo 3 da obra: os 6 prazos de sempre (3 por linha, "Defina a data" abre o campo de data
+// dd/mm/aaaa) + o valor em destaque com a mesma nota do serviço.
+export function PassoPrazoValorObra({ prazos, prazo, onPrazo, dataInicial, onDataInicial, valor, onValor, erros, registrarY }) {
+  const linhas = []
+  for (let i = 0; i < prazos.length; i += 3) linhas.push(prazos.slice(i, i + 3))
+  return (
+    <>
+      <View onLayout={registrarY?.('prazo')}>
+        <Text style={estilos.label}>⏰ PRAZO PARA INICIAR O SERVIÇO</Text>
+        {erros?.prazo ? <Text style={estilos.erroTexto}>{erros.prazo}</Text> : null}
+        <View style={estilos.prazosGrid}>
+          {linhas.map((linha, i) => (
+            <View key={i} style={estilos.prazoLinha}>
+              {linha.map((p) => (
+                <TouchableOpacity key={p.id} style={[estilos.prazoCard, prazo === p.id && estilos.urgenciaCardAtivo]} onPress={() => onPrazo(p.id)} accessibilityRole="radio" accessibilityState={{ selected: prazo === p.id }}>
+                  <Text style={estilos.urgenciaLabel}>{p.label}</Text>
+                  <Text style={estilos.urgenciaDesc}>{p.desc}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))}
+        </View>
+        {prazo === 'data' && (
+          <View onLayout={registrarY?.('dataInicial')}>
+            <Input label="DATA INICIAL DA OBRA" placeholder="dd/mm/aaaa" value={dataInicial} onChangeText={onDataInicial} keyboardType="numeric" maxLength={10} erro={erros?.dataInicial} />
+          </View>
+        )}
+      </View>
+      <View onLayout={registrarY?.('valorEstimado')}>
+        <Text style={estilos.secaoTitulo}>Quanto quer pagar?</Text>
+        <View style={[estilos.valorCaixa, erros?.valorEstimado && { borderColor: cores.perigo }]}>
+          <Text style={estilos.valorPrefixo}>R$</Text>
+          <Input placeholder="0,00" value={valor} onChangeText={onValor} keyboardType="numeric" estilo={estilos.valorInputWrap} estiloInput={estilos.valorInput} accessibilityLabel="Valor oferecido para a obra, em reais" />
+        </View>
+        {erros?.valorEstimado ? <Text style={estilos.erroTexto}>{erros.valorEstimado}</Text> : null}
+        <Text style={estilos.valorNota}>Os profissionais podem aceitar o seu valor ou sugerir outro. Você escolhe.</Text>
+      </View>
+    </>
+  )
+}
+
+// Uma caixa calma, acima do "Publicar obra", no lugar dos três avisos laranja.
+export const CaixaAvisosObra = () => (
+  <View style={estilos.caixaCalma}>
+    <Text style={estilos.caixaCalmaTitulo}>Antes de publicar</Text>
+    <Text style={estilos.caixaCalmaTexto}>• Confira os dados.</Text>
+    <Text style={estilos.caixaCalmaTexto}>• Sua obra passa por uma breve aprovação. Depois, os profissionais qualificados da sua região são avisados.</Text>
+    <Text style={estilos.caixaCalmaTexto}>• Publicar leva até 1 minuto. Fique nesta tela até o aviso.</Text>
+  </View>
+)
+
 const estilos = StyleSheet.create({
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 24, paddingTop: 12 },
   // Cabeçalho: ← e o título da tela lado a lado (28, peso 900, laranja da arte), depois
@@ -377,6 +487,16 @@ const estilos = StyleSheet.create({
   tileBadge: { position: 'absolute', top: 8, right: 8, minWidth: 22, height: 22, borderRadius: 11, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   tileBadgeTexto: { fontSize: 12, fontWeight: '800', color: '#0A0A0A' },
   tileLargo: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, padding: 14 },
+  // Tiles da obra: mais altos (têm a linha de exemplos) e com o ✓ no canto quando escolhidos.
+  tileObra: { minHeight: 128, gap: 4 },
+  tileExemplos: { fontSize: 11, color: cores.textoMedio, textAlign: 'center', lineHeight: 15 },
+  tileCheck: { position: 'absolute', top: 8, right: 8, width: 22, height: 22, borderRadius: 11, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center' },
+  prazosGrid: { gap: 8, marginBottom: 12 },
+  prazoLinha: { flexDirection: 'row', gap: 8 },
+  prazoCard: { flex: 1, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12 },
+  caixaCalma: { backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginTop: 8, marginBottom: 8 },
+  caixaCalmaTitulo: { fontSize: 13, fontWeight: '700', color: cores.textoForte, marginBottom: 6 },
+  caixaCalmaTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 18 },
   chipsBloco: { marginBottom: 16 },
   chipsCabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   contador: { fontSize: 11, color: cores.textoMedio, fontWeight: '600', marginBottom: 8, fontVariant: ['tabular-nums'] },
