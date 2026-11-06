@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario } from '../../components'
@@ -6,19 +6,40 @@ import {
   especialidadesPorLado, MAX_ESPECIALIDADES,
   normalizarEspecialidades, rotuloComEmoji,
 } from '../../utils/categorias'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
+import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, FolhaGrupo } from '../DonoObra/CadastrarServicoPassos'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 // Seleção das especialidades do prestador — de 1 a MAX_ESPECIALIDADES categorias da
-// lista fechada de CATEGORIAS_SERVICO. Substitui o campo de texto livre do cadastro,
-// onde "Hidráulica", "hidraulica" e "hidráulica " viravam três valores no banco.
+// lista fechada do lado dele. Substitui o campo de texto livre do cadastro, onde
+// "Hidráulica", "hidraulica" e "hidráulica " viravam três valores no banco.
 //
 // MÍNIMO 1 e teto de 5 existem pelo mesmo motivo: quem não escolhe nada não aparece em
-// busca nenhuma, e quem marca as 21 não está dizendo nada sobre si.
+// busca nenhuma, e quem marca todas não está dizendo nada sobre si.
 //
 // Devolve o resultado por navigation.navigate(origem, { especialidades }), NÃO por
 // callback em params: função em rota não sobrevive ao Android reciclar o processo, e o
 // estado de navegação restaurado traria um callback morto. Com params serializáveis a
 // seleção atravessa o background/restore intacta.
+//
+// Lado REPARO (Arte-Especialidades-Reparador): as mesmas peças do wizard de serviço —
+// título laranja, grade de grupos com "N marcadas"/"Toque para ver", folha com exemplos e
+// caixas grandes, tile largo "Outros serviços", chips "Você faz (N de 5)". Lado PINTURA
+// (obra): as pills de sempre, intocadas.
+
+export const TILE_OUTROS_ESPECIALIDADES = { id: SLUG_OUTROS, titulo: 'Outros serviços', emoji: '➕', desc: 'Aceito pedidos de qualquer área' }
+export const AVISO_TETO = `Você já marcou ${MAX_ESPECIALIDADES}, o máximo. Para trocar, desmarque uma.`
+export const AVISO_MINIMO = 'Você precisa ter pelo menos 1 especialidade.'
+
+// Títulos por origem: o cadastro pergunta no futuro ("sabe fazer"), o Perfil no presente.
+export const titulosEspecialidades = (origem) => (origem === 'Cadastro'
+  ? { tituloTela: 'Suas especialidades', titulo: 'O que você sabe fazer?', subtitulo: `Escolha de 1 a ${MAX_ESPECIALIDADES} — são elas que dizem em que você aparece nas buscas.` }
+  : { tituloTela: 'Minhas especialidades', titulo: 'O que você faz', subtitulo: `Escolha de 1 a ${MAX_ESPECIALIDADES} — são elas que dizem em que você aparece nas buscas.` })
+
+// Aviso da folha e dos chips: teto atingido, ou nenhuma marcada. null quando está tudo bem.
+export const avisoEspecialidades = (selecionadas) =>
+  selecionadas.length >= MAX_ESPECIALIDADES ? AVISO_TETO : selecionadas.length === 0 ? AVISO_MINIMO : null
+
 export default function EspecialidadesScreen({ navigation, route }) {
   // A seleção inicial é FILTRADA na entrada: valor legado de texto livre ("Faz tudo")
   // não vira pill, não entra na contagem e não ocupa vaga do teto. Ver
@@ -32,7 +53,9 @@ export default function EspecialidadesScreen({ navigation, route }) {
   // chamadores já sabem o lado (Cadastro pelo tipoConta, Perfil pelo tipo_prestador);
   // além disso, no cadastro o usuário nem está logado, então AuthContext não teria o dado.
   // Ausente cai na lista doméstica, o mesmo fallback da API.
-  const lista = especialidadesPorLado(route.params?.lado)
+  const lado = route.params?.lado
+  const lista = especialidadesPorLado(lado)
+  const ehReparo = lado !== 'pintura'
 
   const cheio = selecionadas.length >= MAX_ESPECIALIDADES
 
@@ -57,6 +80,60 @@ export default function EspecialidadesScreen({ navigation, route }) {
     else navigation.goBack()
   }
 
+  // ─── Lado reparo: grade de grupos + folha ─────────────────────────────────────────────
+  const grupos = useMemo(() => gruposComCategorias(), [])
+  // Voltar do Android com a folha aberta fecha a folha (o Modal cuida); sem folha, sai SEM
+  // devolver params, como o ← — o chamador mantém o que tinha.
+  const [grupoAberto, setGrupoAberto] = useState(null)
+
+  if (ehReparo) {
+    const t = titulosEspecialidades(origem)
+    const aviso = avisoEspecialidades(selecionadas)
+    return (
+      <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+        <MolduraWizard
+          passo={1}
+          progresso={false}
+          tituloTela={t.tituloTela}
+          titulos={{ 1: { titulo: t.titulo, subtitulo: t.subtitulo } }}
+          mostrarVoltar
+          onVoltar={() => navigation.goBack()}
+          rodape={<RodapeWizard rotulo="Confirmar →" onPress={confirmar} desabilitado={!selecionadas.length} nota={!selecionadas.length ? AVISO_MINIMO : null} />}
+        >
+          <GradeGrupos
+            grupos={grupos}
+            contagem={contagemPorGrupo(selecionadas)}
+            outrosMarcado={selecionadas.includes(SLUG_OUTROS)}
+            bloqueado={cheio}
+            legendas
+            tileOutros={TILE_OUTROS_ESPECIALIDADES}
+            onAbrir={setGrupoAberto}
+            onOutros={() => alternar(SLUG_OUTROS)}
+          />
+          <ChipsEscolhidos
+            categorias={selecionadas}
+            onRemover={alternar}
+            rotulo="VOCÊ FAZ"
+            limite={MAX_ESPECIALIDADES}
+            textoLimite={AVISO_TETO}
+            vazio="Toque num grupo acima e marque o que você faz."
+          />
+        </MolduraWizard>
+        <FolhaGrupo
+          visivel={grupoAberto != null}
+          grupo={grupoAberto}
+          selecionadas={selecionadas}
+          onAlternar={alternar}
+          onPronto={() => setGrupoAberto(null)}
+          limite={MAX_ESPECIALIDADES}
+          subtitulo={`Marque o que você faz · até ${MAX_ESPECIALIDADES} no total`}
+          aviso={aviso}
+        />
+      </SafeAreaView>
+    )
+  }
+
+  // ─── Lado pintura (obra): as pills de sempre ──────────────────────────────────────────
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]}>
@@ -117,13 +194,8 @@ const estilos = StyleSheet.create({
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 24 },
   contador: { fontSize: 12, fontWeight: '600', color: cores.primaria, marginBottom: 12 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-  // As quatro categoriaPill* são cópia das de CadastrarReparoScreen.js:468-471 — mesmos
-  // valores, mesmos nomes, com UMA exceção: width 48% (duas colunas) em vez dos 31% (três)
-  // de lá. Com três colunas, num aparelho de 360dp a área de texto da pill fica em ~74dp e
-  // rótulos como "Manicure/pedicure" (~118dp) truncam; a 48% todos os 21 cabem inteiros.
-  // Não há StyleSheet compartilhado neste app (o estilo já vivia duplicado em
-  // CadastrarObra, CadastrarReparo, Cadastro e ModalDenuncia), então reaproveitar aqui é
-  // copiar; extrair as quatro para components/ é outra tarefa.
+  // As quatro categoriaPill* são cópia das de CadastrarReparoScreen (antes do wizard) —
+  // mesmos valores, mesmos nomes. Só o lado de obra (pintura) ainda as usa.
   categoriaPill: { width: '31%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
   categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   categoriaPillTexto: { fontSize: 12, color: cores.textoMedio, textAlign: 'center' },
