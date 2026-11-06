@@ -21,7 +21,8 @@ import { DicasTemaConteudo } from './DicasTemaScreen'
 import { CardPerguntasDono, CaixaPerguntaInteressado, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
-import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupoConteudo, PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, TOTAL_PASSOS } from '../DonoObra/CadastrarServicoPassos'
+import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupoConteudo, PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, TOTAL_PASSOS, GradeTiposObra, PassoPrazoValorObra, CaixaAvisosObra, TITULOS_PASSO_OBRA } from '../DonoObra/CadastrarServicoPassos'
+import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
@@ -454,6 +455,72 @@ function DemoWizard({ passoInicial, categoriasIniciais }) {
   )
 }
 
+// Arte-Cadastrar-Obra: o wizard "Cadastrar obra" na mesma moldura (título laranja, passo,
+// barra, rodapé fixo), com os tiles de tipo de obra (escolha única), os 6 prazos com "Defina
+// a data", o valor em destaque e a caixa calma antes de "Publicar obra".
+const TIPOS_OBRA_DEMO = tiposObraComExemplos()
+const PRAZOS_OBRA_DEMO = [
+  { id: 24, label: '📅 Hoje', desc: 'Início hoje' }, { id: 168, label: '📆 Esta semana', desc: 'Início esta semana' }, { id: 720, label: '🗓️ Este mês', desc: 'Início este mês' },
+  { id: 1440, label: '📋 Mês que vem', desc: 'Início mês que vem' }, { id: 2160, label: '⏳ Mais de 1 mês', desc: 'Sem urgência' }, { id: 'data', label: '📅 Defina a data', desc: 'Escolha uma data' },
+]
+const CASOS_WIZARD_OBRA = [
+  { lado: 'dono', fase: 'cadastrar_obra', rotulo: 'Cadastrar obra · passo 1 sem escolha (nenhum tile)', passo: 1 },
+  { lado: 'dono', fase: 'cadastrar_obra', rotulo: 'Cadastrar obra · passo 1 (Outro tipo de obra)', passo: 1, categoria: 'outros' },
+  { lado: 'dono', fase: 'cadastrar_obra', rotulo: 'Cadastrar obra · passo 2 (detalhes e mídia)', passo: 2 },
+  { lado: 'dono', fase: 'cadastrar_obra', rotulo: 'Cadastrar obra · passo 3 ("Defina a data" aberto)', passo: 3, prazo: 'data' },
+  { lado: 'dono', fase: 'cadastrar_obra', rotulo: 'Cadastrar obra · passo 4 (endereço + caixa calma)', passo: 4 },
+]
+// Sem tipo escolhido no passo 1 (como a tela de verdade); os passos seguintes já vêm com um.
+const propsWizardObra = (caso) => ({ passoInicial: caso.passo || 1, categoriaInicial: caso.categoria || (caso.passo >= 2 ? 'residencial' : null), prazoInicial: caso.prazo ?? (caso.passo >= 3 ? 168 : null) })
+
+function DemoWizardObra({ passoInicial, categoriaInicial, prazoInicial }) {
+  const [passo, setPasso] = useState(passoInicial)
+  const [categoria, setCategoria] = useState(categoriaInicial)
+  const [titulo, setTitulo] = useState(passoInicial >= 2 ? 'Pintura interna residência 3 quartos' : '')
+  const [descricao, setDescricao] = useState(passoInicial >= 2 ? 'Pintar paredes e teto de 3 quartos e sala, massa corrida onde precisar.' : '')
+  const [prazo, setPrazo] = useState(prazoInicial)
+  const [dataInicial, setDataInicial] = useState(prazoInicial === 'data' ? '20/12/2026' : '')
+  const [valor, setValor] = useState(passoInicial >= 3 ? '2.500,00' : '')
+  const [cep, setCep] = useState(passoInicial >= 4 ? '38400000' : '')
+  const [logradouro, setLogradouro] = useState(passoInicial >= 4 ? 'Rua das Flores' : '')
+  const [numero, setNumero] = useState(passoInicial >= 4 ? '123' : '')
+  const [complemento, setComplemento] = useState('')
+  const [bairro, setBairro] = useState(passoInicial >= 4 ? 'Centro' : '')
+  const [pontoReferencia, setPontoReferencia] = useState('')
+  const [uf, setUf] = useState(passoInicial >= 4 ? 'MG' : '')
+  const [cidade, setCidade] = useState(passoInicial >= 4 ? 'Uberlândia' : '')
+  const midia = { itens: [], onRemover: noop, onReenviar: noop, onGravarVideo: noop, onTirarFotos: noop, onGaleria: noop }
+  return (
+    <View style={{ flex: 1 }}>
+      <MolduraWizard
+        passo={passo}
+        tituloTela="Cadastrar obra"
+        titulos={TITULOS_PASSO_OBRA}
+        mostrarVoltar={passo > 1}
+        onVoltar={() => setPasso((p) => Math.max(1, p - 1))}
+        rodape={passo < TOTAL_PASSOS
+          ? <RodapeWizard rotulo="Continuar →" onPress={() => setPasso((p) => p + 1)} />
+          : <RodapeWizard rotulo="Publicar obra →" onPress={noop} />}
+      >
+        {passo === 1 && <GradeTiposObra tipos={TIPOS_OBRA_DEMO} tileOutros={TILE_OUTROS_OBRA} selecionado={categoria} onEscolher={setCategoria} />}
+        {passo === 2 && <PassoDetalhes titulo={titulo} onTitulo={setTitulo} descricao={descricao} onDescricao={setDescricao} erros={{}} midia={midia} rotuloTitulo="TÍTULO DA OBRA" placeholderTitulo="Ex: Pintura interna residência 3 quartos" rotuloDescricao="DESCRIÇÃO DA OBRA" />}
+        {passo === 3 && <PassoPrazoValorObra prazos={PRAZOS_OBRA_DEMO} prazo={prazo} onPrazo={setPrazo} dataInicial={dataInicial} onDataInicial={setDataInicial} valor={valor} onValor={setValor} erros={{}} />}
+        {passo === 4 && (
+          <PassoEndereco
+            rotuloLocal="📍 LOCALIZAÇÃO DA OBRA" rotuloCep="CEP DO LOCAL DA OBRA"
+            cep={cep} onCep={setCep} buscandoCep={false} enderecoEncontrado={cep.length === 8}
+            pontoReferencia={pontoReferencia} onPontoReferencia={setPontoReferencia}
+            logradouro={logradouro} onLogradouro={setLogradouro} numero={numero} onNumero={setNumero}
+            complemento={complemento} onComplemento={setComplemento} bairro={bairro} onBairro={setBairro}
+            uf={uf} cidade={cidade} onLocalidade={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
+            erros={{}} rodapeTexto={<CaixaAvisosObra />}
+          />
+        )}
+      </MolduraWizard>
+    </View>
+  )
+}
+
 function DemoFolhaGrupo({ grupoId, categoriasIniciais }) {
   const [categorias, setCategorias] = useState(categoriasIniciais)
   const grupo = GRUPOS_DEMO.find((g) => g.id === grupoId) || GRUPOS_DEMO[0]
@@ -503,6 +570,7 @@ const TODOS = [
   ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
   ...CASOS_DESFAZER.map((c) => ({ ...c, frente: null })),
   ...CASOS_WIZARD.map((c) => ({ ...c, frente: null })),
+  ...CASOS_WIZARD_OBRA.map((c) => ({ ...c, frente: null })),
 ]
 
 // Monta as props da TelaPosMatch para um caso — o mesmo mapeamento das telas de detalhe,
@@ -599,7 +667,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -630,9 +698,9 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const ehQuemPerguntou = caso.fase === 'quem_perguntou'
   const ehDesfazer = caso.fase === 'desfazer_sheet'
-  const ehWizard = caso.fase === 'cadastrar_servico' || caso.fase === 'cadastrar_grupo'
+  const ehWizard = caso.fase === 'cadastrar_servico' || caso.fase === 'cadastrar_grupo' || caso.fase === 'cadastrar_obra'
   const props = useMemo(() => (
-    ehWizard ? propsWizard(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+    caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
   ), [caso, ehWizard, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
   const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehWizard
     ? `${i + 1}/${total} · ${caso.rotulo}`
@@ -667,6 +735,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
               (os dois botões, o toque fora, o voltar do Android) vai para o próximo caso. */}
           {/* O wizard tem rolagem e grade próprias: sem o deslize da galeria (só ‹ ›). */}
           {caso.fase === 'cadastrar_servico' ? <DemoWizard key={i} {...props} />
+            : caso.fase === 'cadastrar_obra' ? <DemoWizardObra key={i} {...props} />
             : caso.fase === 'cadastrar_grupo' ? <DemoFolhaGrupo key={i} {...props} />
             : ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
             : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
