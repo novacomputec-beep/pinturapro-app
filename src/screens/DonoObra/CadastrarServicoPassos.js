@@ -208,7 +208,11 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto }
             >
               <Text style={estilos.linhaEmoji}>{c.emoji}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={[estilos.linhaNome, marcada && { color: cores.primaria }]}>{c.rotulo}</Text>
+                <View style={estilos.linhaNomeLinha}>
+                  <Text style={[estilos.linhaNome, marcada && { color: cores.primaria }]}>{c.rotulo}</Text>
+                  {/* Etiqueta verde das categorias recém-chegadas (NOVAS_SERVICO em utils/gruposServico). */}
+                  {c.nova ? <View style={estilos.tagNovo}><Text style={estilos.tagNovoTexto}>NOVO</Text></View> : null}
+                </View>
                 {c.exemplos ? <Text style={estilos.linhaExemplos} numberOfLines={2}>{c.exemplos}</Text> : null}
               </View>
               <Caixa marcada={marcada} />
@@ -519,7 +523,10 @@ const estilos = StyleSheet.create({
   linha: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, padding: 12, marginBottom: 8, minHeight: 64 },
   linhaMarcada: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
   linhaEmoji: { fontSize: 26, width: 34, textAlign: 'center' },
+  linhaNomeLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   linhaNome: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  tagNovo: { backgroundColor: cores.sucessoSuave, borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.pill, paddingHorizontal: 7, paddingVertical: 1 },
+  tagNovoTexto: { fontSize: 10, fontWeight: '800', color: cores.sucesso, letterSpacing: 0.5 },
   linhaExemplos: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginTop: 2 },
   caixa: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, borderColor: cores.bordaCampo, alignItems: 'center', justifyContent: 'center' },
   caixaMarcada: { backgroundColor: cores.primaria, borderColor: cores.primaria },
