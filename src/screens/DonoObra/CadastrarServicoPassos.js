@@ -41,7 +41,8 @@ const CATEGORIA_POR_SLUG = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
 // tituloTela: o título grande e laranja da tela ("Cadastrar serviço" / "Cadastrar obra"), ao
 // lado do ←; a pergunta do passo (titulos[passo]) vem menor, abaixo da barra de progresso.
 // titulos: mapa passo → { titulo, subtitulo } (TITULOS_PASSO por padrão; a obra passa o seu).
-export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulos = TITULOS_PASSO, onVoltar, mostrarVoltar, children, rodape, scrollRef, reservaInferior = 0, acimaDoTitulo }) {
+// progresso=false: sem "Passo N de 4" nem barra (telas de um passo só, como as especialidades).
+export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulos = TITULOS_PASSO, onVoltar, mostrarVoltar, children, rodape, scrollRef, reservaInferior = 0, acimaDoTitulo, progresso = true }) {
   const t = titulos[passo] || titulos[1]
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -54,8 +55,12 @@ export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulo
           ) : null}
           <Text style={estilos.tituloTela} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tituloTela}</Text>
         </View>
-        <Text style={estilos.passoDe}>Passo {passo} de {TOTAL_PASSOS}</Text>
-        <BarraProgresso passo={passo} />
+        {progresso ? (
+          <>
+            <Text style={estilos.passoDe}>Passo {passo} de {TOTAL_PASSOS}</Text>
+            <BarraProgresso passo={passo} />
+          </>
+        ) : null}
         {acimaDoTitulo}
         <Text style={estilos.titulo}>{t.titulo}</Text>
         <Text style={estilos.subtitulo}>{t.subtitulo}</Text>
@@ -87,7 +92,9 @@ export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota }
 // ─── Passo 1: grade de grupos + chips escolhidos + sugestões ──────────────────────────────
 // grupos: gruposComCategorias(). contagem: { idGrupo: n } das marcadas. bloqueado: no limite
 // (os tiles sem marcada apagam, o de um grupo com marcada segue abrindo para desmarcar).
-export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros }) {
+// tileOutros: { titulo, desc, emoji } do tile largo (TILE_OUTROS por padrão; as especialidades
+// passam "Outros serviços"). legendas: linha "N marcada(s)" / "Toque para ver" em cada tile.
+export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros, tileOutros = TILE_OUTROS, legendas = false }) {
   return (
     <View style={estilos.grade}>
       {grupos.map((g) => {
@@ -102,11 +109,12 @@ export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbri
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityState={{ selected: n > 0, disabled: apagado }}
-            accessibilityLabel={`${g.titulo}${n ? `, ${n} escolhida${n > 1 ? 's' : ''}` : ''}`}
+            accessibilityLabel={`${g.titulo}${n ? `, ${n} marcada${n > 1 ? 's' : ''}` : ''}`}
           >
             {n > 0 ? <View style={estilos.tileBadge}><Text style={estilos.tileBadgeTexto}>{n}</Text></View> : null}
             <Text style={estilos.tileEmoji}>{g.emoji}</Text>
             <Text style={[estilos.tileTitulo, n > 0 && { color: cores.primaria }]} numberOfLines={2}>{g.titulo}</Text>
+            {legendas ? <Text style={[estilos.tileLegenda, n > 0 && { color: cores.primaria }]}>{n > 0 ? `${n} marcada${n > 1 ? 's' : ''}` : 'Toque para ver'}</Text> : null}
           </TouchableOpacity>
         )
       })}
@@ -118,10 +126,10 @@ export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbri
         accessibilityRole="checkbox"
         accessibilityState={{ checked: !!outrosMarcado }}
       >
-        <Text style={estilos.tileEmoji}>{TILE_OUTROS.emoji}</Text>
+        <Text style={estilos.tileEmoji}>{tileOutros.emoji}</Text>
         <View style={{ flex: 1 }}>
-          <Text style={[estilos.tileTitulo, { textAlign: 'left' }, outrosMarcado && { color: cores.primaria }]}>{TILE_OUTROS.titulo}</Text>
-          <Text style={estilos.tileDesc}>{TILE_OUTROS.desc}</Text>
+          <Text style={[estilos.tileTitulo, { textAlign: 'left' }, outrosMarcado && { color: cores.primaria }]}>{tileOutros.titulo}</Text>
+          <Text style={estilos.tileDesc}>{tileOutros.desc}</Text>
         </View>
         <Caixa marcada={!!outrosMarcado} />
       </TouchableOpacity>
@@ -130,16 +138,18 @@ export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbri
 }
 
 // Chips das categorias escolhidas (com ✕), na ordem em que entraram, mais o contador.
-export function ChipsEscolhidos({ categorias, onRemover }) {
-  const noLimite = categorias.length >= MAX_CATEGORIAS_DEMANDA
+// rotulo/limite/textoLimite: "ESCOLHIDAS · N de 3" por padrão; as especialidades passam
+// "VOCÊ FAZ", 5 e o aviso próprio. vazio: texto quando não há nenhuma.
+export function ChipsEscolhidos({ categorias, onRemover, rotulo = 'ESCOLHIDAS', limite = MAX_CATEGORIAS_DEMANDA, textoLimite, vazio = 'Toque num grupo acima para escolher.' }) {
+  const noLimite = categorias.length >= limite
   return (
     <View style={estilos.chipsBloco}>
       <View style={estilos.chipsCabecalho}>
-        <Text style={estilos.label}>ESCOLHIDAS</Text>
-        <Text style={[estilos.contador, noLimite && { color: cores.primaria }]}>{categorias.length} de {MAX_CATEGORIAS_DEMANDA}</Text>
+        <Text style={estilos.label}>{rotulo}</Text>
+        <Text style={[estilos.contador, noLimite && { color: cores.primaria }]}>{categorias.length} de {limite}</Text>
       </View>
       {categorias.length === 0 ? (
-        <Text style={estilos.chipsVazio}>Toque num grupo acima para escolher.</Text>
+        <Text style={estilos.chipsVazio}>{vazio}</Text>
       ) : (
         <View style={estilos.chips}>
           {categorias.map((slug) => {
@@ -153,7 +163,7 @@ export function ChipsEscolhidos({ categorias, onRemover }) {
           })}
         </View>
       )}
-      {noLimite ? <Text style={estilos.limite}>Limite de {MAX_CATEGORIAS_DEMANDA} categorias atingido</Text> : null}
+      {noLimite ? <Text style={estilos.limite}>{textoLimite || `Limite de ${limite} categorias atingido`}</Text> : null}
     </View>
   )
 }
@@ -183,14 +193,17 @@ const Caixa = ({ marcada, apagada }) => (
 
 // Conteúdo da folha de um grupo: linhas grandes (emoji, nome, exemplos, caixa) e "Pronto".
 // `selecionadas` são TODAS as marcadas (o contador do botão é o total do pedido).
-export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto }) {
+// limite/subtitulo: 3 e "no pedido" por padrão; as especialidades passam 5 e o seu texto.
+// aviso: linha âmbar sob o subtítulo (teto atingido / mínimo de 1), decidida por quem usa.
+export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso }) {
   const total = selecionadas.length
-  const noLimite = total >= MAX_CATEGORIAS_DEMANDA
+  const noLimite = total >= limite
   return (
     <>
       <View style={estilos.alca} />
       <Text style={estilos.folhaTitulo}>{grupo.emoji} {grupo.titulo}</Text>
-      <Text style={estilos.folhaSub}>Marque o que precisa · até {MAX_CATEGORIAS_DEMANDA} no pedido</Text>
+      <Text style={estilos.folhaSub}>{subtitulo || `Marque o que precisa · até ${limite} no pedido`}</Text>
+      {aviso ? <Text style={estilos.folhaAviso}>{aviso}</Text> : null}
       <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
         {grupo.categorias.map((c) => {
           const marcada = selecionadas.includes(c.slug)
@@ -227,14 +240,14 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto }
 
 // A folha como Modal de verdade (a tela). O toque fora e o voltar do Android fecham como
 // o "Pronto": o que está marcado fica — não há escolha obrigatória aqui.
-export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto }) {
+export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto, limite, subtitulo, aviso }) {
   const insets = useSafeAreaInsets()
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onPronto}>
       <View style={estilos.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onPronto} accessibilityRole="button" accessibilityLabel="Fechar" />
         <View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }]}>
-          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} /> : null}
+          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} /> : null}
         </View>
       </View>
     </Modal>
@@ -488,6 +501,8 @@ const estilos = StyleSheet.create({
   tileEmoji: { fontSize: 32, lineHeight: 38 },
   tileTitulo: { fontSize: 14, fontWeight: '600', color: cores.textoForte, textAlign: 'center', lineHeight: 19 },
   tileDesc: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginTop: 2 },
+  tileLegenda: { fontSize: 11, color: cores.textoMedio, textAlign: 'center', marginTop: -2 },
+  folhaAviso: { fontSize: 12, color: '#FFC107', lineHeight: 17, marginTop: -6, marginBottom: 12, fontWeight: '600' },
   tileBadge: { position: 'absolute', top: 8, right: 8, minWidth: 22, height: 22, borderRadius: 11, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   tileBadgeTexto: { fontSize: 12, fontWeight: '800', color: '#0A0A0A' },
   tileLargo: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, padding: 14 },
