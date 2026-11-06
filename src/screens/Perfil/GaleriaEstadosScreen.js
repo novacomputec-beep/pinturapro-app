@@ -390,6 +390,7 @@ const CASOS_WIZARD = [
   { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 4 (endereço)', passo: 4, categorias: ['hidraulica'] },
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Casa e reparos" (2 marcadas)', grupo: 'casa', categorias: ['hidraulica', 'eletrica'] },
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Festas" no limite', grupo: 'festas', categorias: ['garcom', 'dj', 'hidraulica'] },
+  { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Arte e criação" (etiqueta NOVO)', grupo: 'arte', categorias: [] },
 ]
 const propsWizard = (caso) => ({ passoInicial: caso.passo || 1, categoriasIniciais: caso.categorias || [], grupoId: caso.grupo || null })
 

@@ -8,19 +8,27 @@ import { CATEGORIAS_SERVICO } from './categorias'
 // Categoria que exista em CATEGORIAS_SERVICO e NÃO esteja em nenhum grupo (uma futura, por
 // exemplo) cai em "Casa e reparos" — nada some da tela. 'outros' nunca entra em grupo: é o
 // tile largo "Não achei o meu serviço", que marca o slug direto.
+//
+// Dentro de cada folha as categorias saem em ordem ALFABÉTICA (regra fixa), seja qual for a
+// ordem em que os slugs estão listados abaixo; "Outros" é sempre o último da tela.
 
 export const GRUPO_FALLBACK = 'casa'
 export const SLUG_OUTROS = 'outros'
 
+// Categorias recém-chegadas: ganham a etiqueta verde "NOVO" na folha do grupo. Lista para
+// esvaziar quando deixarem de ser novidade.
+export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas']
+export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
+
 export const GRUPOS_SERVICO = [
-  { id: 'casa',       titulo: 'Casa e reparos',        emoji: '🏠', slugs: ['hidraulica', 'eletrica', 'climatizacao', 'alvenaria', 'montagem_moveis', 'faxina', 'chaveiro', 'marcenaria', 'serralheria', 'vidraceiro', 'estofamento', 'dedetizacao', 'jardineiro', 'eletronica'] },
+  { id: 'casa',       titulo: 'Casa e reparos',        emoji: '🏠', slugs: ['hidraulica', 'eletrica', 'climatizacao', 'alvenaria', 'montagem_moveis', 'faxina', 'chaveiro', 'marcenaria', 'serralheria', 'vidraceiro', 'estofamento', 'dedetizacao', 'jardineiro', 'eletronica', 'informatica', 'gesseiro'] },
   { id: 'festas',     titulo: 'Festas e eventos',      emoji: '🎉', slugs: ['garcom', 'churrasqueiro', 'cozinheiro', 'confeiteiro', 'salgadeiro', 'decoracao_festas', 'aluguel_festas', 'recreacao_infantil', 'filmagem_fotografia', 'musico', 'dj'] },
   { id: 'beleza',     titulo: 'Beleza e bem-estar',    emoji: '💇', slugs: ['cabelo', 'barbeiro', 'manicure', 'maquiagem', 'design_sobrancelhas', 'depilacao', 'massagem', 'podologo', 'personal_trainer', 'tatuagem'] },
   { id: 'cuidar',     titulo: 'Cuidar de alguém',      emoji: '🤝', slugs: ['baba', 'cuidador', 'pet'] },
   { id: 'transporte', titulo: 'Transporte e veículos', emoji: '🚗', slugs: ['motorista', 'motociclista', 'mudancas', 'lavajato', 'mecanica'] },
   { id: 'aulas',      titulo: 'Aulas e internet',      emoji: '💻', slugs: ['aula_particular', 'profissional_home_office', 'editor_video', 'social_midia', 'tradutor', 'panfletagem'] },
   { id: 'seguranca',  titulo: 'Segurança',             emoji: '🛡️', slugs: ['vigia', 'seguranca'] },
-  { id: 'costura',    titulo: 'Costura e artesanato',  emoji: '🧵', slugs: ['costura', 'artesanato'] },
+  { id: 'arte',       titulo: 'Arte e criação',        emoji: '🎨', slugs: ['artesanato', 'costura', 'placas_fachadas'] },
 ]
 
 // Linha curta de exemplos do dia a dia, por slug. Categoria sem linha mostra só o nome.
@@ -78,6 +86,9 @@ export const EXEMPLOS_SERVICO = {
   seguranca:                'Festa, loja, escolta',
   costura:                  'Barra, ajuste, conserto de roupa',
   artesanato:               'Lembrancinhas, crochê, peças sob medida',
+  informatica:              'Computador, notebook, impressora, formatação',
+  gesseiro:                 'Forro, sanca, drywall, moldura',
+  placas_fachadas:          'Letreiro, fachada de loja, adesivo, banner',
   outros:                   'Não achou? Descreva no próximo passo.',
 }
 
@@ -86,9 +97,11 @@ export const TILE_OUTROS = { id: SLUG_OUTROS, titulo: 'Não achei o meu serviço
 
 const porSlug = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
 
-// Os grupos com as categorias RESOLVIDAS ({ slug, rotulo, emoji, exemplos }), na ordem em
-// que cada grupo lista os slugs. Slug de grupo que não existe mais em CATEGORIAS_SERVICO é
-// ignorado; categoria sem grupo entra no fim de GRUPO_FALLBACK. 'outros' fica de fora.
+// Os grupos com as categorias RESOLVIDAS ({ slug, rotulo, emoji, exemplos, nova }), em ordem
+// ALFABÉTICA de rótulo dentro de cada grupo. Slug de grupo que não existe mais em
+// CATEGORIAS_SERVICO é ignorado; categoria sem grupo entra em GRUPO_FALLBACK (e é ordenada
+// junto). 'outros' fica de fora.
+const alfabetica = (a, b) => a.rotulo.localeCompare(b.rotulo, 'pt-BR')
 export const gruposComCategorias = () => {
   const usados = new Set()
   const grupos = GRUPOS_SERVICO.map((g) => ({
@@ -100,10 +113,11 @@ export const gruposComCategorias = () => {
     const alvo = grupos.find((g) => g.id === GRUPO_FALLBACK) || grupos[0]
     alvo.categorias.push(...semGrupo.map(comExemplos))
   }
+  for (const g of grupos) g.categorias.sort(alfabetica)
   return grupos
 }
 
-const comExemplos = (c) => ({ slug: c.slug, rotulo: c.rotulo, emoji: c.emoji, exemplos: EXEMPLOS_SERVICO[c.slug] || '' })
+const comExemplos = (c) => ({ slug: c.slug, rotulo: c.rotulo, emoji: c.emoji, exemplos: EXEMPLOS_SERVICO[c.slug] || '', nova: ehNovaServico(c.slug) })
 
 // Grupo (id) de um slug, com o mesmo fallback; 'outros' → null.
 export const grupoDoSlug = (slug) => {
