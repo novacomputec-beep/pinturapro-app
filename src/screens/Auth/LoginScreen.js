@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet,
   TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image
@@ -9,9 +9,11 @@ import { BotaoPrimario, BotaoSecundario, Input } from '../../components'
 import { useAuth, CHAVE_ULTIMO_EMAIL } from '../../contexts/AuthContext'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 import { lerUltimoTipo } from '../../utils/contas'
-import { useLoginSocial, useAssinaturaPosLogin, BotoesSociais, TelaPagamentoPendente } from './LoginSocial'
+import { useAssinaturaPosLogin, TelaPagamentoPendente } from './LoginSocial'
 import EntrarComoScreen from './EntrarComoScreen'
 
+// Login por e-mail e senha, como antes da 1.1.8. "Continuar com Google/Apple" vive só na
+// tela de boas-vindas (SplashScreen, via ./LoginSocial); daqui saiu.
 export default function LoginScreen({ navigation }) {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
@@ -22,21 +24,7 @@ export default function LoginScreen({ navigation }) {
   const [contas, setContas] = useState(null)               // 2+ contas no e-mail → tela "Entrar como:"
   const [ultimoTipo, setUltimoTipo] = useState(null)       // tag "ÚLTIMO USADO" do "Entrar como:"
   const [tipoCarregando, setTipoCarregando] = useState(null)
-  // Por onde o "Entrar como:" entrou ('senha' | 'google' | 'apple'): a escolha repete o
-  // login certo. O fluxo social inteiro (diálogo, POST /auth/social, cadastro via ticket)
-  // mora em ./LoginSocial, compartilhado com a SplashScreen.
-  const modoContasRef = useRef('senha')
   const { linkPagamento, setLinkPagamento, tratarAssinatura } = useAssinaturaPosLogin()
-  const social = useLoginSocial({
-    navigation,
-    ocupado: carregando || !!tipoCarregando,
-    onEscolher: ({ provedor, contas: lista, ultimoTipo: salvo }) => {
-      setUltimoTipo(salvo)
-      modoContasRef.current = provedor
-      setContas(lista)
-    },
-    onSessao: tratarAssinatura,
-  })
 
   // Semente do campo de e-mail: o do último login bem-sucedido. O SecureStore é assíncrono,
   // então não dá para ser o valor inicial do useState — o campo nasce vazio e recebe o valor
@@ -87,7 +75,6 @@ export default function LoginScreen({ navigation }) {
         // Último perfil usado neste aparelho (utils/contas): só vira tag — quando ele existe
         // o AuthContext já entrou direto; chega aqui se a repetição falhou ou o tipo sumiu.
         setUltimoTipo(await lerUltimoTipo(email.trim().toLowerCase()))
-        modoContasRef.current = 'senha'
         setContas(resposta.contas)
         return
       }
@@ -107,8 +94,8 @@ export default function LoginScreen({ navigation }) {
         contas={contas}
         tipoCarregando={tipoCarregando}
         ultimoTipo={ultimoTipo}
-        onEscolher={(tipo) => (modoContasRef.current === 'senha' ? handleLogin(tipo) : social.handleSocial(modoContasRef.current, tipo, setTipoCarregando))}
-        onVoltar={() => { social.limparCredencial(); setContas(null) }}
+        onEscolher={(tipo) => handleLogin(tipo)}
+        onVoltar={() => setContas(null)}
       />
     )
   }
@@ -136,17 +123,6 @@ export default function LoginScreen({ navigation }) {
 
           <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
           <Text style={estilos.subtitulo}>Acesse sua conta</Text>
-
-          {/* Google e Apple acima do formulário, com o divisor "ou entre com e-mail" abaixo. */}
-          <BotoesSociais
-            carregandoSocial={social.carregandoSocial}
-            temApple={social.temApple}
-            desabilitado={carregando}
-            onGoogle={() => social.handleSocial('google')}
-            onApple={() => social.handleSocial('apple')}
-            divisorDepois="ou entre com e-mail"
-            estilo={estilos.social}
-          />
 
           <View style={estilos.form}>
             <Input
@@ -239,9 +215,6 @@ const estilos = StyleSheet.create({
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 26 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
   form: {},
-  // Bloco social (./LoginSocial): o divisor de baixo já traz 20 de margem, então aqui só
-  // se desconta um pouco para o formulário não ficar longe.
-  social: { marginBottom: -4 },
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
   esqueciBtn: { alignSelf: 'flex-end', marginBottom: 20, marginTop: -4 },

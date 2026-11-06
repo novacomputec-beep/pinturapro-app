@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Linking, ScrollView, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as AppleAuthentication from 'expo-apple-authentication'
-import { AntDesign } from '@expo/vector-icons'
 import { BotaoPrimario } from '../../components'
+import LogoGoogle from '../../components/LogoGoogle'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { cores, raios, espacos, larguraMaxima } from '../../utils/tema'
@@ -104,34 +104,25 @@ export function useLoginSocial({ navigation, onEscolher, onSessao, ocupado = fal
   return { carregandoSocial, temApple, handleSocial, limparCredencial }
 }
 
-const Divisor = ({ texto }) => (
-  <View style={estilos.ouDivisor}>
-    <View style={estilos.ouLinha} />
-    <Text style={estilos.ouTexto}>{texto}</Text>
-    <View style={estilos.ouLinha} />
-  </View>
-)
-
-// Google (branco, em todas as plataformas) e Apple (botão oficial, só no iOS que tem o
-// recurso). O da Apple é preto como manda a arte; o aro de 1px é o que o separa do fundo
-// #0A0A0A. Enquanto um gira, o outro fica desligado. divisorAntes/divisorDepois: o texto da
-// linha "ou …" acima e/ou abaixo dos botões (a LoginScreen usa abaixo, a Splash acima).
-export function BotoesSociais({ carregandoSocial, temApple, desabilitado, onGoogle, onApple, divisorAntes, divisorDepois, estilo }) {
+// Google no estilo escuro oficial (fundo #131314, borda #8E918F, texto #E3E3E3, "G" em quatro
+// cores) e, só no iOS que tem o recurso, o botão oficial da Apple logo abaixo no mesmo escuro
+// (BLACK, com o mesmo aro #8E918F). Enquanto um gira, o outro fica desligado. altura: 48 por
+// padrão; a tela de boas-vindas compacta passa 44.
+export function BotoesSociais({ carregandoSocial, temApple, desabilitado, onGoogle, onApple, estilo, altura = 48 }) {
   const travado = !!carregandoSocial || !!desabilitado
   return (
     <View style={estilo}>
-      {divisorAntes ? <Divisor texto={divisorAntes} /> : null}
       <TouchableOpacity
-        style={[estilos.btnGoogle, carregandoSocial && carregandoSocial !== 'google' && { opacity: 0.6 }]}
+        style={[estilos.btnGoogle, { height: altura }, carregandoSocial && carregandoSocial !== 'google' && { opacity: 0.6 }]}
         onPress={onGoogle}
         disabled={travado}
         activeOpacity={0.85}
         accessibilityRole="button"
         accessibilityLabel="Continuar com Google"
       >
-        {carregandoSocial === 'google' ? <ActivityIndicator color="#1F1F1F" /> : (
+        {carregandoSocial === 'google' ? <ActivityIndicator color="#E3E3E3" /> : (
           <>
-            <AntDesign name="google" size={18} color="#1F1F1F" />
+            <LogoGoogle size={20} />
             <Text style={estilos.btnGoogleTexto}>Continuar com Google</Text>
           </>
         )}
@@ -141,13 +132,12 @@ export function BotoesSociais({ carregandoSocial, temApple, desabilitado, onGoog
           <AppleAuthentication.AppleAuthenticationButton
             buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
             buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={raios.medio}
-            style={estilos.btnApple}
+            cornerRadius={raios.grande}
+            style={[estilos.btnApple, { height: altura }]}
             onPress={onApple}
           />
         </View>
       ) : null}
-      {divisorDepois ? <Divisor texto={divisorDepois} /> : null}
     </View>
   )
 }
@@ -180,15 +170,14 @@ export function TelaPagamentoPendente({ link, onDepois }) {
 }
 
 const estilos = StyleSheet.create({
-  // Botões sociais: 48 de altura (o mesmo do BotaoPrimario) e 10 entre eles.
-  btnGoogle:       { height: 48, borderRadius: raios.medio, backgroundColor: '#FFFFFF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1, borderColor: '#DADCE0' },
-  btnGoogleTexto:  { fontSize: 15, fontWeight: '600', color: '#1F1F1F' },
-  appleWrap:       { marginTop: 10, borderRadius: raios.medio, borderWidth: 1, borderColor: cores.bordaCampo },
-  btnApple:        { height: 48, width: '100%' },
-  // Mesmo divisor "ou" da LoginScreen (margens 20/20, linha de 0.5, texto 11).
-  ouDivisor:       { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
-  ouLinha:         { flex: 1, height: 0.5, backgroundColor: cores.bordaFraca },
-  ouTexto:         { fontSize: 11, color: cores.textoMutado },
+  // Botões sociais no escuro oficial do Google (#131314 / #8E918F / #E3E3E3); a Apple abaixo
+  // com o mesmo aro, 8 entre eles.
+  // Raio raios.grande (16): o mesmo do BotaoPrimario, para os quatro botões empilhados da tela
+  // de boas-vindas terem o mesmo contorno.
+  btnGoogle:       { borderRadius: raios.grande, backgroundColor: '#131314', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderWidth: 1, borderColor: '#8E918F' },
+  btnGoogleTexto:  { fontSize: 15, fontWeight: '600', color: '#E3E3E3' },
+  appleWrap:       { marginTop: 8, borderRadius: raios.grande, borderWidth: 1, borderColor: '#8E918F', overflow: 'hidden' },
+  btnApple:        { width: '100%' },
   // Tela de pagamento pendente: o que a LoginScreen desenhava inline.
   pagContainer:    { flex: 1, backgroundColor: cores.fundo },
   pagScroll:       { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 40, alignItems: 'center', paddingTop: 60 },
