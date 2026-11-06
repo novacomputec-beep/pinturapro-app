@@ -13,6 +13,7 @@ import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
+import { aoPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 import { emojiObra, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao } from '../../utils/tempo'
@@ -179,6 +180,8 @@ const GPS_CACHE_TTL = 300000 // 5 minutos
 export default function FeedObrasScreen({ navigation }) {
   const { usuario } = useAuth()
   const [obras, setObras] = useState([])
+  // Obra recusada com 409 PEDIDO_INDISPONIVEL no detalhe (dono excluiu): o card sai na hora.
+  useEffect(() => aoPedidoIndisponivel(({ tipo, id }) => { if (tipo === 'obra') setObras(prev => prev.filter(o => o.id !== id)) }), [])
   const [carregando, setCarregando] = useState(true)
   const [atualizando, setAtualizando] = useState(false)
   const [categoria, setCategoria] = useState('todas')
