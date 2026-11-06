@@ -14,6 +14,7 @@ import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { textoFasePosMatch } from '../../components/Agendamento'
+import { SheetProfissionalDesistiu, primeiraDesistenciaNaoVista, gravarDesistenciaVista } from '../../components/ProfissionalDesistiu'
 
 const statusInfo = {
   pendente:  { cor: '#E8833A', label: '⏳ Aguardando aprovação' },
@@ -38,6 +39,10 @@ export default function MinhasObrasScreen({ navigation, route }) {
   const [secao, setSecao] = useState('ativos')
   const [erro, setErro] = useState(null)
   const [coords] = useCoordsUsuario()
+  // Arte-Profissional-Desistiu na home do dono: depois de cada carga das listas, a desistência
+  // mais recente ainda não vista (desistencia_recente nas linhas sem match, mesma chave local
+  // do detalhe) abre a MESMA folha do detalhe, uma vez. { frente, demanda, desistencia } | null.
+  const [desistenciaHome, setDesistenciaHome] = useState(null)
 
   // Núcleo da recarga: relê as duas listas e repõe o estado, PROPAGANDO a falha. É disso
   // que recarregarSeFalhaDeRede precisa para distinguir "recarreguei" de "nem isso
@@ -59,6 +64,26 @@ export default function MinhasObrasScreen({ navigation, route }) {
     setObrasHistorico((obrasResp.historico || []).filter(o => o.status !== 'encerrada'))
     setReparos(reparosResp.reparos || [])
     setReparosHistorico((reparosResp.historico || []).filter(r => r.status !== 'encerrada'))
+    // Só as ativas: no histórico (expirado) não há mais quem escolher.
+    primeiraDesistenciaNaoVista([
+      ...(reparosResp.reparos || []).map(d => ({ frente: 'reparo', demanda: d })),
+      ...(obrasResp.obras || []).map(d => ({ frente: 'obra', demanda: d })),
+    ]).then((achada) => { if (achada) setDesistenciaHome(achada) })
+  }
+
+  // Os dois botões (e o toque fora / voltar) marcam como vista; "Ver interessados" abre o
+  // detalhe já rolado até a lista (rolarAteInteressados é lido pelas telas de detalhe).
+  const fecharDesistenciaHome = () => {
+    if (!desistenciaHome) return
+    gravarDesistenciaVista(desistenciaHome.frente, desistenciaHome.demanda.id, desistenciaHome.desistencia.id)
+    setDesistenciaHome(null)
+  }
+  const verInteressadosDesistencia = () => {
+    if (!desistenciaHome) return
+    const { frente, demanda } = desistenciaHome
+    fecharDesistenciaHome()
+    if (frente === 'obra') navigation.navigate('DetalheObra', { obra: demanda, rolarAteInteressados: true })
+    else navigation.navigate('DetalheReparo', { reparo: demanda, rolarAteInteressados: true })
   }
 
   // Recarga SILENCIOSA: a do foco e a do pull-to-refresh. Engole a falha de propósito, e
@@ -243,6 +268,16 @@ export default function MinhasObrasScreen({ navigation, route }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+      {/* Arte-Profissional-Desistiu: a mesma folha do detalhe, na home do dono. */}
+      <SheetProfissionalDesistiu
+        visivel={!!desistenciaHome}
+        desistencia={desistenciaHome?.desistencia}
+        titulo={desistenciaHome?.demanda?.titulo}
+        frente={desistenciaHome?.frente === 'obra' ? 'obra' : 'servico'}
+        interessadosAtivos={desistenciaHome?.frente === 'obra' ? desistenciaHome?.demanda?.candidaturas_pendentes : desistenciaHome?.demanda?.interesses_pendentes}
+        onVerInteressados={verInteressadosDesistencia}
+        onEsperar={fecharDesistenciaHome}
+      />
       <View style={estilos.header}>
         <View>
           <View style={estilos.saudacaoRow}>
