@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { MOTIVOS_DONO, MOTIVOS_PROFISSIONAL, rotuloMotivo } from '../utils/cancelamento'
 
 // Cancelamento do match pelas duas partes, antes do "Estou a caminho". Um componente só
@@ -77,6 +78,10 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   // Antecedência que a API aplicou (12 h; 1 h nas demandas de faixa curta).
   const limite = Number.isFinite(Number(simulacao?.limite_horas)) && Number(simulacao.limite_horas) > 0 ? Number(simulacao.limite_horas) : 12
   const fechar = () => { if (!enviando) onFechar() }
+  // Arrastar a alça para baixo fecha como o toque fora e o voltar do Android (travado ao enviar).
+  // O título mora dentro do ScrollView (muda com a simulação), então a zona é a faixa da alça:
+  // o paddingTop do sheet e o marginBottom da alça viraram padding da zona — mesma medida.
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const outro = nomeOutro || (souDono ? 'o profissional' : 'o cliente')
 
   const textoLado = souDono
@@ -88,8 +93,10 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
-        <View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={estilos.alca} />
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+          <View style={estilos.zonaAlca} {...panHandlers}>
+            <View style={estilos.alca} />
+          </View>
           {carregando || !simulacao ? (
             <View style={estilos.carregando}>
               <ActivityIndicator color={cores.perigo} />
@@ -144,7 +151,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
               )}
             </ScrollView>
           )}
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   )
@@ -191,8 +198,10 @@ const estilos = StyleSheet.create({
 
   // Folha: mesmo molde da VerificacaoIdentidadeSheet, com a borda vermelha no topo.
   backdrop:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet:           { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 3, borderTopColor: cores.perigo, paddingHorizontal: espacos.tela, paddingTop: 12, maxHeight: '92%', ...larguraMaxima },
-  alca:            { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo, marginBottom: 16 },
+  sheet:           { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 3, borderTopColor: cores.perigo, paddingHorizontal: espacos.tela, maxHeight: '92%', ...larguraMaxima },
+  // Zona do arraste: os 12 de paddingTop do sheet + a alça + os 16 que eram marginBottom dela.
+  zonaAlca:        { paddingTop: 12, paddingBottom: 16 },
+  alca:            { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo },
   carregando:      { alignItems: 'center', paddingVertical: 28, gap: 10 },
   carregandoTexto: { fontSize: 13, color: cores.textoMedio },
   titulo:          { fontSize: 20, fontWeight: '800', color: cores.textoForte, letterSpacing: -0.3, marginBottom: 14 },

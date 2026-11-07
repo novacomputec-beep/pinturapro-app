@@ -2,10 +2,11 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Image, Modal, ScrollView, TextInput,
-  KeyboardAvoidingView, Platform
+  KeyboardAvoidingView, Platform, Animated
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
+import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
@@ -191,6 +192,9 @@ export default function FeedObrasScreen({ navigation }) {
   // "Buscar em outra cidade": null = usa a cidade do perfil; objeto = { cidade, uf, lat, lng }
   const [cidadeBusca, setCidadeBusca] = useState(null)
   const [modalCidadeVisivel, setModalCidadeVisivel] = useState(false)
+  // Arrastar o título da folha "Buscar em outra cidade" para baixo fecha como o Cancelar e o
+  // voltar do Android; as listas de estado/cidade seguem rolando.
+  const arrasteCidade = useArrastarParaFechar(() => setModalCidadeVisivel(false), modalCidadeVisivel)
   const [ufSelecionada, setUfSelecionada] = useState('')
   const [cidadeSelecionada, setCidadeSelecionada] = useState('')
   const [estados, setEstados] = useState([])
@@ -512,8 +516,10 @@ export default function FeedObrasScreen({ navigation }) {
             <Modal visible={modalCidadeVisivel} animationType="slide" transparent onRequestClose={() => setModalCidadeVisivel(false)}>
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <View style={estilos.modalOverlay}>
-                  <View style={estilos.modalContainer}>
-                  <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
+                  <Animated.View style={[estilos.modalContainer, arrasteCidade.estiloArraste]}>
+                  <View {...arrasteCidade.panHandlers}>
+                    <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
+                  </View>
 
                   <Text style={estilos.modalLabel}>Estado</Text>
                   <ScrollView style={ufSelecionada ? estilos.listaScrollEstadoColapsado : estilos.listaScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
@@ -560,7 +566,7 @@ export default function FeedObrasScreen({ navigation }) {
                   <TouchableOpacity style={estilos.btnCancelarModal} onPress={() => setModalCidadeVisivel(false)}>
                     <Text style={estilos.btnCancelarModalTxt}>Cancelar</Text>
                   </TouchableOpacity>
-                </View>
+                </Animated.View>
               </View>
               </KeyboardAvoidingView>
             </Modal>

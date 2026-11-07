@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, Modal, KeyboardAvoidingView,
-  FlatList, ActivityIndicator, StyleSheet, TextInput,
+  FlatList, ActivityIndicator, StyleSheet, TextInput, Animated,
 } from 'react-native'
 import { cores, raios, espacos } from '../utils/tema'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 
 // Architecture note: pais is read-only (Brasil) for now.
 // To support other countries: add a country picker step that sets `pais`,
@@ -25,6 +26,10 @@ export default function SeletorLocalidade({
   const [carregandoCidades, setCarregandoCidades] = useState(false)
   const [modalAberto, setModalAberto] = useState(null) // 'estado' | 'cidade'
   const [busca, setBusca] = useState('')
+  // Fechar a folha (toque fora, voltar do Android e arraste da alça/título para baixo): o
+  // mesmo que os dois fechamentos já faziam, inclusive limpar a busca. A FlatList rola como antes.
+  const fecharFolha = () => { setModalAberto(null); setBusca('') }
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(fecharFolha, modalAberto !== null)
 
   useEffect(() => {
     setCarregandoEstados(true)
@@ -106,7 +111,7 @@ export default function SeletorLocalidade({
         visible={modalAberto !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => { setModalAberto(null); setBusca('') }}
+        onRequestClose={fecharFolha}
       >
         {/* KeyboardAvoidingView DENTRO do Modal: o do CadastroScreen fica fora dele e não
             alcança a folha. Com edge-to-edge (SDK 54, targetSdk 36) o adjustResize do
@@ -116,12 +121,14 @@ export default function SeletorLocalidade({
             espaço restante. */}
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <View style={estilos.overlay}>
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => { setModalAberto(null); setBusca('') }} activeOpacity={1} />
-          <View style={estilos.sheet}>
-            <View style={estilos.handle} />
-            <Text style={estilos.sheetTitulo}>
-              {modalAberto === 'estado' ? 'Selecione o estado' : 'Selecione a cidade'}
-            </Text>
+          <TouchableOpacity style={{ flex: 1 }} onPress={fecharFolha} activeOpacity={1} />
+          <Animated.View style={[estilos.sheet, estiloArraste]}>
+            <View {...panHandlers}>
+              <View style={estilos.handle} />
+              <Text style={estilos.sheetTitulo}>
+                {modalAberto === 'estado' ? 'Selecione o estado' : 'Selecione a cidade'}
+              </Text>
+            </View>
             <TextInput
               style={estilos.buscaInput}
               placeholder={modalAberto === 'estado' ? 'Buscar estado...' : 'Buscar cidade...'}
@@ -157,7 +164,7 @@ export default function SeletorLocalidade({
               maxToRenderPerBatch={30}
               windowSize={10}
             />
-          </View>
+          </Animated.View>
         </View>
         </KeyboardAvoidingView>
       </Modal>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios } from '../utils/tema'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 
 // Folhas de baixo e helpers do pós-match que as telas de detalhe usam ao lado da tela fixa
 // (components/PosMatchFixo):
@@ -84,13 +85,17 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
   const [motivo, setMotivo] = useState('')
   useEffect(() => { if (visivel) { setMinutos(null); setMotivo('') } }, [visivel])
   const fechar = () => { if (!enviando) onFechar?.() }
+  // Arrastar o cabeçalho para baixo fecha como o toque fora e o voltar do Android (travado ao enviar).
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={fechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }]}>
-          <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
-          <Text style={estilos.atrasoFolhaTexto}>O cliente recebe o pedido na hora e decide se aceita. Você pode pedir até {MAX_PEDIDOS_ATRASO} vezes neste serviço.</Text>
+        <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]}>
+          <View {...panHandlers}>
+            <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
+            <Text style={estilos.atrasoFolhaTexto}>O cliente recebe o pedido na hora e decide se aceita. Você pode pedir até {MAX_PEDIDOS_ATRASO} vezes neste serviço.</Text>
+          </View>
           <View style={estilos.chips}>
             {MINUTOS_ATRASO.map((m) => (
               <TouchableOpacity
@@ -130,7 +135,7 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
           <TouchableOpacity onPress={fechar} disabled={!!enviando} style={{ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 }} accessibilityRole="button">
             <Text style={estilos.linkNeutro}>Agora não</Text>
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   )
@@ -142,14 +147,17 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
 // children: a tira de mídia que a tela já monta (TileMidia). extras: os modais de tela cheia
 // (foto/vídeo) da tela, montados AQUI DENTRO enquanto a folha está aberta — no iOS um segundo
 // Modal irmão não é apresentado por cima de outro já visível; aninhado, é.
+// Arrastar o cabeçalho (título + ✕) para baixo fecha como o toque fora e o voltar do Android;
+// o gesto só é tomado após alguns px de movimento, então o "✕" segue respondendo ao toque.
 export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, children, extras }) {
   const insets = useSafeAreaInsets()
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(onFechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
       <View style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }]}>
-          <View style={estilos.detalhesCabecalho}>
+        <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]}>
+          <View style={estilos.detalhesCabecalho} {...panHandlers}>
             <Text style={estilos.detalhesTitulo} numberOfLines={2}>{titulo}</Text>
             <TouchableOpacity onPress={onFechar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Fechar">
               <Text style={estilos.detalhesFechar}>✕</Text>
@@ -171,7 +179,7 @@ export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, chi
             {!descricao && !children ? <Text style={estilos.detalhesTexto}>Este pedido não tem descrição nem fotos.</Text> : null}
           </ScrollView>
           {extras}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   )

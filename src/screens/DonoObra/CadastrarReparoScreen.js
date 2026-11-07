@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, Keyboard, BackHandler } from 'react-native'
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, Keyboard, BackHandler, Animated } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import api from '../../services/api'
 import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
+import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
@@ -403,6 +404,12 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     setEscolhaAlvenaria(null)
   }
 
+  // Arrastar para baixo nas duas folhas desta tela (useArrastarParaFechar): o picker de mídia
+  // fecha como o toque fora e o voltar; a folha de Alvenaria desfaz a escolha, exatamente o
+  // que o voltar do Android já fazia (desistirDaEscolha).
+  const arrastePicker = useArrastarParaFechar(() => setPickerMidia(null), pickerMidia != null)
+  const arrasteAlvenaria = useArrastarParaFechar(desistirDaEscolha, escolhaAlvenaria != null)
+
   // "🏗️ Pedreiro ou ajudante": é obra. Leva o que já foi preenchido para
   // CadastrarObraScreen — título, descrição, endereço completo (CEP, rua, número,
   // complemento, bairro, cidade, UF, ponto de referência) e as mídias, inclusive as já
@@ -619,8 +626,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
           câmera-vídeo ou galeria; 'foto' = câmera-foto ou galeria; 'todas' = as três). */}
       <Modal visible={pickerMidia != null} transparent animationType="slide" onRequestClose={() => setPickerMidia(null)}>
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
-          <View style={estilos.modalSheet}>
-            <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+          <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]}>
+            <View {...arrastePicker.panHandlers}>
+              <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+            </View>
             {pickerMidia !== 'video' && (
               <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>
                 <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
@@ -637,23 +646,25 @@ export default function CadastrarReparoScreen({ navigation, route }) {
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setPickerMidia(null)}>
               <Text style={[estilos.modalOpcaoTexto, { color: cores.textoFraco }]}>Cancelar</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Modal>
 
       {/* Escolha OBRIGATÓRIA ao tocar em Alvenaria. O overlay é uma View, não um
           TouchableOpacity como o do picker acima: não há "tocar fora para fechar" nem
           botão Cancelar — as duas saídas são as duas opções. O botão voltar do Android
-          (onRequestClose) desfaz a seleção em vez de deixar Alvenaria marcada sem
-          escolha. Verde = fica (mesmo token de aprovação do app); azul = vai para a obra
-          (token informativo) — a cor diz de longe qual opção muda de tela. */}
+          (onRequestClose) e o arraste da alça/cabeçalho para baixo desfazem a seleção em
+          vez de deixar Alvenaria marcada sem escolha. Verde = fica (mesmo token de
+          aprovação do app); azul = vai para a obra (token informativo) — a cor diz de
+          longe qual opção muda de tela. */}
       <Modal visible={escolhaAlvenaria != null} transparent animationType="slide" onRequestClose={desistirDaEscolha}>
         <View style={estilos.modalOverlay}>
-          <View style={estilos.modalSheet}>
-            {/* Alça da folha: só visual (a folha não arrasta), como na arte. */}
-            <View style={estilos.escolhaAlca} />
-            <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
-            <Text style={estilos.escolhaSubtitulo}>Assim sua demanda chega aos profissionais certos</Text>
+          <Animated.View style={[estilos.modalSheet, arrasteAlvenaria.estiloArraste]}>
+            <View {...arrasteAlvenaria.panHandlers}>
+              <View style={estilos.escolhaAlca} />
+              <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
+              <Text style={estilos.escolhaSubtitulo}>Assim sua demanda chega aos profissionais certos</Text>
+            </View>
             {/* Cada opção: emoji grande numa coluna à esquerda; à direita título, descrição
                 e a linha-link na cor da opção dizendo para onde ela leva. */}
             <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoVerde]} onPress={ficarNoReparo} activeOpacity={0.8}>
@@ -672,7 +683,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
                 <Text style={[estilos.escolhaOpcaoLink, { color: cores.info }]}>Vai para Construção civil, com seus dados já preenchidos →</Text>
               </View>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </SafeAreaView>
