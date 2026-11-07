@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import { useAuth } from '../contexts/AuthContext'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Bottom sheet "Seu pedido foi publicado! 🎉" (arte Arte-Avisar-Pedido): aparece logo
 // depois de um reparo ou obra publicado COM SUCESSO, só para quem ainda não tem a
@@ -52,7 +53,8 @@ const CartaoExemplo = () => (
 // modo: 'pedir' | 'bloqueado'. onAvisar: "Sim, me avise". onAgoraNao: "Agora não".
 // onAbrirAjustes: "Abrir ajustes". Os handlers do estado que não está em uso são ignorados.
 // arraste: panHandlers de useArrastarParaFechar (só o sheet real passa): alça e cabeçalho.
-export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjustes, ocupado = false, arraste }) => {
+// onFechar: a pílula "✕ Fechar" à direita do título — o mesmo fechar do toque fora.
+export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjustes, ocupado = false, arraste, onFechar }) => {
   const textos = TEXTOS[modo] || TEXTOS.pedir
   const bloqueado = modo === 'bloqueado'
   return (
@@ -60,7 +62,9 @@ export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjuste
       {/* alignSelf stretch: o sheet centraliza os filhos, e a zona do arraste precisa da largura toda. */}
       <View style={{ alignSelf: 'stretch' }} {...(arraste || {})}>
         <View style={estilos.alca} />
-        <Text style={estilos.titulo}>Seu pedido foi publicado! 🎉</Text>
+        <LinhaCabecalhoFolha onFechar={onFechar}>
+          <Text style={estilos.titulo}>Seu pedido foi publicado! 🎉</Text>
+        </LinhaCabecalhoFolha>
         <Text style={estilos.corpo}>{textos.corpo}</Text>
       </View>
 
@@ -167,7 +171,7 @@ const AvisarPedidoSheet = () => {
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
-          <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} arraste={panHandlers} />
+          <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} arraste={panHandlers} onFechar={fechar} />
         </Animated.View>
       </View>
     </Modal>

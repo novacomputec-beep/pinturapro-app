@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import { MOTIVOS_DONO, MOTIVOS_PROFISSIONAL, rotuloMotivo } from '../utils/cancelamento'
 
 // Cancelamento do match pelas duas partes, antes do "Estou a caminho". Um componente só
@@ -78,10 +79,11 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   // Antecedência que a API aplicou (12 h; 1 h nas demandas de faixa curta).
   const limite = Number.isFinite(Number(simulacao?.limite_horas)) && Number(simulacao.limite_horas) > 0 ? Number(simulacao.limite_horas) : 12
   const fechar = () => { if (!enviando) onFechar() }
-  // Arrastar a alça para baixo fecha como o toque fora e o voltar do Android (travado ao enviar).
-  // O título mora dentro do ScrollView (muda com a simulação), então a zona é a faixa da alça:
-  // o paddingTop do sheet e o marginBottom da alça viraram padding da zona — mesma medida.
+  // Arrastar a alça/cabeçalho para baixo fecha como o toque fora e o voltar do Android (travado
+  // ao enviar). O título saiu do ScrollView para a linha do cabeçalho, ao lado da pílula
+  // "✕ Fechar"; enquanto a simulação carrega a linha fica só com a pílula.
   const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const pronto = !carregando && !!simulacao
   const outro = nomeOutro || (souDono ? 'o profissional' : 'o cliente')
 
   const textoLado = souDono
@@ -96,16 +98,17 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
           <View style={estilos.zonaAlca} {...panHandlers}>
             <View style={estilos.alca} />
+            <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
+              {pronto ? <Text style={estilos.titulo}>{tardio ? 'Cancelar em cima da hora?' : 'Cancelar este serviço?'}</Text> : null}
+            </LinhaCabecalhoFolha>
           </View>
-          {carregando || !simulacao ? (
+          {!pronto ? (
             <View style={estilos.carregando}>
               <ActivityIndicator color={cores.perigo} />
               <Text style={estilos.carregandoTexto}>Conferindo o prazo…</Text>
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={estilos.titulo}>{tardio ? 'Cancelar em cima da hora?' : 'Cancelar este serviço?'}</Text>
-
               {tardio ? (
                 <>
                   <View style={estilos.caixaVermelha}>
@@ -199,9 +202,9 @@ const estilos = StyleSheet.create({
   // Folha: mesmo molde da VerificacaoIdentidadeSheet, com a borda vermelha no topo.
   backdrop:        { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet:           { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 3, borderTopColor: cores.perigo, paddingHorizontal: espacos.tela, maxHeight: '92%', ...larguraMaxima },
-  // Zona do arraste: os 12 de paddingTop do sheet + a alça + os 16 que eram marginBottom dela.
-  zonaAlca:        { paddingTop: 12, paddingBottom: 16 },
-  alca:            { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo },
+  // Zona do arraste: os 12 de paddingTop do sheet, a alça e a linha do cabeçalho (título + "✕ Fechar").
+  zonaAlca:        { paddingTop: 12 },
+  alca:            { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo, marginBottom: 16 },
   carregando:      { alignItems: 'center', paddingVertical: 28, gap: 10 },
   carregandoTexto: { fontSize: 13, color: cores.textoMedio },
   titulo:          { fontSize: 20, fontWeight: '800', color: cores.textoForte, letterSpacing: -0.3, marginBottom: 14 },

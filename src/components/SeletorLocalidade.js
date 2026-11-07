@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { cores, raios, espacos } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import BotaoFecharFolha from './BotaoFecharFolha'
 
 // Architecture note: pais is read-only (Brasil) for now.
 // To support other countries: add a country picker step that sets `pais`,
@@ -125,9 +126,13 @@ export default function SeletorLocalidade({
           <Animated.View style={[estilos.sheet, estiloArraste]}>
             <View {...panHandlers}>
               <View style={estilos.handle} />
-              <Text style={estilos.sheetTitulo}>
-                {modalAberto === 'estado' ? 'Selecione o estado' : 'Selecione a cidade'}
-              </Text>
+              {/* Linha do cabeçalho: título + "✕ Fechar"; o fio de baixo passou do título para a linha. */}
+              <View style={estilos.linhaTitulo}>
+                <Text style={estilos.sheetTitulo}>
+                  {modalAberto === 'estado' ? 'Selecione o estado' : 'Selecione a cidade'}
+                </Text>
+                <BotaoFecharFolha onPress={fecharFolha} />
+              </View>
             </View>
             <TextInput
               style={estilos.buscaInput}
@@ -215,11 +220,14 @@ const estilos = StyleSheet.create({
     backgroundColor: cores.borda,
     alignSelf: 'center', marginBottom: 12,
   },
-  sheetTitulo: {
-    fontSize: 14, fontWeight: '600', color: cores.textoForte,
-    textAlign: 'center',
+  linhaTitulo: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 20, paddingBottom: 12, marginBottom: 4,
     borderBottomWidth: 0.5, borderBottomColor: cores.borda,
+  },
+  sheetTitulo: {
+    flex: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte,
+    textAlign: 'center',
   },
   buscaInput: {
     marginHorizontal: 16,

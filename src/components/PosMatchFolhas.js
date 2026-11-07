@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, KeyboardAvo
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import BotaoFecharFolha, { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Folhas de baixo e helpers do pós-match que as telas de detalhe usam ao lado da tela fixa
 // (components/PosMatchFixo):
@@ -93,7 +94,9 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
         <TouchableOpacity style={{ flex: 1 }} onPress={fechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]}>
           <View {...panHandlers}>
-            <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
+            <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
+              <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
+            </LinhaCabecalhoFolha>
             <Text style={estilos.atrasoFolhaTexto}>O cliente recebe o pedido na hora e decide se aceita. Você pode pedir até {MAX_PEDIDOS_ATRASO} vezes neste serviço.</Text>
           </View>
           <View style={estilos.chips}>
@@ -147,8 +150,9 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
 // children: a tira de mídia que a tela já monta (TileMidia). extras: os modais de tela cheia
 // (foto/vídeo) da tela, montados AQUI DENTRO enquanto a folha está aberta — no iOS um segundo
 // Modal irmão não é apresentado por cima de outro já visível; aninhado, é.
-// Arrastar o cabeçalho (título + ✕) para baixo fecha como o toque fora e o voltar do Android;
-// o gesto só é tomado após alguns px de movimento, então o "✕" segue respondendo ao toque.
+// Arrastar o cabeçalho (título + "✕ Fechar") para baixo fecha como o toque fora e o voltar do
+// Android; o gesto só é tomado após alguns px de movimento, então a pílula segue respondendo
+// ao toque. A pílula (BotaoFecharFolha) substituiu o "✕" solto que havia aqui.
 export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, children, extras }) {
   const insets = useSafeAreaInsets()
   const { panHandlers, estiloArraste } = useArrastarParaFechar(onFechar, !!visivel)
@@ -159,9 +163,7 @@ export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, chi
         <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]}>
           <View style={estilos.detalhesCabecalho} {...panHandlers}>
             <Text style={estilos.detalhesTitulo} numberOfLines={2}>{titulo}</Text>
-            <TouchableOpacity onPress={onFechar} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Fechar">
-              <Text style={estilos.detalhesFechar}>✕</Text>
-            </TouchableOpacity>
+            <BotaoFecharFolha onPress={onFechar} />
           </View>
           <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
             {descricao ? (
@@ -204,7 +206,6 @@ const estilos = StyleSheet.create({
   detalhesCard: { backgroundColor: cores.fundoCard, borderTopLeftRadius: raios.grande, borderTopRightRadius: raios.grande, padding: 20, paddingBottom: 28 },
   detalhesCabecalho: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
   detalhesTitulo: { flex: 1, fontSize: 16, fontWeight: '700', color: cores.textoForte, lineHeight: 22 },
-  detalhesFechar: { fontSize: 18, fontWeight: '700', color: cores.textoFraco },
   detalhesSecao: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, color: cores.textoMedio, marginTop: 10, marginBottom: 6 },
   detalhesTexto: { fontSize: 14, color: cores.textoForte, lineHeight: 21 },
 })
