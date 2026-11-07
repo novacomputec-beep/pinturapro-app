@@ -7,6 +7,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
@@ -654,7 +655,9 @@ export default function CadastrarObraScreen({ navigation, route }) {
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
           <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]}>
             <View {...arrastePicker.panHandlers}>
-              <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+              <LinhaCabecalhoFolha onFechar={() => setPickerMidia(null)}>
+                <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+              </LinhaCabecalhoFolha>
             </View>
             {pickerMidia !== 'video' && (
               <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>

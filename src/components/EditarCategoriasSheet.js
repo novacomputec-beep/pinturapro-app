@@ -3,6 +3,7 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, TextInput, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import { paraSeletor, CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA, rotuloCategoria } from '../utils/categorias'
 
 // Bottom sheet "Categorias do pedido" (Arte-Editar-Categorias): o DONO de um reparo ABERTO e
@@ -37,7 +38,8 @@ export const listarRotulos = (slugs) => {
 //   selecionadas — a escolha atual; onAlternar(slug) marca/desmarca;
 //   busca/onBusca — o campo de busca; onSalvar — "Salvar e avisar"; salvando trava tudo.
 //   arraste — panHandlers de useArrastarParaFechar (só o sheet real passa): alça e cabeçalho.
-export const EditarCategoriasConteudo = ({ originais, selecionadas, busca, onBusca, onAlternar, onSalvar, salvando = false, arraste }) => {
+//   onFechar — a pílula "✕ Fechar" à direita do título; travada enquanto salva, como o toque fora.
+export const EditarCategoriasConteudo = ({ originais, selecionadas, busca, onBusca, onAlternar, onSalvar, salvando = false, arraste, onFechar }) => {
   const noLimite = selecionadas.length >= MAX_CATEGORIAS_DEMANDA
   const termo = semAcento(busca)
   const visiveis = termo ? CATEGORIAS.filter((c) => semAcento(c.label).includes(termo)) : CATEGORIAS
@@ -47,7 +49,9 @@ export const EditarCategoriasConteudo = ({ originais, selecionadas, busca, onBus
     <>
       <View {...(arraste || {})}>
         <View style={estilos.alca} />
-        <Text style={estilos.titulo}>Categorias do pedido</Text>
+        <LinhaCabecalhoFolha onFechar={onFechar} desabilitado={salvando}>
+          <Text style={estilos.titulo}>Categorias do pedido</Text>
+        </LinhaCabecalhoFolha>
         <Text style={estilos.corpo}>Escolha até {MAX_CATEGORIAS_DEMANDA}. Os profissionais das categorias novas são avisados na hora.</Text>
       </View>
 
@@ -171,6 +175,7 @@ export default function EditarCategoriasSheet({ visivel, categorias, onSalvar, o
             onSalvar={salvar}
             salvando={salvando}
             arraste={panHandlers}
+            onFechar={onFechar}
           />
         </Animated.View>
       </KeyboardAvoidingView>

@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet,
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Desfazer a escolha do profissional (Arte-Desfazer-Escolha), dono de reparo e de obra, na
 // fase "aguardando horário" depois de desfazer_liberado_em (GET /:tabela/:id). A caixa e a
@@ -64,7 +65,9 @@ export function SheetDesfazerEscolha({ visivel, nome, interessados, prazoCurto, 
           {/* Alça + título fora do ScrollView: é a zona do arraste; a lista rola como antes. */}
           <View {...panHandlers}>
             <View style={estilos.alca} />
-            <Text style={estilos.titulo}>Desfazer a escolha de {quem}?</Text>
+            <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
+              <Text style={estilos.titulo}>Desfazer a escolha de {quem}?</Text>
+            </LinhaCabecalhoFolha>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <Linha icone="🚫">{quem.charAt(0).toUpperCase() + quem.slice(1)} sai do pedido e recebe <Text style={estilos.forte}>1 falta</Text> (3 em 90 dias suspendem a conta).</Linha>

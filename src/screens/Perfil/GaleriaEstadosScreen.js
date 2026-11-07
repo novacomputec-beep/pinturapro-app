@@ -321,7 +321,7 @@ function DemoEditarCategorias({ originais, selecionadasIniciais, buscaInicial })
   ))
   return (
     <View style={[estilos.sheet, { alignItems: 'stretch' }]}>
-      <EditarCategoriasConteudo originais={originais} selecionadas={selecionadas} busca={busca} onBusca={setBusca} onAlternar={alternar} onSalvar={noop} />
+      <EditarCategoriasConteudo originais={originais} selecionadas={selecionadas} busca={busca} onBusca={setBusca} onAlternar={alternar} onSalvar={noop} onFechar={noop} />
     </View>
   )
 }
@@ -497,7 +497,7 @@ function DemoWizard({ passoInicial, categoriasIniciais }) {
       {grupoAberto ? (
         <View style={[StyleSheet.absoluteFill, estilos.fundoSheet]}>
           <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
-            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={categorias} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} />
+            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={categorias} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} onFechar={() => setGrupoAberto(null)} />
           </View>
         </View>
       ) : null}
@@ -598,7 +598,7 @@ function DemoEspecialidades({ origem, selecionadasIniciais }) {
       {grupoAberto ? (
         <View style={[StyleSheet.absoluteFill, estilos.fundoSheet]}>
           <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
-            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={selecionadas} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} limite={MAX_ESPECIALIDADES} subtitulo={`Marque o que você faz · até ${MAX_ESPECIALIDADES} no total`} aviso={avisoEspecialidades(selecionadas)} />
+            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={selecionadas} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} onFechar={() => setGrupoAberto(null)} limite={MAX_ESPECIALIDADES} subtitulo={`Marque o que você faz · até ${MAX_ESPECIALIDADES} no total`} aviso={avisoEspecialidades(selecionadas)} />
           </View>
         </View>
       ) : null}
@@ -612,7 +612,7 @@ function DemoFolhaEspecialidades({ grupoId, selecionadasIniciais }) {
   const alternar = (slug) => setSelecionadas((atual) => (atual.includes(slug) ? atual.filter((c) => c !== slug) : atual.length >= MAX_ESPECIALIDADES ? atual : [...atual, slug]))
   return (
     <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
-      <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={alternar} onPronto={noop} limite={MAX_ESPECIALIDADES} subtitulo={`Marque o que você faz · até ${MAX_ESPECIALIDADES} no total`} aviso={avisoEspecialidades(selecionadas)} />
+      <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={alternar} onPronto={noop} onFechar={noop} limite={MAX_ESPECIALIDADES} subtitulo={`Marque o que você faz · até ${MAX_ESPECIALIDADES} no total`} aviso={avisoEspecialidades(selecionadas)} />
     </View>
   )
 }
@@ -623,7 +623,7 @@ function DemoFolhaGrupo({ grupoId, categoriasIniciais }) {
   const alternar = (slug) => setCategorias((atual) => (atual.includes(slug) ? atual.filter((c) => c !== slug) : atual.length >= MAX_CATEGORIAS_DEMANDA ? atual : [...atual, slug]))
   return (
     <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
-      <FolhaGrupoConteudo grupo={grupo} selecionadas={categorias} onAlternar={alternar} onPronto={noop} />
+      <FolhaGrupoConteudo grupo={grupo} selecionadas={categorias} onAlternar={alternar} onPronto={noop} onFechar={noop} />
     </View>
   )
 }
@@ -851,7 +851,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             : ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
             : caso.fase === 'desistiu_sheet' ? <SheetProfissionalDesistiu key={i} {...props} visivel onVerInteressados={() => ir(1)} onEsperar={() => ir(1)} />
             : caso.fase === 'desistiu_detalhe' ? <DemoDesistiuDetalhe key={i} {...props} />
-            : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} /></View>
+            : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} onFechar={() => ir(1)} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
             : ehQuemPerguntou ? <DemoQuemPerguntou key={i} {...props} />
             : caso.fase === 'dicas' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasConteudo {...props} /></ScrollView>

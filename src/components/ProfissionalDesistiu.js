@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import BotaoFecharFolha from './BotaoFecharFolha'
 import { avatar } from '../utils/imagemOtimizada'
 
 // Arte-Profissional-Desistiu (dono de serviço e de obra): o profissional ESCOLHIDO cancelou
@@ -170,6 +171,8 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
                 <Text style={estilos.titulo}>{nome} desistiu {doQue}</Text>
                 {sub ? <Text style={estilos.subtitulo} numberOfLines={2}>{sub}</Text> : null}
               </View>
+              {/* "✕ Fechar" no fim da linha do cabeçalho: o mesmo onEsperar do toque fora. */}
+              <BotaoFecharFolha onPress={onEsperar} />
             </View>
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>

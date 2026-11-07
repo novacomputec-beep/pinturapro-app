@@ -7,6 +7,7 @@ import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
@@ -628,7 +629,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
           <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]}>
             <View {...arrastePicker.panHandlers}>
-              <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+              <LinhaCabecalhoFolha onFechar={() => setPickerMidia(null)}>
+                <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+              </LinhaCabecalhoFolha>
             </View>
             {pickerMidia !== 'video' && (
               <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>
@@ -662,7 +665,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
           <Animated.View style={[estilos.modalSheet, arrasteAlvenaria.estiloArraste]}>
             <View {...arrasteAlvenaria.panHandlers}>
               <View style={estilos.escolhaAlca} />
-              <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
+              {/* "✕ Fechar" = desistir da escolha, o mesmo do voltar do Android e do arraste. */}
+              <LinhaCabecalhoFolha onFechar={desistirDaEscolha}>
+                <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
+              </LinhaCabecalhoFolha>
               <Text style={estilos.escolhaSubtitulo}>Assim sua demanda chega aos profissionais certos</Text>
             </View>
             {/* Cada opção: emoji grande numa coluna à esquerda; à direita título, descrição

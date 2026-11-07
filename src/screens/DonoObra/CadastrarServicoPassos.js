@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
+import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
@@ -198,14 +199,18 @@ const Caixa = ({ marcada, apagada }) => (
 // aviso: linha âmbar sob o subtítulo (teto atingido / mínimo de 1), decidida por quem usa.
 // arraste: os panHandlers de useArrastarParaFechar (só a FolhaGrupo real passa; a Galeria não)
 // — vão na alça e no cabeçalho, nunca na lista, que continua rolando.
-export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso, arraste }) {
+// onFechar: a pílula "✕ Fechar" à direita do título (BotaoFecharFolha) — o mesmo fechamento do
+// toque fora (onPronto na folha real; a Galeria passa o seu).
+export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso, arraste, onFechar }) {
   const total = selecionadas.length
   const noLimite = total >= limite
   return (
     <>
       <View {...(arraste || {})}>
         <View style={estilos.alca} />
-        <Text style={estilos.folhaTitulo}>{grupo.emoji} {grupo.titulo}</Text>
+        <LinhaCabecalhoFolha onFechar={onFechar}>
+          <Text style={estilos.folhaTitulo}>{grupo.emoji} {grupo.titulo}</Text>
+        </LinhaCabecalhoFolha>
         <Text style={estilos.folhaSub}>{subtitulo || `Marque o que precisa · até ${limite} no pedido`}</Text>
         {aviso ? <Text style={estilos.folhaAviso}>{aviso}</Text> : null}
       </View>
@@ -254,7 +259,7 @@ export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto,
       <View style={estilos.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onPronto} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
-          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} arraste={panHandlers} /> : null}
+          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} arraste={panHandlers} onFechar={onPronto} /> : null}
         </Animated.View>
       </View>
     </Modal>

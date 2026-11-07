@@ -7,6 +7,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
@@ -518,7 +519,9 @@ export default function FeedObrasScreen({ navigation }) {
                 <View style={estilos.modalOverlay}>
                   <Animated.View style={[estilos.modalContainer, arrasteCidade.estiloArraste]}>
                   <View {...arrasteCidade.panHandlers}>
-                    <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
+                    <LinhaCabecalhoFolha onFechar={() => setModalCidadeVisivel(false)}>
+                      <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
+                    </LinhaCabecalhoFolha>
                   </View>
 
                   <Text style={estilos.modalLabel}>Estado</Text>

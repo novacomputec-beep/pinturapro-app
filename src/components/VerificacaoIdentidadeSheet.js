@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable, AppState, KeyboardAvoidingView, Platform, Animated } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario, Input } from './index'
 import api, { authService } from '../services/api'
@@ -640,7 +641,9 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
               então fica igual ao que era dentro do scroll centrado). */}
           <View {...panHandlers}>
             <View style={estilos.alca} />
-            <Text style={estilos.titulo}>🪪 Confirme sua identidade</Text>
+            <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
+              <Text style={estilos.titulo}>🪪 Confirme sua identidade</Text>
+            </LinhaCabecalhoFolha>
           </View>
           <ScrollView contentContainerStyle={estilos.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={estilos.texto}>Só na sua primeira proposta. É o que dá segurança aos clientes.</Text>
