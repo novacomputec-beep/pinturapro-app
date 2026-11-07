@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, Image, TouchableOpacity, Modal, StyleSheet } from 'react-native'
+import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
 import { rotulosEspecialidades } from '../utils/categorias'
@@ -289,15 +290,18 @@ const CardPropostaRecebida = ({ demanda, pendente, nomeOutro, souDono, responden
 
 // Folha de baixo com o PickerAgendamento (primeira proposta do profissional ou "Sugerir
 // outro"). Fecha sozinha quando a pendência muda (proposta enviada/respondida).
+// Arrastar o cabeçalho (título/subtítulo do picker) para baixo fecha como o toque fora e o
+// voltar do Android; os chips de dia e hora seguem rolando.
 const FolhaPicker = ({ visivel, onFechar, titulo, limite, rotuloBotao, enviando, onEnviar }) => {
   const insets = useSafeAreaInsets()
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(onFechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
       <View style={estilos.folhaFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }]}>
-          <PickerAgendamento titulo={titulo} limite={limite} rotuloBotao={rotuloBotao} enviando={enviando} onEnviar={onEnviar} onCancelar={onFechar} />
-        </View>
+        <Animated.View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }, estiloArraste]}>
+          <PickerAgendamento titulo={titulo} limite={limite} rotuloBotao={rotuloBotao} enviando={enviando} onEnviar={onEnviar} onCancelar={onFechar} arraste={panHandlers} />
+        </Animated.View>
       </View>
     </Modal>
   )

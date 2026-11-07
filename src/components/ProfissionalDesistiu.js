@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, Image, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, Image, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { avatar } from '../utils/imagemOtimizada'
 
 // Arte-Profissional-Desistiu (dono de serviço e de obra): o profissional ESCOLHIDO cancelou
@@ -145,9 +146,11 @@ const Linha = ({ icone, children }) => (
 // visivel: a tela decide (dono, sem escolhido, desistência ainda não vista). desistencia: o
 // item da API. titulo: o do pedido. frente: 'servico' | 'obra' (só muda "do serviço"/"da obra").
 // interessadosAtivos: interessados_ativos da API. onVerInteressados: fecha e rola até a lista.
-// onEsperar: fecha (também o toque fora e o voltar do Android). Os dois marcam como vista.
+// onEsperar: fecha (também o toque fora, o voltar do Android e o arraste para baixo na
+// alça/cabeçalho — useArrastarParaFechar). Os dois marcam como vista.
 export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente = 'servico', interessadosAtivos, onVerInteressados, onEsperar }) {
   const insets = useSafeAreaInsets()
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(onEsperar, !!visivel)
   const d = desistencia || {}
   const nome = d.nome || 'O profissional'
   const quando = quandoDesistiu(d.cancelado_em)
@@ -157,9 +160,10 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
     <Modal visible={!!visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onEsperar}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onEsperar} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={estilos.alca} />
-          <ScrollView showsVerticalScrollIndicator={false}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+          {/* Alça + cabeçalho fora do ScrollView: é a zona do arraste; o resto rola como antes. */}
+          <View {...panHandlers}>
+            <View style={estilos.alca} />
             <View style={estilos.cabecalho}>
               <AvatarDesistente d={d} />
               <View style={{ flex: 1, minWidth: 0 }}>
@@ -167,7 +171,8 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
                 {sub ? <Text style={estilos.subtitulo} numberOfLines={2}>{sub}</Text> : null}
               </View>
             </View>
-
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
             <View style={estilos.motivoBox}>
               <Text style={estilos.motivoRotulo}>MOTIVO</Text>
               <Text style={estilos.motivoTexto}>{textoMotivo(d)}{d.acordo ? ' · de comum acordo' : ''}</Text>
@@ -184,7 +189,7 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
               <Text style={estilos.btnContornoTexto}>Entendi, vou esperar</Text>
             </TouchableOpacity>
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   )

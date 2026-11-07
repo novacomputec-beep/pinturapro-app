@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Image, Linking } from 'react-native'
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, Image, Linking, Animated } from 'react-native'
 import * as Notifications from 'expo-notifications'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import { useAuth } from '../contexts/AuthContext'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 
 // Bottom sheet "Seu pedido foi publicado! 🎉" (arte Arte-Avisar-Pedido): aparece logo
 // depois de um reparo ou obra publicado COM SUCESSO, só para quem ainda não tem a
@@ -50,14 +51,18 @@ const CartaoExemplo = () => (
 // Conteúdo puro (sem Modal): o sheet real e a Galeria usam o MESMO miolo.
 // modo: 'pedir' | 'bloqueado'. onAvisar: "Sim, me avise". onAgoraNao: "Agora não".
 // onAbrirAjustes: "Abrir ajustes". Os handlers do estado que não está em uso são ignorados.
-export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjustes, ocupado = false }) => {
+// arraste: panHandlers de useArrastarParaFechar (só o sheet real passa): alça e cabeçalho.
+export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjustes, ocupado = false, arraste }) => {
   const textos = TEXTOS[modo] || TEXTOS.pedir
   const bloqueado = modo === 'bloqueado'
   return (
     <>
-      <View style={estilos.alca} />
-      <Text style={estilos.titulo}>Seu pedido foi publicado! 🎉</Text>
-      <Text style={estilos.corpo}>{textos.corpo}</Text>
+      {/* alignSelf stretch: o sheet centraliza os filhos, e a zona do arraste precisa da largura toda. */}
+      <View style={{ alignSelf: 'stretch' }} {...(arraste || {})}>
+        <View style={estilos.alca} />
+        <Text style={estilos.titulo}>Seu pedido foi publicado! 🎉</Text>
+        <Text style={estilos.corpo}>{textos.corpo}</Text>
+      </View>
 
       {bloqueado ? (
         <View style={estilos.passos}>
@@ -117,6 +122,8 @@ const AvisarPedidoSheet = () => {
   useEffect(() => { avisarPedidoRef.mostrar = mostrar }, [mostrar])
 
   const fechar = () => setModo(null)
+  // Arrastar a alça/cabeçalho para baixo fecha como o toque fora e o voltar do Android.
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(fechar, !!modo)
 
   const aoAvisar = async () => {
     if (ocupadoRef.current) return
@@ -159,9 +166,9 @@ const AvisarPedidoSheet = () => {
     <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
-        <View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} />
-        </View>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+          <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} arraste={panHandlers} />
+        </Animated.View>
       </View>
     </Modal>
   )

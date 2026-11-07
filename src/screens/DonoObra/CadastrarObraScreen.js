@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, Keyboard, BackHandler } from 'react-native'
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Alert, Keyboard, BackHandler, Animated } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import api from '../../services/api'
 import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
+import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
@@ -133,6 +134,8 @@ export default function CadastrarObraScreen({ navigation, route }) {
   // Picker de mídia: null = fechado; 'video' / 'foto' (cada botão grande oferece câmera OU
   // galeria) / 'todas' (as três opções de sempre).
   const [pickerMidia, setPickerMidia] = useState(null)
+  // Arrastar o título do picker de mídia para baixo fecha como o toque fora e o voltar.
+  const arrastePicker = useArrastarParaFechar(() => setPickerMidia(null), pickerMidia != null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -649,8 +652,10 @@ export default function CadastrarObraScreen({ navigation, route }) {
           câmera-vídeo ou galeria; 'foto' = câmera-foto ou galeria; 'todas' = as três). */}
       <Modal visible={pickerMidia != null} transparent animationType="slide" onRequestClose={() => setPickerMidia(null)}>
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
-          <View style={estilos.modalSheet}>
-            <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+          <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]}>
+            <View {...arrastePicker.panHandlers}>
+              <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
+            </View>
             {pickerMidia !== 'video' && (
               <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>
                 <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
@@ -667,7 +672,7 @@ export default function CadastrarObraScreen({ navigation, route }) {
             <TouchableOpacity style={[estilos.modalOpcao, { marginTop: 8 }]} onPress={() => setPickerMidia(null)}>
               <Text style={[estilos.modalOpcaoTexto, { color: cores.textoFraco }]}>Cancelar</Text>
             </TouchableOpacity>
-          </View>
+          </Animated.View>
         </TouchableOpacity>
       </Modal>
     </SafeAreaView>

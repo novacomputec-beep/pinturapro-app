@@ -1,7 +1,8 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
+import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 
 // Desfazer a escolha do profissional (Arte-Desfazer-Escolha), dono de reparo e de obra, na
 // fase "aguardando horário" depois de desfazer_liberado_em (GET /:tabela/:id). A caixa e a
@@ -46,21 +47,26 @@ const Linha = ({ icone, children }) => (
 // visivel/enviando: a folha abre no toque; `enviando` trava os dois botões. nome: o
 // primeiro nome do profissional. interessados: quantos OUTROS seguem valendo (0 = sem número).
 // prazoCurto: menos de 24h para o prazo (linha "aumentar o tempo").
-// onDesfazer: o POST da tela. onFechar: "Esperar mais um pouco" e o toque fora.
+// onDesfazer: o POST da tela. onFechar: "Esperar mais um pouco", o toque fora, o voltar do
+// Android e o arraste para baixo na alça/título (useArrastarParaFechar) — todos travados
+// enquanto `enviando`.
 export function SheetDesfazerEscolha({ visivel, nome, interessados, prazoCurto, enviando, onFechar, onDesfazer }) {
   const insets = useSafeAreaInsets()
   const fechar = () => { if (!enviando) onFechar?.() }
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const n = Number(interessados) || 0
   const quem = nome || 'o profissional'
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={estilos.alca} />
-          <ScrollView showsVerticalScrollIndicator={false}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+          {/* Alça + título fora do ScrollView: é a zona do arraste; a lista rola como antes. */}
+          <View {...panHandlers}>
+            <View style={estilos.alca} />
             <Text style={estilos.titulo}>Desfazer a escolha de {quem}?</Text>
-
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
             <Linha icone="🚫">{quem.charAt(0).toUpperCase() + quem.slice(1)} sai do pedido e recebe <Text style={estilos.forte}>1 falta</Text> (3 em 90 dias suspendem a conta).</Linha>
             <Linha icone="🔓">O pedido volta a ficar aberto{n > 0 ? ` e os outros ${n} ${n === 1 ? 'interessado continua' : 'interessados continuam'} valendo` : ' e os outros interessados continuam valendo'}.</Linha>
             <Linha icone="🔔">Os interessados são avisados. Ainda não há escolhido: você escolhe de novo quando quiser.</Linha>
@@ -77,7 +83,7 @@ export function SheetDesfazerEscolha({ visivel, nome, interessados, prazoCurto, 
               <Text style={estilos.btnNeutroTexto}>Esperar mais um pouco</Text>
             </TouchableOpacity>
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   )

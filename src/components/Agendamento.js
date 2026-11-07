@@ -114,7 +114,9 @@ export const CaixaAtencaoApp = ({ compacta, grande }) => (
 // `limite` (expira_em da demanda) é o teto dos chips: a API recusa (400) um horário do
 // profissional depois do prazo. null = sem teto (a contraproposta do dono estica o prazo).
 // Só o FUTURO entra: hora cheia de 06:00 a 21:00 cujo início ainda não passou.
-export function PickerAgendamento({ titulo, limite, rotuloBotao, enviando, onEnviar, onCancelar }) {
+// arraste: panHandlers de useArrastarParaFechar quando o picker vive numa folha de baixo
+// (FolhaPicker do PosMatchFixo) — vão no título/subtítulo, nunca nos chips que rolam.
+export function PickerAgendamento({ titulo, limite, rotuloBotao, enviando, onEnviar, onCancelar, arraste }) {
   // Relógio lido UMA vez por montagem: os chips não precisam mudar enquanto a pessoa escolhe.
   const [agoraMs] = useState(() => Date.now())
   const limiteMs = limite ? new Date(limite).getTime() : NaN
@@ -159,10 +161,12 @@ export function PickerAgendamento({ titulo, limite, rotuloBotao, enviando, onEnv
 
   return (
     <View style={estilos.pickerWrap}>
-      <Text style={estilos.pickerTitulo}>{titulo}</Text>
-      {temLimite && (
-        <Text style={estilos.pickerSub}>Dentro do prazo do pedido: até {formatarAgendado(limite) || '—'}</Text>
-      )}
+      <View {...(arraste || {})}>
+        <Text style={estilos.pickerTitulo}>{titulo}</Text>
+        {temLimite && (
+          <Text style={estilos.pickerSub}>Dentro do prazo do pedido: até {formatarAgendado(limite) || '—'}</Text>
+        )}
+      </View>
       {dias.length === 0 ? (
         <Text style={estilos.pickerVazio}>Não há horário disponível dentro do prazo do pedido. Peça ao solicitante para aumentar o prazo.</Text>
       ) : (
