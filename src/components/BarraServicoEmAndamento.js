@@ -81,18 +81,24 @@ const BarraServicoEmAndamento = () => {
     ultimaRef.current = agora
     buscandoRef.current = true
     try {
-      const resp = await api.get(cfg.url)
-      const linhas = cfg.linhas(resp)
-      setAbertos(linhas.filter(cfg.emAndamento))
+      // O perfil principal mais as fontes extras (só o DONO as tem: as obras, ao lado dos
+      // serviços — lado contratante unificado). Sem extras é uma requisição e uma resposta,
+      // como sempre. Cada linha carrega a fonte de onde veio ({ f, x }), porque é a fonte
+      // que sabe o destino, o vocabulário e o que conta como pendente — mesmo desenho do
+      // RetomadaMatchHost.
+      const fontes = [cfg, ...(cfg.extras || [])]
+      const respostas = await Promise.all(fontes.map((f) => api.get(f.url)))
+      const linhas = fontes.flatMap((f, i) => f.linhas(respostas[i]).map((x) => ({ f, x })))
+      setAbertos(linhas.filter(({ f, x }) => f.emAndamento(x)))
       // Mesma resposta, sem requisição nova: a contagem de propostas sem resposta já vem
       // nas linhas do dono (candidaturas_pendentes / interesses_pendentes).
       // Fora da lista, por ordem: quem já tem match (a barra de "em andamento" ganha e
       // contá-la aqui inflaria o plural), encerrada e EXPIRADA — o servidor conta por id
       // da demanda, sem olhar o estado dela, e cobrar resposta sobre algo que o dono não
       // pode mais responder gasta a credibilidade da própria barra.
-      setAguardando(linhas.filter(x =>
-        (cfg.pendentes?.(x) ?? 0) > 0 &&
-        !cfg.emAndamento(x) &&
+      setAguardando(linhas.filter(({ f, x }) =>
+        (f.pendentes?.(x) ?? 0) > 0 &&
+        !f.emAndamento(x) &&
         x.status !== 'encerrada' &&
         !x.expirada
       ))
@@ -151,14 +157,21 @@ const BarraServicoEmAndamento = () => {
   // escondendo a barra em qualquer detalhe que chegasse sem params.
   // Vale para QUALQUER uma das linhas da barra, não só quando há uma: com 2+ serviços a barra
   // flutuava por cima das telas únicas (Agendado / A caminho / Em andamento) do próprio serviço.
-  const idRota = rota?.params?.[cfg.param]?.id
-  const noDetalheDesta = rota?.name === cfg.detalhe && idRota != null &&
-    linhas.some(l => { const id = cfg.idDemanda(l); return id != null && String(idRota) === String(id) })
+  // Detalhe e param são os da FONTE de cada linha: o dono tem serviços e obras na mesma barra.
+  const noDetalheDesta = linhas.some(({ f, x }) => {
+    const idRota = rota?.params?.[f.param]?.id
+    const id = f.idDemanda(x)
+    return rota?.name === f.detalhe && idRota != null && id != null && String(idRota) === String(id)
+  })
   if (noDetalheDesta) return null
 
-  // O vocabulário do papel sai do param do perfil ('reparo' | 'obra'), sem campo novo: para
-  // quem contratou pintura o serviço chama-se obra, e "1 serviço" soaria de outra tela.
-  const ehObra = cfg.param === 'obra'
+  // O vocabulário sai do param da fonte de cada linha ('reparo' | 'obra'), sem campo novo:
+  // uma obra chama-se obra, e "1 serviço" soaria de outra tela. Com várias linhas de tipos
+  // DIFERENTES (só o dono) o plural é "pedidos" — nem "obras" nem "serviços" cobre as duas.
+  const primeira = linhas[0]
+  const ehObra = primeira.f.param === 'obra'
+  const misto = linhas.some(({ f }) => f.param !== primeira.f.param)
+  const plural = misto ? 'pedidos' : ehObra ? 'obras' : 'serviços'
   // Título da linha quando há UMA. Pode faltar — as candidaturas do pintor nem sempre trazem
   // titulo (ver os guardas em DetalheObraScreen) —, e aí o rótulo genérico ainda cumpre o
   // papel da barra, que é levar de volta.
@@ -169,18 +182,18 @@ const BarraServicoEmAndamento = () => {
   // null depois do a_caminho_em (ou sem o campo, como nas linhas do profissional enquanto o
   // endpoint não o manda): aí vale o texto de sempre.
   const souDono = usuario.role === 'dono_obra'
-  const fase = emAndamento && um ? textoFasePosMatch(linhas[0], souDono) : null
+  const fase = emAndamento && um ? textoFasePosMatch(primeira.x, souDono) : null
   const rotulo = emAndamento
     ? (um
         ? (fase
-            ? `${fase}${linhas[0].titulo ? ` · ${linhas[0].titulo}` : ''}`
-            : linhas[0].titulo
-              ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${linhas[0].titulo}`
+            ? `${fase}${primeira.x.titulo ? ` · ${primeira.x.titulo}` : ''}`
+            : primeira.x.titulo
+              ? `${ehObra ? 'Obra em andamento!' : 'Serviço em andamento!'} ${primeira.x.titulo}`
               : (ehObra ? 'Obra em andamento' : 'Serviço em andamento'))
-        : `${linhas.length} ${ehObra ? 'obras' : 'serviços'} em andamento`)
+        : `${linhas.length} ${plural} em andamento`)
     : (um
-        ? `${linhas[0].titulo || (ehObra ? 'Obra' : 'Serviço')} · ${cfg.pendentes?.(linhas[0]) ?? 0} interessado(s) aguardando resposta`
-        : `${linhas.length} ${ehObra ? 'obras' : 'serviços'} com interessados aguardando`)
+        ? `${primeira.x.titulo || (ehObra ? 'Obra' : 'Serviço')} · ${primeira.f.pendentes?.(primeira.x) ?? 0} interessado(s) aguardando resposta`
+        : `${linhas.length} ${plural} com interessados aguardando`)
 
   // Uma leva ao detalhe; várias à lista, porque com mais de um combinado de pé não dá para
   // escolher pela pessoa. Mesma decisão (e mesma ordem de desistências) do RetomadaMatchHost.
@@ -188,10 +201,11 @@ const BarraServicoEmAndamento = () => {
     const nav = navigationRef.current
     if (!nav) return
     if (!um) { nav.navigate(cfg.tab); return }
-    const id = cfg.idDemanda(linhas[0])
+    const { f, x } = primeira
+    const id = f.idDemanda(x)
     // Sem id não dá para abrir o detalhe; a lista ainda é melhor que não fazer nada.
-    if (id == null) { nav.navigate(cfg.tab); return }
-    nav.navigate(cfg.tab, { screen: cfg.detalhe, params: { [cfg.param]: { id } }, initial: false })
+    if (id == null) { nav.navigate(f.tab); return }
+    nav.navigate(f.tab, { screen: f.detalhe, params: { [f.param]: { id } }, initial: false })
   }
 
   presencaRef.current = true

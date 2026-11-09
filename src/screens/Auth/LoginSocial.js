@@ -83,7 +83,7 @@ export function useLoginSocial({ navigation, onEscolher, onSessao, ocupado = fal
         return
       }
       if (resposta?.escolher) {
-        onEscolher?.({ provedor, contas: resposta.contas, ultimoTipo: resposta.ultimoTipo || null })
+        onEscolher?.({ provedor, contas: resposta.contas, ultimoTipo: resposta.ultimoTipo || null, email: resposta.email || null })
         return
       }
       credencialRef.current = null

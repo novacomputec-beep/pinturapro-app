@@ -11,7 +11,8 @@ import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
-import BannerComoFunciona from '../../components/BannerComoFunciona'
+import { useAuth } from '../../contexts/AuthContext'
+import { marcarTemObras } from '../../utils/temObras'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -22,8 +23,13 @@ import {
 // Cadastro de obra do dono em 4 passos (Arte-Cadastrar-Obra), na MESMA moldura do cadastro de
 // serviço (./CadastrarServicoPassos): tipo → detalhes → prazo e valor → endereço. SÓ o layout
 // mudou: estado, validações, payload de POST /obras/dono (prazo_modo/timezone de "Hoje",
-// data inicial), aprovação, fluxo de mídia, pré-preenchimento vindo do serviço, reset
-// pós-envio e o sinal para a RetomadaMatchHost são os de sempre.
+// data inicial), aprovação, fluxo de mídia, reset pós-envio e o sinal para a
+// RetomadaMatchHost são os de sempre.
+//
+// Fase 1 (Arte-Fase1-Contratar): chega-se aqui pelo tile "Obras de Construção Civil" do
+// "Cadastrar pedido" (aba "Novo pedido"), que empilha esta tela; depois de publicar, vai para
+// "Meus pedidos". O pré-preenchimento que vinha do serviço (Alvenaria → "Pedreiro ou
+// ajudante") saiu junto com aquele desvio.
 
 // O tipo da obra começa SEM seleção (antes abria no primeiro da lista): a escolha é da pessoa
 // e obrigatória — "Continuar" do passo 1 e "Publicar obra" validam (ver validarTudo).
@@ -105,10 +111,8 @@ const fusoDoAparelho = () => {
   }
 }
 
-export default function CadastrarObraScreen({ navigation, route }) {
-  // Chegada a partir de CadastrarReparoScreen (Alvenaria → "Pedreiro ou ajudante"): traz
-  // o que já foi preenchido lá e o nome da rota de origem. undefined nos outros caminhos.
-  const deReparo = route?.params?.deReparo
+export default function CadastrarObraScreen({ navigation }) {
+  const { usuario } = useAuth()
   const [passo, setPasso] = useState(1)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -168,50 +172,20 @@ export default function CadastrarObraScreen({ navigation, route }) {
   // enquanto a flag está desligada.
   const midia = useUploadMidiaDemanda({ vertical: 'obra', montadoRef, logPrefix: '[CadastrarObra]' })
 
-  // Pré-preenchimento vindo do formulário de serviço. Só os campos que existem igual nas
-  // duas telas: título, descrição, endereço e mídias. Categoria da obra, prazo e valor
-  // ficam para a pessoa escolher aqui — são outras escalas. Roda por efeito, e não como
-  // valor inicial do useState, para valer também quando esta tela já estiver montada e
-  // receber um novo deReparo (mesmo comportamento nos dois casos). Começa no passo 1: o
-  // tipo da obra é a primeira coisa que falta.
-  useEffect(() => {
-    if (!deReparo) return
-    setPasso(1)
-    setTitulo(deReparo.titulo || '')
-    setDescricao(deReparo.descricao || '')
-    setCep(deReparo.cep || '')
-    setLogradouro(deReparo.logradouro || '')
-    setNumero(deReparo.numero || '')
-    setComplemento(deReparo.complemento || '')
-    setBairro(deReparo.bairro || '')
-    setCidade(deReparo.cidade || '')
-    setUf(deReparo.uf || '')
-    setPontoReferencia(deReparo.pontoReferencia || '')
-    setEnderecoEncontrado(!!deReparo.enderecoEncontrado)
-    midia.importar(deReparo.midias)
-    // midia.importar é estável (useCallback sem deps).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deReparo])
-
-  // Para onde ir depois de publicar. No caminho normal, a aba "Minhas Obras" do dono de
-  // obra. Vindo do serviço, a conta é de dono_reparo e essa aba NÃO existe: primeiro
-  // volta à rota de origem com { obraPublicada: true } (o navigate a uma rota já na pilha
-  // volta até ela e atualiza os params — é isso que desempilha esta tela e limpa o
-  // formulário de lá), depois abre a lista onde a obra aparece. Qual lista depende do
-  // navegador: nas abas do dono_reparo é "Meus Reparos" (ListaReparos, na aba de obras);
-  // no stack legado (tipo_dono indefinido) é a MinhasObras do próprio stack. A pilha é
-  // lida ANTES do primeiro navigate, enquanto esta tela ainda está nela.
+  // Para onde ir depois de publicar: a aba "Meus pedidos", onde a obra aparece junto dos
+  // serviços (Fase 1). Esta tela vive EMPILHADA sobre o "Cadastrar pedido" na aba "Novo
+  // pedido" (tile "Obras de Construção Civil"): antes de trocar de aba ela se desempilha,
+  // para a aba voltar a abrir nos grupos — e não num cadastro de obra em branco. As abas
+  // (pai desta pilha) são lidas ANTES do pop, enquanto esta tela ainda está montada nelas.
   const irParaLista = () => {
-    if (!deReparo?.rotaOrigem) { navigation.navigate('Minhas Obras'); return }
-    const legado = navigation.getState()?.routeNames?.includes('MinhasObras')
-    navigation.navigate(deReparo.rotaOrigem, { obraPublicada: true })
-    if (legado) navigation.navigate('MinhasObras', { aba: 'obras' })
-    else navigation.navigate('Meus Reparos', { screen: 'ListaReparos', params: { aba: 'obras' } })
+    const abas = navigation.getParent?.() || navigation
+    if ((navigation.getState()?.index ?? 0) > 0) navigation.popToTop()
+    abas.navigate('Meus pedidos')
   }
 
   // Reset APÓS ENVIO BEM-SUCEDIDO — espelha CadastrarReparoScreen para que ambas se
-  // comportem de forma idêntica. Após um envio bem-sucedido navegamos para 'Minhas
-  // Obras' (outra aba); ao voltar para 'Nova Obra' o foco dispara este reset, limpando
+  // comportem de forma idêntica. Vale para quando esta tela NÃO é desempilhada depois de
+  // publicar (raiz de uma pilha): ao voltar a ela o foco dispara este reset, limpando
   // as mídias e liberando os bitmaps de preview. Em caso de FALHA o usuário permanece
   // nesta mesma tela (sem nova transição de foco), então os anexos NÃO são descartados
   // e podem ser reenviados.
@@ -549,6 +523,9 @@ export default function CadastrarObraScreen({ navigation, route }) {
       // reset por foco fica armado. Vale para os dois desfechos abaixo (com e sem mídia),
       // inclusive quando alguma mídia falha — a obra já foi criada de qualquer forma.
       submetidoRef.current = true
+      // A pessoa agora TEM obra: a aba Mensagens (chat de obra) passa a existir nas abas do
+      // dono sem esperar a próxima consulta a GET /auth/contas (utils/temObras).
+      marcarTemObras(usuario?.id)
     } catch (e) {
       console.log('[CadastrarObra] falha ao criar obra | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
       const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
@@ -574,11 +551,11 @@ export default function CadastrarObraScreen({ navigation, route }) {
   // Picker: fecha, solta o teclado e abre a câmera/galeria com a mesma folga de sempre.
   const abrirMidia = (fn) => { Keyboard.dismiss(); setPickerMidia(null); setTimeout(() => fn(), 500) }
 
-  // Esta tela é a RAIZ da aba "Nova Obra" (dono_obra): a stack da aba só contém esta rota
-  // (index 0) e não existe "voltar" no passo 1 — a seta nem é renderizada. Empilhada (sobre o
-  // serviço do dono_reparo, ou no fluxo legado) a seta aparece e volta de fato. Checamos o
-  // index da PRÓPRIA stack — canGoBack() sobe para o tab/root e podia resolver true nesta
-  // raiz de aba. Nos passos 2–4 a seta volta um passo.
+  // Esta tela vive EMPILHADA sobre o "Cadastrar pedido" (aba "Novo pedido"): no passo 1 a seta
+  // aparece e volta de fato — aos grupos de lá. Como raiz de uma pilha (index 0) não existe
+  // "voltar" no passo 1 e a seta nem é renderizada. Checamos o index da PRÓPRIA stack —
+  // canGoBack() sobe para o tab/root e podia resolver true numa raiz de aba. Nos passos 2–4
+  // a seta volta um passo.
   const naRaiz = (navigation.getState()?.index ?? 0) === 0
   const mostrarVoltar = passo > 1 || !naRaiz
 
@@ -592,9 +569,6 @@ export default function CadastrarObraScreen({ navigation, route }) {
         mostrarVoltar={mostrarVoltar}
         scrollRef={scrollRef}
         reservaInferior={reservaInferior}
-        // Só na raiz da aba "Nova Obra" (rota *Main) e no 1º passo: é a tela inicial do
-        // dono_obra e a aba Perfil existe. Empilhada (NovoReparoStack/legado) a rota é 'CadastrarObra'.
-        acimaDoTitulo={passo === 1 && route?.name === 'CadastrarObraMain' ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
         rodape={passo < TOTAL_PASSOS
           ? <RodapeWizard rotulo="Continuar →" onPress={avancar} />
           : <RodapeWizard

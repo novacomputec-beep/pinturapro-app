@@ -94,6 +94,7 @@ export default function LoginScreen({ navigation }) {
         contas={contas}
         tipoCarregando={tipoCarregando}
         ultimoTipo={ultimoTipo}
+        email={email.trim().toLowerCase()}
         onEscolher={(tipo) => handleLogin(tipo)}
         onVoltar={() => setContas(null)}
       />

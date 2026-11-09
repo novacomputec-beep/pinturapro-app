@@ -99,14 +99,17 @@ export default function SplashScreen({ navigation }) {
   // tem conta vai ao cadastro com o ticket.
   const [contas, setContas] = useState(null)
   const [ultimoTipo, setUltimoTipo] = useState(null)
+  // E-mail das contas a escolher: o "Entrar como:" lê por ele a última conta contratante usada.
+  const [emailContas, setEmailContas] = useState(null)
   const [tipoCarregando, setTipoCarregando] = useState(null)
   const [provedorContas, setProvedorContas] = useState(null)
   const { linkPagamento, setLinkPagamento, tratarAssinatura } = useAssinaturaPosLogin()
   const social = useLoginSocial({
     navigation,
     ocupado: !!tipoCarregando,
-    onEscolher: ({ provedor, contas: lista, ultimoTipo: salvo }) => {
+    onEscolher: ({ provedor, contas: lista, ultimoTipo: salvo, email }) => {
       setUltimoTipo(salvo)
+      setEmailContas(email || null)
       setProvedorContas(provedor)
       setContas(lista)
     },
@@ -119,6 +122,7 @@ export default function SplashScreen({ navigation }) {
         contas={contas}
         tipoCarregando={tipoCarregando}
         ultimoTipo={ultimoTipo}
+        email={emailContas}
         onEscolher={(tipo) => social.handleSocial(provedorContas, tipo, setTipoCarregando)}
         onVoltar={() => { social.limparCredencial(); setContas(null) }}
       />

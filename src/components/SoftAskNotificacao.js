@@ -72,7 +72,10 @@ const barrado = (porta, estado = null) => {
 }
 
 // Copy por vertical — obra e reparo mantêm nomenclatura distinta neste projeto.
+// 'dono' é a da lista "Meus pedidos" (serviços e obras juntos): ali não dá para dizer "obra"
+// nem "serviço" sozinho. As duas específicas seguem para logo depois de publicar cada tipo.
 const VARIANTES = {
+  dono:        { corpo: 'Avisamos na hora em que um profissional demonstrar interesse no seu pedido.' },
   dono_obra:   { corpo: 'Avisamos na hora em que um profissional demonstrar interesse na sua obra.' },
   dono_reparo: { corpo: 'Avisamos na hora em que um profissional demonstrar interesse no seu serviço.' },
   pintor:      { corpo: 'Avisamos assim que surgir uma nova obra perto de você.' },

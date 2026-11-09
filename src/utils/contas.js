@@ -19,14 +19,33 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 
 // Ordem e rótulos da arte. `lado` é o das listas de especialidade (utils/categorias):
 // 'reparo' → CATEGORIAS_SERVICO, 'pintura' → CATEGORIAS_CONSTRUCAO; donos não escolhem.
+// Lado contratante UNIFICADO (Fase 1, Arte-Fase1-Contratar): as duas contas contratantes
+// (dono_reparo e dono_obra) do mesmo CPF veem e gerenciam os mesmos serviços e obras, então
+// as telas mostram UM perfil "Contratar". Os dois tipos seguem existindo na API e aqui (é o
+// tipo que vai no login/trocar/criar); só o rótulo é um.
 export const TIPOS_PERFIL = [
   { tipo: 'reparador',   icone: '🔧', rotulo: 'Prestadora/Prestador de serviços', descricao: 'Serviços gerais e domésticos', profissional: true,  lado: 'reparo' },
-  { tipo: 'dono_reparo', icone: '🛠️', rotulo: 'Preciso de um serviço',            descricao: 'Contratar um serviço doméstico', profissional: false, lado: null },
-  { tipo: 'dono_obra',   icone: '🏠', rotulo: 'Preciso de uma obra',              descricao: 'Contratar obra, reforma ou pintura', profissional: false, lado: null },
+  { tipo: 'dono_reparo', icone: '🤝', rotulo: 'Quero contratar',                  descricao: 'Serviços, obras e reformas', profissional: false, lado: null },
+  { tipo: 'dono_obra',   icone: '🤝', rotulo: 'Quero contratar',                  descricao: 'Serviços, obras e reformas', profissional: false, lado: null },
   { tipo: 'pintor',      icone: '🖌️', rotulo: 'Construtor/pintor',                descricao: 'Obras, construção e pintura', profissional: true,  lado: 'pintura' },
 ]
 
 export const perfilDoTipo = (tipo) => TIPOS_PERFIL.find((t) => t.tipo === tipo) || null
+
+// Os tipos contratantes, na ordem de preferência quando nenhum foi usado por último.
+export const TIPOS_CONTRATAR = ['dono_reparo', 'dono_obra']
+export const ehTipoContratar = (tipo) => TIPOS_CONTRATAR.includes(tipo)
+
+// Qual conta contratante o card único "Contratar" usa, entre as que a pessoa TEM (`tipos`):
+// a última contratante usada neste aparelho, senão dono_reparo, senão dono_obra. null sem
+// nenhuma (aí o card cria uma — ver TIPO_CONTRATAR_NOVO).
+export const contaContratar = (tipos, ultimoContratar) => {
+  const tem = TIPOS_CONTRATAR.filter((t) => (tipos || []).includes(t))
+  if (!tem.length) return null
+  return ultimoContratar && tem.includes(ultimoContratar) ? ultimoContratar : tem[0]
+}
+// Tipo criado pelo "Adicionar" do card Contratar quando a pessoa não tem conta contratante.
+export const TIPO_CONTRATAR_NOVO = 'dono_reparo'
 
 // Tipo canônico da conta logada (espelho de tipoDaLinha). 'assinante' (legado) conta como
 // pintor, o produto original; qualquer outra coisa volta null.
@@ -41,19 +60,31 @@ export const tipoDaConta = (usuario) => {
 export const tiposDasContas = (contas) =>
   (Array.isArray(contas) ? contas : []).map((c) => (typeof c === 'string' ? c : c?.tipo)).filter(Boolean)
 
-// Lista da tela: os 4 tipos na ordem da arte, cada um com o estado
+// Lista da tela: os perfis na ordem da arte, cada um com o estado
 //   'em_uso'    — a conta logada;
 //   'trocar'    — existe em `contas` (POST /auth/trocar-conta);
 //   'adicionar' — não existe (POST /auth/contas/:tipo).
 // A conta atual SEMPRE conta como existente, mesmo que `contas` ainda não tenha chegado
 // (sessão em cache de antes deste campo): a tela nunca oferece "Adicionar" o próprio tipo.
-export const listarPerfis = (usuario) => {
+// São TRÊS perfis: os dois profissionais e UM "Contratar" (`contratar: true`), cujo `tipo` é
+// a conta contratante a usar — a logada (em uso), a escolhida por contaContratar (trocar) ou
+// TIPO_CONTRATAR_NOVO (adicionar). `ultimoContratar`: lerUltimoTipoContratar(e-mail).
+export const listarPerfis = (usuario, ultimoContratar = null) => {
   const atual = tipoDaConta(usuario)
   const existentes = new Set([...tiposDasContas(usuario?.contas), ...(atual ? [atual] : [])])
-  return TIPOS_PERFIL.map((t) => ({
+  const profissionais = TIPOS_PERFIL.filter((t) => t.profissional).map((t) => ({
     ...t,
     estado: t.tipo === atual ? 'em_uso' : existentes.has(t.tipo) ? 'trocar' : 'adicionar',
   }))
+  const tipoContratar = ehTipoContratar(atual)
+    ? atual
+    : contaContratar([...existentes], ultimoContratar) || TIPO_CONTRATAR_NOVO
+  const contratar = {
+    ...perfilDoTipo(tipoContratar),
+    contratar: true,
+    estado: ehTipoContratar(atual) ? 'em_uso' : existentes.has(tipoContratar) ? 'trocar' : 'adicionar',
+  }
+  return [contratar, ...profissionais]
 }
 
 // ── Último perfil usado, por aparelho e por e-mail ─────────────────────────────────────
@@ -77,9 +108,28 @@ export const lerUltimoTipo = async (email) => {
   }
 }
 
+// Última conta CONTRATANTE usada (dono_reparo | dono_obra), em chave própria: o "último
+// perfil" acima pode ser um profissional, e o card único "Contratar" precisa saber qual das
+// duas contas contratantes a pessoa usou por último. Gravada junto, no mesmo gravarUltimoTipo.
+const chaveUltimoContratar = (email) => `ultimo_tipo_contratar:${String(email || '').trim().toLowerCase()}`
+
+export const lerUltimoTipoContratar = async (email) => {
+  if (!email) return null
+  try {
+    const v = await AsyncStorage.getItem(chaveUltimoContratar(email))
+    return ehTipoContratar(v) ? v : null
+  } catch (err) {
+    console.log('[contas] falha ao ler o último perfil contratante | msg:', err?.message)
+    return null
+  }
+}
+
 export const gravarUltimoTipo = async (email, tipo) => {
   if (!email || !tipo) return
-  try { await AsyncStorage.setItem(chaveUltimoTipo(email), tipo) } catch (err) {
+  try {
+    await AsyncStorage.setItem(chaveUltimoTipo(email), tipo)
+    if (ehTipoContratar(tipo)) await AsyncStorage.setItem(chaveUltimoContratar(email), tipo)
+  } catch (err) {
     console.log('[contas] falha ao gravar o último perfil | msg:', err?.message)
   }
 }

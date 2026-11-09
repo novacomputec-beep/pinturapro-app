@@ -5,15 +5,14 @@ import { useFocusEffect } from '@react-navigation/native'
 import api, { authService } from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
-import { listarPerfis, msgErroContas } from '../../utils/contas'
+import { listarPerfis, msgErroContas, lerUltimoTipoContratar } from '../../utils/contas'
 import { CARTOES_TIPO, CartaoEscolha } from '../Auth/EscolhaPerfil'
 import { cores, espacos, alturas, larguraMaxima } from '../../utils/tema'
 
-// "Meus perfis" (Arte-Meus-Perfis, ordem da Arte-Meus-Perfis-Ordem): os 4 tipos de cadastro
-// da mesma pessoa, lidos de usuario.contas (GET /auth/perfil, guardado pelo AuthContext).
-// Cards no molde do "Entrar como:" (CartaoEscolha de EscolhaPerfil: ilustração, rótulo,
-// título, borda azul = contratar / laranja = trabalhar), na ordem serviço-contratar,
-// serviço-trabalhar, obra-contratar, obra-trabalhar. O rótulo é "ÁREA · AÇÃO": a área em
+// "Meus perfis" (Arte-Meus-Perfis): os perfis da mesma pessoa, lidos de usuario.contas (GET
+// /auth/perfil, guardado pelo AuthContext). Cards no molde do "Entrar como:" (CartaoEscolha
+// de EscolhaPerfil: ilustração, rótulo, título, borda azul = contratar / laranja =
+// trabalhar), na ordem contratar, serviço-trabalhar, obra-trabalhar. O rótulo é "ÁREA · AÇÃO": a área em
 // branco e a ação na cor do lado. A conta logada fica com borda verde, ✓ verde e a tag
 // "EM USO" numa linha sob o título, sem toque; as que existem no mesmo e-mail trocam ao
 // toque (POST /auth/trocar-conta e loginComToken, sem senha); as que faltam mostram ＋ e
@@ -21,17 +20,23 @@ import { cores, espacos, alturas, larguraMaxima } from '../../utils/tema'
 // uma conta criada em outro aparelho; falhando, fica com o que a sessão já tem. O conteúdo é
 // exportado para a Galeria.
 
-const ORDEM = ['dono_reparo', 'reparador', 'dono_obra', 'pintor']
-const AREA = { dono_reparo: 'SERVIÇOS', reparador: 'SERVIÇOS', dono_obra: 'OBRAS', pintor: 'OBRAS' }
+// Fase 1 (Arte-Fase1-Contratar): o lado contratante é UM card — "SERVIÇOS E OBRAS ·
+// CONTRATAR" —, primeiro da lista; depois os dois profissionais. listarPerfis já devolve os
+// três, com o `tipo` da conta contratante a usar no card único.
+const AREA = { dono_reparo: 'SERVIÇOS E OBRAS', dono_obra: 'SERVIÇOS E OBRAS', reparador: 'SERVIÇOS', pintor: 'OBRAS' }
 const ACAO = { contratar: 'CONTRATAR', trabalhar: 'TRABALHAR' }
 const ROTULO_ESTADO = { em_uso: 'Em uso', trocar: 'Trocar para', adicionar: 'Adicionar' }
 
 export function MeusPerfisConteudo({ perfis, trocando, onTrocar, onAdicionar }) {
-  const ordenados = ORDEM.map((tipo) => perfis.find((p) => p.tipo === tipo)).filter(Boolean)
+  const ordenados = [
+    perfis.find((p) => p.contratar),
+    perfis.find((p) => p.tipo === 'reparador'),
+    perfis.find((p) => p.tipo === 'pintor'),
+  ].filter(Boolean)
   return (
     <>
       <Text style={estilos.titulo}>Meus perfis</Text>
-      <Text style={estilos.subtitulo}>Um e-mail, uma senha, até quatro perfis. Troque de perfil sem sair da conta.</Text>
+      <Text style={estilos.subtitulo}>Um e-mail, uma senha. Troque de perfil sem sair da conta.</Text>
       {ordenados.map((p) => {
         const c = CARTOES_TIPO[p.tipo]
         const emUso = p.estado === 'em_uso'
@@ -76,7 +81,16 @@ export default function MeusPerfisScreen({ navigation }) {
     return () => { vivo = false }
   }, [setUsuario]))
 
-  const perfis = listarPerfis(usuario)
+  // Última conta contratante usada neste aparelho: decide para qual das duas o card único
+  // "Contratar" troca quando a pessoa tem ambas. Até a leitura voltar vale a ordem padrão.
+  const [ultimoContratar, setUltimoContratar] = useState(null)
+  useEffect(() => {
+    let vivo = true
+    lerUltimoTipoContratar(usuario?.email).then((t) => { if (vivo) setUltimoContratar(t) })
+    return () => { vivo = false }
+  }, [usuario?.email])
+
+  const perfis = listarPerfis(usuario, ultimoContratar)
 
   const trocar = async (tipo) => {
     if (trocando) return

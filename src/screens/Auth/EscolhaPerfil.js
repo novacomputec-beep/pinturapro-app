@@ -43,16 +43,21 @@ export const IMG = {
   contratarObra:     require('../../../assets/escolha/contratar-obra.png'),
 }
 
-// Tipos de conta por lado — os MESMOS de sempre (prestador/pintor/dono_reparo/dono_obra);
-// sem `preco` = dono (Gratuito). Serviço primeiro, como antes.
+// Card ÚNICO do lado contratante (Fase 1, Arte-Fase1-Contratar): quem contrata vê um lado só
+// — serviços e obras são pedidos da mesma conta. Rótulo, título e ilustração são os mesmos no
+// cadastro, no "Entrar como:" e no "Meus perfis".
+const CONTRATAR = { rotulo: 'CONTRATAR', titulo: 'Serviços, obras e reformas', imagem: IMG.escolhaContratar }
+
+// Tipos de conta por lado. Trabalhar segue com os dois de sempre (prestador/pintor); contratar
+// tem UM card, que cadastra a conta dono_reparo (a mesma que publica serviço E obra).
+// Sem `preco` = dono (Gratuito). Serviço primeiro, como antes.
 const OPCOES = {
   trabalhar: [
     { tipo: 'prestador', imagem: IMG.trabalharServicos, rotulo: 'SERVIÇOS', titulo: 'Gerais e domésticos', desc: 'Do conserto à beleza: pedidos rápidos do dia a dia.', chips: ['Manicure', 'Elétrica', 'Aula particular', 'Faxina', '+40'], preco: 'R$ 49,90/mês' },
     { tipo: 'pintor',    imagem: IMG.trabalharObras,    rotulo: 'OBRAS',    titulo: 'Construção e pintura',  desc: 'Obras, reformas e pinturas com propostas maiores.',   chips: ['Pedreiro', 'Pintor', 'Construtor', 'Engenheiro'],       preco: 'R$ 99,90/mês' },
   ],
   contratar: [
-    { tipo: 'dono_reparo', imagem: IMG.contratarServico, rotulo: 'SERVIÇO', titulo: 'Um serviço doméstico',    desc: 'Conserto, montagem, aula, beleza e muito mais.',       chips: ['Encanador', 'Eletricista', 'Manicure', 'Faxina'] },
-    { tipo: 'dono_obra',   imagem: IMG.contratarObra,    rotulo: 'OBRA',    titulo: 'Obra, reforma ou pintura', desc: 'Cadastre a obra e receba propostas para comparar.', chips: ['Reforma', 'Construção', 'Pintura'] },
+    { tipo: 'dono_reparo', ...CONTRATAR, desc: 'Do conserto à reforma: publique o pedido e receba propostas para comparar.', chips: ['Encanador', 'Faxina', 'Manicure', 'Pintura', 'Reforma'] },
   ],
 }
 
@@ -64,11 +69,13 @@ const LADOS = {
 // Card por tipo de conta EXISTENTE, para o "Entrar como:" e o "Meus perfis": a chave é o
 // tipo como a API devolve em `contas` e em tipoDaConta (utils/contas) — 'reparador', e não
 // o 'prestador' do cadastro acima. Mesma ilustração, rótulo, título e cor do lado.
+// As duas contas contratantes têm o MESMO card (CONTRATAR): as telas mostram só uma delas
+// (utils/contas.contaContratar), e as duas chaves ficam para o tipo resolver de qualquer jeito.
 export const CARTOES_TIPO = {
   reparador:   { lado: 'trabalhar', cor: COR_TRABALHAR, imagem: IMG.trabalharServicos, rotulo: 'SERVIÇOS', titulo: 'Gerais e domésticos' },
   pintor:      { lado: 'trabalhar', cor: COR_TRABALHAR, imagem: IMG.trabalharObras,    rotulo: 'OBRAS',    titulo: 'Construção e pintura' },
-  dono_reparo: { lado: 'contratar', cor: COR_CONTRATAR, imagem: IMG.contratarServico, rotulo: 'SERVIÇO',  titulo: 'Um serviço doméstico' },
-  dono_obra:   { lado: 'contratar', cor: COR_CONTRATAR, imagem: IMG.contratarObra,    rotulo: 'OBRA',     titulo: 'Obra, reforma ou pintura' },
+  dono_reparo: { lado: 'contratar', cor: COR_CONTRATAR, ...CONTRATAR },
+  dono_obra:   { lado: 'contratar', cor: COR_CONTRATAR, ...CONTRATAR },
 }
 export const ROTULO_LADO = { trabalhar: LADOS.trabalhar.rotulo, contratar: LADOS.contratar.rotulo }
 
@@ -247,8 +254,8 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           onPress={() => setLado('contratar')}
         />
 
-        <CaixaAviso icone="users" titulo="Até 4 cadastros por pessoa">
-          Com o <Text style={s.avisoDestaque}>mesmo e-mail, CPF e senha</Text>: profissional e cliente, de obra e de serviço.
+        <CaixaAviso icone="users" titulo="Mais de um cadastro por pessoa">
+          Com o <Text style={s.avisoDestaque}>mesmo e-mail, CPF e senha</Text>: para contratar e para trabalhar, com serviços e com obras.
         </CaixaAviso>
       </ScrollView>
       </View>

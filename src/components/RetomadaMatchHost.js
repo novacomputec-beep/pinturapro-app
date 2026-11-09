@@ -7,7 +7,7 @@ import { navigationRef } from '../navigation/navigationRef'
 
 // Redirecionamento para o serviço em andamento: quem tem match fechado e ainda não
 // encerrado abre o app NELE, e não na aba inicial — que para o dono é um formulário em
-// branco ("Novo Reparo"/"Nova Obra") e para o prestador é o feed das demandas dos outros.
+// branco ("Novo pedido") e para o prestador é o feed das demandas dos outros.
 // Com mais de um em andamento não dá para escolher pela pessoa: leva à lista.
 //
 // Roda em DOIS momentos: no login/abertura (uma vez por usuário) e a cada volta do 2º
@@ -47,7 +47,11 @@ const ACEITO = ['aceito', 'aprovada']
 // divergiriam no dia seguinte: a barra apontaria para um lugar e a retomada da abertura para
 // outro, com o mesmo usuário e os mesmos dados.
 export const perfilDe = (u) => {
-  if (u.role === 'dono_obra' && u.tipo_dono === 'reparo') return {
+  // DONO (Fase 1, lado contratante unificado): um perfil só para o role dono_obra, com
+  // qualquer tipo_dono. A conta vê os serviços e as obras da pessoa, então as duas listas
+  // entram — os serviços como fonte principal e as obras em `extras` —, as duas com a aba
+  // "Meus pedidos", onde os dois detalhes estão registrados.
+  if (u.role === 'dono_obra') return {
     url: '/reparos/minhas',
     linhas: (r) => r.reparos || [],
     // Dono: a demanda é dele. Match fechado e ainda não encerrada.
@@ -58,30 +62,21 @@ export const perfilDe = (u) => {
     // entra, que é o que o dono precisa responder.
     pendentes: (x) => Number(x.interesses_pendentes) || 0,
     idDemanda: (x) => x.id,
-    tab: 'Meus Reparos', detalhe: 'DetalheReparo', param: 'reparo',
-    telaInicial: 'CadastrarReparoMain',
-    // Fontes ADICIONAIS do mesmo perfil: o dono_reparo também pode ter obras (saída
-    // "Pedreiro ou ajudante" de Alvenaria), e um match de obra merece a mesma retomada.
-    // Cada extra traz seu próprio destino porque a tela de detalhe muda; a aba é a mesma
-    // "Meus Reparos", onde DetalheObra está registrado. Só a retomada lê `extras`; a
-    // BarraServicoEmAndamento ignora a chave e segue como antes.
+    tab: 'Meus pedidos', detalhe: 'DetalheReparo', param: 'reparo',
+    telaInicial: 'CadastrarPedidoMain',
+    // Fontes ADICIONAIS do mesmo perfil: as OBRAS do dono. Cada extra traz seu próprio
+    // destino porque a tela de detalhe muda (e o campo de pendentes também:
+    // candidaturas_pendentes); a aba é a mesma "Meus pedidos". A retomada E a
+    // BarraServicoEmAndamento leem `extras` — sem isso o dono que só tem obra ficaria sem
+    // retomada e sem barra.
     extras: [{
       url: '/obras/minhas',
       linhas: (r) => r.obras || [],
       emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
+      pendentes: (x) => Number(x.candidaturas_pendentes) || 0,
       idDemanda: (x) => x.id,
-      tab: 'Meus Reparos', detalhe: 'DetalheObra', param: 'obra',
+      tab: 'Meus pedidos', detalhe: 'DetalheObra', param: 'obra',
     }],
-  }
-  if (u.role === 'dono_obra' && u.tipo_dono === 'pintura') return {
-    url: '/obras/minhas',
-    linhas: (r) => r.obras || [],
-    emAndamento: (x) => !!x.match_feito_em && x.match_usuario_id != null && x.status !== 'encerrada',
-    // Mesma razão do perfil de reparo acima; aqui o campo é candidaturas_pendentes.
-    pendentes: (x) => Number(x.candidaturas_pendentes) || 0,
-    idDemanda: (x) => x.id,
-    tab: 'Minhas Obras', detalhe: 'DetalheObra', param: 'obra',
-    telaInicial: 'CadastrarObraMain',
   }
   if (u.role === 'prestador' && u.tipo_prestador !== 'pintor') return {
     url: '/reparos/meus-interesses',
@@ -105,14 +100,14 @@ export const perfilDe = (u) => {
 }
 
 // As abas existem? O Stack raiz monta UM ramo só (AppNavigator.js:738): sem assinatura
-// 'ativa' quem está montado é Verificacao/Pagamento, com boas-vindas pendentes é a tela
-// de boas-vindas, e o dono sem tipo_dono cai num stack de nomes diferentes. Em qualquer
-// desses casos os nomes de aba abaixo não resolvem — melhor não tentar navegar.
+// 'ativa' quem está montado é Verificacao/Pagamento, e com boas-vindas pendentes é a tela
+// de boas-vindas. Nesses casos os nomes de aba abaixo não resolvem — melhor não tentar
+// navegar. O DONO sempre tem as abas (um navegador só, com qualquer tipo_dono).
 // Exportado pelo mesmo motivo do perfilDe: a barra do rodapé navega para as mesmas abas e
 // se ancora na altura delas, então sem tabs montadas ela não tem para onde levar nem em cima
 // de que se apoiar.
 export const tabsMontadas = (u, assinatura, mostrarBoasVindas) => {
-  if (u.role === 'dono_obra') return u.tipo_dono === 'reparo' || u.tipo_dono === 'pintura'
+  if (u.role === 'dono_obra') return true
   return assinatura?.status === 'ativa' && !mostrarBoasVindas
 }
 
@@ -171,7 +166,7 @@ export default function RetomadaMatchHost() {
 
     // Desistência do 2º plano (regra 1 do cabeçalho), ANTES do fetch, de propósito: sem
     // decisão a tomar não se gasta requisição — e o foreground é frequente. Só redireciona
-    // da TELA DE POUSO (CadastrarReparoMain / CadastrarObraMain para o dono, o feed para o
+    // da TELA DE POUSO (CadastrarPedidoMain para o dono, o feed para o
     // profissional); nela, o dono ainda fica se o formulário está em uso.
     const desistir = () => {
       const rota = navigationRef.current?.getCurrentRoute?.()?.name
@@ -199,7 +194,7 @@ export default function RetomadaMatchHost() {
         if (respostaNotificacao) return
       }
 
-      // O perfil principal mais as fontes extras (só o dono_reparo as tem). Sem extras a
+      // O perfil principal mais as fontes extras (só o dono as tem: as obras). Sem extras a
       // lista tem um item e o caminho é o de sempre: uma requisição, uma resposta. Cada
       // linha aberta carrega a fonte de onde veio, porque é a fonte que sabe o destino.
       const fontes = [cfg, ...(cfg.extras || [])]
