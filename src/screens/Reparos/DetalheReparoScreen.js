@@ -245,7 +245,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'pode_escolher_outro', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -555,6 +555,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
       buscar()
     }
     const assinaturaApp = AppState.addEventListener('change', (estado) => { if (estado === 'active') recarregar() })
+    // Sem filtro de tipo, de propósito: qualquer push deste reparo relê o detalhe — inclusive
+    // 'chegada_prevista' (mensagem pronta do outro lado) e 'chegada_prevista_recusada' (o
+    // horário recusado muda a fase e o catálogo das mensagens prontas).
     const sairDoPush = aoPushRecebido((data) => {
       const alvo = data?.reparo_id
       if (alvo != null && String(alvo) === String(id)) recarregar()
@@ -1884,6 +1887,38 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
+  // "Escolher outro profissional" (dono, pode_escolher_outro = true no GET — o profissional não
+  // respondeu a 2 avisos): confirma num Alert, POST /reparos/dono/:id/escolher-outro e o
+  // buscar() traz o pedido sem escolhido — o corpo rolável volta com a lista de interessados (a
+  // tela de propostas do pedido). 409 por código vira toast curto: ESCOLHER_OUTRO_INDISPONIVEL
+  // (a janela fechou / estado mudou) e HORARIO_EM_NEGOCIACAO (o profissional já propôs horário);
+  // demais erros no molde do handleDesfazerEscolha. Em qualquer 4xx a tela relê.
+  const [escolhendoOutro, setEscolhendoOutro] = useState(false)
+  const handleEscolherOutro = () => {
+    if (escolhendoOutro) return
+    const nome = primeiroNome(prestadorMatch?.nome) || 'o profissional'
+    Alert.alert('Escolher outro profissional?', `${nome} sai deste pedido e você volta à lista de interessados para escolher de novo. Sem penalidade para você.`, [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Escolher outro', style: 'destructive', onPress: async () => {
+        setEscolhendoOutro(true)
+        try {
+          await api.post(`/reparos/dono/${reparo.id}/escolher-outro`)
+          await buscar()
+          Alert.alert('Pedido reaberto', 'Escolha o novo profissional entre os interessados.')
+        } catch (err) {
+          console.log('[DetalheReparo] falha ao escolher outro | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+          if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+          if (err.status === 409 && err.codigo === 'ESCOLHER_OUTRO_INDISPONIVEL') mostrarAviso('Escolher outro não está mais disponível para este pedido.')
+          else if (err.status === 409 && err.codigo === 'HORARIO_EM_NEGOCIACAO') mostrarAviso('O profissional já propôs um horário — responda à proposta.')
+          else Alert.alert(err.status === 409 ? 'Não foi possível' : 'Erro', err.mensagem || 'Não foi possível escolher outro profissional.')
+          if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+        } finally {
+          if (mountedRef.current) setEscolhendoOutro(false)
+        }
+      } },
+    ])
+  }
+
   const abrirWhatsApp = (telefone) => {
     const digitos = (telefone || '').replace(/\D/g, '')
     if (!digitos) { console.log('[DetalheReparo] abrirWhatsApp chamado sem número — ignorado'); return }
@@ -2164,9 +2199,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onContrato: () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.'),
               onDenunciar: fasePosMatch === 'em_andamento' ? () => setSuporteAberto(true) : undefined,
             }}
-            /* Mensagens prontas: bloco "Conversa com <nome>" sob o card do topo (some sem fase
-               e sem histórico — temConversa). Botões de horário/a caminho/WhatsApp seguem iguais. */
-            conversa={{ dados: conversaProntas.dados, enviando: conversaProntas.enviando, onEnviar: conversaProntas.enviar }}
+            /* Mensagens prontas: linha "💬 Conversa com <nome> ›" sob o card do topo (some sem
+               fase e sem histórico — temConversa); a conversa abre numa folha. Botões de
+               horário/a caminho/WhatsApp seguem iguais. */
+            conversa={{ dados: conversaProntas.dados, novas: conversaProntas.novas, enviando: conversaProntas.enviando, onEnviar: conversaProntas.enviar, onAbrir: conversaProntas.marcarVistas }}
+            /* Dono com pode_escolher_outro: card vermelho no lugar do "Cancelar serviço". */
+            escolherOutro={isDono ? { onConfirmar: handleEscolherOutro, desabilitado: escolhendoOutro || desfazendo || cancelando } : null}
           />
           {isDono && (
             <ModalCompareceu
