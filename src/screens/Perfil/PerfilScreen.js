@@ -13,7 +13,7 @@ import { mascararTelefone } from '../../utils/telefone'
 import { abrirCanalWhatsApp } from '../../utils/canalWhatsApp'
 import { useAuth } from '../../contexts/AuthContext'
 import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
-import ModalExcluirConta from '../../components/ModalExcluirConta'
+import ModalExcluirConta, { PALAVRA_CONFIRMACAO } from '../../components/ModalExcluirConta'
 import ModalSuporte from '../../components/ModalSuporte'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import LinhaAvisosTodasAreas, { avisosTodasAreasLigado } from '../../components/AvisosTodasAreas'
@@ -363,25 +363,24 @@ export default function PerfilScreen({ navigation, route }) {
     ])
   }
 
-  // Exclusão definitiva da conta. O ModalExcluirConta captura a senha e exibe
-  // erros inline; aqui fazemos a chamada autenticada e mapeamos os status do
-  // backend para mensagens amigáveis. Ao lançar um erro, o modal o mostra e
-  // mantém-se aberto para nova tentativa. Em caso de sucesso, deslogamos — o
-  // navegador troca para a stack de autenticação (Login) automaticamente.
-  const handleExcluirConta = async (senha) => {
+  // Exclusão definitiva da conta (Arte-Excluir-Conta). O ModalExcluirConta só chama aqui
+  // depois de a pessoa digitar EXCLUIR, e mostra o erro que este handler lançar, continuando
+  // aberto para nova tentativa. A confirmação vai como { confirmacao: "EXCLUIR" } — sem senha
+  // — e a API apaga TODAS as contas da pessoa (pinturapro-api 268f192). Em caso de sucesso a
+  // sessão é limpa (logout) e o navegador monta o ramo deslogado, que abre na tela de
+  // boas-vindas (Splash, a primeira dele).
+  const handleExcluirConta = async () => {
     try {
-      // { timeout: true }: a exclusão é IDEMPOTENTE — senha errada é 401 e 4xx nunca é
-      // reexecutado, então o retry não insiste numa credencial inválida nem repete uma
-      // exclusão já efetivada. Cobrir o timeout importa especialmente aqui: um socket
-      // ocioso morto trava 30 s e o modal devolve "não foi possível excluir" para uma
-      // conta que estava intacta — a pessoa tenta de novo achando que falhou.
+      // { timeout: true }: 4xx nunca é reexecutado, então o retry não repete uma exclusão já
+      // efetivada. Cobrir o timeout importa especialmente aqui: um socket ocioso morto trava
+      // 30 s e o modal devolve "não foi possível excluir" para uma conta que estava intacta
+      // — a pessoa tenta de novo achando que falhou.
       // { servidor } fica FORA: um 5xx prova que a requisição chegou.
-      await comRetry(() => api.delete('/conta/excluir', { data: { senha } }), { timeout: true, persistir: true })
+      await comRetry(() => api.delete('/conta/excluir', { data: { confirmacao: PALAVRA_CONFIRMACAO } }), { timeout: true, persistir: true })
     } catch (err) {
-      console.log('[Perfil] falha ao excluir conta | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      console.log('[Perfil] falha ao excluir conta | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
       const msg =
-        err.status === 401 ? 'Senha incorreta. Verifique e tente novamente.' :
-        err.status === 400 ? 'Informe sua senha para confirmar a exclusão.' :
+        err.codigo === 'CONFIRMACAO_INVALIDA' ? `Digite ${PALAVRA_CONFIRMACAO} para confirmar a exclusão.` :
         err.status === 404 ? 'Conta não encontrada. Faça login novamente.' :
         err.mensagem || 'Não foi possível excluir a conta. Tente novamente.'
       throw new Error(msg)
