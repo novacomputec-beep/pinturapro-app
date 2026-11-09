@@ -5,22 +5,22 @@ import { BotaoPrimario } from '../../components'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { useAuth } from '../../contexts/AuthContext'
-import { especialidadesPorLado, MAX_ESPECIALIDADES, rotuloComEmoji } from '../../utils/categorias'
+import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO, MAX_ESPECIALIDADES, rotuloComEmoji } from '../../utils/categorias'
 import { perfilDoTipo, msgErroContas } from '../../utils/contas'
-import { ocultarConviteServicos } from '../../components/ConviteCadastroServicos'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 
 // "Adicionar perfil" (Arte-Meus-Perfis): tela curta que cria a conta irmã do tipo pedido
 // (route.params.tipo) com POST /auth/contas/:tipo. Nada é digitado — o servidor copia nome,
 // CPF, telefone, e-mail, senha e cidade da conta atual. A única decisão, e só para os tipos
-// profissionais, é a lista de especialidades do lado certo (reparador → serviços, pintor →
-// construção). "Criar e entrar" grava a sessão da conta nova (loginComToken) com o payload
-// de login que a API devolve — sem sair e entrar de novo, que era o caminho do
-// CadastroServicosScreen (que segue existindo para o convite do feed de obras).
+// profissionais, é a lista de especialidades (os quatro papéis de obra + os serviços, nas
+// duas contas profissionais — Fases 2a e 2b da API). "Criar e entrar" grava a sessão da conta nova (loginComToken)
+// com o payload de login que a API devolve — sem sair e entrar de novo.
 // O conteúdo é exportado para a Galeria.
 
 export function AdicionarPerfilConteudo({ perfil, selecionadas, onAlternar }) {
-  const lista = perfil?.profissional ? especialidadesPorLado(perfil.lado) : []
+  // Qualquer conta profissional: os quatro papéis de obra e os serviços, com o teto de 5 no
+  // total — a API aceita a mesma lista na conta de serviços (Fase 2a) e na de obra (Fase 2b).
+  const lista = perfil?.profissional ? [...CATEGORIAS_CONSTRUCAO, ...CATEGORIAS_SERVICO] : []
   const cheio = selecionadas.length >= MAX_ESPECIALIDADES
   return (
     <>
@@ -63,7 +63,7 @@ export function AdicionarPerfilConteudo({ perfil, selecionadas, onAlternar }) {
 export default function AdicionarPerfilScreen({ navigation, route }) {
   const tipo = route?.params?.tipo
   const perfil = perfilDoTipo(tipo)
-  const { usuario, loginComToken } = useAuth()
+  const { loginComToken } = useAuth()
   const [selecionadas, setSelecionadas] = useState([])
   const [carregando, setCarregando] = useState(false)
   const enviandoRef = useRef(false)
@@ -87,17 +87,14 @@ export default function AdicionarPerfilScreen({ navigation, route }) {
     enviandoRef.current = true
     setCarregando(true)
     try {
-      // comRetry como no CadastroServicosScreen: a regra de reenvio mora em utils/rede, e o
+      // comRetry: a regra de reenvio mora em utils/rede, e o
       // servidor serializa por e-mail/CPF e responde 409 à repetição — nunca duplica.
       const r = await comRetry(() => api.post(`/auth/contas/${tipo}`, precisaEsp ? { especialidades: selecionadas } : {}))
-      // Conta de reparador criada: o convite do feed de obras não tem mais o que convidar.
-      if (tipo === 'reparador') await ocultarConviteServicos(usuario?.id)
       if (!r?.token || !r?.usuario) throw { mensagem: 'Perfil criado, mas não foi possível entrar nele. Use "Trocar" em Meus perfis.' }
       // Entra no perfil novo: o AppNavigator muda a pilha pelo role do usuário novo.
       await loginComToken(r.token, r.usuario, r.assinatura, r.contas)
     } catch (err) {
       console.log('[AdicionarPerfil] falha ao criar | tipo:', tipo, '| status:', err?.status, '| code:', err?.code, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
-      if (err?.status === 409 && err?.codigo === 'tipo_duplicado' && tipo === 'reparador') await ocultarConviteServicos(usuario?.id)
       if (!montadoRef.current) return
       Alert.alert('Não foi possível criar', msgErroContas(err?.codigo) || err?.mensagem || 'Tente novamente.')
     } finally {
@@ -139,7 +136,7 @@ const estilos = StyleSheet.create({
   secao: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   contador: { fontSize: 12, fontWeight: '600', color: cores.primaria, marginBottom: 12 },
   grade: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  // Mesmas pills de duas colunas do CadastroServicosScreen.
+  // Pills de duas colunas.
   pill: { width: '48%', alignItems: 'center', backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 8 },
   pillAtiva: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   pillBloqueada: { opacity: 0.35 },

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, ScrollView, Image, BackHandler } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, larguraMaxima } from '../../utils/tema'
-import { contaContratar, ehTipoContratar, lerUltimoTipoContratar } from '../../utils/contas'
+import { contaContratar, ehTipoContratar, lerUltimoTipoContratar, contaTrabalhar, ehTipoTrabalhar, lerUltimoTipoTrabalhar } from '../../utils/contas'
 import {
   COR_TRABALHAR, COR_CONTRATAR, CARTOES_TIPO, ROTULO_LADO, FundoBrilhos, CartaoEscolha, CaixaAviso, BotaoVoltar, Wordmark,
   estilosEscolha as s,
@@ -23,11 +23,16 @@ const tipoDe = (conta) => (typeof conta === 'string' ? conta : conta?.tipo)
 // O lado CONTRATAR tem UM card só (Fase 1), mesmo com as duas contas contratantes no e-mail:
 // entra na última contratante usada (`ultimoTipo` se for uma delas, senão `ultimoContratar`),
 // senão dono_reparo, senão dono_obra — utils/contas.contaContratar.
-export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, ultimoContratar, onEscolher }) {
+// O lado TRABALHAR também (Fase 2): com as duas contas profissionais, entra na última usada,
+// senão reparador, senão pintor — utils/contas.contaTrabalhar.
+export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, ultimoContratar, ultimoTrabalhar, onEscolher }) {
   const tipos = (contas || []).map(tipoDe).filter(Boolean)
   const contratar = contaContratar(tipos, ehTipoContratar(ultimoTipo) ? ultimoTipo : ultimoContratar)
+  const trabalhar = contaTrabalhar(tipos, ehTipoTrabalhar(ultimoTipo) ? ultimoTipo : ultimoTrabalhar)
+  // De cada lado só a conta escolhida vira card.
+  const escolhido = (t) => (ehTipoContratar(t) ? t === contratar : ehTipoTrabalhar(t) ? t === trabalhar : true)
   const lados = LADOS
-    .map(lado => ({ lado, tipos: TIPOS_CONHECIDOS.filter(t => CARTOES_TIPO[t].lado === lado && tipos.includes(t) && (!ehTipoContratar(t) || t === contratar)) }))
+    .map(lado => ({ lado, tipos: TIPOS_CONHECIDOS.filter(t => CARTOES_TIPO[t].lado === lado && tipos.includes(t) && escolhido(t)) }))
     .filter(l => l.tipos.length > 0)
   const desconhecidos = tipos.filter(t => !TIPOS_CONHECIDOS.includes(t))
   const ocupado = !!tipoCarregando
@@ -41,7 +46,7 @@ export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, ultimoC
       rotulo={c.rotulo}
       tamanhoRotulo={14}
       titulo={c.titulo}
-      etiqueta={tipo === ultimoTipo || (ehTipoContratar(tipo) && ehTipoContratar(ultimoTipo)) ? 'ÚLTIMO USADO' : null}
+      etiqueta={tipo === ultimoTipo || (ehTipoContratar(tipo) && ehTipoContratar(ultimoTipo)) || (ehTipoTrabalhar(tipo) && ehTipoTrabalhar(ultimoTipo)) ? 'ÚLTIMO USADO' : null}
       onPress={() => onEscolher(tipo)}
       disabled={ocupado}
       carregando={tipoCarregando === tipo}
@@ -82,9 +87,11 @@ export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, e
   }, [onVoltar])
 
   const [ultimoContratar, setUltimoContratar] = useState(null)
+  const [ultimoTrabalhar, setUltimoTrabalhar] = useState(null)
   useEffect(() => {
     let vivo = true
     lerUltimoTipoContratar(email).then((t) => { if (vivo) setUltimoContratar(t) })
+    lerUltimoTipoTrabalhar(email).then((t) => { if (vivo) setUltimoTrabalhar(t) })
     return () => { vivo = false }
   }, [email])
 
@@ -99,7 +106,7 @@ export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, e
             <Wordmark tamanho={26} />
           </View>
         </View>
-        <EntrarComoConteudo contas={contas} tipoCarregando={tipoCarregando} ultimoTipo={ultimoTipo} ultimoContratar={ultimoContratar} onEscolher={onEscolher} />
+        <EntrarComoConteudo contas={contas} tipoCarregando={tipoCarregando} ultimoTipo={ultimoTipo} ultimoContratar={ultimoContratar} ultimoTrabalhar={ultimoTrabalhar} onEscolher={onEscolher} />
       </ScrollView>
     </SafeAreaView>
   )

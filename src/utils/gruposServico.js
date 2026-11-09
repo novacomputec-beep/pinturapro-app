@@ -1,4 +1,4 @@
-import { CATEGORIAS_SERVICO } from './categorias'
+import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO } from './categorias'
 
 // Grupos do passo "Do que você precisa?" do cadastro de serviço (Arte-Cadastrar-Servico): a
 // única fonte dos 8 grupos, da ordem dos tiles, dos exemplos do dia a dia de cada categoria
@@ -119,9 +119,41 @@ export const gruposComCategorias = () => {
 
 const comExemplos = (c) => ({ slug: c.slug, rotulo: c.rotulo, emoji: c.emoji, exemplos: EXEMPLOS_SERVICO[c.slug] || '', nova: ehNovaServico(c.slug) })
 
-// Grupo (id) de um slug, com o mesmo fallback; 'outros' → null.
+// ── Bloco "Obras de Construção Civil" das ESPECIALIDADES (Arte-Fase2-Trabalhar) ──────────
+// O profissional de serviços pode marcar também os quatro papéis de obra (a API aceita os
+// slugs de CATEGORIAS_CONSTRUCAO na conta de reparador — Fase 2a); com algum marcado ele
+// passa a ver obras no feed. NÃO é um grupo de serviço: fica fora de GRUPOS_SERVICO (não
+// entra no cadastro de pedido do dono) e aparece só na escolha de especialidades, como o
+// tile largo em destaque. O teto continua 5 NO TOTAL, somando serviços e obra.
+export const GRUPO_OBRAS = 'obras'
+export const EXEMPLOS_CONSTRUCAO = {
+  construtor:        'Construção do zero, ampliação',
+  engenheiro:        'Projeto, laudo, acompanhamento',
+  pedreiro_servente: 'Alvenaria, reboco, piso, laje',
+  pintor:            'Pintura interna, externa, textura',
+}
+const SLUGS_OBRA = new Set(CATEGORIAS_CONSTRUCAO.map((c) => c.slug))
+export const ehEspecialidadeDeObra = (slug) => SLUGS_OBRA.has(slug)
+
+// O bloco no formato de um grupo ({ id, titulo, emoji, categorias }), para abrir na MESMA
+// folha dos grupos de serviço; os quatro tipos em ordem alfabética, com exemplos.
+export const grupoObrasEspecialidades = () => ({
+  id: GRUPO_OBRAS,
+  titulo: 'Obras de Construção Civil',
+  emoji: '🏗️',
+  categorias: CATEGORIAS_CONSTRUCAO
+    .map((c) => ({ slug: c.slug, rotulo: c.rotulo, emoji: c.emoji, exemplos: EXEMPLOS_CONSTRUCAO[c.slug] || '', nova: false }))
+    .sort(alfabetica),
+})
+
+// Tile largo do bloco: `desc` é o fim da linha "N marcada(s) · Pedreiro, pintor, construtor".
+export const TILE_OBRAS_ESPECIALIDADES = { emoji: '🏗️', titulo: 'Obras de Construção Civil', desc: 'Pedreiro, pintor, construtor' }
+
+// Grupo (id) de um slug, com o mesmo fallback; 'outros' → null. Especialidade de obra cai no
+// bloco GRUPO_OBRAS — sem isto ela contaria em "Casa e reparos" pelo fallback.
 export const grupoDoSlug = (slug) => {
   if (!slug || slug === SLUG_OUTROS) return null
+  if (SLUGS_OBRA.has(slug)) return GRUPO_OBRAS
   const g = GRUPOS_SERVICO.find((x) => x.slugs.includes(slug))
   return g ? g.id : GRUPO_FALLBACK
 }

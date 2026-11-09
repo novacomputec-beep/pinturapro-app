@@ -97,7 +97,9 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 }
 
 // Defined outside to prevent re-creation on every parent render (which resets timer state)
-const CardReparo = ({ item, onPress, onExpirar, coords }) => {
+// Exportado: o feed único "Pedidos" (screens/Pedidos/PedidosScreen, Fase 2) desenha os
+// serviços com ESTE card. `etiqueta` (opcional): a etiqueta "Serviço" ao lado do título.
+export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
   // Rótulo, emoji e cor vêm de utils/urgencia.js — a mesma régua do detalhe.
   const urgencia = urgenciaReparo(item.prazo_atendimento_horas)
   const emoji = emojiReparo(item.categoria)
@@ -164,13 +166,20 @@ const CardReparo = ({ item, onPress, onExpirar, coords }) => {
             </View>
           )}
           <View style={estilos.textoCol}>
-            <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
+            {etiqueta ? (
+              <View style={estilos.tituloComEtiqueta}>
+                <Text style={[estilos.cardTitulo, { flexShrink: 1 }]} numberOfLines={1}>{item.titulo}</Text>
+                {etiqueta}
+              </View>
+            ) : (
+              <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
+            )}
             <Text style={estilos.cardLocal} numberOfLines={1}>
               📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}{item.uf ? `, ${item.uf}` : ''}
               {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
             </Text>
             <View style={estilos.cardRodape}>
-              <Text style={estilos.interessados}>🔧 {item.total_interessados || 0} interessado(s)</Text>
+              <Text style={estilos.interessados}>🔧{item.total_interessados || 0} interessado(s)</Text>
               <View style={estilos.btnVer}>
                 <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
               </View>
@@ -726,6 +735,7 @@ const estilos = StyleSheet.create({
   thumbIcone: { fontSize: 24 },
   textoCol: { flex: 1 },
   cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  tituloComEtiqueta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardLocal: { fontSize: 12, color: cores.textoMedio, marginTop: 3 },
   cardDistancia: { color: cores.primaria, fontWeight: '600' },
   cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },

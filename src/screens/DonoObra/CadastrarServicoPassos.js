@@ -6,7 +6,7 @@ import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { TILE_OUTROS, SLUG_OUTROS } from '../../utils/gruposServico'
 
 // Peças APRESENTACIONAIS do wizard "Cadastrar serviço" (Arte-Cadastrar-Servico), em 4 passos:
@@ -35,7 +35,9 @@ export const URGENCIAS = [
   { id: 1440, label: '📋 Mês que vem', desc: 'Pode esperar'    },
 ]
 
-const CATEGORIA_POR_SLUG = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
+// Serviços E os quatro papéis de obra: os chips "VOCÊ FAZ" das especialidades mostram os dois
+// (Fase 2). No cadastro de pedido só entram slugs de serviço, então nada muda lá.
+const CATEGORIA_POR_SLUG = new Map([...CATEGORIAS_SERVICO, ...CATEGORIAS_CONSTRUCAO].map((c) => [c.slug, c]))
 
 // Tile largo de obras do passo 1 do "Cadastrar pedido" (Arte-Fase1-Contratar): a porta para o
 // cadastro de obra, junto dos grupos de serviço. Os exemplos são os da arte.
@@ -101,11 +103,20 @@ export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota }
 // (os tiles sem marcada apagam, o de um grupo com marcada segue abrindo para desmarcar).
 // tileOutros: { titulo, desc, emoji } do tile largo (TILE_OUTROS por padrão; as especialidades
 // passam "Outros serviços"). legendas: linha "N marcada(s)" / "Toque para ver" em cada tile.
-// onObras: só no "Cadastrar pedido" do dono (Arte-Fase1-Contratar) — desenha o tile largo em
-// destaque (TILE_OBRAS, borda e gradiente laranja) ENTRE os grupos e o "Não achei o meu
-// serviço"; o toque abre o cadastro de obra. Não é categoria: não marca, não conta no limite
-// e segue ativo com o limite atingido.
-export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros, tileOutros = TILE_OUTROS, legendas = false, onObras }) {
+// onObras: desenha o tile largo em destaque (borda e gradiente laranja) ENTRE os grupos e o
+// tile "Outros"; o toque chama onObras. Dois usos:
+//   - "Cadastrar pedido" do dono (Arte-Fase1-Contratar): TILE_OBRAS, abre o cadastro de obra.
+//     Não é categoria: não marca, não conta no limite e segue ativo com o limite atingido.
+//   - Especialidades do profissional (Arte-Fase2-Trabalhar): tileObras próprio e
+//     obrasMarcadas = quantas das especialidades de obra estão marcadas — a linha de baixo
+//     vira "N marcada(s) · <desc>" e, sem nenhuma marcada e no limite, o tile apaga como os
+//     grupos (com alguma marcada segue abrindo, para desmarcar).
+export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros, tileOutros = TILE_OUTROS, legendas = false, onObras, tileObras = TILE_OBRAS, obrasMarcadas }) {
+  const contaObras = typeof obrasMarcadas === 'number'
+  const obrasApagado = contaObras && bloqueado && obrasMarcadas === 0
+  const descObras = contaObras && obrasMarcadas > 0
+    ? `${obrasMarcadas} marcada${obrasMarcadas > 1 ? 's' : ''} · ${tileObras.desc}`
+    : tileObras.desc
   return (
     <View style={estilos.grade}>
       {grupos.map((g) => {
@@ -131,17 +142,19 @@ export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbri
       })}
       {onObras ? (
         <TouchableOpacity
-          style={estilos.tileObras}
+          style={[estilos.tileObras, obrasApagado && estilos.tileApagado]}
           onPress={onObras}
+          disabled={obrasApagado}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={`${TILE_OBRAS.titulo}: ${TILE_OBRAS.desc}`}
+          accessibilityState={{ disabled: !!obrasApagado }}
+          accessibilityLabel={`${tileObras.titulo}: ${descObras}`}
         >
           <LinearGradient colors={['#3A2110', '#1E140C', '#141110']} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={estilos.tileObrasMiolo}>
-            <Text style={estilos.tileEmoji}>{TILE_OBRAS.emoji}</Text>
+            <Text style={estilos.tileEmoji}>{tileObras.emoji}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={[estilos.tileTitulo, estilos.tileObrasTitulo]}>{TILE_OBRAS.titulo}</Text>
-              <Text style={estilos.tileDesc}>{TILE_OBRAS.desc}</Text>
+              <Text style={[estilos.tileTitulo, estilos.tileObrasTitulo]}>{tileObras.titulo}</Text>
+              <Text style={[estilos.tileDesc, contaObras && obrasMarcadas > 0 && { color: cores.primaria }]}>{descObras}</Text>
             </View>
             <Text style={estilos.tileObrasSeta}>→</Text>
           </LinearGradient>

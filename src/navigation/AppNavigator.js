@@ -33,10 +33,9 @@ import TermosScreen        from '../screens/Auth/TermosScreen'
 import PrivacidadeScreen   from '../screens/Auth/PrivacidadeScreen'
 
 // App — Pintor
-import FeedObrasScreen     from '../screens/Obra/FeedObrasScreen'
+import PedidosScreen       from '../screens/Pedidos/PedidosScreen'
+import MeusTrabalhosScreen from '../screens/Pedidos/MeusTrabalhosScreen'
 import DetalheObraScreen   from '../screens/Obra/DetalheObraScreen'
-import CadastroServicosScreen from '../screens/Obra/CadastroServicosScreen'
-import ContratosScreen     from '../screens/Contratos/ContratosScreen'
 import ContratosFinalizadosScreen from '../screens/Contratos/ContratosFinalizadosScreen'
 import MensagensScreen     from '../screens/Mensagens/MensagensScreen'
 import PerfilScreen        from '../screens/Perfil/PerfilScreen'
@@ -56,28 +55,23 @@ import AdicionarPerfilScreen from '../screens/Perfil/AdicionarPerfilScreen'
 import DicasScreen from '../screens/Perfil/DicasScreen'
 import DicasTemaScreen from '../screens/Perfil/DicasTemaScreen'
 
-// App — Prestador
-import FeedReparosScreen      from '../screens/Reparos/FeedReparosScreen'
 import DetalheReparoScreen    from '../screens/Reparos/DetalheReparoScreen'
-import MeusInteressesScreen   from '../screens/Reparos/MeusInteressesScreen'
 
 // App — Dono (lado contratante unificado, Fase 1)
 import MeusPedidosScreen      from '../screens/DonoObra/MeusPedidosScreen'
 import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
 import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
-import { useTemObras, temObrasAtual } from '../utils/temObras'
+import { useTemObras, temObrasAtual, useTemCandidaturas, temCandidaturasAtual } from '../utils/temObras'
+import { ehProfissional, podeServicos, podeObras } from '../utils/profissional'
 
 const Stack                = createNativeStackNavigator()
 const Tab                  = createBottomTabNavigator()
-const FeedStack            = createNativeStackNavigator()
-const ReparoStack          = createNativeStackNavigator()
 const PerfilStack          = createNativeStackNavigator()
 const NovoPedidoStack      = createNativeStackNavigator()
 const MeusPedidosStack     = createNativeStackNavigator()
-const MeusInteressesStack  = createNativeStackNavigator()
-const MinhasObrasInteresseStack = createNativeStackNavigator()
-const ContratosFinObraStack     = createNativeStackNavigator()
-const ContratosFinReparoStack   = createNativeStackNavigator()
+const PedidosStack         = createNativeStackNavigator()
+const MeusTrabalhosStack   = createNativeStackNavigator()
+const ContratosFinProStack      = createNativeStackNavigator()
 const ContratosFinDonoStack     = createNativeStackNavigator()
 const DonoTab              = createBottomTabNavigator()
 
@@ -94,8 +88,7 @@ export const setUsuarioContexto = (u) => { usuarioContexto = u }
 // Finalizados', como nas abas do profissional), "Mensagens" (só com tem_obras) e "Perfil".
 // Os nomes ANTIGOS das abas do dono seguem aceitos como apelidos: quem ainda pedir "Meus
 // Reparos"/"Minhas Obras" (as duas listas viraram uma) ou "Novo Reparo"/"Nova Obra" (os dois
-// cadastros viraram um) cai na aba nova. Só vale para o dono — no profissional "Meus
-// Reparos" e "Minhas Obras" continuam sendo abas de verdade.
+// cadastros viraram um) cai na aba nova.
 const APELIDOS_ABA_DONO = {
   'Meus Reparos': 'Meus pedidos',
   'Minhas Obras': 'Meus pedidos',
@@ -104,37 +97,47 @@ const APELIDOS_ABA_DONO = {
 }
 export const abaDoDono = (nome) => APELIDOS_ABA_DONO[nome] || nome
 
+// Abas do PROFISSIONAL (Fase 2, Arte-Fase2-Trabalhar): um navegador só para reparador e
+// pintor — "Pedidos", "Meus trabalhos", "Finalizados" (rota 'Contratos Finalizados'),
+// "Mensagens" (só com tem_candidaturas) e "Perfil". Mesmo desenho de apelidos do dono: os
+// dois feeds ("Obras" e "Reparos") viraram "Pedidos", e as duas listas ("Minhas Obras" e
+// "Meus Reparos") viraram "Meus trabalhos". Os mapas são POR PAPEL de propósito — "Meus
+// Reparos" leva o dono a "Meus pedidos" e o profissional a "Meus trabalhos".
+const APELIDOS_ABA_PROFISSIONAL = {
+  'Obras':        'Pedidos',
+  'Reparos':      'Pedidos',
+  'Minhas Obras': 'Meus trabalhos',
+  'Meus Reparos': 'Meus trabalhos',
+}
+export const abaDoProfissional = (nome) => APELIDOS_ABA_PROFISSIONAL[nome] || nome
+
 const navegarParaNotificacao = (data) => {
   if (!navigationRef.current || !data?.tipo) return
   const u = usuarioContexto || {}
-  const usaTabsPintor    = u.role === 'assinante' || (u.role === 'prestador' && u.tipo_prestador === 'pintor')
-  const usaTabsReparador = u.role === 'prestador' && u.tipo_prestador !== 'pintor'
-  const ehPrestador      = usaTabsPintor || usaTabsReparador
+  const ehPrestador      = ehProfissional(u)
+  // O que a conta profissional vê (utils/profissional). Não decidem mais QUAL aba — as abas
+  // são as mesmas para todo profissional —, só o que faz sentido abrir nela.
+  const veServicos       = ehPrestador && podeServicos(u)
+  const veObras          = ehPrestador && podeObras(u)
   const ehDono           = u.role === 'dono_obra'
   // Todo dono tem o navegador de abas (com "Contratos Finalizados" e "Perfil"): não existe
   // mais o stack de fallback para tipo_dono indefinido.
   const ehDonoComAba     = ehDono
-  // Abas que hospedam o DetalheObra e o DetalheReparo. Para o DONO as duas são "Meus
-  // pedidos" (serviços e obras na mesma lista, os dois detalhes registrados lá); para o
-  // profissional, os literais de sempre.
-  const abaObra          = ehDono ? 'Meus pedidos' : 'Minhas Obras'
-  const abaReparo        = ehDono ? 'Meus pedidos' : 'Meus Reparos'
+  // Aba do FEED de disponíveis do profissional e abas que hospedam o DetalheObra e o
+  // DetalheReparo de quem JÁ está envolvido. Para o DONO as duas últimas são "Meus pedidos";
+  // para o profissional, "Meus trabalhos" — nos dois casos serviços e obras na mesma lista,
+  // com os dois detalhes registrados lá.
+  const abaFeed          = 'Pedidos'
+  const abaObra          = ehDono ? 'Meus pedidos' : 'Meus trabalhos'
+  const abaReparo        = ehDono ? 'Meus pedidos' : 'Meus trabalhos'
 
   // Aba de itens em andamento conforme o navegador montado para este usuário
-  const tabEmAndamento =
-    usaTabsPintor    ? 'Minhas Obras' :
-    usaTabsReparador ? 'Meus Reparos' :
-                       'Meus pedidos'   // dono (qualquer tipo_dono)
+  const tabEmAndamento   = ehDono ? 'Meus pedidos' : 'Meus trabalhos'
 
-  // Toda navegação deste roteador passa por aqui: para o dono, um nome antigo de aba é
-  // traduzido para a aba nova (abaDoDono); para os demais o nome segue como veio.
-  const ir = (aba, params) => navigationRef.current.navigate(ehDono ? abaDoDono(aba) : aba, params)
+  // Toda navegação deste roteador passa por aqui: um nome antigo de aba é traduzido para a
+  // aba nova do papel (abaDoDono / abaDoProfissional); o resto segue como veio.
+  const ir = (aba, params) => navigationRef.current.navigate(ehDono ? abaDoDono(aba) : ehPrestador ? abaDoProfissional(aba) : aba, params)
   const navegar = (nome) => ir(nome)
-  // Aba do feed que ESTA conta profissional tem. O aviso "fora da sua área" (data.fora_da_area,
-  // API utils/avisosForaDaArea) chega com o MESMO tipo/id do aviso de pedido novo, mas o pedido
-  // pode ser do outro lado: obra para a conta de serviços, serviço para a de obras. As duas
-  // pilhas de feed registram os dois detalhes, então o toque abre o pedido na aba que existe.
-  const abaFeedPro = usaTabsPintor ? 'Obras' : 'Reparos'
   try {
     // Alertas de expiração (obra/reparo): cobrem por prefixo TODOS os marcos
     // (…_6h/_60/_30/_15) e o legado …_sem_interessados — deep-link direto ao detalhe.
@@ -151,18 +154,19 @@ const navegarParaNotificacao = (data) => {
     switch (data.tipo) {
       // Feed
       case 'nova_obra':
-        if (data.obra_id) navigationRef.current.navigate(abaFeedPro, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
-        else navegar(abaFeedPro)
+        if (data.obra_id) ir(abaFeed, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(abaFeed)
         break
       case 'novo_reparo':
-        if (data.reparo_id) navigationRef.current.navigate(abaFeedPro, { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else navegar(abaFeedPro)
+        if (data.reparo_id) ir(abaFeed, { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else navegar(abaFeed)
         break
       // Mensagens
       case 'nova_mensagem':
-        // A aba Mensagens do dono só existe com tem_obras (utils/temObras). Sem ela — ou
-        // antes de a consulta voltar —, com id abre a obra; sem id, a lista.
-        if (ehDono && !temObrasAtual()) {
+        // A aba Mensagens só existe com tem_obras (dono) ou tem_candidaturas (profissional)
+        // — utils/temObras. Sem ela — ou antes de a consulta voltar —, com id abre a obra;
+        // sem id, a lista.
+        if (ehDono ? !temObrasAtual() : (ehPrestador && !temCandidaturasAtual() && u.tem_candidaturas !== true)) {
           if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
           else navegar(tabEmAndamento)
           break
@@ -180,8 +184,9 @@ const navegarParaNotificacao = (data) => {
         }
         // PROFISSIONAL: o dono encerrou. Cai na lista de finalizados já com o ModalDenuncia
         // (opcional) deste contrato aberto — denunciarContratoId é lido pela tela.
-        if (usaTabsPintor && data.obra_id) {
-          navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinObraMain', params: { denunciarContratoId: data.obra_id }, initial: false })
+        // denunciarTipo acompanha o id: a lista do profissional tem serviços e obras.
+        if (ehPrestador && data.obra_id) {
+          navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinProMain', params: { denunciarContratoId: data.obra_id, denunciarTipo: 'obra' }, initial: false })
           break
         }
         // falls through
@@ -191,8 +196,8 @@ const navegarParaNotificacao = (data) => {
           ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirAvaliacao: true }, initial: false })
           break
         }
-        if (usaTabsReparador && data.reparo_id) {
-          navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinReparoMain', params: { denunciarContratoId: data.reparo_id }, initial: false })
+        if (ehPrestador && data.reparo_id) {
+          navigationRef.current.navigate('Contratos Finalizados', { screen: 'ContratosFinProMain', params: { denunciarContratoId: data.reparo_id, denunciarTipo: 'reparo' }, initial: false })
           break
         }
         navegar((ehPrestador || ehDonoComAba) ? 'Contratos Finalizados' : tabEmAndamento); break
@@ -231,11 +236,11 @@ const navegarParaNotificacao = (data) => {
       // no feed de disponíveis — e é por lá que se chega ao detalhe. Mandar para
       // "Meus Reparos"/"Minhas Obras" cairia numa lista onde a demanda não aparece.
       case 'reparo_proximo':
-        if (data.reparo_id) navigationRef.current.navigate('Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        if (data.reparo_id) ir(abaFeed,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar('Reparos')
         break
       case 'obra_proxima':
-        if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) ir(abaFeed,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar('Obras')
         break
       // Resultado da moderação da obra — deep-link ao detalhe para o DONO. Em 'obra_recusada'
@@ -397,7 +402,7 @@ const navegarParaNotificacao = (data) => {
       // de boas-vindas ainda estiver ligado, quem está montado é BoasVindasPrestador e o
       // navigate não resolve — mas aí a tela em foco já é a do próprio aviso.)
       case 'boas_vindas':
-        navegar(usaTabsPintor ? 'Obras' : usaTabsReparador ? 'Reparos' : tabEmAndamento); break
+        navegar(ehPrestador ? abaFeed : tabEmAndamento); break
       // Desfechos que NÃO pedem ação: a proposta foi recusada, ou aprovada pelo endpoint
       // legado. Não há botão a apertar no detalhe, e abrir a demanda de quem acabou de ser
       // recusado é insistir onde já não há o que fazer — a lista mostra o novo estado e
@@ -426,10 +431,10 @@ const navegarParaNotificacao = (data) => {
       // não existe neste navegador e o navigate cairia no catch em silêncio — avisa.
       case 'link_demanda':
         if (data.reparo_id) {
-          if (usaTabsPintor) { mostrarAviso('Este link é de um serviço doméstico, fora da sua área.'); break }
+          if (ehPrestador && !veServicos) { mostrarAviso('Este link é de um serviço doméstico, fora da sua área.'); break }
           ir(ehPrestador ? 'Reparos' : abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         } else if (data.obra_id) {
-          if (usaTabsReparador) { mostrarAviso('Este link é de uma obra, fora da sua área.'); break }
+          if (ehPrestador && !veObras) { mostrarAviso('Este link é de uma obra, fora da sua área.'); break }
           ir(ehPrestador ? 'Obras' : abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         }
         break
@@ -452,12 +457,12 @@ const navegarParaNotificacao = (data) => {
 
 // A aba Perfil mostra a FOTO do usuário no lugar do boneco genérico: é a única aba que
 // aponta para algo que é DELE, e o próprio rosto se reconhece antes de qualquer ícone.
-// Serve as três tab bars do app (pintor, prestador, dono) — todas passam por aqui, então a
-// foto entra nas três de uma vez.
+// Serve as duas tab bars do app (profissional e dono) — as duas passam por aqui, então a
+// foto entra nas duas de uma vez.
 const TabIcone = ({ nome, focado }) => {
-  // 'Novo pedido' e 'Meus pedidos' são as abas do dono; 'Meus Reparos' e 'Minhas Obras'
-  // seguem sendo as do profissional.
-  const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo pedido': '➕', 'Meus pedidos': '📋', 'Meus Reparos': '📋', 'Minhas Obras': '📋' }
+  // 'Novo pedido' e 'Meus pedidos' são as abas do dono; 'Pedidos' e 'Meus trabalhos', as do
+  // profissional (ícones da Arte-Fase2-Trabalhar).
+  const mapa = { 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', 'Novo pedido': '➕', 'Meus pedidos': '📋', Pedidos: '🔍', 'Meus trabalhos': '🧰' }
   const { usuario } = useAuth()
   // Rede de segurança da foto, como nos cards do feed: a URL pode não renderizar (link
   // quebrado, mídia removida, transformação recusada). Sem isto sobraria um círculo vazio.
@@ -810,58 +815,38 @@ const PerfilStackNavigator = () => (
   </PerfilStack.Navigator>
 )
 
-// Stack do Feed de Pintores
-const FeedStackNavigator = () => (
-  <FeedStack.Navigator screenOptions={{ headerShown: false }}>
-    <FeedStack.Screen name="FeedMain"    component={FeedObrasScreen} />
-    <FeedStack.Screen name="DetalheObra" component={DetalheObraScreen} />
-    {/* Aviso "fora da sua área": o push de um SERVIÇO abre o detalhe aqui, na conta de obras. */}
-    <FeedStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
-    {/* Conta irmã de reparador, a partir do convite no topo do feed (ConviteCadastroServicos). */}
-    <FeedStack.Screen name="CadastroServicos" component={CadastroServicosScreen} />
-  </FeedStack.Navigator>
+// ─── PROFISSIONAL: lado de trabalho unificado (Fase 2, Arte-Fase2-Trabalhar) ─────────────
+// UM navegador de abas para todo profissional — conta de serviços (reparador) e conta de obra
+// (pintor/construtor, e o legado 'assinante'): substitui as abas do pintor e as do prestador.
+// O que cada conta vê dentro delas sai de utils/profissional (serviços pela conta, obras por
+// usuario.pode_obras), não mais de qual navegador foi montado.
+
+// Aba "Pedidos": o feed único, com os dois detalhes — o card abre o do tipo dele.
+const PedidosTabStack = () => (
+  <PedidosStack.Navigator screenOptions={{ headerShown: false }}>
+    <PedidosStack.Screen name="PedidosMain"   component={PedidosScreen} />
+    <PedidosStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
+    <PedidosStack.Screen name="DetalheObra"   component={DetalheObraScreen} />
+  </PedidosStack.Navigator>
 )
 
-// Stack do Feed de Reparos
-const ReparoStackNavigator = () => (
-  <ReparoStack.Navigator screenOptions={{ headerShown: false }}>
-    <ReparoStack.Screen name="FeedReparosMain" component={FeedReparosScreen} />
-    <ReparoStack.Screen name="DetalheReparo"   component={DetalheReparoScreen} />
-    {/* Aviso "fora da sua área": o push de uma OBRA abre o detalhe aqui, na conta de serviços. */}
-    <ReparoStack.Screen name="DetalheObra"     component={DetalheObraScreen} />
-  </ReparoStack.Navigator>
+// Aba "Meus trabalhos": interesses em serviços + candidaturas a obras + matches dos dois.
+const MeusTrabalhosTabStack = () => (
+  <MeusTrabalhosStack.Navigator screenOptions={{ headerShown: false }}>
+    <MeusTrabalhosStack.Screen name="MeusTrabalhosMain" component={MeusTrabalhosScreen} />
+    <MeusTrabalhosStack.Screen name="DetalheReparo"     component={DetalheReparoScreen} />
+    <MeusTrabalhosStack.Screen name="DetalheObra"       component={DetalheObraScreen} />
+  </MeusTrabalhosStack.Navigator>
 )
 
-// Stack de Meus Interesses (prestador)
-const MeusInteressesNavigator = () => (
-  <MeusInteressesStack.Navigator screenOptions={{ headerShown: false }}>
-    <MeusInteressesStack.Screen name="MeusInteressesMain" component={MeusInteressesScreen} />
-    <MeusInteressesStack.Screen name="DetalheReparo"      component={DetalheReparoScreen} />
-  </MeusInteressesStack.Navigator>
-)
-
-// Stack: Minhas Obras (pintor — candidaturas/negociações em andamento)
-const MinhasObrasInteresseNavigator = () => (
-  <MinhasObrasInteresseStack.Navigator screenOptions={{ headerShown: false }}>
-    <MinhasObrasInteresseStack.Screen name="MinhasObrasMain" component={ContratosScreen} />
-    <MinhasObrasInteresseStack.Screen name="DetalheObra"     component={DetalheObraScreen} />
-  </MinhasObrasInteresseStack.Navigator>
-)
-
-// Stack: Contratos Finalizados (pintor — obras concluídas)
-const ContratosFinObraNavigator = () => (
-  <ContratosFinObraStack.Navigator screenOptions={{ headerShown: false }}>
-    <ContratosFinObraStack.Screen name="ContratosFinObraMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'obra' }} />
-    <ContratosFinObraStack.Screen name="DetalheObra"          component={DetalheObraScreen} />
-  </ContratosFinObraStack.Navigator>
-)
-
-// Stack: Contratos Finalizados (reparador — reparos concluídos)
-const ContratosFinReparoNavigator = () => (
-  <ContratosFinReparoStack.Navigator screenOptions={{ headerShown: false }}>
-    <ContratosFinReparoStack.Screen name="ContratosFinReparoMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'reparo' }} />
-    <ContratosFinReparoStack.Screen name="DetalheReparo"          component={DetalheReparoScreen} />
-  </ContratosFinReparoStack.Navigator>
+// Stack: Contratos Finalizados (profissional — serviços E obras concluídos em que foi o
+// contratado, na mesma lista: tipo 'ambos'). Os dois detalhes ficam registrados aqui.
+const ContratosFinProNavigator = () => (
+  <ContratosFinProStack.Navigator screenOptions={{ headerShown: false }}>
+    <ContratosFinProStack.Screen name="ContratosFinProMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'ambos' }} />
+    <ContratosFinProStack.Screen name="DetalheReparo"       component={DetalheReparoScreen} />
+    <ContratosFinProStack.Screen name="DetalheObra"         component={DetalheObraScreen} />
+  </ContratosFinProStack.Navigator>
 )
 
 // Stack: Contratos Finalizados (dono — serviços E obras concluídos onde contratou um
@@ -891,9 +876,17 @@ const useTabBarStyle = () => {
   }
 }
 
-// Tabs do Pintor
-const TabsPintorNavigator = () => {
+// Abas do profissional: "Pedidos", "Meus trabalhos", "Finalizados" (rota 'Contratos
+// Finalizados', a mesma chave das abas do dono — é o nome que as telas de detalhe e os avisos
+// de conclusão já navegam), "Mensagens" e "Perfil".
+const ProfissionalTabNavigator = () => {
   const tabBarStyle = useTabBarStyle()
+  const { usuario } = useAuth()
+  // "Mensagens" é o chat de OBRA: só aparece para a conta que já se candidatou a alguma
+  // (usuario.tem_candidaturas no login/perfil, GET /auth/contas e a lista "Meus trabalhos" —
+  // utils/temObras). Quem só faz serviço vê quatro abas; ao se candidatar à primeira obra, a
+  // quinta surge sem reabrir o app.
+  const temCandidaturas = useTemCandidaturas(usuario?.id, usuario?.tem_candidaturas === true)
   return (
   <Tab.Navigator
     screenOptions={({ route }) => ({
@@ -905,35 +898,11 @@ const TabsPintorNavigator = () => {
       tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
     })}
   >
-    <Tab.Screen name="Obras"                 component={FeedStackNavigator} options={{ title: 'Obras disponíveis' }} />
-    <Tab.Screen name="Minhas Obras"          component={MinhasObrasInteresseNavigator} />
-    <Tab.Screen name="Contratos Finalizados" component={ContratosFinObraNavigator} options={{ title: 'Finalizados' }} />
-    <Tab.Screen name="Mensagens"             component={MensagensScreen} />
+    <Tab.Screen name="Pedidos"               component={PedidosTabStack} />
+    <Tab.Screen name="Meus trabalhos"        component={MeusTrabalhosTabStack} />
+    <Tab.Screen name="Contratos Finalizados" component={ContratosFinProNavigator} options={{ title: 'Finalizados' }} />
+    {temCandidaturas && <Tab.Screen name="Mensagens" component={MensagensScreen} />}
     <Tab.Screen name="Perfil"                component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
-  </Tab.Navigator>
-  )
-}
-
-// Tabs do Prestador (Reparos, Meus Reparos, Contratos Finalizados, Perfil) — sem Mensagens:
-// a tela é obra-only (candidaturas + /mensagens/obra/:id) e a aba só existe nos navegadores
-// de pintura (TabsPintorNavigator) e nas do dono que tem obra (DonoTabNavigator).
-const TabsPrestadorNavigator = () => {
-  const tabBarStyle = useTabBarStyle()
-  return (
-  <Tab.Navigator
-    screenOptions={({ route }) => ({
-      headerShown: false,
-      tabBarStyle,
-      tabBarActiveTintColor: cores.primaria,
-      tabBarInactiveTintColor: cores.textoFraco,
-      tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
-      tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} />,
-    })}
-  >
-    <Tab.Screen name="Reparos"               component={ReparoStackNavigator}    options={{ title: 'Serviços disponíveis' }} />
-    <Tab.Screen name="Meus Reparos"          component={MeusInteressesNavigator} options={{ title: 'Meus Serviços' }} />
-    <Tab.Screen name="Contratos Finalizados" component={ContratosFinReparoNavigator} options={{ title: 'Finalizados' }} />
-    <Tab.Screen name="Perfil"                component={PerfilStackNavigator}    options={{ title: 'Perfil' }} />
   </Tab.Navigator>
   )
 }
@@ -1133,10 +1102,9 @@ export default function AppNavigator() {
               // abas. Ao confirmar, o flag limpa e cai direto no feed (aba inicial).
               mostrarBoasVindas ? (
                 <Stack.Screen name="BoasVindasPrestador" component={BoasVindasPrestadorScreen} options={{ gestureEnabled: false }} />
-              ) : usuario.tipo_prestador === 'pintor' ? (
-                <Stack.Screen name="App" component={TabsPintorNavigator} />
               ) : (
-                <Stack.Screen name="PrestadorApp" component={TabsPrestadorNavigator} />
+                // Um navegador só para o profissional, com qualquer tipo_prestador (Fase 2).
+                <Stack.Screen name="App" component={ProfissionalTabNavigator} />
               )
             ) : assinatura?.status === 'pendente_verificacao' ? (
               <Stack.Screen name="Verificacao" component={VerificacaoPendenteScreen} />
@@ -1145,7 +1113,7 @@ export default function AppNavigator() {
             )
           ) : (
             liberaAbas ? (
-              <Stack.Screen name="App" component={TabsPintorNavigator} />
+              <Stack.Screen name="App" component={ProfissionalTabNavigator} />
             ) : assinatura?.status === 'pendente_verificacao' ? (
               <Stack.Screen name="Verificacao" component={VerificacaoPendenteScreen} />
             ) : (

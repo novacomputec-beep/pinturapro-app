@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
 import api from '../services/api'
 import { comRetry } from './rede'
+import { leInteresses, leCandidaturas } from './profissional'
 
 // Indicação de colegas (profissional → profissional). Aqui mora o que NÃO é tela: o
 // contrato com a API, a mensagem do convite, a leitura do código vindo da loja e a marca
@@ -197,12 +198,15 @@ export const bannerSilenciado = (e) =>
 // ContratosScreen.js:24). Reparador: /reparos/meus-interesses (ativos + historico);
 // pintor/assinante: /candidaturas/minhas. Encerradas contam — o match aconteceu.
 const ACEITO = new Set(['aceito', 'aprovada'])
+// Fase 2: a mesma conta pode ter as duas coisas (serviços, e obras para quem pode obras ou já
+// se candidatou — utils/profissional). Olha primeiro as candidaturas, depois os interesses; a
+// conta de um tipo só faz a mesma requisição única de antes.
 export const profissionalJaTeveMatch = async (usuario) => {
-  const pintor = (usuario?.role === 'prestador' && usuario?.tipo_prestador === 'pintor') || usuario?.role === 'assinante'
-  if (pintor) {
+  if (leCandidaturas(usuario)) {
     const r = await comRetry(() => api.get('/candidaturas/minhas'), { timeout: true, servidor: true })
-    return (r?.candidaturas || []).some(c => ACEITO.has(c.status))
+    if ((r?.candidaturas || []).some(c => ACEITO.has(c.status))) return true
   }
+  if (!leInteresses(usuario)) return false
   const r = await comRetry(() => api.get('/reparos/meus-interesses'), { timeout: true, servidor: true })
   return [...(r?.ativos || []), ...(r?.historico || [])].some(i => ACEITO.has(i.status))
 }

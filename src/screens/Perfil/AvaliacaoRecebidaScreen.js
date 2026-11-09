@@ -214,9 +214,8 @@ export default function AvaliacaoRecebidaScreen({ navigation, route }) {
     return () => { vivo = false }
   }, [ehObra, id, notaParam, etiquetasParam, usuario?.nome, usuario?.especialidades])
 
-  // Feed de disponíveis do papel (mesma aba do 'reparo_proximo' / 'obra_proxima').
-  const usaTabsPintor = usuario?.role === 'assinante' || (usuario?.role === 'prestador' && usuario?.tipo_prestador === 'pintor')
-  const verServicos = () => navigation.navigate(usaTabsPintor ? 'Obras' : 'Reparos')
+  // Feed de disponíveis: a aba "Pedidos", a mesma para todo profissional (Fase 2).
+  const verServicos = () => navigation.navigate('Pedidos')
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.tela}>

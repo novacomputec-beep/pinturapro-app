@@ -11,7 +11,9 @@ import { navigationRef } from '../navigation/navigationRef'
 // aviso em cima do primeiro. Nomes de rota dos feeds (AppNavigator: FeedStack e
 // ReparoStack). Em qualquer outra tela — e para o dono, que não tem esses feeds — a tarja
 // continua como sempre.
-const ROTAS_COBERTAS = new Set(['FeedMain', 'FeedReparosMain'])
+// 'PedidosMain' é o feed único do profissional (Fase 2); os dois nomes antigos ficam para o
+// caso de um dos feeds separados voltar a ser montado.
+const ROTAS_COBERTAS = new Set(['PedidosMain', 'FeedMain', 'FeedReparosMain'])
 const rotaAtual = () => {
   try { return navigationRef.current?.getCurrentRoute?.()?.name ?? null } catch (e) { return null }
 }

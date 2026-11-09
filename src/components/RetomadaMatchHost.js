@@ -4,6 +4,7 @@ import * as Notifications from 'expo-notifications'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../services/api'
 import { navigationRef } from '../navigation/navigationRef'
+import { leInteresses, leCandidaturas } from '../utils/profissional'
 
 // Redirecionamento para o serviço em andamento: quem tem match fechado e ainda não
 // encerrado abre o app NELE, e não na aba inicial — que para o dono é um formulário em
@@ -78,25 +79,33 @@ export const perfilDe = (u) => {
       tab: 'Meus pedidos', detalhe: 'DetalheObra', param: 'obra',
     }],
   }
-  if (u.role === 'prestador' && u.tipo_prestador !== 'pintor') return {
+  // PROFISSIONAL (Fase 2, lado de trabalho unificado): um perfil só, montado com as fontes
+  // que a conta lê (utils/profissional, pela capacidade da PESSOA) — os interesses em serviços
+  // e/ou as candidaturas a obras —, todas com a aba "Meus trabalhos", onde os dois detalhes
+  // estão registrados, e o feed único como tela de pouso. A primeira fonte é a principal; a
+  // outra entra em `extras`. As duas listas trazem as propostas de qualquer conta profissional
+  // da pessoa, e "em andamento" sai do status da proposta — nenhum id de conta é comparado.
+  const fontesPro = []
+  if (leInteresses(u)) fontesPro.push({
     url: '/reparos/meus-interesses',
     linhas: (r) => r.ativos || [],
     // Prestador: a linha é a PROPOSTA dele. Em andamento = proposta aceita num reparo
     // que segue aberto; o id a abrir é o do reparo, não o do interesse.
     emAndamento: (x) => ACEITO.includes(x.status) && x.reparo_status !== 'encerrada',
     idDemanda: (x) => x.reparo_id,
-    tab: 'Meus Reparos', detalhe: 'DetalheReparo', param: 'reparo',
-    telaInicial: 'FeedReparosMain',
-  }
-  if ((u.role === 'prestador' && u.tipo_prestador === 'pintor') || u.role === 'assinante') return {
+    tab: 'Meus trabalhos', detalhe: 'DetalheReparo', param: 'reparo',
+  })
+  // Candidaturas: quem pode obras agora, ou quem já se candidatou (um match de obra segue
+  // merecendo a retomada mesmo depois de a pessoa tirar a especialidade de obra).
+  if (leCandidaturas(u)) fontesPro.push({
     url: '/candidaturas/minhas',
     linhas: (r) => r.candidaturas || [],
     emAndamento: (x) => ACEITO.includes(x.status) && x.obra_status !== 'encerrada',
     idDemanda: (x) => x.obra_id,
-    tab: 'Minhas Obras', detalhe: 'DetalheObra', param: 'obra',
-    telaInicial: 'FeedMain',
-  }
-  return null
+    tab: 'Meus trabalhos', detalhe: 'DetalheObra', param: 'obra',
+  })
+  if (!fontesPro.length) return null
+  return { ...fontesPro[0], telaInicial: 'PedidosMain', extras: fontesPro.slice(1) }
 }
 
 // As abas existem? O Stack raiz monta UM ramo só (AppNavigator.js:738): sem assinatura

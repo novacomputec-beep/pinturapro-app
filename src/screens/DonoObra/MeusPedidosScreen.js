@@ -14,6 +14,7 @@ import { categoriasDe, emojiReparo } from '../../utils/categorias'
 import { marcarTemObras } from '../../utils/temObras'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
+import EtiquetaTipo from '../../components/EtiquetaTipo'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { textoFasePosMatch } from '../../components/Agendamento'
 import { SheetProfissionalDesistiu, primeiraDesistenciaNaoVista, gravarDesistenciaVista } from '../../components/ProfissionalDesistiu'
@@ -50,15 +51,6 @@ export const juntarPedidos = (reparos, obras) => {
   ].sort((a, b) => quando(b.item) - quando(a.item))
 }
 
-// Etiqueta pequena do tipo, ao lado do título: azul para serviço, laranja para obra (arte).
-export const EtiquetaTipo = ({ tipo }) => {
-  const obra = tipo === 'obra'
-  return (
-    <View style={[estilos.etiqueta, obra ? estilos.etiquetaObra : estilos.etiquetaServico]}>
-      <Text style={[estilos.etiquetaTexto, { color: obra ? cores.primaria : cores.marcaAzul }]}>{obra ? 'Obra' : 'Serviço'}</Text>
-    </View>
-  )
-}
 
 function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
   const ehObra = tipo === 'obra'
@@ -402,10 +394,6 @@ const estilos = StyleSheet.create({
   cardIconeTexto:       { fontSize: 20 },
   cardTituloLinha:      { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
   cardTitulo:           { flexShrink: 1, fontSize: 14, fontWeight: '600', color: cores.textoForte, lineHeight: 20 },
-  etiqueta:             { borderWidth: 1, borderRadius: raios.pequeno, paddingHorizontal: 6, paddingVertical: 1 },
-  etiquetaServico:      { borderColor: cores.marcaAzul + '88', backgroundColor: cores.marcaAzul + '1A' },
-  etiquetaObra:         { borderColor: cores.primaria + '88', backgroundColor: cores.primariaSuave },
-  etiquetaTexto:        { fontSize: 10, fontWeight: '700' },
   cardValor:            { fontSize: 14, fontWeight: '700', color: cores.sucesso },
   cardLocal:            { fontSize: 12, color: cores.textoFraco },
   cardDistancia:        { color: cores.primaria, fontWeight: '600' },
