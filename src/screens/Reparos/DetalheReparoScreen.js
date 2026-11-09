@@ -41,6 +41,7 @@ import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } fr
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
+import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, ehDaMinhaConta, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -237,10 +238,13 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 // (camposAtraso), dono_nome / dono_foto_url, sugestoes_restantes e desfazer_liberado_em (só ao
 // dono). Os blocos pós-match leem tudo da linha, então eles entram nela aqui. Linha
 // nula/ausente fica como veio.
+// Entram também conta_id / sou_escolhido / sou_dono (utils/identidadeDemanda): quem é o leitor
+// neste serviço, por PESSOA — é deles, e não do id da conta logada, que saem isDono, o
+// "sou o profissional escolhido" e toda comparação de "fui eu / foi a outra parte".
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos']) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -498,12 +502,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
     return `${reaisStr},${String(centavos % 100).padStart(2, '0')}`
   }
 
-  // Ids podem chegar como número ou string conforme o endpoint; compara em String para não
-  // errar o lado por diferença de tipo (mesmo padrão de ContratosScreen.js:74). Os testes
-  // != null vêm ANTES porque String(undefined) === String(undefined) daria "igual" — dois
-  // ids ausentes (deep-link que só passa { id }, antes do buscar()) não podem casar.
-  const isDono = usuario?.id != null && reparo?.criado_por != null &&
-    String(usuario.id) === String(reparo.criado_por)
+  // Identidade por PESSOA (utils/identidadeDemanda): a API diz se quem lê é o dono (sou_dono —
+  // qualquer conta contratante da pessoa) e qual conta AGE neste serviço (conta_id — para o
+  // profissional com duas contas pode ser a outra, não a logada). Sem os campos (API antiga,
+  // ou o deep-link que só passa { id }, antes do buscar()) vale a comparação de sempre com a
+  // conta logada, em String e com os != null antes — dois ids ausentes não podem casar.
+  const isDono = souDonoDaDemanda(reparo, usuario)
+  // A conta que age aqui: é com ela que se compara quem declarou a chegada, quem propôs o
+  // horário e quem pediu o encerramento, e é ela que os blocos pós-match recebem (usuarioId).
+  const meuId = contaNaDemanda(reparo, usuario)
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
   useEffect(() => {
@@ -827,12 +834,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
       try {
         const atual = await comRetry(() => api.get(`/reparos/${reparo.id}`), { timeout: true })
         const r = atual?.reparo
-        // String() nos dois lados: o id vem número ou string conforme o endpoint, mesma
-        // disciplina do isDono (:345) e do prestadorMatch. Os != null vêm ANTES porque
-        // String(undefined) === String(undefined) daria "igual" — dois ids ausentes não
-        // podem casar e transformar a declaração de terceiro em sucesso deste usuário.
-        const declaracaoMinha = r?.chegada_declarada_por != null && usuario?.id != null &&
-          String(r.chegada_declarada_por) === String(usuario.id)
+        // "Minha" = da conta que age neste serviço (conta_id da resposta que acabou de chegar;
+        // sem o campo, a conta logada) — utils/identidadeDemanda, que compara em String e
+        // nunca casa dois ids ausentes: a declaração de terceiro não vira sucesso deste usuário.
+        const declaracaoMinha = ehDaMinhaConta(r?.chegada_declarada_por, comIdentidade(atual, r), usuario)
         const declareiAgora = !declaradaAntes && !!r?.chegada_declarada_em && declaracaoMinha
         const confirmeiAgora = isDono && !confirmadaAntes && !!r?.chegada_confirmada_em
         if (declareiAgora || confirmeiAgora) { await buscar(); return }
@@ -848,7 +853,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     // a_caminho_em junto: é o que troca o botão por "você avisou que está a caminho" e o
     // buscar() em seguida traz dono_telefone, que a API só libera a partir daqui.
     const aplicarSucesso = (matchFeitoEm, aCaminhoEm) => {
-      setReparo(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id, a_caminho_em: aCaminhoEm || prev.a_caminho_em || new Date().toISOString() }))
+      setReparo(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: meuId, sou_escolhido: true, a_caminho_em: aCaminhoEm || prev.a_caminho_em || new Date().toISOString() }))
       buscar()
       Alert.alert('✅ Confirmado!', MSG_SUCESSO)
       // Sem auto-retorno à lista: a tela única A CAMINHO é onde vivem "Vou atrasar" e
@@ -877,12 +882,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
           // se o match já for deste prestador, trata como sucesso em vez de erro confuso.
           try {
             const atual = await api.get(`/reparos/${reparo.id}`)
-            // Comparação em String como em prestadorMatch/souPrestadorDoMatch (:860, :873): o
-            // id vem número ou string conforme o endpoint, e com === o match que DEU certo era
-            // lido como de outro prestador — a reconsulta não salvava nada e o alerta de erro
-            // subia mesmo assim. Os != null vêm antes porque dois ids ausentes casariam.
-            const matchId = atual?.reparo?.match_usuario_id
-            if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(atual.reparo.match_feito_em, atual.reparo.a_caminho_em); return }
+            // "Deste prestador" = sou_escolhido da resposta (o match é de uma conta profissional
+            // da pessoa); sem o campo, a comparação de sempre com a conta logada, em String —
+            // com === o match que DEU certo era lido como de outro prestador e o alerta subia.
+            if (souEscolhidoNaDemanda(comIdentidade(atual, atual?.reparo), usuario)) { aplicarSucesso(atual.reparo.match_feito_em, atual.reparo.a_caminho_em); return }
           } catch (e2) { console.log('[DetalheReparo] reconsulta pós-match falhou | code:', e2.code) }
           Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
         } finally {
@@ -1492,17 +1495,16 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // encerramento_solicitado_por preenchido (junto com encerramento_solicitado_em) na
   // linha do reparo.
   const encerramentoPendente = reparo?.encerramento_solicitado_por != null
-  // Quem pediu vê "aguardando"; a outra parte vê "confirmar". Comparação em String como no
-  // isDono; encerramentoPendente já garante o id do solicitante presente.
-  const euSolicitei = encerramentoPendente && usuario?.id != null &&
-    String(reparo.encerramento_solicitado_por) === String(usuario.id)
+  // Quem pediu vê "aguardando"; a outra parte vê "confirmar". "Eu" = a conta que age neste
+  // serviço (meuId), não necessariamente a logada.
+  const euSolicitei = encerramentoPendente && ehDaMinhaConta(reparo.encerramento_solicitado_por, reparo, usuario)
   // Rótulo dos botões de encerrar (dono e prestador): o padrão só vale fora do pendente.
   const rotuloEncerrar = (padrao) =>
     euSolicitei ? '⏳ Aguardando a outra parte' : encerramentoPendente ? '✅ Confirmar encerramento' : padrao
-  // Mesma comparação guardada do isDono/ehMatch: temMatch já garante match_usuario_id
-  // presente, então só falta exigir o id do usuário logado antes de comparar em String.
-  const souPrestadorDoMatch = temMatch && usuario?.id != null &&
-    String(reparo.match_usuario_id) === String(usuario.id)
+  // sou_escolhido da API (o match é de qualquer conta profissional da pessoa); sem o campo,
+  // match_usuario_id × conta logada. temMatch na frente: uma mudança local (match desfeito,
+  // prazo vencido) zera o match antes de a próxima leitura atualizar o campo.
+  const souPrestadorDoMatch = !!temMatch && souEscolhidoNaDemanda(reparo, usuario)
   // Profissional FORA da disputa: ou foi recusado, ou o dono já escolheu outro. Para ele
   // o prazo deste reparo deixou de ser um prazo — não é notícia dele, e ver o relógio
   // correr sugere que ainda há algo a fazer. Espelha DetalheObraScreen; 'recusada' entra
@@ -1582,8 +1584,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Sem chegada_declarada_por na resposta o flag fica false e o botão não aparece — lado
   // seguro, porque contestar desfaz o match e devolve o serviço ao Rol.
   const chegadaDeclaradaPorOutro = !!reparo?.chegada_declarada_em &&
-    reparo?.chegada_declarada_por != null && usuario?.id != null &&
-    String(reparo.chegada_declarada_por) !== String(usuario.id)
+    reparo?.chegada_declarada_por != null && meuId != null &&
+    String(reparo.chegada_declarada_por) !== String(meuId)
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
@@ -1650,7 +1652,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const faseProAguardaHorario = !!souPrestadorDoMatch && !encerrada && !horarioAceito
   // Contraproposta do CLIENTE pendente: o bloco mostra o CardAgendamento (aceitar/sugerir).
   const clienteContrapropos = !!reparo?.chegada_pendente_em && reparo?.chegada_proposta_por != null &&
-    usuario?.id != null && String(reparo.chegada_proposta_por) !== String(usuario.id)
+    meuId != null && String(reparo.chegada_proposta_por) !== String(meuId)
   // Valor combinado visto pelo profissional: a linha do próprio interesse (COALESCE de
   // contraproposta e proposto, como em Contratos Finalizados), senão o pedido.
   const valorCombinadoPro = meuInteresse
@@ -2059,7 +2061,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
             pontoReferencia={reparo.ponto_referencia}
             outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
-            usuarioId={usuario?.id}
+            usuarioId={meuId}
             onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
             /* Negociação do horário: POST /chegada-prevista (profissional) e /responder. */
             agendamento={{
@@ -2467,7 +2469,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
               {temMatch && !encerrada && !chegadaConfirmada && !faseAguardaHorario && (
                 <CardAgendamento
                   demanda={reparo}
-                  usuarioId={usuario?.id}
+                  usuarioId={meuId}
                   souDono
                   nomeOutro={primeiroNome(prestadorMatch?.nome)}
                   frente="servico"
@@ -2830,7 +2832,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 <>
                   <CardAgendamento
                     demanda={reparo}
-                    usuarioId={usuario?.id}
+                    usuarioId={meuId}
                     souDono={false}
                     limite={reparo.expira_em}
                     frente="servico"
@@ -2968,7 +2970,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                             (propor, aguardando, agendado) — ver components/Agendamento. */}
                         <CardAgendamento
                           demanda={reparo}
-                          usuarioId={usuario?.id}
+                          usuarioId={meuId}
                           souDono={false}
                           limite={reparo.expira_em}
                           frente="servico"

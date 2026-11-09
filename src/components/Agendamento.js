@@ -239,6 +239,8 @@ const ContagemAgendado = ({ alvo, frente }) => {
 
 // demanda: a linha do reparo/obra (chegada_prevista_em, chegada_pendente_em,
 //          chegada_proposta_por, chegada_pendente_rodada, match_usuario_id).
+// usuarioId: a conta que AGE na demanda (conta_id da API — utils/identidadeDemanda), não
+//          necessariamente a logada; é com ela que "a proposta pendente é minha" compara.
 // souDono / nomeOutro: quem vê e como chamar o outro lado ("Carlos", ou o genérico).
 // limite: expira_em — teto do picker do PROFISSIONAL; o dono contrapropõe sem teto.
 // podePropor: quem pode abrir a 1ª proposta (só o profissional do match, regra da API).

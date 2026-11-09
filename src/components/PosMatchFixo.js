@@ -635,6 +635,11 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 // fase: 'aguardando' | 'proposto' | 'agendado' | 'a_caminho' | 'em_andamento'.
 // demanda/frente/souDono/valor/endereco/pontoReferencia/outro/usuarioId: como nos blocos
 // antigos. onExpirar: o gancho do relógio do prazo (só sem horário aceito).
+// IDENTIDADE: esta tela não lê a sessão. souDono vem do sou_dono da API e usuarioId é a conta
+// que AGE na demanda (conta_id — utils/identidadeDemanda), que para o profissional com duas
+// contas pode não ser a logada; "a proposta de horário pendente é minha" compara com ela. O
+// que é de chegada, encerramento e cancelamento já chega decidido pela tela (declaradaPorOutro,
+// rotuloBotao/desabilitado, cancelamento.paraMim), com a mesma identidade.
 // agendamento: { nomeOutro, limite, enviando, onPropor(iso), respondendo, onResponder(acao, iso) }.
 // agendado: { podeDizerACaminho, onACaminho, enviandoACaminho, vigia: { onResponder } | null }.
 // aCaminho: { telefone, onWhatsApp, chegada: { naoDeclarada, aguardaConfirmacao,
