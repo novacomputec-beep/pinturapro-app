@@ -11,7 +11,9 @@ const SECOES = [
   },
   {
     titulo: '2. Uso dos Dados',
-    texto: 'Usamos seus dados para criar e gerenciar sua conta, conectar prestadores com donos de obra, ' + (mostrarCobranca ? 'processar pagamentos, ' : '') + 'enviar notificações sobre oportunidades de serviço e comunicações do sistema.'
+    texto: 'Usamos seus dados para criar e gerenciar sua conta, conectar prestadores com donos de obra, ' + (mostrarCobranca ? 'processar pagamentos, ' : '') + 'enviar notificações sobre oportunidades de serviço e comunicações do sistema.' +
+      // Mesmo texto da seção "Avisos pelo WhatsApp" dos Termos de Uso (seção 8).
+      '\n\nAvisos pelo WhatsApp: o ProTudo pode enviar mensagens automáticas de serviço (por exemplo, lembretes sobre seus pedidos e propostas) para o número de WhatsApp informado no cadastro. Não enviamos propaganda por esse canal. Para não receber, fale com o suporte.'
   },
   {
     titulo: '3. Compartilhamento',
@@ -54,7 +56,7 @@ export default function PrivacidadeScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <Text style={estilos.atualizadoEm}>Atualizado em Agosto de 2026</Text>
+        <Text style={estilos.atualizadoEm}>Atualizado em Novembro de 2026</Text>
 
         {SECOES.map((s, i) => (
           <View key={i} style={estilos.secao}>

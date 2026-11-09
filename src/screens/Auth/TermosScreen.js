@@ -40,7 +40,12 @@ const SECOES = [
     texto: 'Podemos atualizar estes Termos a qualquer momento. O uso continuado do aplicativo após as alterações implica aceitação dos novos termos.'
   },
   {
-    titulo: '8. Contato',
+    // Mesmo texto do parágrafo "Avisos pelo WhatsApp" da Política de Privacidade (seção 2).
+    titulo: '8. Avisos pelo WhatsApp',
+    texto: 'O ProTudo pode enviar mensagens automáticas de serviço (por exemplo, lembretes sobre seus pedidos e propostas) para o número de WhatsApp informado no cadastro. Não enviamos propaganda por esse canal. Para não receber, fale com o suporte.'
+  },
+  {
+    titulo: '9. Contato',
     texto: 'Dúvidas sobre estes Termos? Entre em contato: suporte@protudo.app.br'
   },
 ]
@@ -57,7 +62,7 @@ export default function TermosScreen({ navigation }) {
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <Text style={estilos.atualizadoEm}>Atualizado em Agosto de 2026</Text>
+        <Text style={estilos.atualizadoEm}>Atualizado em Novembro de 2026</Text>
 
         {SECOES.map((s, i) => (
           <View key={i} style={estilos.secao}>
