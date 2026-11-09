@@ -296,8 +296,8 @@ const propsPerfis = (caso) => caso.fase === 'perfis'
 const CASOS_ENTRAR_COMO = [
   { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · Trabalhar (último usado) + Contratar', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }], ultimoTipo: 'reparador' },
   { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · as 4 contas → 2 cards (Contratar = último usado), entrando em Trabalhar', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }], ultimoTipo: 'dono_obra', tipoCarregando: 'reparador' },
-  { lado: 'dono', fase: 'entrar_como', rotulo: 'Entrar como · só contratar (2 contas → 1 card)', contas: ['dono_reparo', 'dono_obra'] },
-  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · só trabalhar (2 contas → 1 card, última usada: pintor)', contas: ['reparador', 'pintor'], ultimoTrabalhar: 'pintor' },
+  { lado: 'dono', fase: 'entrar_como', rotulo: 'Entrar como · só contratar (2 contas → 1 card; só aparece se o login direto falhar)', contas: ['dono_reparo', 'dono_obra'] },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · só trabalhar (2 contas → 1 card, última usada: pintor; só aparece se o login direto falhar)', contas: ['reparador', 'pintor'], ultimoTrabalhar: 'pintor' },
   { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · tipo desconhecido no fim', contas: [{ tipo: 'pintor' }, { tipo: 'sindico' }] },
 ]
 const propsEntrarComo = (caso) => ({ contas: caso.contas, tipoCarregando: caso.tipoCarregando || null, ultimoTipo: caso.ultimoTipo || null, ultimoContratar: caso.ultimoContratar || null, ultimoTrabalhar: caso.ultimoTrabalhar || null, onEscolher: noop })

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import * as SecureStore from 'expo-secure-store'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { tipoDaConta, tiposDasContas, lerUltimoTipo, gravarUltimoTipo } from '../utils/contas'
+import { tipoDaConta, tiposDasContas, lerUltimoTipo, gravarUltimoTipo, tipoDoLadoUnico } from '../utils/contas'
 import * as Notifications from 'expo-notifications'
 import { Platform } from 'react-native'
 import Constants from 'expo-constants'
@@ -398,13 +398,19 @@ export const AuthProvider = ({ children }) => {
       // A API devolve `token` (da conta mais antiga) JUNTO de `contas`; devolver a resposta
       // inteira deixava a LoginScreen sem reação, porque ela só mostra a escolha sem token.
       // Por isso a saída para a escolha é só `{ contas }`: sessão não gravada, token fora.
+      //
+      // Sem perfil lembrado que sirva, a escolha só aparece quando a pessoa tem os DOIS lados
+      // (Contratar e Trabalhar): com todas as contas do mesmo lado entra direto na última usada
+      // daquele lado, senão na primeira (utils/contas.tipoDoLadoUnico).
       const salvo = await lerUltimoTipo(email)
       const escolha = { contas: resposta.contas }
-      if (!salvo || !tiposDasContas(resposta.contas).includes(salvo)) return escolha
+      const tipos = tiposDasContas(resposta.contas)
+      const direto = salvo && tipos.includes(salvo) ? salvo : await tipoDoLadoUnico(email, tipos)
+      if (!direto) return escolha
       try {
-        resposta = await authService.login(email, senha, salvo)
+        resposta = await authService.login(email, senha, direto)
       } catch (err) {
-        console.log('[AuthContext] login direto no último perfil falhou, mostrando a escolha | tipo:', salvo, '| status:', err?.status, '| codigo:', err?.codigo)
+        console.log('[AuthContext] login direto falhou, mostrando a escolha | tipo:', direto, '| status:', err?.status, '| codigo:', err?.codigo)
         return escolha
       }
       if (Array.isArray(resposta?.contas) && !resposta?.token) return resposta
@@ -427,11 +433,14 @@ export const AuthProvider = ({ children }) => {
     if (!tipo && Array.isArray(resposta?.contas) && resposta.contas.length >= 2) {
       const salvo = await lerUltimoTipo(email)
       const escolha = { escolher: true, contas: resposta.contas, email, ultimoTipo: salvo || null }
-      if (!salvo || !tiposDasContas(resposta.contas).includes(salvo)) return escolha
+      // Mesma regra do login por senha: perfil lembrado, senão o lado único, senão a escolha.
+      const tipos = tiposDasContas(resposta.contas)
+      const direto = salvo && tipos.includes(salvo) ? salvo : await tipoDoLadoUnico(email, tipos)
+      if (!direto) return escolha
       try {
-        resposta = await authService.loginSocial({ ...credencial, tipo: salvo })
+        resposta = await authService.loginSocial({ ...credencial, tipo: direto })
       } catch (err) {
-        console.log('[AuthContext] login social direto no último perfil falhou, mostrando a escolha | tipo:', salvo, '| status:', err?.status, '| codigo:', err?.codigo)
+        console.log('[AuthContext] login social direto falhou, mostrando a escolha | tipo:', direto, '| status:', err?.status, '| codigo:', err?.codigo)
         return escolha
       }
       if (!resposta?.token) return escolha

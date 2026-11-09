@@ -173,6 +173,29 @@ export const gravarUltimoTipo = async (email, tipo) => {
   }
 }
 
+// ── Login direto quando a pessoa só tem UM lado ───────────────────────────────────────
+// O "Entrar como:" escolhe entre LADOS (Contratar × Trabalhar). Com todas as contas do mesmo
+// lado (as duas contratantes, ou as duas profissionais) não há o que escolher: o login entra
+// direto na conta daquele lado — a última usada neste aparelho, senão a primeira da ordem de
+// preferência (contaContratar / contaTrabalhar, as mesmas regras do card único).
+// Devolve o lado ('contratar' | 'trabalhar') ou null quando há os dois, nenhum, ou algum tipo
+// que esta versão do app não conhece (aí a escolha aparece, para a conta não ficar inalcançável).
+export const ladoUnico = (tipos) => {
+  const t = Array.isArray(tipos) ? tipos : []
+  if (!t.length) return null
+  if (t.every(ehTipoContratar)) return 'contratar'
+  if (t.every(ehTipoTrabalhar)) return 'trabalhar'
+  return null
+}
+
+// O tipo em que o login entra direto por só haver um lado, ou null (os dois lados existem).
+export const tipoDoLadoUnico = async (email, tipos) => {
+  const lado = ladoUnico(tipos)
+  if (lado === 'contratar') return contaContratar(tipos, await lerUltimoTipoContratar(email))
+  if (lado === 'trabalhar') return contaTrabalhar(tipos, await lerUltimoTipoTrabalhar(email))
+  return null
+}
+
 // Mensagens por `codigo` dos erros de criar/trocar (mesma convenção do cadastro). Não há
 // formulário para corrigir, então cada uma diz o que a pessoa PODE fazer a seguir.
 export const MSG_ERRO_CONTAS = {

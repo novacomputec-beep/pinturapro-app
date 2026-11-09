@@ -75,7 +75,10 @@ export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, ultimoC
 }
 
 // Tela "Entrar como:" — renderizada pela LoginScreen (não é rota) quando o login devolve
-// 2+ contas. E-mail e senha ficam no estado da LoginScreen; daqui só sai o tipo escolhido.
+// 2+ contas DOS DOIS LADOS e não há perfil lembrado: com todas as contas do mesmo lado o
+// AuthContext entra direto (utils/contas.tipoDoLadoUnico) e esta tela só aparece, com um card,
+// se esse login direto falhar. E-mail e senha ficam no estado da LoginScreen; daqui só sai o
+// tipo escolhido.
 // Visual da escolha de perfil do cadastro: mesmos halos, logo com o voltar sobreposto, cards.
 // `email` (opcional): o do login, para ler a última conta CONTRATANTE usada neste aparelho —
 // só importa quando o e-mail tem as duas e o último perfil geral não é uma delas.
