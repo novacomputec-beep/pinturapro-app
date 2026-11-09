@@ -21,7 +21,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
-import { tiposDasContas } from '../../utils/contas'
+import { contarPerfis } from '../../utils/contas'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
 import { buscarDicas, lerDicasVistas, contarNovas, rotuloNovas } from '../../services/dicas'
 
@@ -614,11 +614,13 @@ export default function PerfilScreen({ navigation, route }) {
           )}
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
           <Separador />
-          {/* Arte-Meus-Perfis: os 4 tipos de cadastro da pessoa (em uso / trocar / adicionar).
-              Todos os papéis. O estado é quantos perfis o e-mail já tem (some com um só). */}
+          {/* Arte-Meus-Perfis: os perfis da pessoa (em uso / trocar / adicionar). Todos os papéis.
+              O estado é quantos LADOS ela já tem — Contratar e/ou Trabalhar, os mesmos cards da
+              MeusPerfisScreen (utils/contas.contarPerfis), não o número de contas: duas contas
+              do mesmo lado são um perfil só. Some com um só. */}
           <ItemAcao
             titulo="👥 Meus perfis"
-            estado={tiposDasContas(usuario?.contas).length >= 2 ? String(tiposDasContas(usuario?.contas).length) : ''}
+            estado={contarPerfis(usuario) >= 2 ? String(contarPerfis(usuario)) : ''}
             onPress={() => navigation.navigate('MeusPerfis')}
           />
           <Separador />

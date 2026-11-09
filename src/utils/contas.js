@@ -104,7 +104,13 @@ export const listarPerfis = (usuario, ultimoContratar = null, ultimoTrabalhar = 
   ]
 }
 
-// ── Último perfil usado, por aparelho e por e-mail ─────────────────────────────────────
+// Quantos PERFIS a pessoa tem no modelo unificado: os LADOS que ela já tem (Contratar e/ou
+// Trabalhar, no máximo 2) — os cards de "Meus perfis" que não estão em 'adicionar'. NÃO é o
+// número de contas: as duas contas contratantes (ou as duas profissionais) são um perfil só.
+// É o número da linha "Meus perfis" do Perfil.
+export const contarPerfis = (usuario) => listarPerfis(usuario).filter((p) => p.estado !== 'adicionar').length
+
+// ── Último perfil usado, por aparelho e por e-mail─────────────────────────────────────
 // Gravado no login, ao trocar de perfil e ao "Criar e entrar" (AuthContext). No PRÓXIMO login
 // do mesmo e-mail com 2+ contas, se o tipo salvo ainda existe entre as `contas` devolvidas, o
 // AuthContext repete o login com ele e entra direto — o "Entrar como:" só aparece sem tipo
