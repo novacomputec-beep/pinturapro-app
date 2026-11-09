@@ -41,7 +41,7 @@ import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } fr
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
-import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, ehDaMinhaConta, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
+import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -510,6 +510,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const isDono = souDonoDaDemanda(reparo, usuario)
   // A conta que age aqui: é com ela que se compara quem declarou a chegada, quem propôs o
   // horário e quem pediu o encerramento, e é ela que os blocos pós-match recebem (usuarioId).
+  // Quem compara é acaoEhMinha (utils/identidadeDemanda): para o DONO (sou_dono) a ação é dele
+  // sempre que o autor não é a conta do profissional escolhido — a pessoa pode ter agido pela
+  // outra conta contratante dela.
   const meuId = contaNaDemanda(reparo, usuario)
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
@@ -837,7 +840,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
         // "Minha" = da conta que age neste serviço (conta_id da resposta que acabou de chegar;
         // sem o campo, a conta logada) — utils/identidadeDemanda, que compara em String e
         // nunca casa dois ids ausentes: a declaração de terceiro não vira sucesso deste usuário.
-        const declaracaoMinha = ehDaMinhaConta(r?.chegada_declarada_por, comIdentidade(atual, r), usuario)
+        const linhaAtual = comIdentidade(atual, r)
+        const declaracaoMinha = acaoEhMinha(r?.chegada_declarada_por, linhaAtual, contaNaDemanda(linhaAtual, usuario))
         const declareiAgora = !declaradaAntes && !!r?.chegada_declarada_em && declaracaoMinha
         const confirmeiAgora = isDono && !confirmadaAntes && !!r?.chegada_confirmada_em
         if (declareiAgora || confirmeiAgora) { await buscar(); return }
@@ -1497,7 +1501,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const encerramentoPendente = reparo?.encerramento_solicitado_por != null
   // Quem pediu vê "aguardando"; a outra parte vê "confirmar". "Eu" = a conta que age neste
   // serviço (meuId), não necessariamente a logada.
-  const euSolicitei = encerramentoPendente && ehDaMinhaConta(reparo.encerramento_solicitado_por, reparo, usuario)
+  const euSolicitei = encerramentoPendente && acaoEhMinha(reparo.encerramento_solicitado_por, reparo, meuId)
   // Rótulo dos botões de encerrar (dono e prestador): o padrão só vale fora do pendente.
   const rotuloEncerrar = (padrao) =>
     euSolicitei ? '⏳ Aguardando a outra parte' : encerramentoPendente ? '✅ Confirmar encerramento' : padrao
@@ -1585,7 +1589,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // seguro, porque contestar desfaz o match e devolve o serviço ao Rol.
   const chegadaDeclaradaPorOutro = !!reparo?.chegada_declarada_em &&
     reparo?.chegada_declarada_por != null && meuId != null &&
-    String(reparo.chegada_declarada_por) !== String(meuId)
+    !acaoEhMinha(reparo.chegada_declarada_por, reparo, meuId)
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
@@ -1652,7 +1656,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const faseProAguardaHorario = !!souPrestadorDoMatch && !encerrada && !horarioAceito
   // Contraproposta do CLIENTE pendente: o bloco mostra o CardAgendamento (aceitar/sugerir).
   const clienteContrapropos = !!reparo?.chegada_pendente_em && reparo?.chegada_proposta_por != null &&
-    meuId != null && String(reparo.chegada_proposta_por) !== String(meuId)
+    meuId != null && !acaoEhMinha(reparo.chegada_proposta_por, reparo, meuId)
   // Valor combinado visto pelo profissional: a linha do próprio interesse (COALESCE de
   // contraproposta e proposto, como em Contratos Finalizados), senão o pedido.
   const valorCombinadoPro = meuInteresse

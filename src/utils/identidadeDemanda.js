@@ -35,7 +35,21 @@ export const comIdentidade = (resposta, linha) => {
 // propôs o horário e quem pediu o encerramento, e é ela que os blocos pós-match recebem.
 export const contaNaDemanda = (demanda, usuario) => demanda?.conta_id ?? usuario?.id ?? null
 
-export const ehDaMinhaConta = (id, demanda, usuario) => mesmoId(id, contaNaDemanda(demanda, usuario))
+// Uma AÇÃO do pós-match — proposta de horário (chegada_proposta_por), chegada declarada
+// (chegada_declarada_por), pedido de encerramento (encerramento_solicitado_por) — é MINHA?
+// `autorId` é quem a gravou; `contaId` é a conta que age (contaNaDemanda).
+//
+// DONO (sou_dono da API): depois do match a demanda tem duas partes, a pessoa contratante e o
+// profissional escolhido. O conta_id do dono é só a conta logada, e a pessoa pode ter agido
+// pela OUTRA conta contratante dela (mesmo CPF) — então, para o dono, é dele toda ação cujo
+// autor NÃO é a conta do profissional escolhido (match_usuario_id).
+// Nos demais casos — profissional, sou_dono ausente (API antiga) ou demanda sem match — vale
+// a comparação de sempre: o autor é a conta que age.
+export const acaoEhMinha = (autorId, demanda, contaId) => {
+  if (autorId == null) return false
+  if (demanda?.sou_dono === true && demanda?.match_usuario_id != null) return !mesmoId(autorId, demanda.match_usuario_id)
+  return mesmoId(autorId, contaId)
+}
 
 export const souDonoDaDemanda = (demanda, usuario) =>
   typeof demanda?.sou_dono === 'boolean' ? demanda.sou_dono : mesmoId(demanda?.criado_por, usuario?.id)
