@@ -90,7 +90,7 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'placas_fachadas', rotulo: 'Placas e fachadas',  emoji: '🪧' },
   // Mesmo slug da API (utils/especialidades.js, pinturapro-api 0592c9a); grupo "Transporte e
   // veículos" (utils/gruposServico).
-  { slug: 'borracheiro',     rotulo: 'Borracheiro',        emoji: '🛞' },
+  { slug: 'borracheiro',     rotulo: 'Borracheiro',        emoji: '🚙' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
