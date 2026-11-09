@@ -130,6 +130,11 @@ const navegarParaNotificacao = (data) => {
   // traduzido para a aba nova (abaDoDono); para os demais o nome segue como veio.
   const ir = (aba, params) => navigationRef.current.navigate(ehDono ? abaDoDono(aba) : aba, params)
   const navegar = (nome) => ir(nome)
+  // Aba do feed que ESTA conta profissional tem. O aviso "fora da sua área" (data.fora_da_area,
+  // API utils/avisosForaDaArea) chega com o MESMO tipo/id do aviso de pedido novo, mas o pedido
+  // pode ser do outro lado: obra para a conta de serviços, serviço para a de obras. As duas
+  // pilhas de feed registram os dois detalhes, então o toque abre o pedido na aba que existe.
+  const abaFeedPro = usaTabsPintor ? 'Obras' : 'Reparos'
   try {
     // Alertas de expiração (obra/reparo): cobrem por prefixo TODOS os marcos
     // (…_6h/_60/_30/_15) e o legado …_sem_interessados — deep-link direto ao detalhe.
@@ -146,12 +151,12 @@ const navegarParaNotificacao = (data) => {
     switch (data.tipo) {
       // Feed
       case 'nova_obra':
-        if (data.obra_id) navigationRef.current.navigate('Obras', { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
-        else navegar('Obras')
+        if (data.obra_id) navigationRef.current.navigate(abaFeedPro, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(abaFeedPro)
         break
       case 'novo_reparo':
-        if (data.reparo_id) navigationRef.current.navigate('Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else navegar('Reparos')
+        if (data.reparo_id) navigationRef.current.navigate(abaFeedPro, { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else navegar(abaFeedPro)
         break
       // Mensagens
       case 'nova_mensagem':
@@ -810,6 +815,8 @@ const FeedStackNavigator = () => (
   <FeedStack.Navigator screenOptions={{ headerShown: false }}>
     <FeedStack.Screen name="FeedMain"    component={FeedObrasScreen} />
     <FeedStack.Screen name="DetalheObra" component={DetalheObraScreen} />
+    {/* Aviso "fora da sua área": o push de um SERVIÇO abre o detalhe aqui, na conta de obras. */}
+    <FeedStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
     {/* Conta irmã de reparador, a partir do convite no topo do feed (ConviteCadastroServicos). */}
     <FeedStack.Screen name="CadastroServicos" component={CadastroServicosScreen} />
   </FeedStack.Navigator>
@@ -820,6 +827,8 @@ const ReparoStackNavigator = () => (
   <ReparoStack.Navigator screenOptions={{ headerShown: false }}>
     <ReparoStack.Screen name="FeedReparosMain" component={FeedReparosScreen} />
     <ReparoStack.Screen name="DetalheReparo"   component={DetalheReparoScreen} />
+    {/* Aviso "fora da sua área": o push de uma OBRA abre o detalhe aqui, na conta de serviços. */}
+    <ReparoStack.Screen name="DetalheObra"     component={DetalheObraScreen} />
   </ReparoStack.Navigator>
 )
 
