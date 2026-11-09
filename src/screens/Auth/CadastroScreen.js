@@ -683,8 +683,8 @@ export default function CadastroScreen({ navigation, route }) {
         if (isPrestador && resposta.assinatura?.status === 'ativa') {
           Alert.alert(
             'Cadastro concluído!',
-            'Você já pode ver os serviços disponíveis na sua região e começar a trabalhar! Quando enviar sua primeira proposta, pediremos a confirmação da sua identidade.',
-            [{ text: 'Ver serviços disponíveis' }]
+            'Você já pode ver os pedidos disponíveis na sua região e começar a trabalhar! Quando enviar sua primeira proposta, pediremos a confirmação da sua identidade.',
+            [{ text: 'Ver pedidos disponíveis' }]
           )
         }
       } else {
@@ -918,7 +918,7 @@ export default function CadastroScreen({ navigation, route }) {
           {passo === 3 && isPrestador && (
             <View>
               <Text style={estilos.planoSubtitulo}>
-                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os serviços disponíveis' : 'as obras disponíveis'}:
+                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os pedidos disponíveis' : 'as obras disponíveis'}:
               </Text>
               <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
                 <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>

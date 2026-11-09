@@ -78,6 +78,8 @@ const VARIANTES = {
   dono:        { corpo: 'Avisamos na hora em que um profissional demonstrar interesse no seu pedido.' },
   dono_obra:   { corpo: 'Avisamos na hora em que um profissional demonstrar interesse na sua obra.' },
   dono_reparo: { corpo: 'Avisamos na hora em que um profissional demonstrar interesse no seu serviço.' },
+  // 'profissional': o feed único "Pedidos" de quem vê serviços E obras (Fase 2).
+  profissional: { corpo: 'Avisamos assim que surgir um novo pedido perto de você.' },
   pintor:      { corpo: 'Avisamos assim que surgir uma nova obra perto de você.' },
   reparador:   { corpo: 'Avisamos assim que surgir um novo serviço perto de você.' },
 }

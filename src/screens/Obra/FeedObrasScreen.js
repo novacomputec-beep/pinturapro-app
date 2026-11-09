@@ -21,7 +21,6 @@ import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra } from '../../utils/urgencia'
 import { softAskRef } from '../../components/SoftAskNotificacao'
-import ConviteCadastroServicos from '../../components/ConviteCadastroServicos'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { BannerConvideColega } from '../../components/Indicacao'
@@ -94,7 +93,9 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   )
 }
 
-const CardObra = ({ item, onPress, onExpirar, coords }) => {
+// Exportado: o feed único "Pedidos" (screens/Pedidos/PedidosScreen, Fase 2) desenha as obras
+// com ESTE card. `etiqueta` (opcional): a etiqueta "Obra" ao lado do título.
+export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
   const dist = distanciaItemKm(coords, item)
   const emoji = emojiObra(item.categoria)
   // Rede de segurança do thumbnail: a capa pode não renderizar (URL quebrada,
@@ -153,13 +154,20 @@ const CardObra = ({ item, onPress, onExpirar, coords }) => {
           </View>
         )}
         <View style={estilos.textoCol}>
-          <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
+          {etiqueta ? (
+            <View style={estilos.tituloComEtiqueta}>
+              <Text style={[estilos.cardTitulo, { flexShrink: 1 }]} numberOfLines={1}>{item.titulo}</Text>
+              {etiqueta}
+            </View>
+          ) : (
+            <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
+          )}
           <Text style={estilos.cardLocal} numberOfLines={1}>
             📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}{item.uf ? `, ${item.uf}` : ''}
             {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
           </Text>
           <View style={estilos.cardRodape}>
-            <Text style={estilos.interessados}>🎨 {item.total_candidaturas || item.total_interessados || 0} interessado(s)</Text>
+            <Text style={estilos.interessados}>🎨{item.total_candidaturas || item.total_interessados || 0} interessado(s)</Text>
             <View style={estilos.btnVer}>
               <Text style={estilos.btnVerTexto}>Ver obra →</Text>
             </View>
@@ -481,9 +489,6 @@ export default function FeedObrasScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         ListHeaderComponent={
           <>
-            {/* Convite "Também faz pequenos reparos?" — devolve null fora das condições
-                dele (só pintor, chave ligada, sem conta de reparador, não dispensado). */}
-            <ConviteCadastroServicos navigation={navigation} />
             <FlatList
               data={CATEGORIAS}
               horizontal
@@ -697,6 +702,7 @@ const estilos = StyleSheet.create({
   thumbIcone: { fontSize: 24 },
   textoCol: { flex: 1 },
   cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  tituloComEtiqueta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardLocal: { fontSize: 12, color: cores.textoMedio, marginTop: 3 },
   cardDistancia: { color: cores.primaria, fontWeight: '600' },
   cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },

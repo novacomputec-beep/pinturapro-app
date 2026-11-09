@@ -21,12 +21,17 @@ import { DicasConteudo } from './DicasScreen'
 import { DicasTemaConteudo } from './DicasTemaScreen'
 import { CardPerguntasDono, CaixaPerguntaInteressado, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
-import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS, grupoObrasEspecialidades, ehEspecialidadeDeObra, TILE_OBRAS_ESPECIALIDADES } from '../../utils/gruposServico'
+import { CabecalhoPedidos, SegmentoPedidos, intercalarPedidos } from '../Pedidos/PedidosScreen'
+import { MeusTrabalhosConteudo, juntarTrabalhos } from '../Pedidos/MeusTrabalhosScreen'
+import { CardReparo } from '../Reparos/FeedReparosScreen'
+import { CardObra } from '../Obra/FeedObrasScreen'
+import EtiquetaTipo from '../../components/EtiquetaTipo'
 import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupoConteudo, PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, TOTAL_PASSOS, GradeTiposObra, PassoPrazoValorObra, CaixaAvisosObra, TITULOS_PASSO_OBRA } from '../DonoObra/CadastrarServicoPassos'
 import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
 import { MeusPedidosConteudo, juntarPedidos } from '../DonoObra/MeusPedidosScreen'
 import { MAX_ESPECIALIDADES } from '../../utils/categorias'
-import { TILE_OUTROS_ESPECIALIDADES, AVISO_TETO, titulosEspecialidades, avisoEspecialidades } from './EspecialidadesScreen'
+import { TILE_OUTROS_ESPECIALIDADES, AVISO_TETO, titulosEspecialidades, avisoEspecialidades, SUBTITULO_FOLHA_ESPECIALIDADES } from './EspecialidadesScreen'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
 import LinhaAvisosTodasAreas from '../../components/AvisosTodasAreas'
@@ -272,29 +277,30 @@ const propsConvite = (caso) => ({
 // (AdicionarPerfilConteudo) para um tipo profissional (seletor do lado certo) e para
 // contratar (sem seletor). Handlers no-op.
 const CASOS_PERFIS = [
-  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · só reparador em uso (2º card, os outros 2 com ＋)', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
-  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · Contratar em uso (1º card) + reparador', usuario: { role: 'dono_obra', tipo_dono: 'reparo', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
-  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · Contratar em uso (as 4 contas → 3 cards), trocando para pintor', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, trocando: 'pintor' },
-  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · pintor em uso + as 2 contas contratantes (um card Contratar, com seta)', usuario: { role: 'prestador', tipo_prestador: 'pintor', contas: [{ tipo: 'pintor' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }] }, ultimoContratar: 'dono_obra' },
-  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · serviços (2 marcadas)', tipo: 'reparador', selecionadas: ['eletrica', 'hidraulica'] },
-  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · construtor/pintor (vazio)', tipo: 'pintor', selecionadas: [] },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · Trabalhar em uso (conta de serviços), Contratar com ＋', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · Contratar em uso + Trabalhar (seta)', usuario: { role: 'dono_obra', tipo_dono: 'reparo', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · as 4 contas → 2 cards, trocando para Trabalhar (última usada: pintor)', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, ultimoTrabalhar: 'pintor', trocando: 'pintor' },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · Trabalhar em uso (conta de obra) + as 2 contratantes (um card, com seta)', usuario: { role: 'prestador', tipo_prestador: 'pintor', contas: [{ tipo: 'pintor' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }] }, ultimoContratar: 'dono_obra' },
+  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · trabalhar (serviços + obra, 2 marcadas)', tipo: 'reparador', selecionadas: ['eletrica', 'pedreiro_servente'] },
   { lado: 'dono', fase: 'adicionar', rotulo: 'Adicionar perfil · contratar (sem especialidades)', tipo: 'dono_reparo', selecionadas: [] },
 ]
 const propsPerfis = (caso) => caso.fase === 'perfis'
-  ? { perfis: listarPerfis(caso.usuario, caso.ultimoContratar || null), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
+  ? { perfis: listarPerfis(caso.usuario, caso.ultimoContratar || null, caso.ultimoTrabalhar || null), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
   : { perfil: perfilDoTipo(caso.tipo), selecionadas: caso.selecionadas, onAlternar: noop }
 
-// Arte-Entrar-Como + Arte-Fase1-Contratar: o miolo do "Entrar como:" (EntrarComoConteudo) com
-// só os lados que a pessoa tem — o lado contratar com UM card, mesmo com as duas contas —, a
-// tag "ÚLTIMO USADO", o spinner no card que está entrando e um tipo que esta versão do app
-// não conhece. Handlers no-op.
+// Arte-Entrar-Como + Fases 1 e 2: o miolo do "Entrar como:" (EntrarComoConteudo) com só os
+// lados que a pessoa tem — UM card por lado ("Trabalhar" e "Contratar"), mesmo com as duas
+// contas de cada —, a tag "ÚLTIMO USADO", o spinner no card que está entrando e um tipo que
+// esta versão do app não conhece. Handlers no-op.
 const CASOS_ENTRAR_COMO = [
-  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · reparador (último usado) + Contratar', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }], ultimoTipo: 'reparador' },
-  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · as 4 contas → 3 cards (Contratar = último usado), entrando como pintor', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }], ultimoTipo: 'dono_obra', tipoCarregando: 'pintor' },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · Trabalhar (último usado) + Contratar', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }], ultimoTipo: 'reparador' },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · as 4 contas → 2 cards (Contratar = último usado), entrando em Trabalhar', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }], ultimoTipo: 'dono_obra', tipoCarregando: 'reparador' },
   { lado: 'dono', fase: 'entrar_como', rotulo: 'Entrar como · só contratar (2 contas → 1 card)', contas: ['dono_reparo', 'dono_obra'] },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · só trabalhar (2 contas → 1 card, última usada: pintor)', contas: ['reparador', 'pintor'], ultimoTrabalhar: 'pintor' },
   { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · tipo desconhecido no fim', contas: [{ tipo: 'pintor' }, { tipo: 'sindico' }] },
 ]
-const propsEntrarComo = (caso) => ({ contas: caso.contas, tipoCarregando: caso.tipoCarregando || null, ultimoTipo: caso.ultimoTipo || null, ultimoContratar: caso.ultimoContratar || null, onEscolher: noop })
+const propsEntrarComo = (caso) => ({ contas: caso.contas, tipoCarregando: caso.tipoCarregando || null, ultimoTipo: caso.ultimoTipo || null, ultimoContratar: caso.ultimoContratar || null, ultimoTrabalhar: caso.ultimoTrabalhar || null, onEscolher: noop })
+
 
 function DemoAdicionar(props) {
   const precisaEsp = !!props.perfil?.profissional
@@ -648,13 +654,74 @@ function DemoMeusPedidos({ abertos, historico, secaoInicial }) {
   )
 }
 
-// Arte-Especialidades-Reparador: a escolha de especialidades do prestador de serviço, com as
-// MESMAS peças do wizard (sem barra de progresso): cadastro e Perfil, vazia (mínimo 1), no
-// teto de 5 (tiles sem marcada apagados) e a folha com o aviso do teto.
+// Arte-Fase2-Trabalhar: o feed único "Pedidos para você" (o cabeçalho, o segmento e os MESMOS
+// cards dos dois feeds, com a etiqueta "Serviço" / "Obra") e "Meus trabalhos" (interesses em
+// serviços + candidaturas a obras numa lista só, com os cards das duas listas de origem).
+// Dados locais; o segmento e os filtros trocam de verdade, o resto é no-op.
+const FEED_DEMO = {
+  reparos: [
+    { id: 'fr1', titulo: 'Torneira vazando', categoria: 'hidraulica', categorias: ['hidraulica'], cidade: 'Patos de Minas', bairro: 'Centro', uf: 'MG', valor_estimado: 80, prazo_atendimento_horas: 24, expira_em: iso(20 * H), total_interessados: 1 },
+    { id: 'fr2', titulo: 'Trocar disjuntor', categoria: 'eletrica', categorias: ['eletrica'], cidade: 'Patos de Minas', bairro: 'Caramuru', uf: 'MG', valor_estimado: 120, prazo_atendimento_horas: 24, expira_em: iso(40 * H), total_interessados: 0 },
+  ],
+  obras: [
+    { id: 'fo1', titulo: 'Reboco do muro', categoria: 'residencial', cidade: 'Patos de Minas', bairro: 'Alvorada', uf: 'MG', valor: 1200, horas_para_expirar: 720, expira_em: iso(30 * H), total_candidaturas: 2 },
+    { id: 'fo2', titulo: 'Pintura da casa', categoria: 'residencial', cidade: 'Patos de Minas', bairro: 'Copacabana', uf: 'MG', valor: 2000, horas_para_expirar: 720, expira_em: iso(300 * H), total_candidaturas: 0 },
+  ],
+}
+const TRABALHOS_DEMO = {
+  interesses: [
+    { id: 'ti1', reparo_id: 'r1', titulo: 'Torneira vazando', categoria: 'hidraulica', categorias: ['hidraulica'], cidade: 'Patos de Minas', bairro: 'Centro', valor_estimado: 80, valor_proposto: 90, status: 'pendente', reparo_status: 'aberta', criado_em: iso(-2 * H) },
+    { id: 'ti2', reparo_id: 'r2', titulo: 'Trocar disjuntor', categoria: 'eletrica', categorias: ['eletrica'], cidade: 'Patos de Minas', bairro: 'Caramuru', valor_estimado: 120, status: 'recusado', reparo_status: 'aberta', match_usuario_id: OUTRO, match_da_pessoa: false, criado_em: iso(-60 * H) },
+  ],
+  candidaturas: [
+    { id: 'tc1', obra_id: 'o1', obra_titulo: 'Reboco do muro', obra_categoria: 'residencial', obra_cidade: 'Patos de Minas', obra_uf: 'MG', obra_valor: 1200, status: 'aceito', obra_status: 'aberta', match_usuario_id: 'outra-conta-da-pessoa', conta_id: 'outra-conta-da-pessoa', match_da_pessoa: true, criado_em: iso(-20 * H) },
+    { id: 'tc2', obra_id: 'o2', obra_titulo: 'Pintura da casa', obra_categoria: 'residencial', obra_cidade: 'Patos de Minas', obra_uf: 'MG', obra_valor: 2000, status: 'contraproposta_dono', obra_status: 'aberta', criado_em: iso(-90 * H) },
+  ],
+}
+const CASOS_TRABALHAR = [
+  { lado: 'pro', fase: 'pedidos_feed', rotulo: 'Pedidos para você · Todos (serviços e obras intercalados)', segmento: 'todos' },
+  { lado: 'pro', fase: 'pedidos_feed', rotulo: 'Pedidos para você · segmento Obras', segmento: 'obras' },
+  { lado: 'pro', fase: 'meus_trabalhos', rotulo: 'Meus trabalhos · Todos (2 serviços + 2 obras, por data)', filtro: 'todos' },
+  { lado: 'pro', fase: 'meus_trabalhos', rotulo: 'Meus trabalhos · Expirados (vazio)', filtro: 'expirada' },
+]
+const propsTrabalhar = (caso) => (caso.fase === 'pedidos_feed' ? { segmentoInicial: caso.segmento || 'todos' } : { filtroInicial: caso.filtro || 'todos' })
+
+function DemoPedidosFeed({ segmentoInicial }) {
+  const [segmento, setSegmento] = useState(segmentoInicial)
+  const lista = intercalarPedidos(segmento === 'obras' ? [] : FEED_DEMO.reparos, segmento === 'servicos' ? [] : FEED_DEMO.obras)
+  return (
+    <ScrollView showsVerticalScrollIndicator={false}>
+      <CabecalhoPedidos cidade="Patos de Minas" />
+      <View style={{ paddingHorizontal: espacos.tela, gap: 16, paddingBottom: 24 }}>
+        <SegmentoPedidos valor={segmento} onMudar={setSegmento} />
+        {lista.map((p) => (p.tipo === 'obra'
+          ? <CardObra key={p.chave} item={p.item} coords={null} onPress={noop} onExpirar={noop} etiqueta={<EtiquetaTipo tipo="obra" />} />
+          : <CardReparo key={p.chave} item={p.item} coords={null} onPress={noop} onExpirar={noop} etiqueta={<EtiquetaTipo tipo="reparo" />} />))}
+      </View>
+    </ScrollView>
+  )
+}
+
+function DemoMeusTrabalhos({ filtroInicial }) {
+  const [filtro, setFiltro] = useState(filtroInicial)
+  return (
+    <View style={{ flex: 1 }}>
+      <MeusTrabalhosConteudo linhas={juntarTrabalhos(TRABALHOS_DEMO.interesses, TRABALHOS_DEMO.candidaturas)} filtro={filtro} onFiltro={setFiltro} carregando={false} usuario={{ id: EU }} coords={null} navigation={{ navigate: noop }} comEtiqueta />
+    </View>
+  )
+}
+
+// Arte-Especialidades-Reparador + Arte-Fase2-Trabalhar: a escolha de especialidades do
+// profissional, com as MESMAS peças do wizard (sem barra de progresso): cadastro e Perfil,
+// vazia (mínimo 1), no teto de 5 (tiles sem marcada apagados), o tile em destaque "Obras de
+// Construção Civil" ("N marcada(s) · …") abrindo a mesma folha com os quatro papéis de obra,
+// o tile "Outros" e a folha com o aviso do teto.
+const GRUPO_OBRAS_DEMO = grupoObrasEspecialidades()
 const CASOS_ESPECIALIDADES = [
-  { lado: 'pro', fase: 'especialidades', rotulo: 'Especialidades · cadastro, 2 marcadas', origem: 'Cadastro', selecionadas: ['hidraulica', 'eletrica'] },
+  { lado: 'pro', fase: 'especialidades', rotulo: 'Especialidades · cadastro, 2 serviços + 1 obra (tile "1 marcada")', origem: 'Cadastro', selecionadas: ['hidraulica', 'eletrica', 'pedreiro_servente'] },
   { lado: 'pro', fase: 'especialidades', rotulo: 'Especialidades · Perfil, nenhuma (mínimo 1)', origem: 'PerfilMain', selecionadas: [] },
-  { lado: 'pro', fase: 'especialidades', rotulo: `Especialidades · Perfil, no teto (${MAX_ESPECIALIDADES}) + Outros`, origem: 'PerfilMain', selecionadas: ['hidraulica', 'eletrica', 'faxina', 'garcom', 'outros'] },
+  { lado: 'pro', fase: 'especialidades', rotulo: `Especialidades · Perfil, no teto (${MAX_ESPECIALIDADES}) só de serviços: tile de obras apagado`, origem: 'PerfilMain', selecionadas: ['hidraulica', 'eletrica', 'faxina', 'garcom', 'outros'] },
+  { lado: 'pro', fase: 'especialidades_grupo', rotulo: 'Especialidades · folha "Obras de Construção Civil" (1 marcada)', grupo: 'obras', selecionadas: ['hidraulica', 'eletrica', 'pedreiro_servente'] },
   { lado: 'pro', fase: 'especialidades_grupo', rotulo: 'Especialidades · folha "Casa e reparos" no teto', grupo: 'casa', selecionadas: ['hidraulica', 'eletrica', 'faxina', 'garcom', 'dj'] },
 ]
 const propsEspecialidades = (caso) => ({ origem: caso.origem || 'Cadastro', selecionadasIniciais: caso.selecionadas || [], grupoId: caso.grupo || null })
@@ -669,13 +736,14 @@ function DemoEspecialidades({ origem, selecionadasIniciais }) {
     <View style={{ flex: 1 }}>
       <MolduraWizard passo={1} progresso={false} tituloTela={t.tituloTela} titulos={{ 1: { titulo: t.titulo, subtitulo: t.subtitulo } }} mostrarVoltar onVoltar={noop}
         rodape={<RodapeWizard rotulo="Confirmar →" onPress={noop} desabilitado={!selecionadas.length} nota={!selecionadas.length ? avisoEspecialidades(selecionadas) : null} />}>
-        <GradeGrupos grupos={GRUPOS_DEMO} contagem={contagemPorGrupo(selecionadas)} outrosMarcado={selecionadas.includes(SLUG_OUTROS)} bloqueado={cheio} legendas tileOutros={TILE_OUTROS_ESPECIALIDADES} onAbrir={setGrupoAberto} onOutros={() => alternar(SLUG_OUTROS)} />
+        <GradeGrupos grupos={GRUPOS_DEMO} contagem={contagemPorGrupo(selecionadas)} outrosMarcado={selecionadas.includes(SLUG_OUTROS)} bloqueado={cheio} legendas tileOutros={TILE_OUTROS_ESPECIALIDADES} onAbrir={setGrupoAberto} onOutros={() => alternar(SLUG_OUTROS)}
+          tileObras={TILE_OBRAS_ESPECIALIDADES} obrasMarcadas={selecionadas.filter(ehEspecialidadeDeObra).length} onObras={() => setGrupoAberto(GRUPO_OBRAS_DEMO)} />
         <ChipsEscolhidos categorias={selecionadas} onRemover={alternar} rotulo="VOCÊ FAZ" limite={MAX_ESPECIALIDADES} textoLimite={AVISO_TETO} vazio="Toque num grupo acima e marque o que você faz." />
       </MolduraWizard>
       {grupoAberto ? (
         <View style={[StyleSheet.absoluteFill, estilos.fundoSheet]}>
           <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
-            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={selecionadas} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} onFechar={() => setGrupoAberto(null)} limite={MAX_ESPECIALIDADES} subtitulo={`Marque o que você faz · até ${MAX_ESPECIALIDADES} no total`} aviso={avisoEspecialidades(selecionadas)} />
+            <FolhaGrupoConteudo grupo={grupoAberto} selecionadas={selecionadas} onAlternar={alternar} onPronto={() => setGrupoAberto(null)} onFechar={() => setGrupoAberto(null)} limite={MAX_ESPECIALIDADES} subtitulo={SUBTITULO_FOLHA_ESPECIALIDADES} aviso={avisoEspecialidades(selecionadas)} />
           </View>
         </View>
       ) : null}
@@ -685,7 +753,7 @@ function DemoEspecialidades({ origem, selecionadasIniciais }) {
 
 function DemoFolhaEspecialidades({ grupoId, selecionadasIniciais }) {
   const [selecionadas, setSelecionadas] = useState(selecionadasIniciais)
-  const grupo = GRUPOS_DEMO.find((g) => g.id === grupoId) || GRUPOS_DEMO[0]
+  const grupo = grupoId === 'obras' ? GRUPO_OBRAS_DEMO : (GRUPOS_DEMO.find((g) => g.id === grupoId) || GRUPOS_DEMO[0])
   const alternar = (slug) => setSelecionadas((atual) => (atual.includes(slug) ? atual.filter((c) => c !== slug) : atual.length >= MAX_ESPECIALIDADES ? atual : [...atual, slug]))
   return (
     <View style={[estilos.sheet, { alignItems: 'stretch', maxHeight: '88%' }]}>
@@ -747,6 +815,7 @@ const TODOS = [
   ...CASOS_WIZARD.map((c) => ({ ...c, frente: null })),
   ...CASOS_WIZARD_OBRA.map((c) => ({ ...c, frente: null })),
   ...CASOS_PEDIDOS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_TRABALHAR.map((c) => ({ ...c, frente: null })),
   ...CASOS_ESPECIALIDADES.map((c) => ({ ...c, frente: null })),
 ]
 
@@ -853,7 +922,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', avisos_todos: 'Perfil · avisos de todas as áreas', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', meus_pedidos: 'Meus pedidos (dono)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', avisos_todos: 'Perfil · avisos de todas as áreas', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', meus_pedidos: 'Meus pedidos (dono)', pedidos_feed: 'Pedidos para você (profissional)', meus_trabalhos: 'Meus trabalhos (profissional)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -888,10 +957,13 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehDesistiu = caso.fase === 'desistiu_sheet' || caso.fase === 'desistiu_detalhe'
   const ehEspecialidades = caso.fase === 'especialidades' || caso.fase === 'especialidades_grupo'
   const ehWizard = caso.fase === 'cadastrar_servico' || caso.fase === 'cadastrar_grupo' || caso.fase === 'cadastrar_obra' || ehEspecialidades
-  const ehPedidos = caso.fase === 'meus_pedidos'
+  const ehTrabalhar = caso.fase === 'pedidos_feed' || caso.fase === 'meus_trabalhos'
+  // "Listas de tela cheia" (Meus pedidos do dono, feed e Meus trabalhos do profissional): têm
+  // recuo e rolagem próprios, e o rótulo da galeria é só o do caso.
+  const ehPedidos = caso.fase === 'meus_pedidos' || ehTrabalhar
   const props = useMemo(() => (
-    ehAvisosTodos ? { ligado: !!caso.ligado, salvando: !!caso.salvando } : ehPedidos ? propsPedidos(caso) : ehEspecialidades ? propsEspecialidades(caso) :caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehAvisosTodos, ehPedidos, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+    ehAvisosTodos ? { ligado: !!caso.ligado, salvando: !!caso.salvando } : ehTrabalhar ? propsTrabalhar(caso) : ehPedidos ? propsPedidos(caso) :ehEspecialidades ? propsEspecialidades(caso) :caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehAvisosTodos, ehTrabalhar, ehPedidos, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
   const rotulo = ehAvisosTodos || ehPedidos || ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehDesistiu || ehWizard
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
@@ -928,6 +1000,8 @@ export default function GaleriaEstadosScreen({ navigation }) {
             : caso.fase === 'especialidades_grupo' ? <DemoFolhaEspecialidades key={i} {...props} />
             : caso.fase === 'cadastrar_servico' ? <DemoWizard key={i} {...props} />
             : caso.fase === 'cadastrar_obra' ? <DemoWizardObra key={i} {...props} />
+            : caso.fase === 'pedidos_feed' ? <DemoPedidosFeed key={i} {...props} />
+            : caso.fase === 'meus_trabalhos' ? <DemoMeusTrabalhos key={i} {...props} />
             : ehPedidos ? <DemoMeusPedidos key={i} {...props} />
             : caso.fase === 'cadastrar_grupo' ? <DemoFolhaGrupo key={i} {...props} />
             : ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />

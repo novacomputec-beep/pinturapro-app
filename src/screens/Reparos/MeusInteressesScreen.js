@@ -12,6 +12,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { rotuloCategorias } from '../../utils/categorias'
 import { textoFasePosMatch } from '../../components/Agendamento'
+import { matchDaPessoa } from '../../utils/profissional'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
 // não some da tela: ela MENTE. As duas grafias do endpoint legado ('aprovada'/'recusada',
@@ -70,7 +71,9 @@ const GRUPO_STATUS = {
 // alcançado — a linha cujo status é literalmente "expirado" ficava fora de "Expirados".
 // Status desconhecido segue devolvendo null (só "Todos") quando o reparo está vivo; num
 // reparo inativo ele cai em "Expirados", que é o que a demanda morta diz sobre a linha.
-const balde = (item) =>
+// Exportado (com migrouParaFinalizados, abaixo): "Meus trabalhos" (Fase 2) classifica as
+// linhas de serviço com ESTAS regras.
+export const balde = (item) =>
   GRUPO_STATUS.aprovada.includes(item.status) ? 'aprovada'
     : GRUPO_STATUS.recusada.includes(item.status) ? 'recusada'
     : eExpirado(item) ? 'expirada'
@@ -83,7 +86,7 @@ const balde = (item) =>
 // A recusa e a proposta que venceu sem resposta NÃO têm essa segunda casa. Filtrar pelo
 // ciclo do REPARO levava as duas junto e apagava a linha de todos os baldes de uma vez,
 // inclusive "Recusados" — que passava a dizer "Nenhuma recusa" a quem tinha sido recusado.
-const migrouParaFinalizados = (item) =>
+export const migrouParaFinalizados = (item) =>
   item.reparo_status === 'encerrada' && GRUPO_STATUS.aprovada.includes(item.status)
 
 const FILTROS = [
@@ -101,6 +104,117 @@ const VAZIO = {
   aprovada: { titulo: 'Nenhuma proposta aceita',   sub: 'Quando um solicitante aceitar sua proposta, o serviço aparecerá aqui.' },
   recusada: { titulo: 'Nenhuma recusa',            sub: 'Propostas que não foram escolhidas aparecerão aqui.' },
   expirada: { titulo: 'Nenhum serviço expirado',   sub: 'Propostas que ficaram sem resposta até o prazo vencer aparecerão aqui.' },
+}
+
+// O card desta lista, fora da tela e EXPORTADO: "Meus trabalhos" (Fase 2) mistura serviços
+// e obras e desenha cada linha com o card do tipo dela — o mesmo corpo de sempre, só
+// recebendo por props o que antes lia da tela. `etiqueta` (opcional): "Serviço" / "Obra".
+export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
+  const eEncerrado = item.reparo_status === 'encerrada'
+  // Expiração vem PRONTA do servidor (relógio do banco), como em MinhasObrasScreen:121.
+  // Comparar expira_em com o relógio do aparelho fazia esta lista discordar do servidor
+  // quando a hora local estava adiantada/atrasada — o mesmo reparo aparecia expirado aqui
+  // e ativo lá. Aqui a linha é o INTERESSE, não o reparo, e os campos do reparo chegam
+  // prefixados (reparo_status, reparo_titulo…), daí reparo_expirada antes do nome simples.
+  const expirado   = !eEncerrado && eExpirado(item)
+  const dist       = distanciaItemKm(coords, item)
+  // "Ainda no páreo": só faz sentido enquanto a candidatura não foi decidida (nem
+  // aceito nem recusado) e a demanda segue aberta. O estado do match vem da API:
+  // match_usuario_id diz se há alguém escolhido e match_da_pessoa (utils/profissional) se
+  // é uma conta desta pessoa — a lista traz as propostas de TODAS as contas profissionais
+  // dela, então o id da conta logada não distingue "escolheram outro" de "escolheram a mim".
+  const demandaAberta    = !eEncerrado && !expirado
+  const emAnalise        = item.status === 'pendente' || item.status === 'contraproposta_dono'
+  const semMatch         = item.match_usuario_id == null
+  const matchMeu         = matchDaPessoa(item, usuario)
+  const outroSelecionado = !semMatch && !matchMeu
+  const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
+  // A proposta nunca foi respondida e já não será. Duas maneiras de a espera acabar sem
+  // resposta: o prazo venceu, ou o dono encerrou o reparo com outra pessoa — e o segundo
+  // é o caso comum, porque quem perde a disputa raramente é recusado um a um. Nos dois o
+  // status CONTINUA 'pendente' no servidor, então o mapa devolveria "Aguardando resposta"
+  // ao lado da tarja que diz que acabou. Aqui o desfecho não é o status da proposta, é o
+  // da demanda: mesma tarja do expirado com o texto que descreve o que houve.
+  // Vale só enquanto indeciso; aceito e recusado têm desfecho próprio e mantêm o badge
+  // deles mesmo com o anúncio vencido ou o serviço fechado.
+  const s = ((expirado || eEncerrado) && emAnalise)
+    ? { ...STATUS_INFO.expirado, texto: 'Sem resposta' }
+    : (STATUS_INFO[item.status] || STATUS_INFO.pendente)
+  // Pós-match do profissional (proposta aceita, serviço vivo, match meu): a linha da fase
+  // do agendamento (components/Agendamento). null depois do "Estou a caminho" — aí o card
+  // fica como sempre foi.
+  const souDoMatch = GRUPO_STATUS.aprovada.includes(item.status) && demandaAberta && matchMeu
+  const faseTexto = souDoMatch ? textoFasePosMatch(item, false) : null
+
+  return (
+    <View style={estilos.card}>
+      <View style={estilos.cardHeader}>
+        {etiqueta ? (
+          <View style={estilos.cardTituloLinha}>
+            <Text style={[estilos.cardTitulo, { flex: 0, flexShrink: 1, marginRight: 0 }]} numberOfLines={2}>{item.titulo}</Text>
+            {etiqueta}
+          </View>
+        ) : (
+          <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+        )}
+        <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || expirado) && estilos.statusBadgeInativo]}>
+          <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
+        </View>
+      </View>
+      {(eEncerrado || expirado) && (
+        <View style={[estilos.tagReparo, expirado && estilos.tagExpirado]}>
+          <Text style={[estilos.tagReparoTexto, expirado && estilos.tagExpiradoTexto]}>
+            {eEncerrado ? '🔒 Serviço encerrado' : '⏰ Prazo expirado'}
+          </Text>
+        </View>
+      )}
+      {mostrarParaeo && (
+        <Text style={[estilos.avisoParaeo, { color: semMatch ? cores.sucesso : cores.textoFraco }]}>
+          {semMatch
+            ? 'Você segue no páreo — nenhum profissional foi escolhido ainda.'
+            : 'Outro profissional foi selecionado.'}
+        </Text>
+      )}
+      <Text style={estilos.cardMeta}>
+        {rotuloCategorias(item)} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
+        {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
+      </Text>
+      <View style={estilos.valoresRow}>
+        <View>
+          <Text style={estilos.valorLabel}>Valor do serviço</Text>
+          <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
+        </View>
+        {item.valor_proposto != null && (
+          <View>
+            <Text style={estilos.valorLabel}>Sua proposta</Text>
+            <Text style={[estilos.valorTexto, { color: cores.primaria }]}>{formatarValor(item.valor_proposto)}</Text>
+          </View>
+        )}
+        {item.valor_contraproposta != null && (
+          <View>
+            <Text style={estilos.valorLabel}>Contraproposta</Text>
+            <Text style={[estilos.valorTexto, { color: '#FF6B35' }]}>{formatarValor(item.valor_contraproposta)}</Text>
+          </View>
+        )}
+      </View>
+      {item.status === 'contraproposta_dono' && (
+        <View style={estilos.alertaBanner}>
+          <Text style={estilos.alertaTexto}>⚡ O solicitante enviou uma contraproposta — veja os detalhes</Text>
+        </View>
+      )}
+      {faseTexto && (
+        <View style={estilos.faseBanner}>
+          <Text style={estilos.faseTexto}>{faseTexto}</Text>
+        </View>
+      )}
+      <TouchableOpacity
+        style={estilos.btnVer}
+        onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, categorias: item.categorias, cidade: item.cidade, latitude: item.latitude, longitude: item.longitude } })}
+      >
+        <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
+      </TouchableOpacity>
+    </View>
+  )
 }
 
 export default function MeusInteressesScreen({ navigation }) {
@@ -157,105 +271,7 @@ export default function MeusInteressesScreen({ navigation }) {
     )
   }
 
-  const renderItem = ({ item }) => {
-    const eEncerrado = item.reparo_status === 'encerrada'
-    // Expiração vem PRONTA do servidor (relógio do banco), como em MinhasObrasScreen:121.
-    // Comparar expira_em com o relógio do aparelho fazia esta lista discordar do servidor
-    // quando a hora local estava adiantada/atrasada — o mesmo reparo aparecia expirado aqui
-    // e ativo lá. Aqui a linha é o INTERESSE, não o reparo, e os campos do reparo chegam
-    // prefixados (reparo_status, reparo_titulo…), daí reparo_expirada antes do nome simples.
-    const expirado   = !eEncerrado && eExpirado(item)
-    const dist       = distanciaItemKm(coords, item)
-    // "Ainda no páreo": só faz sentido enquanto a candidatura não foi decidida (nem
-    // aceito nem recusado) e a demanda segue aberta. O estado do match vem da API
-    // (match_usuario_id); comparo com o meu id (useAuth) para distinguir "ninguém
-    // escolhido ainda" de "escolheram outro".
-    const demandaAberta    = !eEncerrado && !expirado
-    const emAnalise        = item.status === 'pendente' || item.status === 'contraproposta_dono'
-    const semMatch         = item.match_usuario_id == null
-    const outroSelecionado = !semMatch && String(item.match_usuario_id) !== String(usuario?.id)
-    const mostrarParaeo    = emAnalise && demandaAberta && (semMatch || outroSelecionado)
-    // A proposta nunca foi respondida e já não será. Duas maneiras de a espera acabar sem
-    // resposta: o prazo venceu, ou o dono encerrou o reparo com outra pessoa — e o segundo
-    // é o caso comum, porque quem perde a disputa raramente é recusado um a um. Nos dois o
-    // status CONTINUA 'pendente' no servidor, então o mapa devolveria "Aguardando resposta"
-    // ao lado da tarja que diz que acabou. Aqui o desfecho não é o status da proposta, é o
-    // da demanda: mesma tarja do expirado com o texto que descreve o que houve.
-    // Vale só enquanto indeciso; aceito e recusado têm desfecho próprio e mantêm o badge
-    // deles mesmo com o anúncio vencido ou o serviço fechado.
-    const s = ((expirado || eEncerrado) && emAnalise)
-      ? { ...STATUS_INFO.expirado, texto: 'Sem resposta' }
-      : (STATUS_INFO[item.status] || STATUS_INFO.pendente)
-    // Pós-match do profissional (proposta aceita, serviço vivo, match meu): a linha da fase
-    // do agendamento (components/Agendamento). null depois do "Estou a caminho" — aí o card
-    // fica como sempre foi.
-    const souDoMatch = GRUPO_STATUS.aprovada.includes(item.status) && demandaAberta &&
-      item.match_usuario_id != null && String(item.match_usuario_id) === String(usuario?.id)
-    const faseTexto = souDoMatch ? textoFasePosMatch(item, false) : null
-
-    return (
-      <View style={estilos.card}>
-        <View style={estilos.cardHeader}>
-          <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-          <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || expirado) && estilos.statusBadgeInativo]}>
-            <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
-          </View>
-        </View>
-        {(eEncerrado || expirado) && (
-          <View style={[estilos.tagReparo, expirado && estilos.tagExpirado]}>
-            <Text style={[estilos.tagReparoTexto, expirado && estilos.tagExpiradoTexto]}>
-              {eEncerrado ? '🔒 Serviço encerrado' : '⏰ Prazo expirado'}
-            </Text>
-          </View>
-        )}
-        {mostrarParaeo && (
-          <Text style={[estilos.avisoParaeo, { color: semMatch ? cores.sucesso : cores.textoFraco }]}>
-            {semMatch
-              ? 'Você segue no páreo — nenhum profissional foi escolhido ainda.'
-              : 'Outro profissional foi selecionado.'}
-          </Text>
-        )}
-        <Text style={estilos.cardMeta}>
-          {rotuloCategorias(item)} · {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}
-          {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
-        </Text>
-        <View style={estilos.valoresRow}>
-          <View>
-            <Text style={estilos.valorLabel}>Valor do serviço</Text>
-            <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
-          </View>
-          {item.valor_proposto != null && (
-            <View>
-              <Text style={estilos.valorLabel}>Sua proposta</Text>
-              <Text style={[estilos.valorTexto, { color: cores.primaria }]}>{formatarValor(item.valor_proposto)}</Text>
-            </View>
-          )}
-          {item.valor_contraproposta != null && (
-            <View>
-              <Text style={estilos.valorLabel}>Contraproposta</Text>
-              <Text style={[estilos.valorTexto, { color: '#FF6B35' }]}>{formatarValor(item.valor_contraproposta)}</Text>
-            </View>
-          )}
-        </View>
-        {item.status === 'contraproposta_dono' && (
-          <View style={estilos.alertaBanner}>
-            <Text style={estilos.alertaTexto}>⚡ O solicitante enviou uma contraproposta — veja os detalhes</Text>
-          </View>
-        )}
-        {faseTexto && (
-          <View style={estilos.faseBanner}>
-            <Text style={estilos.faseTexto}>{faseTexto}</Text>
-          </View>
-        )}
-        <TouchableOpacity
-          style={estilos.btnVer}
-          onPress={() => navigation.navigate('DetalheReparo', { reparo: { id: item.reparo_id, titulo: item.titulo, categoria: item.categoria, categorias: item.categorias, cidade: item.cidade, latitude: item.latitude, longitude: item.longitude } })}
-        >
-          <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
-        </TouchableOpacity>
-      </View>
-    )
-  }
+  const renderItem = ({ item }) => <CardInteresse item={item} coords={coords} usuario={usuario} navigation={navigation} />
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
@@ -322,6 +338,7 @@ const estilos = StyleSheet.create({
   card:             { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
   cardHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
   cardTitulo:       { fontSize: 14, fontWeight: '600', color: cores.textoForte, flex: 1, marginRight: 8, lineHeight: 20 },
+  cardTituloLinha:  { flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 8 },
   statusBadge:      { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   statusTexto:      { fontSize: 11, fontWeight: '700' },
   tagReparo:        { backgroundColor: '#1e1e1e', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start', marginBottom: 6, borderWidth: 0.5, borderColor: '#333' },

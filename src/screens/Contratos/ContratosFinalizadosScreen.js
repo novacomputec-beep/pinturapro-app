@@ -13,7 +13,7 @@ import ModalDenuncia from '../../components/ModalDenuncia'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { rotuloCategorias } from '../../utils/categorias'
-import { EtiquetaTipo } from '../DonoObra/MeusPedidosScreen'
+import EtiquetaTipo from '../../components/EtiquetaTipo'
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
@@ -30,16 +30,16 @@ const ENDPOINTS = {
 }
 
 export default function ContratosFinalizadosScreen({ navigation, route }) {
-  // tipo='ambos' (Fase 1, só o DONO): serviços E obras concluídos numa lista só — a aba
-  // "Finalizados" do lado contratante unificado. Lê os dois endpoints do dono, junta do mais
+  // tipo='ambos': serviços E obras concluídos numa lista só — a aba "Finalizados" do dono
+  // (Fase 1) e a do profissional (Fase 2). Lê os dois endpoints do lado, junta do mais
   // recente para o mais antigo e marca em cada contrato a vertical dele (`_tipo`), que é quem
-  // decide detalhe, avaliação e valor daquele card. 'obra' e 'reparo' seguem como sempre.
+  // decide detalhe, avaliação, denúncia e valor daquele card. 'obra' e 'reparo' seguem como sempre.
   const pedido = route?.params?.tipo
   // perfil='dono' usa os endpoints do solicitante (mostra o prestador contratado);
   // padrão 'prestador' mantém o comportamento legado (mostra o dono/solicitante).
   const perfil = route?.params?.perfil === 'dono' ? 'dono' : 'prestador'
   const ehDono = perfil === 'dono'
-  const ambos = pedido === 'ambos' && ehDono
+  const ambos = pedido === 'ambos'
   const tipo = ambos ? 'ambos' : pedido === 'obra' ? 'obra' : 'reparo'
   const verticais = ambos ? ['reparo', 'obra'] : [tipo]
   // A vertical da TELA (textos do cabeçalho e do vazio); no 'ambos' eles têm copy própria.
@@ -171,14 +171,17 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   // a true e a lista antiga ainda não tinha o contrato recém-encerrado. O param fica nos params
   // enquanto o modal está aberto (o CelebracaoMatchHost o lê para não celebrar por cima) e é
   // consumido ao fechar; sem o contrato na lista, é consumido na hora.
+  // denunciarTipo ('obra' | 'reparo', opcional): na lista dos dois tipos o id sozinho não diz
+  // de qual tabela é o contrato; o push sabe e manda junto. Sem ele, vale só o id, como antes.
   const denunciarContratoId = route?.params?.denunciarContratoId
-  const consumirDenuncia = () => navigation.setParams({ denunciarContratoId: undefined })
+  const denunciarTipo = route?.params?.denunciarTipo
+  const consumirDenuncia = () => navigation.setParams({ denunciarContratoId: undefined, denunciarTipo: undefined })
   useEffect(() => {
     if (denunciarContratoId == null || ehDono) return
     let ativo = true
     buscar().then((lista) => {
       if (!ativo) return
-      const item = (lista || contratos).find(c => String(c.id) === String(denunciarContratoId))
+      const item = (lista || contratos).find(c => String(c.id) === String(denunciarContratoId) && (!denunciarTipo || !c._tipo || c._tipo === denunciarTipo))
       if (item) setDenunciandoContrato(item)
       else consumirDenuncia()
     })
@@ -331,7 +334,9 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           <Text style={estilos.vazioTitulo}>Nenhum contrato finalizado</Text>
           <Text style={estilos.vazioSub}>
             {ambos
-              ? 'Serviços e obras concluídos em que você contratou um profissional aparecerão aqui.'
+              ? (ehDono
+                  ? 'Serviços e obras concluídos em que você contratou um profissional aparecerão aqui.'
+                  : 'Serviços e obras concluídos em que você foi o profissional contratado aparecerão aqui.')
               : ehDono
               ? (ehObraTela
                   ? 'Obras concluídas em que você contratou um profissional aparecerão aqui.'

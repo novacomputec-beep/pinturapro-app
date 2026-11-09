@@ -129,8 +129,19 @@ export default function PerfilScreen({ navigation, route }) {
     const salvar = async () => {
       setSalvandoEsp(true)
       try {
-        await comRetry(() => authService.atualizarPerfil({ especialidades: lista }), { timeout: true, servidor: true })
+        const salvo = await comRetry(() => authService.atualizarPerfil({ especialidades: lista }), { timeout: true, servidor: true })
         espSalvasRef.current = { seq: espSalvasRef.current.seq + 1, lista }
+        // Fase 2: o PUT devolve `pode_obras` e `pode_servicos` já recalculados (marcar ou
+        // tirar uma especialidade de obra / de serviço liga/desliga aquele tipo no feed
+        // "Pedidos", em qualquer conta profissional). Vão para a sessão na hora, junto da
+        // lista, para as abas não esperarem a próxima leitura do perfil. Campo ausente na
+        // resposta (API de antes dele): aquele valor da sessão fica como estava.
+        const capacidades = {}
+        if (typeof salvo?.pode_obras === 'boolean') capacidades.pode_obras = salvo.pode_obras
+        if (typeof salvo?.pode_servicos === 'boolean') capacidades.pode_servicos = salvo.pode_servicos
+        if (Object.keys(capacidades).length) {
+          setUsuario((prev) => (prev ? { ...prev, especialidades: lista, ...capacidades } : prev))
+        }
         if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, especialidades: lista } : d))
       } catch (err) {
         console.log('[Perfil] falha ao salvar especialidades | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)

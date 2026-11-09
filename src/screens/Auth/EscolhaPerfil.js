@@ -48,13 +48,18 @@ export const IMG = {
 // cadastro, no "Entrar como:" e no "Meus perfis".
 const CONTRATAR = { rotulo: 'CONTRATAR', titulo: 'Serviços, obras e reformas', imagem: IMG.escolhaContratar }
 
-// Tipos de conta por lado. Trabalhar segue com os dois de sempre (prestador/pintor); contratar
-// tem UM card, que cadastra a conta dono_reparo (a mesma que publica serviço E obra).
-// Sem `preco` = dono (Gratuito). Serviço primeiro, como antes.
+// Card ÚNICO do lado de trabalho (Fase 2, Arte-Fase2-Trabalhar), pelo mesmo motivo: quem
+// trabalha marca nas especialidades o que faz — serviços e/ou obras — e recebe os dois no
+// mesmo feed.
+const TRABALHAR = { rotulo: 'TRABALHAR', titulo: 'Serviços e obras', imagem: IMG.escolhaTrabalhar }
+
+// Tipos de conta por lado: UM card em cada. Trabalhar cadastra a conta 'prestador' (a de
+// serviços, que também pode marcar especialidades de obra — o preço exibido é o dela);
+// contratar cadastra a conta dono_reparo (a mesma que publica serviço E obra).
+// Sem `preco` = dono (Gratuito).
 const OPCOES = {
   trabalhar: [
-    { tipo: 'prestador', imagem: IMG.trabalharServicos, rotulo: 'SERVIÇOS', titulo: 'Gerais e domésticos', desc: 'Do conserto à beleza: pedidos rápidos do dia a dia.', chips: ['Manicure', 'Elétrica', 'Aula particular', 'Faxina', '+40'], preco: 'R$ 49,90/mês' },
-    { tipo: 'pintor',    imagem: IMG.trabalharObras,    rotulo: 'OBRAS',    titulo: 'Construção e pintura',  desc: 'Obras, reformas e pinturas com propostas maiores.',   chips: ['Pedreiro', 'Pintor', 'Construtor', 'Engenheiro'],       preco: 'R$ 99,90/mês' },
+    { tipo: 'prestador', ...TRABALHAR, desc: 'Do conserto à obra: você marca o que faz e recebe só os pedidos da sua área.', chips: ['Elétrica', 'Faxina', 'Manicure', 'Pedreiro', 'Pintor', '+50'], preco: 'R$ 49,90/mês' },
   ],
   contratar: [
     { tipo: 'dono_reparo', ...CONTRATAR, desc: 'Do conserto à reforma: publique o pedido e receba propostas para comparar.', chips: ['Encanador', 'Faxina', 'Manicure', 'Pintura', 'Reforma'] },
@@ -62,18 +67,19 @@ const OPCOES = {
 }
 
 const LADOS = {
-  trabalhar: { cor: COR_TRABALHAR, rotulo: 'QUERO TRABALHAR', titulo: 'Em que você trabalha?',  subtitulo: 'Você recebe só os pedidos da sua área' },
+  trabalhar: { cor: COR_TRABALHAR, rotulo: 'QUERO TRABALHAR', titulo: 'Trabalhe pelo app',      subtitulo: 'Você recebe só os pedidos da sua área' },
   contratar: { cor: COR_CONTRATAR, rotulo: 'QUERO CONTRATAR', titulo: 'O que você precisa?',    subtitulo: 'Profissionais da sua região respondem no app' },
 }
 
 // Card por tipo de conta EXISTENTE, para o "Entrar como:" e o "Meus perfis": a chave é o
 // tipo como a API devolve em `contas` e em tipoDaConta (utils/contas) — 'reparador', e não
 // o 'prestador' do cadastro acima. Mesma ilustração, rótulo, título e cor do lado.
-// As duas contas contratantes têm o MESMO card (CONTRATAR): as telas mostram só uma delas
-// (utils/contas.contaContratar), e as duas chaves ficam para o tipo resolver de qualquer jeito.
+// As duas contas de cada lado têm o MESMO card (CONTRATAR / TRABALHAR): as telas mostram só
+// uma delas (utils/contas.contaContratar / contaTrabalhar), e as chaves ficam todas para o
+// tipo resolver de qualquer jeito.
 export const CARTOES_TIPO = {
-  reparador:   { lado: 'trabalhar', cor: COR_TRABALHAR, imagem: IMG.trabalharServicos, rotulo: 'SERVIÇOS', titulo: 'Gerais e domésticos' },
-  pintor:      { lado: 'trabalhar', cor: COR_TRABALHAR, imagem: IMG.trabalharObras,    rotulo: 'OBRAS',    titulo: 'Construção e pintura' },
+  reparador:   { lado: 'trabalhar', cor: COR_TRABALHAR, ...TRABALHAR },
+  pintor:      { lado: 'trabalhar', cor: COR_TRABALHAR, ...TRABALHAR },
   dono_reparo: { lado: 'contratar', cor: COR_CONTRATAR, ...CONTRATAR },
   dono_obra:   { lado: 'contratar', cor: COR_CONTRATAR, ...CONTRATAR },
 }

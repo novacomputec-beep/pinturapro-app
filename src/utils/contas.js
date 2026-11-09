@@ -23,11 +23,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 // (dono_reparo e dono_obra) do mesmo CPF veem e gerenciam os mesmos serviços e obras, então
 // as telas mostram UM perfil "Contratar". Os dois tipos seguem existindo na API e aqui (é o
 // tipo que vai no login/trocar/criar); só o rótulo é um.
+// Lado de TRABALHO unificado (Fase 2, Arte-Fase2-Trabalhar): o mesmo desenho — as duas contas
+// profissionais (reparador e pintor) seguem existindo na API, mas as telas mostram UM perfil
+// "Trabalhar". A conta de serviços (reparador) também pode marcar especialidades de obra;
+// `lado` continua dizendo qual lista de especialidades a API aceita em cada conta.
 export const TIPOS_PERFIL = [
-  { tipo: 'reparador',   icone: '🔧', rotulo: 'Prestadora/Prestador de serviços', descricao: 'Serviços gerais e domésticos', profissional: true,  lado: 'reparo' },
+  { tipo: 'reparador',   icone: '🧰', rotulo: 'Quero trabalhar',                  descricao: 'Serviços e obras', profissional: true,  lado: 'reparo' },
   { tipo: 'dono_reparo', icone: '🤝', rotulo: 'Quero contratar',                  descricao: 'Serviços, obras e reformas', profissional: false, lado: null },
   { tipo: 'dono_obra',   icone: '🤝', rotulo: 'Quero contratar',                  descricao: 'Serviços, obras e reformas', profissional: false, lado: null },
-  { tipo: 'pintor',      icone: '🖌️', rotulo: 'Construtor/pintor',                descricao: 'Obras, construção e pintura', profissional: true,  lado: 'pintura' },
+  { tipo: 'pintor',      icone: '🧰', rotulo: 'Quero trabalhar',                  descricao: 'Serviços e obras', profissional: true,  lado: 'pintura' },
 ]
 
 export const perfilDoTipo = (tipo) => TIPOS_PERFIL.find((t) => t.tipo === tipo) || null
@@ -46,6 +50,19 @@ export const contaContratar = (tipos, ultimoContratar) => {
 }
 // Tipo criado pelo "Adicionar" do card Contratar quando a pessoa não tem conta contratante.
 export const TIPO_CONTRATAR_NOVO = 'dono_reparo'
+
+// O mesmo trio para o card único "Trabalhar": os tipos profissionais na ordem de preferência
+// (a conta de serviços primeiro — é a que alcança serviços E obras), a escolha entre os que a
+// pessoa tem (última profissional usada, senão reparador, senão pintor) e o tipo que o
+// "Adicionar" cria.
+export const TIPOS_TRABALHAR = ['reparador', 'pintor']
+export const ehTipoTrabalhar = (tipo) => TIPOS_TRABALHAR.includes(tipo)
+export const contaTrabalhar = (tipos, ultimoTrabalhar) => {
+  const tem = TIPOS_TRABALHAR.filter((t) => (tipos || []).includes(t))
+  if (!tem.length) return null
+  return ultimoTrabalhar && tem.includes(ultimoTrabalhar) ? ultimoTrabalhar : tem[0]
+}
+export const TIPO_TRABALHAR_NOVO = 'reparador'
 
 // Tipo canônico da conta logada (espelho de tipoDaLinha). 'assinante' (legado) conta como
 // pintor, o produto original; qualquer outra coisa volta null.
@@ -66,25 +83,25 @@ export const tiposDasContas = (contas) =>
 //   'adicionar' — não existe (POST /auth/contas/:tipo).
 // A conta atual SEMPRE conta como existente, mesmo que `contas` ainda não tenha chegado
 // (sessão em cache de antes deste campo): a tela nunca oferece "Adicionar" o próprio tipo.
-// São TRÊS perfis: os dois profissionais e UM "Contratar" (`contratar: true`), cujo `tipo` é
-// a conta contratante a usar — a logada (em uso), a escolhida por contaContratar (trocar) ou
-// TIPO_CONTRATAR_NOVO (adicionar). `ultimoContratar`: lerUltimoTipoContratar(e-mail).
-export const listarPerfis = (usuario, ultimoContratar = null) => {
+// São DOIS perfis, um por lado: "Contratar" (`contratar: true`) e "Trabalhar"
+// (`trabalhar: true`). O `tipo` de cada um é a conta a usar daquele lado — a logada (em uso),
+// a escolhida por contaContratar/contaTrabalhar (trocar) ou TIPO_*_NOVO (adicionar).
+// `ultimoContratar` / `ultimoTrabalhar`: lerUltimoTipoContratar / lerUltimoTipoTrabalhar.
+export const listarPerfis = (usuario, ultimoContratar = null, ultimoTrabalhar = null) => {
   const atual = tipoDaConta(usuario)
   const existentes = new Set([...tiposDasContas(usuario?.contas), ...(atual ? [atual] : [])])
-  const profissionais = TIPOS_PERFIL.filter((t) => t.profissional).map((t) => ({
-    ...t,
-    estado: t.tipo === atual ? 'em_uso' : existentes.has(t.tipo) ? 'trocar' : 'adicionar',
-  }))
-  const tipoContratar = ehTipoContratar(atual)
-    ? atual
-    : contaContratar([...existentes], ultimoContratar) || TIPO_CONTRATAR_NOVO
-  const contratar = {
-    ...perfilDoTipo(tipoContratar),
-    contratar: true,
-    estado: ehTipoContratar(atual) ? 'em_uso' : existentes.has(tipoContratar) ? 'trocar' : 'adicionar',
+  const lado = (ehDoLado, escolher, ultimo, novo, marca) => {
+    const tipo = ehDoLado(atual) ? atual : escolher([...existentes], ultimo) || novo
+    return {
+      ...perfilDoTipo(tipo),
+      [marca]: true,
+      estado: ehDoLado(atual) ? 'em_uso' : existentes.has(tipo) ? 'trocar' : 'adicionar',
+    }
   }
-  return [contratar, ...profissionais]
+  return [
+    lado(ehTipoContratar, contaContratar, ultimoContratar, TIPO_CONTRATAR_NOVO, 'contratar'),
+    lado(ehTipoTrabalhar, contaTrabalhar, ultimoTrabalhar, TIPO_TRABALHAR_NOVO, 'trabalhar'),
+  ]
 }
 
 // ── Último perfil usado, por aparelho e por e-mail ─────────────────────────────────────
@@ -124,11 +141,27 @@ export const lerUltimoTipoContratar = async (email) => {
   }
 }
 
+// Última conta PROFISSIONAL usada (reparador | pintor), pelo mesmo motivo, para o card único
+// "Trabalhar".
+const chaveUltimoTrabalhar = (email) => `ultimo_tipo_trabalhar:${String(email || '').trim().toLowerCase()}`
+
+export const lerUltimoTipoTrabalhar = async (email) => {
+  if (!email) return null
+  try {
+    const v = await AsyncStorage.getItem(chaveUltimoTrabalhar(email))
+    return ehTipoTrabalhar(v) ? v : null
+  } catch (err) {
+    console.log('[contas] falha ao ler o último perfil profissional | msg:', err?.message)
+    return null
+  }
+}
+
 export const gravarUltimoTipo = async (email, tipo) => {
   if (!email || !tipo) return
   try {
     await AsyncStorage.setItem(chaveUltimoTipo(email), tipo)
     if (ehTipoContratar(tipo)) await AsyncStorage.setItem(chaveUltimoContratar(email), tipo)
+    if (ehTipoTrabalhar(tipo)) await AsyncStorage.setItem(chaveUltimoTrabalhar(email), tipo)
   } catch (err) {
     console.log('[contas] falha ao gravar o último perfil | msg:', err?.message)
   }

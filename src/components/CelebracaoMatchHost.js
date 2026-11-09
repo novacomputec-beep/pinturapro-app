@@ -6,6 +6,7 @@ import { pedirAvaliacaoLoja } from '../services/avaliacaoLoja'
 import { cores, raios } from '../utils/tema'
 import { navigationRef } from '../navigation/navigationRef'
 import { carregarVistas, marcarVistas } from '../utils/celebracao'
+import { leInteresses, leCandidaturas, contaDaProposta } from '../utils/profissional'
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, mensagemErroRede } from '../utils/rede'
 import { CaixaAtencaoApp } from './Agendamento'
 import ModalAvaliacao from './ModalAvaliacao'
@@ -100,8 +101,18 @@ const detectar = async (usuario) => {
   const pr           = contaReparo ? '' : 'reparo_'
   const pc           = contaReparo ? 'obra_' : ''
   const ABA_DONO     = 'Meus pedidos'
-  const ehReparador  = usuario.role === 'prestador' && usuario.tipo_prestador !== 'pintor'
-  const ehPintor     = (usuario.role === 'prestador' && usuario.tipo_prestador === 'pintor') || usuario.role === 'assinante'
+  // PROFISSIONAL (Fase 2, lado de trabalho unificado): os dois ramos abaixo deixaram de ser
+  // "um ou outro". A conta de serviços passa pelo ramo dos serviços e, se pode obras (ou já
+  // se candidatou), cai em seguida no das obras — o ramo dos serviços não devolve nada quando
+  // não acha evento, então a queda é natural. As abas são as mesmas para todo profissional:
+  // "Meus trabalhos" hospeda os dois detalhes e "Pedidos" é o feed.
+  // Fase 2b: quem entra em cada ramo sai da capacidade da PESSOA (utils/profissional), e as
+  // duas listas trazem as propostas de qualquer conta profissional dela. Onde a regra precisa
+  // de "a conta que está no trabalho" (quem pediu o encerramento), vale o conta_id da linha
+  // (contaDaProposta), não o id da conta logada.
+  const ehReparador  = leInteresses(usuario)
+  const ehPintor     = leCandidaturas(usuario)
+  const FEED_PRO     = 'Pedidos'
 
   // Donos: a marca d'água é POR PROPOSTA (interesse/candidatura), não por reparo/obra.
   // Chavear por `reparo:${id}`/`obra:${id}` silenciava o item para sempre depois da 1ª
@@ -337,7 +348,7 @@ const detectar = async (usuario) => {
       titulo: 'Parabéns! Você conseguiu o serviço!',
       subtitulo: `O cliente aceitou sua proposta para "${it.titulo}". Agora combinem o dia e o horário aqui no app.`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
+      navegar: () => navigationRef.current?.navigate('Meus trabalhos',{ screen: 'DetalheReparo', params: { reparo: { id: it.reparo_id } }, initial: false }),
     }
     // Serviço CONCLUÍDO — a entrega, que era o único momento do funil sem aviso nenhum.
     // Vem do HISTÓRICO, não de `ativos`: 'encerrada' é justamente o que move a linha para
@@ -371,7 +382,7 @@ const detectar = async (usuario) => {
     // nunca é convidado a dar.
     const enc = (resp.ativos || []).find(x =>
       (x.status === 'aceito' || x.status === 'aprovada') && x.encerramento_solicitado_por != null &&
-      String(x.encerramento_solicitado_por) !== String(uid)
+      String(x.encerramento_solicitado_por) !== String(contaDaProposta(x, usuario))
     )
     if (enc) return {
       semMarca: true,
@@ -381,8 +392,8 @@ const detectar = async (usuario) => {
       ctaTexto: 'Confirmar encerramento',
       // Encerra aqui (confirmarEncerramento); o lado do profissional segue o fluxo do
       // detalhe: aviso de encerrado e Contratos Finalizados (só o dono avalia — API).
-      encerrar: { ehObra: false, id: enc.reparo_id, souDono: false, chavesConcluido: [`concluido:${enc.id}`] },
-      navegar: () => navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: enc.reparo_id } }, initial: false }),
+      encerrar: { ehObra: false, id: enc.reparo_id, souDono: false, contaId: contaDaProposta(enc, usuario), chavesConcluido: [`concluido:${enc.id}`] },
+      navegar: () => navigationRef.current?.navigate('Meus trabalhos',{ screen: 'DetalheReparo', params: { reparo: { id: enc.reparo_id } }, initial: false }),
     }
     // Recusa — ÚLTIMO do ramo. Vem do HISTÓRICO, não de `ativos`: é para lá que o interesse
     // recusado vai. Marca d'água normal (sem semMarca): avisa UMA vez e não insiste — repetir
@@ -409,7 +420,7 @@ const detectar = async (usuario) => {
         ? `O cliente${nomeRec ? ` de ${nomeRec}` : ''} escolheu outra proposta. Não desanime: novos serviços chegam todos os dias no ProTudo! 🚀`
         : `${nomeRec ? `${nomeRec} e outros ${recs.length - 1}` : `${recs.length}`} serviços foram para outros profissionais. Não desanime: novos serviços chegam todos os dias no ProTudo! 🚀`,
       ctaTexto: 'Ver outros serviços',
-      navegar: () => navigationRef.current?.navigate('Reparos'),
+      navegar: () => navigationRef.current?.navigate(FEED_PRO),
     }
   }
   // pintor/construtor — o dono aceitou sua candidatura
@@ -434,7 +445,7 @@ const detectar = async (usuario) => {
       titulo: 'Parabéns! Você conseguiu a obra!',
       subtitulo: `O cliente aceitou sua proposta${c.titulo ? ` para "${c.titulo}"` : ''}. Agora combinem o dia e o horário aqui no app.`,
       ctaTexto: 'Ver detalhes',
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
+      navegar: () => navigationRef.current?.navigate('Meus trabalhos',{ screen: 'DetalheObra', params: { obra: { id: c.obra_id } }, initial: false }),
     }
     // Obra CONCLUÍDA — espelha o ramo do reparador, mesma posição (antes do semMarca) e
     // mesmo prefixo de marca d'água. A diferença é a COLEÇÃO: /candidaturas/minhas devolve
@@ -457,7 +468,7 @@ const detectar = async (usuario) => {
     // Mesmo motivo do reparador: só a candidatura aceita está no serviço.
     const enc = (resp.candidaturas || []).find(x =>
       (x.status === 'aceito' || x.status === 'aprovada') && x.encerramento_solicitado_por != null &&
-      String(x.encerramento_solicitado_por) !== String(uid)
+      String(x.encerramento_solicitado_por) !== String(contaDaProposta(x, usuario))
     )
     if (enc) return {
       semMarca: true,
@@ -466,8 +477,8 @@ const detectar = async (usuario) => {
       subtitulo: `O dono${enc.titulo ? ` de "${enc.titulo}"` : ' da obra'} marcou o serviço como concluído. A obra só encerra quando você confirmar.`,
       ctaTexto: 'Confirmar encerramento',
       // Mesmo molde do reparador: encerra aqui (confirmarEncerramento).
-      encerrar: { ehObra: true, id: enc.obra_id, souDono: false, chavesConcluido: [`concluido:${enc.id}`] },
-      navegar: () => navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: enc.obra_id } }, initial: false }),
+      encerrar: { ehObra: true, id: enc.obra_id, souDono: false, contaId: contaDaProposta(enc, usuario), chavesConcluido: [`concluido:${enc.id}`] },
+      navegar: () => navigationRef.current?.navigate('Meus trabalhos',{ screen: 'DetalheObra', params: { obra: { id: enc.obra_id } }, initial: false }),
     }
     // Recusa — ÚLTIMO do ramo, espelhando o reparador. Aqui a lista é a mesma dos demais
     // (`candidaturas` já traz as recusadas), então não há coleção separada a consultar.
@@ -493,7 +504,7 @@ const detectar = async (usuario) => {
         ? `O cliente${nomeRec ? ` da obra ${nomeRec}` : ''} escolheu outra proposta. Não desanime: novas obras chegam todos os dias no ProTudo! 🚀`
         : `${nomeRec ? `${nomeRec} e outras ${recs.length - 1}` : `${recs.length}`} obras foram para outros profissionais. Não desanime: novas obras chegam todos os dias no ProTudo! 🚀`,
       ctaTexto: 'Ver outras obras',
-      navegar: () => navigationRef.current?.navigate('Obras'),
+      navegar: () => navigationRef.current?.navigate(FEED_PRO),
     }
   }
   return null
@@ -696,8 +707,11 @@ export default function CelebracaoMatchHost() {
           if (atual?.status === 'encerrada') { await concluirComSucesso(); return }
           // Só o MEU pedido conta como "registrado": no evento `encerrar` quem pediu foi a
           // outra parte, e um 409 (chegada não declarada) virava falso "aguardando".
-          if (atual?.encerramento_solicitado_por != null && usuario?.id != null &&
-              String(atual.encerramento_solicitado_por) === String(usuario.id)) { aguardarOutraParte(); return }
+          // "Meu" = da conta que está no trabalho: enc.contaId no profissional (pode ser a
+          // outra conta profissional da pessoa — Fase 2b); no dono, a conta logada.
+          const minhaConta = enc.contaId ?? usuario?.id
+          if (atual?.encerramento_solicitado_por != null && minhaConta != null &&
+              String(atual.encerramento_solicitado_por) === String(minhaConta)) { aguardarOutraParte(); return }
         } catch (e2) { console.log('[Celebracao] reconsulta pós-encerrar falhou | code:', e2.code) }
         const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
         if (isNetwork) {
@@ -769,8 +783,8 @@ export default function CelebracaoMatchHost() {
     setEvento(null)
     // Contrapropostas usam ids diretos (sem closure navegar); demais eventos trazem navegar().
     if (ev?.tipo === 'contraproposta_prestador') {
-      if (ev.reparo_id) navigationRef.current?.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: ev.reparo_id } }, initial: false })
-      else if (ev.obra_id) navigationRef.current?.navigate('Minhas Obras', { screen: 'DetalheObra', params: { obra: { id: ev.obra_id } }, initial: false })
+      if (ev.reparo_id) navigationRef.current?.navigate('Meus trabalhos',{ screen: 'DetalheReparo', params: { reparo: { id: ev.reparo_id } }, initial: false })
+      else if (ev.obra_id) navigationRef.current?.navigate('Meus trabalhos',{ screen: 'DetalheObra', params: { obra: { id: ev.obra_id } }, initial: false })
       return
     }
     ev?.navegar?.()
