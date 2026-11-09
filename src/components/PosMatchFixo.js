@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet, Animated } from 'react-native'
+import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { cores, raios } from '../utils/tema'
@@ -27,17 +27,18 @@ import ConversaProntas, { temConversa } from './MensagensProntas'
 //   1. card do topo: chips, título (1 linha), endereço (1 linha) e UMA faixa dividida ao
 //      meio — "VALOR COMBINADO" verde | rótulo/valor do estado (prazo para chegar / faltam /
 //      chega até / chegou às);
-//   1b. (só quando há conversa) o bloco "Conversa com <nome>" das MENSAGENS PRONTAS
-//      (components/MensagensProntas): últimas 3 mensagens, link para a conversa inteira e os
-//      chips de resposta. É a ÚNICA exceção à tela fixa: com ele o corpo passa a rolar
-//      (ScrollView com flexGrow — sem overflow continua distribuído igual), porque o bloco
-//      não cabe no orçamento de 630dp junto com os de sempre. Sem conversa, nada muda.
+//   1b. (só quando há conversa) UMA LINHA "💬 Conversa com <nome> ›" com a etiqueta laranja
+//      "N nova(s)" (components/MensagensProntas, 44dp); histórico e chips das mensagens
+//      prontas abrem numa folha de baixo — a tela segue fixa;
 //   2. o bloco de estado da fase, com o conteúdo e as ações de hoje;
 //   3. mini card da outra parte (nome, selo/nota, especialidade ou "Cliente");
 //   4. aviso âmbar encurtado (3 linhas) — só nas fases em que ele aparece hoje;
 //   5. uma linha de links: Ponto de referência (dono), Descrição e fotos, Contrato,
 //      Denunciar (em andamento);
 //   6. "Cancelar serviço" por último, nas fases em que existe hoje (até o "Estou a caminho").
+//      Dono com pode_escolher_outro (GET do detalhe) e sem ter tocado "Esperar mais um pouco"
+//      nesta sessão: no LUGAR dele entra o card vermelho "não respondeu a 2 avisos" com
+//      "🔄 Escolher outro profissional" e "Esperar mais um pouco" (CardEscolherOutro).
 //
 // Os blocos só DESENHAM: handlers, chamadas de API e regras seguem nas telas, que passam
 // tudo pronto. O picker de dia/hora (primeira proposta e "Sugerir outro") abre numa folha
@@ -260,6 +261,24 @@ const LinhaCancelamentoMeu = ({ nomeOutro }) => (
   <T linhas={2} style={estilos.linhaEspera}>⏳ Aguardando {nomeOutro || 'a outra parte'} responder ao pedido de cancelamento (expira em 2h)</T>
 )
 
+// Dono, com pode_escolher_outro = true no GET do detalhe (arte aprovada): o profissional não
+// respondeu a 2 avisos. Card vermelho no lugar do "Cancelar serviço": "🔄 Escolher outro
+// profissional" (a tela confirma num Alert e faz o POST escolher-outro) e "Esperar mais um pouco"
+// (só esconde o card nesta sessão — ESPERAR_DISPENSADOS, por demanda, sobrevive ao remount).
+const ESPERAR_DISPENSADOS = new Set()
+const CardEscolherOutro = ({ nome, onEscolherOutro, onEsperar, desabilitado }) => (
+  <View style={estilos.vermelho}>
+    <T linhas={2} style={estilos.vermelhoTitulo}>⚠️ {nome || 'O profissional'} não respondeu a 2 avisos</T>
+    <T linhas={4} style={estilos.caixaLinha}>Ele foi avisado pelo app e por e-mail e ainda não marcou o horário. Você pode escolher outro profissional entre os que se interessaram — sem nenhuma penalidade.</T>
+    <TouchableOpacity style={[estilos.btnLaranja, desabilitado && { opacity: 0.5 }]} onPress={onEscolherOutro} disabled={!!desabilitado} activeOpacity={0.85} accessibilityRole="button">
+      <T style={estilos.btnLaranjaTexto} adjustsFontSizeToFit minimumFontScale={0.8}>🔄 Escolher outro profissional</T>
+    </TouchableOpacity>
+    <TouchableOpacity style={[estilos.btnVazado, desabilitado && { opacity: 0.5 }]} onPress={onEsperar} disabled={!!desabilitado} activeOpacity={0.85} accessibilityRole="button">
+      <T style={estilos.btnVazadoTexto}>Esperar mais um pouco</T>
+    </TouchableOpacity>
+  </View>
+)
+
 // Proposta de horário recebida: Confirmar / Sugerir outro (mesmo onResponder do
 // CardAgendamento, mesma régua de sugestoes_restantes / rodadas).
 const CardPropostaRecebida = ({ demanda, pendente, nomeOutro, souDono, respondendo, onResponder, onSugerir, cabecalho }) => {
@@ -405,9 +424,13 @@ const EstadoAguardando = ({ demanda, frente, souDono, onAbrirPicker, desfazer, r
           <View style={estilos.bannerChip}><T style={estilos.bannerChipTexto}>🔔 Você será avisado por notificação</T></View>
         </>
       ) : (
-        <TouchableOpacity style={estilos.btnBranco} onPress={onAbrirPicker} activeOpacity={0.85} accessibilityRole="button">
-          <T style={estilos.btnBrancoTexto}>{prazoCurto ? 'Escolher horário →' : 'Escolher dia e horário →'}</T>
-        </TouchableOpacity>
+        <>
+          {/* Arte aprovada: o profissional sabe que o cliente pode escolher outro se ele não responder. */}
+          <T linhas={2} style={estilos.bannerSub}>O cliente está esperando. Se você não responder aos avisos, ele pode escolher outro profissional.</T>
+          <TouchableOpacity style={estilos.btnBranco} onPress={onAbrirPicker} activeOpacity={0.85} accessibilityRole="button">
+            <T style={estilos.btnBrancoTexto}>{prazoCurto ? 'Escolher horário →' : 'Escolher dia e horário →'}</T>
+          </TouchableOpacity>
+        </>
       )}
       {rodape}
     </View>
@@ -657,14 +680,20 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 // cancelamento: { pedido, paraMim, nomeOutro, respondendo, onResponder, onAbrir, desabilitado } | null.
 // desfazer (dono, fase aguardando): { liberadoEm, onAbrir, desabilitado } | null — Arte-Desfazer-Escolha.
 // links: { onReferencia, onDetalhes, onContrato, onDenunciar }.
-// conversa: { dados, enviando, onEnviar } | null — mensagens prontas (useMensagensProntas na
-//   tela); o bloco só entra quando temConversa(dados).
+// conversa: { dados, novas, enviando, onEnviar, onAbrir } | null — mensagens prontas
+//   (useMensagensProntas na tela); a linha só entra quando temConversa(dados).
+// escolherOutro: { onConfirmar, desabilitado } | null — dono com pode_escolher_outro (a tela
+//   confirma e faz o POST); o card toma o lugar do "Cancelar serviço".
 export default function TelaPosMatch({
   fase, demanda, frente, souDono, valor, endereco, pontoReferencia, outro, usuarioId, onExpirar,
-  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links, conversa,
+  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links, conversa, escolherOutro,
 }) {
   const ehObra = frente === 'obra'
   const [picker, setPicker] = useState(null) // null | 'propor' | 'sugerir'
+  // "Esperar mais um pouco": esconde o card de escolher outro nesta sessão (por demanda).
+  const [, forcarRender] = useState(0)
+  const esperarDispensado = demanda?.id != null && ESPERAR_DISPENSADOS.has(String(demanda.id))
+  const dispensarEsperar = () => { if (demanda?.id != null) ESPERAR_DISPENSADOS.add(String(demanda.id)); forcarRender(n => n + 1) }
   const agoraTela = useAgora()
   const pendente = demanda?.chegada_pendente_em
   const propostaPor = demanda?.chegada_proposta_por || demanda?.match_usuario_id
@@ -743,26 +772,23 @@ export default function TelaPosMatch({
   }
 
   const mostraAviso = fase === 'aguardando' || fase === 'proposto' || fase === 'agendado'
-  const mostraCancelar = mostraAviso && !!cancelamento?.onAbrir && !cancelamento?.pedido
+  // Card "escolher outro" (dono, pode_escolher_outro, ainda sem "Esperar mais um pouco" nesta
+  // sessão) no LUGAR do "Cancelar serviço" — só nesse estado; fora dele, o botão de sempre.
+  const mostraEscolherOutro = mostraAviso && !!souDono && !!escolherOutro?.onConfirmar && demanda?.pode_escolher_outro === true && !esperarDispensado && !cancelamento?.pedido
+  const mostraCancelar = mostraAviso && !!cancelamento?.onAbrir && !cancelamento?.pedido && !mostraEscolherOutro
   const linha2Cliente = fase === 'aguardando' || fase === 'proposto' || fase === 'agendado'
     ? 'Cliente · contato liberado após o "Estou a caminho"'
     : 'Cliente'
 
-  // Mensagens prontas: com conversa o corpo rola (ver o cabeçalho do arquivo, item 1b).
-  const mostraConversa = !!conversa && temConversa(conversa.dados)
-  const Corpo = mostraConversa ? ScrollView : View
-  const propsCorpo = mostraConversa
-    ? { style: { flex: 1 }, contentContainerStyle: estilos.telaRolavel, showsVerticalScrollIndicator: false, keyboardShouldPersistTaps: 'handled' }
-    : { style: estilos.tela }
-
   // A folha do picker fica FORA do View 'space-evenly': um Modal irmão contaria como filho
-  // e ganharia um vão próprio na distribuição.
+  // e ganharia um vão próprio na distribuição. (A folha da conversa fica dentro do
+  // ConversaProntas, que renderiza um fragmento: a linha e o Modal — o Modal não ocupa vão.)
   return (
     <>
-    <Corpo {...propsCorpo}>
+    <View style={estilos.tela}>
       <CardTopo demanda={demanda} endereco={endereco} pontoReferencia={pontoReferencia} valor={valor} faixa={faixa} />
-      {mostraConversa ? (
-        <ConversaProntas dados={conversa.dados} outro={outro} souDono={souDono} enviando={conversa.enviando} onEnviar={conversa.onEnviar} />
+      {conversa && temConversa(conversa.dados) ? (
+        <ConversaProntas dados={conversa.dados} novas={conversa.novas} outro={outro} souDono={souDono} enviando={conversa.enviando} onEnviar={conversa.onEnviar} onAbrir={conversa.onAbrir} />
       ) : null}
       {estado}
       <MiniPessoa souDono={souDono} outro={outro} linha2={linha2Cliente} />
@@ -780,12 +806,14 @@ export default function TelaPosMatch({
         { texto: '📋 Contrato no e-mail', onPress: links?.onContrato },
         { texto: '🚩 Denunciar', onPress: links?.onDenunciar, perigo: true },
       ]} />
-      {mostraCancelar ? (
+      {mostraEscolherOutro ? (
+        <CardEscolherOutro nome={agendamento?.nomeOutro} onEscolherOutro={escolherOutro.onConfirmar} onEsperar={dispensarEsperar} desabilitado={escolherOutro.desabilitado} />
+      ) : mostraCancelar ? (
         <TouchableOpacity style={[estilos.btnCancelar, cancelamento.desabilitado && { opacity: 0.5 }]} onPress={cancelamento.onAbrir} disabled={!!cancelamento.desabilitado} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Cancelar serviço">
           <T style={estilos.btnCancelarTexto}>✕ Cancelar serviço</T>
         </TouchableOpacity>
       ) : null}
-    </Corpo>
+    </View>
 
       <FolhaPicker
         visivel={!!picker}
@@ -804,9 +832,6 @@ export default function TelaPosMatch({
 
 const estilos = StyleSheet.create({
   tela: { flex: 1, justifyContent: 'space-evenly' },
-  // Conteúdo do ScrollView (com a conversa): flexGrow no lugar de flex, e um vão mínimo
-  // entre os blocos para quando a tela rola (o space-evenly não deixa vão ao transbordar).
-  telaRolavel: { flexGrow: 1, justifyContent: 'space-evenly', rowGap: 8, paddingBottom: 4 },
 
   // 1. Card do topo (~150dp)
   topo: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 12 },
@@ -844,6 +869,11 @@ const estilos = StyleSheet.create({
   vermelhoTitulo: { fontSize: 15, fontWeight: '800', color: cores.perigo, lineHeight: 20, marginBottom: 6 },
   btnVermelho: { backgroundColor: cores.perigo, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
   btnVermelhoTexto: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  // Card "escolher outro" (dono): botão laranja cheio + botão vazado.
+  btnLaranja: { backgroundColor: cores.primaria, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
+  btnLaranjaTexto: { fontSize: 14, fontWeight: '800', color: '#0A0A0A' },
+  btnVazado: { borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, paddingVertical: 10, alignItems: 'center', marginTop: 8 },
+  btnVazadoTexto: { fontSize: 13, fontWeight: '700', color: cores.textoForte },
 
   cardLaranja: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.grande, padding: 12 },
   rotuloLaranja: { fontSize: 11, fontWeight: '800', color: cores.primaria, letterSpacing: 0.5, marginBottom: 4 },

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet, Animated } from 'react-native'
+import { View, Text, Image, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import api from '../services/api'
 import { comRetry } from '../utils/rede'
 import { aoPushRecebido } from '../utils/eventosPush'
@@ -19,8 +21,15 @@ import { cores, raios } from '../utils/tema'
 //
 // `frases` já vem com `enviada` (esta frase já foi enviada por este lado nesta fase) e
 // `historico` com `minha`. `fase` null = não há o que enviar agora (sem profissional escolhido,
-// demanda fechada ou chegada confirmada); com histórico, o bloco fica só de leitura; sem fase
-// E sem histórico o bloco não aparece (temConversa).
+// demanda fechada ou chegada confirmada); com histórico, a folha fica só de leitura; sem fase
+// E sem histórico nada aparece (temConversa).
+//
+// NA TELA FIXA do pós-match (arte aprovada) entra só UMA LINHA, "💬 Conversa com <nome> ›", com
+// a etiqueta laranja "N nova(s)" (mensagens do outro lado ainda não vistas); a conversa inteira
+// — histórico, "TOQUE PARA RESPONDER", "X de 5 nesta fase" e os chips — abre numa FOLHA DE BAIXO
+// (BotaoFecharFolha + useArrastarParaFechar, como as outras folhas do app). "Vistas" = quantas
+// mensagens do outro lado havia quando a folha foi aberta pela última vez, por demanda, em
+// AsyncStorage (best-effort: sem storage, a etiqueta conta desde a abertura do app).
 //
 // 409 do POST, por `codigo`: FASE_INCORRETA (a fase mudou — a frase era de outra etapa),
 // FRASE_REPETIDA, LIMITE_ATINGIDO. Os três viram um toast curto e uma releitura, que repõe os
@@ -33,10 +42,11 @@ import { cores, raios } from '../utils/tema'
 const MFS = 1.15
 const T = ({ linhas, ...p }) => <Text numberOfLines={linhas} maxFontSizeMultiplier={MFS} {...p} />
 
-export const ULTIMAS_NA_CAIXA = 3
 export const TIPO_PUSH = 'chegada_prevista'
+const CHAVE_VISTAS = 'mensagens_prontas_vistas'
 
 export const temConversa = (dados) => !!(dados?.fase || (Array.isArray(dados?.historico) && dados.historico.length > 0))
+const doOutro = (historico) => (Array.isArray(historico) ? historico : []).filter(m => !m.minha).length
 
 const p2 = (n) => String(n).padStart(2, '0')
 const horaDe = (iso) => {
@@ -57,17 +67,33 @@ const primeiroNomeDe = (nome, padrao) => (String(nome || '').trim().split(/\s+/)
 // ---------------------------------------------------------------------------------------
 // tabela: 'obras' | 'reparos'; demandaId; ativo: false não carrega nem assina nada (fora do
 // pós-match); chaveFase: qualquer valor que mude quando a fase da demanda muda (relê).
-// Devolve { dados, carregando, enviando, recarregar, enviar }. Erros do GET (403/404/rede)
-// deixam `dados` como está (null no primeiro carregamento → bloco escondido).
+// Devolve { dados, carregando, enviando, novas, marcarVistas, recarregar, enviar }. Erros do
+// GET (403/404/rede) deixam `dados` como está (null no primeiro carregamento → nada aparece).
 export const useMensagensProntas = (tabela, demandaId, { ativo = true, chaveFase } = {}) => {
   const [dados, setDados] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const [enviando, setEnviando] = useState(null) // frase_id em envio
+  const [vistas, setVistas] = useState(null)     // nº de mensagens do outro lado já vistas
   const montadoRef = useRef(true)
   const emVooRef = useRef(false)
   const rota = demandaId ? `/${tabela}/${demandaId}/mensagens-prontas` : null
+  const chaveVistas = demandaId ? `${CHAVE_VISTAS}:${tabela}:${demandaId}` : null
 
   useEffect(() => { montadoRef.current = true; return () => { montadoRef.current = false } }, [])
+
+  // Quantas do outro lado já foram vistas (por demanda). Sem valor gravado, conta a partir de
+  // agora: a primeira leitura marca tudo como visto, para a etiqueta não nascer "N novas" num
+  // histórico antigo que a pessoa já leu noutra versão.
+  useEffect(() => {
+    if (!chaveVistas || !ativo) return
+    let cancelado = false
+    ;(async () => {
+      let v = null
+      try { v = await AsyncStorage.getItem(chaveVistas) } catch (err) { console.log('[MensagensProntas] vistas ilegíveis | msg:', err?.message) }
+      if (!cancelado && montadoRef.current) setVistas(v == null ? null : Math.max(0, Number(v) || 0))
+    })()
+    return () => { cancelado = true }
+  }, [chaveVistas, ativo])
 
   const recarregar = useCallback(async () => {
     if (!rota || !ativo || emVooRef.current) return
@@ -98,6 +124,22 @@ export const useMensagensProntas = (tabela, demandaId, { ativo = true, chaveFase
       if (alvo != null && String(alvo) === String(demandaId)) recarregar()
     })
   }, [ativo, demandaId, tabela, recarregar])
+
+  const marcarVistas = useCallback(() => {
+    const n = doOutro(dados?.historico)
+    setVistas(n)
+    if (chaveVistas) AsyncStorage.setItem(chaveVistas, String(n)).catch(err => console.log('[MensagensProntas] vistas não gravadas | msg:', err?.message))
+  }, [dados, chaveVistas])
+
+  // Sem valor gravado ainda e com histórico carregado: grava o total de agora como visto.
+  useEffect(() => {
+    if (vistas !== null || !dados || !chaveVistas) return
+    const n = doOutro(dados.historico)
+    setVistas(n)
+    AsyncStorage.setItem(chaveVistas, String(n)).catch(() => {})
+  }, [vistas, dados, chaveVistas])
+
+  const novas = dados && vistas !== null ? Math.max(0, doOutro(dados.historico) - vistas) : 0
 
   const enviar = useCallback(async (fraseId) => {
     if (!rota || enviando) return false
@@ -135,7 +177,7 @@ export const useMensagensProntas = (tabela, demandaId, { ativo = true, chaveFase
     }
   }, [rota, enviando, recarregar])
 
-  return { dados, carregando, enviando, recarregar, enviar }
+  return { dados, carregando, enviando, novas, marcarVistas, recarregar, enviar }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -146,62 +188,98 @@ export const useMensagensProntas = (tabela, demandaId, { ativo = true, chaveFase
 const Balao = ({ m }) => (
   <View style={[estilos.balaoLinha, m.minha ? estilos.balaoLinhaMinha : estilos.balaoLinhaOutro]}>
     <View style={[estilos.balao, m.minha ? estilos.balaoMeu : estilos.balaoOutro]}>
-      <T linhas={3} style={[estilos.balaoTexto, m.minha && estilos.balaoTextoMeu]}>{m.texto}</T>
+      <Text maxFontSizeMultiplier={MFS} style={estilos.balaoTexto}>{m.texto}</Text>
       <T style={[estilos.balaoHora, m.minha && estilos.balaoHoraMinha]}>{horaDe(m.enviado_em)}{m.minha ? '  ✓✓' : ''}</T>
     </View>
   </View>
 )
 
-// Cabeçalho "Conversa com <nome>": avatar (foto → iniciais), subtítulo fixo.
-const Cabecalho = ({ nome, fotoUrl, souDono }) => {
+const Avatar = ({ nome, fotoUrl, souDono }) => {
   const iniciais = iniciaisDe(nome)
-  return (
-    <View style={estilos.cabecalho}>
-      {fotoUrl ? (
-        <Image source={{ uri: avatar(fotoUrl) }} style={estilos.avatar} />
-      ) : (
-        <View style={[estilos.avatar, estilos.avatarVazio]}>
-          <T style={iniciais ? estilos.avatarIniciais : estilos.avatarEmoji}>{iniciais || (souDono ? '👷' : '🏠')}</T>
-        </View>
-      )}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <T style={estilos.cabecalhoTitulo}>Conversa com {primeiroNomeDe(nome, souDono ? 'o profissional' : 'o cliente')}</T>
-        <T style={estilos.cabecalhoSub}>Mensagens prontas · sem digitar</T>
-      </View>
+  return fotoUrl ? (
+    <Image source={{ uri: avatar(fotoUrl) }} style={estilos.avatar} />
+  ) : (
+    <View style={[estilos.avatar, estilos.avatarVazio]}>
+      <T style={iniciais ? estilos.avatarIniciais : estilos.avatarEmoji}>{iniciais || (souDono ? '👷' : '🏠')}</T>
     </View>
   )
 }
 
-// Folha de baixo com a conversa inteira (só leitura; responder é no bloco).
-const FolhaConversa = ({ visivel, onFechar, historico, nome, fotoUrl, souDono }) => {
+// A folha: cabeçalho (avatar, "Conversa com <nome>", subtítulo, ✕ Fechar) na zona do arraste;
+// histórico rolando; embaixo, fixos, "TOQUE PARA RESPONDER" + contador e os chips.
+const FolhaConversa = ({ visivel, onFechar, dados, nome, fotoUrl, souDono, enviando, onEnviar }) => {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(onFechar, !!visivel)
+  const travada = !!enviando
+  const fechar = travada ? null : onFechar
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(fechar, !!visivel)
   const rolagemRef = useRef(null)
+  const historico = Array.isArray(dados?.historico) ? dados.historico : []
+  const frases = Array.isArray(dados?.frases) ? dados.frases : []
+  const limite = Number(dados?.limite) || 5
+  const enviadasNaFase = dados?.fase ? Math.max(0, limite - (Number(dados.restantes) || 0)) : 0
+  const esgotou = !!dados?.fase && (Number(dados.restantes) || 0) <= 0
+  const podeResponder = !!dados?.fase && frases.length > 0
   return (
-    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
+    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => fechar?.()}>
       <View style={estilos.folhaFundo}>
-        <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => fechar?.()} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }, estiloArraste]}>
           <View {...panHandlers}>
             <View style={estilos.alca} />
-            <View style={estilos.folhaTopo}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Cabecalho nome={nome} fotoUrl={fotoUrl} souDono={souDono} />
+            <LinhaCabecalhoFolha onFechar={fechar} desabilitado={travada}>
+              <View style={estilos.cabecalho}>
+                <Avatar nome={nome} fotoUrl={fotoUrl} souDono={souDono} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <T style={estilos.cabecalhoTitulo}>Conversa com {primeiroNomeDe(nome, souDono ? 'o profissional' : 'o cliente')}</T>
+                  <T style={estilos.cabecalhoSub}>Mensagens prontas · sem digitar</T>
+                </View>
               </View>
-              <TouchableOpacity onPress={onFechar} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityRole="button" accessibilityLabel="Fechar">
-                <T style={estilos.fechar}>✕</T>
-              </TouchableOpacity>
-            </View>
-            <T style={estilos.folhaContagem}>{historico.length} {historico.length === 1 ? 'mensagem' : 'mensagens'} · conversa inteira</T>
+            </LinhaCabecalhoFolha>
           </View>
+
           <ScrollView
             ref={rolagemRef}
-            style={estilos.folhaLista}
-            contentContainerStyle={{ paddingVertical: 8 }}
+            style={estilos.lista}
+            contentContainerStyle={[estilos.listaConteudo, historico.length === 0 && { flexGrow: 1, justifyContent: 'center' }]}
             onContentSizeChange={() => rolagemRef.current?.scrollToEnd?.({ animated: false })}
+            showsVerticalScrollIndicator={false}
           >
-            {historico.map((m) => <Balao key={m.id || `${m.frase_id}-${m.enviado_em}`} m={m} />)}
+            {historico.length === 0 ? (
+              <T linhas={2} style={estilos.listaVazia}>{podeResponder ? 'Nenhuma mensagem ainda. Toque numa frase abaixo para começar.' : 'Nenhuma mensagem.'}</T>
+            ) : historico.map((m) => <Balao key={m.id || `${m.frase_id}-${m.enviado_em}`} m={m} />)}
           </ScrollView>
+
+          {podeResponder ? (
+            <View style={estilos.responder}>
+              <View style={estilos.responderLinha}>
+                <T style={estilos.responderRotulo}>TOQUE PARA RESPONDER</T>
+                <T style={[estilos.contador, esgotou && { color: cores.primaria }]}>{enviadasNaFase} de {limite} nesta fase</T>
+              </View>
+              <View style={estilos.chips}>
+                {frases.map((f) => {
+                  const enviada = !!f.enviada
+                  const travado = enviada || esgotou || !!enviando
+                  return (
+                    <TouchableOpacity
+                      key={f.id}
+                      style={[estilos.chip, enviada && estilos.chipEnviada, !enviada && esgotou && estilos.chipTravada]}
+                      onPress={() => onEnviar?.(f.id)}
+                      disabled={travado}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: travado }}
+                    >
+                      <T style={[estilos.chipTexto, enviada && estilos.chipTextoEnviada]}>
+                        {enviando === f.id ? 'Enviando…' : `${enviada ? '✓ ' : ''}${f.texto}`}
+                      </T>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
+          ) : (
+            <T linhas={2} style={estilos.somenteLeitura}>As mensagens prontas valem entre a escolha do profissional e a chegada dele.</T>
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -209,121 +287,84 @@ const FolhaConversa = ({ visivel, onFechar, historico, nome, fotoUrl, souDono })
 }
 
 // ---------------------------------------------------------------------------------------
-// O bloco
+// A linha da tela fixa (+ a folha)
 // ---------------------------------------------------------------------------------------
-// dados: a resposta do GET (ver topo). outro: { nome, foto_url } da outra parte. souDono: lado
-// de quem lê (só para o emoji do avatar vazio). enviando: frase_id em envio | null.
-// onEnviar(frase_id). Renderiza null quando !temConversa(dados).
-export default function ConversaProntas({ dados, outro, souDono, enviando, onEnviar }) {
+// dados/novas/enviando/onEnviar/onAbrir: do useMensagensProntas (onAbrir = marcarVistas).
+// outro: { nome, foto_url } da outra parte. souDono: lado de quem lê. Renderiza null quando
+// !temConversa(dados). Altura da linha: 44dp — é o que entra no orçamento da tela fixa.
+export default function ConversaProntas({ dados, novas, outro, souDono, enviando, onEnviar, onAbrir }) {
   const [folha, setFolha] = useState(false)
+  // Novas mensagens chegando com a folha aberta já estão à vista: marca de novo.
+  useEffect(() => { if (folha) onAbrir?.() }, [folha, dados?.historico?.length])
   if (!temConversa(dados)) return null
-  const historico = Array.isArray(dados.historico) ? dados.historico : []
-  const frases = Array.isArray(dados.frases) ? dados.frases : []
-  const ultimas = historico.slice(-ULTIMAS_NA_CAIXA)
-  const limite = Number(dados.limite) || 5
-  const enviadasNaFase = dados.fase ? Math.max(0, limite - (Number(dados.restantes) || 0)) : 0
-  const esgotou = !!dados.fase && (Number(dados.restantes) || 0) <= 0
-  const podeResponder = !!dados.fase && frases.length > 0
   const nome = outro?.nome
-
+  const n = Number(novas) || 0
+  const abrir = () => { onAbrir?.(); setFolha(true) }
   return (
-    <View style={estilos.bloco}>
-      <Cabecalho nome={nome} fotoUrl={outro?.foto_url} souDono={souDono} />
-
-      {/* Caixa de altura fixa: só as últimas 3, alinhadas embaixo como num chat. */}
-      <View style={[estilos.caixa, ultimas.length === 0 && { justifyContent: 'center' }]}>
-        {ultimas.length === 0 ? (
-          <T linhas={2} style={estilos.caixaVazia}>{podeResponder ? 'Nenhuma mensagem ainda. Toque numa frase abaixo para começar.' : 'Nenhuma mensagem.'}</T>
-        ) : ultimas.map((m) => <Balao key={m.id || `${m.frase_id}-${m.enviado_em}`} m={m} />)}
-      </View>
-      {historico.length > 0 ? (
-        <TouchableOpacity onPress={() => setFolha(true)} hitSlop={{ top: 6, bottom: 6 }} accessibilityRole="link" style={estilos.linkLinha}>
-          <T style={estilos.link}>Ver conversa inteira ({historico.length}) ›</T>
-        </TouchableOpacity>
-      ) : null}
-
-      {podeResponder ? (
-        <>
-          <View style={estilos.responderLinha}>
-            <T style={estilos.responderRotulo}>TOQUE PARA RESPONDER</T>
-            <T style={[estilos.contador, esgotou && { color: cores.primaria }]}>{enviadasNaFase} de {limite} nesta fase</T>
-          </View>
-          <View style={estilos.chips}>
-            {frases.map((f) => {
-              const enviada = !!f.enviada
-              const travada = enviada || esgotou || !!enviando
-              return (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[estilos.chip, enviada && estilos.chipEnviada, !enviada && esgotou && estilos.chipTravada]}
-                  onPress={() => onEnviar?.(f.id)}
-                  disabled={travada}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: travada }}
-                >
-                  <T style={[estilos.chipTexto, enviada && estilos.chipTextoEnviada]}>
-                    {enviando === f.id ? 'Enviando…' : `${enviada ? '✓ ' : ''}${f.texto}`}
-                  </T>
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        </>
-      ) : (
-        <T linhas={2} style={estilos.somenteLeitura}>As mensagens prontas valem entre a escolha do profissional e a chegada dele.</T>
-      )}
-
-      <FolhaConversa visivel={folha} onFechar={() => setFolha(false)} historico={historico} nome={nome} fotoUrl={outro?.foto_url} souDono={souDono} />
-    </View>
+    <>
+      <TouchableOpacity style={estilos.linha} onPress={abrir} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Conversa com ${primeiroNomeDe(nome, souDono ? 'o profissional' : 'o cliente')}${n > 0 ? `, ${n} ${n === 1 ? 'nova' : 'novas'}` : ''}`}>
+        <T style={estilos.linhaTexto}>💬 Conversa com {primeiroNomeDe(nome, souDono ? 'o profissional' : 'o cliente')}</T>
+        {n > 0 ? (
+          <View style={estilos.etiqueta}><T style={estilos.etiquetaTexto}>{n} {n === 1 ? 'nova' : 'novas'}</T></View>
+        ) : null}
+        <T style={estilos.linhaSeta}>›</T>
+      </TouchableOpacity>
+      <FolhaConversa
+        visivel={folha}
+        onFechar={() => setFolha(false)}
+        dados={dados}
+        nome={nome}
+        fotoUrl={outro?.foto_url}
+        souDono={souDono}
+        enviando={enviando}
+        onEnviar={onEnviar}
+      />
+    </>
   )
 }
 
 const estilos = StyleSheet.create({
-  bloco: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 12 },
+  // Linha da tela fixa (44dp)
+  linha: { height: 44, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, paddingHorizontal: 12 },
+  linhaTexto: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '700', color: cores.textoForte },
+  linhaSeta: { fontSize: 20, color: cores.textoMedio, lineHeight: 22 },
+  etiqueta: { backgroundColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 9, paddingVertical: 3 },
+  etiquetaTexto: { fontSize: 11, fontWeight: '800', color: '#0A0A0A' },
 
-  cabecalho: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Folha
+  folhaFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  folhaCard: { backgroundColor: cores.fundoCard, borderTopLeftRadius: raios.grande, borderTopRightRadius: raios.grande, paddingHorizontal: 16, paddingTop: 8, maxHeight: '85%' },
+  alca: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: cores.borda, marginBottom: 10 },
+  cabecalho: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46 },
   avatar: { width: 36, height: 36, borderRadius: 18 },
   avatarVazio: { backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center' },
   avatarIniciais: { color: cores.primaria, fontSize: 13, fontWeight: '700' },
   avatarEmoji: { fontSize: 16 },
-  cabecalhoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, lineHeight: 18 },
+  cabecalhoTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte, lineHeight: 19 },
   cabecalhoSub: { fontSize: 11, color: cores.textoMedio, lineHeight: 15 },
 
-  // Caixa das últimas 3 (altura fixa ~128dp: 3 balões de 1 linha).
-  caixa: { height: 128, marginTop: 10, backgroundColor: cores.fundoElevado, borderRadius: raios.medio, paddingHorizontal: 8, paddingVertical: 6, justifyContent: 'flex-end', overflow: 'hidden' },
-  caixaVazia: { fontSize: 12, color: cores.textoMedio, textAlign: 'center', lineHeight: 16, paddingHorizontal: 12 },
+  lista: { flexGrow: 0, flexShrink: 1, minHeight: 120, maxHeight: 320, marginTop: 10, backgroundColor: cores.fundoElevado, borderRadius: raios.medio },
+  listaConteudo: { paddingHorizontal: 8, paddingVertical: 8 },
+  listaVazia: { fontSize: 12, color: cores.textoMedio, textAlign: 'center', lineHeight: 16, paddingHorizontal: 12, paddingVertical: 24 },
   balaoLinha: { flexDirection: 'row', marginVertical: 2 },
   balaoLinhaMinha: { justifyContent: 'flex-end' },
   balaoLinhaOutro: { justifyContent: 'flex-start' },
-  balao: { maxWidth: '82%', borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 5 },
+  balao: { maxWidth: '82%', borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6 },
   balaoMeu: { backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderBottomRightRadius: 4 },
   balaoOutro: { backgroundColor: '#262626', borderBottomLeftRadius: 4 },
   balaoTexto: { fontSize: 13, color: cores.textoForte, lineHeight: 17 },
-  balaoTextoMeu: { color: cores.textoForte },
   balaoHora: { fontSize: 10, color: cores.textoMedio, textAlign: 'right', marginTop: 1 },
   balaoHoraMinha: { color: cores.primaria },
 
-  linkLinha: { alignSelf: 'flex-end', marginTop: 4 },
-  link: { fontSize: 12, fontWeight: '600', color: '#8888cc' },
-
-  responderLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 6 },
+  responder: { marginTop: 10 },
+  responderLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   responderRotulo: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6, color: cores.textoMedio },
   contador: { fontSize: 11, fontWeight: '600', color: cores.textoMedio },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'transparent' },
+  chip: { borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: 'transparent' },
   chipEnviada: { borderColor: cores.borda, backgroundColor: cores.fundoElevado, opacity: 0.55 },
   chipTravada: { opacity: 0.4 },
   chipTexto: { fontSize: 12, fontWeight: '600', color: cores.primaria },
   chipTextoEnviada: { color: cores.textoMedio },
-  somenteLeitura: { fontSize: 11, color: cores.textoFraco, lineHeight: 15, marginTop: 8 },
-
-  // Folha da conversa inteira
-  folhaFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  folhaCard: { backgroundColor: cores.fundoCard, borderTopLeftRadius: raios.grande, borderTopRightRadius: raios.grande, paddingHorizontal: 16, paddingTop: 8, maxHeight: '80%' },
-  alca: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: cores.borda, marginBottom: 10 },
-  folhaTopo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  fechar: { fontSize: 18, color: cores.textoMedio, paddingHorizontal: 4 },
-  folhaContagem: { fontSize: 11, color: cores.textoMedio, marginTop: 8, marginBottom: 4 },
-  folhaLista: { borderTopWidth: 0.5, borderTopColor: cores.borda },
+  somenteLeitura: { fontSize: 11, color: cores.textoFraco, lineHeight: 15, marginTop: 10 },
 })
