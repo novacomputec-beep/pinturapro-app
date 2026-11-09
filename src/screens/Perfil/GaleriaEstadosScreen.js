@@ -24,6 +24,7 @@ import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
 import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
 import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupoConteudo, PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, TOTAL_PASSOS, GradeTiposObra, PassoPrazoValorObra, CaixaAvisosObra, TITULOS_PASSO_OBRA } from '../DonoObra/CadastrarServicoPassos'
 import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
+import { MeusPedidosConteudo, juntarPedidos } from '../DonoObra/MeusPedidosScreen'
 import { MAX_ESPECIALIDADES } from '../../utils/categorias'
 import { TILE_OUTROS_ESPECIALIDADES, AVISO_TETO, titulosEspecialidades, avisoEspecialidades } from './EspecialidadesScreen'
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
@@ -263,34 +264,36 @@ const propsConvite = (caso) => ({
   onCopiar: noop,
 })
 
-// Arte-Meus-Perfis (ordem da Arte-Meus-Perfis-Ordem: serviço-contratar, serviço-trabalhar,
-// obra-contratar, obra-trabalhar): "Meus perfis" (MeusPerfisConteudo) com a conta em uso
-// (borda verde, ✓ e "EM USO" sob o título), as que existem (seta, trocam ao toque) e as que
-// faltam (＋), e "Adicionar perfil" (AdicionarPerfilConteudo) para um tipo profissional
-// (seletor do lado certo) e um dono (sem seletor). Handlers no-op.
+// Arte-Meus-Perfis + Arte-Fase1-Contratar: "Meus perfis" (MeusPerfisConteudo) com TRÊS cards
+// — UM "Contratar" (primeiro; as duas contas contratantes viraram um perfil só), serviços e
+// obras do lado profissional —, a conta em uso (borda verde, ✓ e "EM USO" sob o título), as
+// que existem (seta, trocam ao toque) e as que faltam (＋), e "Adicionar perfil"
+// (AdicionarPerfilConteudo) para um tipo profissional (seletor do lado certo) e para
+// contratar (sem seletor). Handlers no-op.
 const CASOS_PERFIS = [
-  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · só reparador em uso (2º card, 3 com ＋)', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
-  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · dono de serviço em uso (1º card) + reparador', usuario: { role: 'dono_obra', tipo_dono: 'reparo', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
-  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · dono de obra com os 4, trocando para pintor', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, trocando: 'pintor' },
-  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · pintor em uso (último card) + os 2 donos', usuario: { role: 'prestador', tipo_prestador: 'pintor', contas: [{ tipo: 'pintor' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }] } },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · só reparador em uso (2º card, os outros 2 com ＋)', usuario: { role: 'prestador', tipo_prestador: 'reparador', contas: [{ tipo: 'reparador' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · Contratar em uso (1º card) + reparador', usuario: { role: 'dono_obra', tipo_dono: 'reparo', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
+  { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · Contratar em uso (as 4 contas → 3 cards), trocando para pintor', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, trocando: 'pintor' },
+  { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · pintor em uso + as 2 contas contratantes (um card Contratar, com seta)', usuario: { role: 'prestador', tipo_prestador: 'pintor', contas: [{ tipo: 'pintor' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }] }, ultimoContratar: 'dono_obra' },
   { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · serviços (2 marcadas)', tipo: 'reparador', selecionadas: ['eletrica', 'hidraulica'] },
   { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · construtor/pintor (vazio)', tipo: 'pintor', selecionadas: [] },
-  { lado: 'dono', fase: 'adicionar', rotulo: 'Adicionar perfil · preciso de um serviço', tipo: 'dono_reparo', selecionadas: [] },
+  { lado: 'dono', fase: 'adicionar', rotulo: 'Adicionar perfil · contratar (sem especialidades)', tipo: 'dono_reparo', selecionadas: [] },
 ]
 const propsPerfis = (caso) => caso.fase === 'perfis'
-  ? { perfis: listarPerfis(caso.usuario), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
+  ? { perfis: listarPerfis(caso.usuario, caso.ultimoContratar || null), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
   : { perfil: perfilDoTipo(caso.tipo), selecionadas: caso.selecionadas, onAlternar: noop }
 
-// Arte-Entrar-Como: o miolo do "Entrar como:" (EntrarComoConteudo) com só os lados que a
-// pessoa tem, a tag "ÚLTIMO USADO", o spinner no card que está entrando e um tipo que esta
-// versão do app não conhece. Handlers no-op.
+// Arte-Entrar-Como + Arte-Fase1-Contratar: o miolo do "Entrar como:" (EntrarComoConteudo) com
+// só os lados que a pessoa tem — o lado contratar com UM card, mesmo com as duas contas —, a
+// tag "ÚLTIMO USADO", o spinner no card que está entrando e um tipo que esta versão do app
+// não conhece. Handlers no-op.
 const CASOS_ENTRAR_COMO = [
-  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · reparador + dono de serviço (último usado)', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }], ultimoTipo: 'reparador' },
-  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · os 4, entrando como pintor', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }], ultimoTipo: 'dono_obra', tipoCarregando: 'pintor' },
-  { lado: 'dono', fase: 'entrar_como', rotulo: 'Entrar como · só contratar (2 donos)', contas: ['dono_reparo', 'dono_obra'] },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · reparador (último usado) + Contratar', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }], ultimoTipo: 'reparador' },
+  { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · as 4 contas → 3 cards (Contratar = último usado), entrando como pintor', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }], ultimoTipo: 'dono_obra', tipoCarregando: 'pintor' },
+  { lado: 'dono', fase: 'entrar_como', rotulo: 'Entrar como · só contratar (2 contas → 1 card)', contas: ['dono_reparo', 'dono_obra'] },
   { lado: 'pro', fase: 'entrar_como', rotulo: 'Entrar como · tipo desconhecido no fim', contas: [{ tipo: 'pintor' }, { tipo: 'sindico' }] },
 ]
-const propsEntrarComo = (caso) => ({ contas: caso.contas, tipoCarregando: caso.tipoCarregando || null, ultimoTipo: caso.ultimoTipo || null, onEscolher: noop })
+const propsEntrarComo = (caso) => ({ contas: caso.contas, tipoCarregando: caso.tipoCarregando || null, ultimoTipo: caso.ultimoTipo || null, ultimoContratar: caso.ultimoContratar || null, onEscolher: noop })
 
 function DemoAdicionar(props) {
   const precisaEsp = !!props.perfil?.profissional
@@ -430,8 +433,14 @@ function DemoDesistiuDetalhe({ desistencia, desistencias }) {
 // DonoObra/CadastrarServicoPassos, com estado local e sem API) e a folha de um grupo. No
 // demo o "Continuar" avança e o "←" volta de verdade, sem validar; "Publicar pedido",
 // mídia e CEP são no-op.
+// Arte-Fase1-Contratar: os casos `pedido` são a tela como ela abre na aba "Novo pedido" do
+// dono — título "Cadastrar pedido" e o tile largo "Obras de Construção Civil" entre os grupos
+// e o "Não achei o meu serviço" (no demo o toque no tile é no-op; na tela ele abre o cadastro
+// de obra). Os demais seguem com o título padrão da moldura.
 const GRUPOS_DEMO = gruposComCategorias()
 const CASOS_WIZARD = [
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar pedido · passo 1 com o tile "Obras de Construção Civil"', passo: 1, categorias: [], pedido: true },
+  { lado: 'dono', fase: 'cadastrar_servico', rotulo: `Cadastrar pedido · passo 1 no limite (${MAX_CATEGORIAS_DEMANDA}): tile de obras segue ativo`, passo: 1, categorias: ['hidraulica', 'eletrica', 'faxina'], pedido: true },
   { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 1 vazio', passo: 1, categorias: [] },
   { lado: 'dono', fase: 'cadastrar_servico', rotulo: `Cadastrar serviço · passo 1 no limite (${MAX_CATEGORIAS_DEMANDA}) + sugestão`, passo: 1, categorias: ['hidraulica', 'eletrica', 'outros'] },
   { lado: 'dono', fase: 'cadastrar_servico', rotulo: 'Cadastrar serviço · passo 2 (detalhes e mídia)', passo: 2, categorias: ['hidraulica'] },
@@ -441,9 +450,9 @@ const CASOS_WIZARD = [
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Festas" no limite', grupo: 'festas', categorias: ['garcom', 'dj', 'hidraulica'] },
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Arte e criação" (etiqueta NOVO)', grupo: 'arte', categorias: [] },
 ]
-const propsWizard = (caso) => ({ passoInicial: caso.passo || 1, categoriasIniciais: caso.categorias || [], grupoId: caso.grupo || null })
+const propsWizard = (caso) => ({ passoInicial: caso.passo || 1, categoriasIniciais: caso.categorias || [], grupoId: caso.grupo || null, pedido: !!caso.pedido })
 
-function DemoWizard({ passoInicial, categoriasIniciais }) {
+function DemoWizard({ passoInicial, categoriasIniciais, pedido }) {
   const [passo, setPasso] = useState(passoInicial)
   const [categorias, setCategorias] = useState(categoriasIniciais)
   const [grupoAberto, setGrupoAberto] = useState(null)
@@ -467,6 +476,7 @@ function DemoWizard({ passoInicial, categoriasIniciais }) {
     <View style={{ flex: 1 }}>
       <MolduraWizard
         passo={passo}
+        tituloTela={pedido ? 'Cadastrar pedido' : undefined}
         mostrarVoltar={passo > 1}
         onVoltar={() => setPasso((p) => Math.max(1, p - 1))}
         rodape={passo < TOTAL_PASSOS
@@ -475,7 +485,7 @@ function DemoWizard({ passoInicial, categoriasIniciais }) {
       >
         {passo === 1 && (
           <>
-            <GradeGrupos grupos={GRUPOS_DEMO} contagem={contagemPorGrupo(categorias)} outrosMarcado={categorias.includes(SLUG_OUTROS)} bloqueado={noLimite} onAbrir={setGrupoAberto} onOutros={() => alternar(SLUG_OUTROS)} />
+            <GradeGrupos grupos={GRUPOS_DEMO} contagem={contagemPorGrupo(categorias)} outrosMarcado={categorias.includes(SLUG_OUTROS)} bloqueado={noLimite} onAbrir={setGrupoAberto} onOutros={() => alternar(SLUG_OUTROS)} onObras={pedido ? noop : undefined} />
             <ChipsEscolhidos categorias={categorias} onRemover={alternar} />
             {!noLimite && <Sugestoes sugestoes={sugestoes} onAdicionar={alternar} />}
           </>
@@ -567,6 +577,45 @@ function DemoWizardObra({ passoInicial, categoriaInicial, prazoInicial }) {
           />
         )}
       </MolduraWizard>
+    </View>
+  )
+}
+
+// Arte-Fase1-Contratar: "Meus pedidos" (MeusPedidosConteudo), a lista ÚNICA do dono com
+// serviços e obras juntos, do mais novo para o mais antigo, cada card com a etiqueta pequena
+// "Serviço" / "Obra". Os segmentos trocam de verdade no demo; abrir e excluir são no-op.
+const PEDIDOS_DEMO = {
+  reparos: [
+    { id: 'r1', titulo: 'Faxina semanal', categorias: ['faxina'], cidade: 'Uberlândia', uf: 'MG', valor_estimado: 180, status: 'aberta', total_interessados: 3, criado_em: iso(-2 * H) },
+    { id: 'r2', titulo: 'Trocar chuveiro', categorias: ['eletrica'], cidade: 'Uberlândia', uf: 'MG', valor_estimado: 120, status: 'aberta', total_interessados: 1, match_feito_em: iso(-5 * H), match_usuario_id: OUTRO, valor_acordado: 130, criado_em: iso(-30 * H) },
+  ],
+  obras: [
+    { id: 'o1', titulo: 'Pintura da casa', categoria: 'residencial', cidade: 'Uberlândia', uf: 'MG', valor: 4500, status: 'pendente', status_aprovacao: 'pendente', criado_em: iso(-20 * H) },
+    { id: 'o2', titulo: 'Muro do quintal', categoria: 'residencial', cidade: 'Uberlândia', uf: 'MG', valor: 2800, status: 'aberta', status_aprovacao: 'aprovada', total_interessados: 2, criado_em: iso(-50 * H) },
+  ],
+  reparosHistorico: [
+    { id: 'r9', titulo: 'Montar guarda-roupa', categorias: ['montagem_moveis'], cidade: 'Uberlândia', uf: 'MG', valor_estimado: 200, status: 'aberta', expirada: true, criado_em: iso(-300 * H) },
+  ],
+  obrasHistorico: [
+    { id: 'o9', titulo: 'Reforma do banheiro', categoria: 'residencial', cidade: 'Uberlândia', uf: 'MG', valor: 9000, status: 'aberta', status_aprovacao: 'aprovada', expirada: true, criado_em: iso(-400 * H) },
+  ],
+}
+const CASOS_PEDIDOS = [
+  { lado: 'dono', fase: 'meus_pedidos', rotulo: 'Meus pedidos · em aberto (2 serviços + 2 obras, por data)', secao: 'ativos' },
+  { lado: 'dono', fase: 'meus_pedidos', rotulo: 'Meus pedidos · histórico (expirados dos dois tipos)', secao: 'historico' },
+  { lado: 'dono', fase: 'meus_pedidos', rotulo: 'Meus pedidos · vazio (nenhum pedido em aberto)', secao: 'ativos', vazio: true },
+]
+const propsPedidos = (caso) => ({
+  abertos: caso.vazio ? [] : juntarPedidos(PEDIDOS_DEMO.reparos, PEDIDOS_DEMO.obras),
+  historico: caso.vazio ? [] : juntarPedidos(PEDIDOS_DEMO.reparosHistorico, PEDIDOS_DEMO.obrasHistorico),
+  secaoInicial: caso.secao || 'ativos',
+})
+
+function DemoMeusPedidos({ abertos, historico, secaoInicial }) {
+  const [secao, setSecao] = useState(secaoInicial)
+  return (
+    <View style={{ flex: 1 }}>
+      <MeusPedidosConteudo abertos={abertos} historico={historico} secao={secao} onSecao={setSecao} carregando={false} coords={null} onAbrir={noop} onExcluir={noop} />
     </View>
   )
 }
@@ -668,6 +717,7 @@ const TODOS = [
   ...CASOS_DESISTIU,
   ...CASOS_WIZARD.map((c) => ({ ...c, frente: null })),
   ...CASOS_WIZARD_OBRA.map((c) => ({ ...c, frente: null })),
+  ...CASOS_PEDIDOS.map((c) => ({ ...c, frente: null })),
   ...CASOS_ESPECIALIDADES.map((c) => ({ ...c, frente: null })),
 ]
 
@@ -774,7 +824,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', meus_pedidos: 'Meus pedidos (dono)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -808,10 +858,11 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehDesistiu = caso.fase === 'desistiu_sheet' || caso.fase === 'desistiu_detalhe'
   const ehEspecialidades = caso.fase === 'especialidades' || caso.fase === 'especialidades_grupo'
   const ehWizard = caso.fase === 'cadastrar_servico' || caso.fase === 'cadastrar_grupo' || caso.fase === 'cadastrar_obra' || ehEspecialidades
+  const ehPedidos = caso.fase === 'meus_pedidos'
   const props = useMemo(() => (
-    ehEspecialidades ? propsEspecialidades(caso) : caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehDesistiu || ehWizard
+    ehPedidos ? propsPedidos(caso) : ehEspecialidades ? propsEspecialidades(caso) :caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehPedidos, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehPedidos || ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehDesistiu || ehWizard
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -839,7 +890,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
         {/* No "Ajustar foto" o deslize é da própria tela (arrastar a foto): só os botões ‹ ›. */}
         {/* O sheet de aviso é ancorado ao rodapé, como o Modal real: fundo escurecido e a folha
             com os cantos de cima arredondados, para conferir a altura que ele ocupa na tela. */}
-        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias || ehWizard) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias || caso.fase === 'cadastrar_grupo' || caso.fase === 'especialidades_grupo') && estilos.fundoSheet]} {...(ehFoto || ehWizard ? {} : pan.panHandlers)}>
+        <View style={[estilos.corpo, larguraMaxima, { flex: 1, paddingTop: 4, paddingBottom: 8 }, (ehFoto || ehAvisar || ehCategorias || ehWizard || ehPedidos) && { paddingHorizontal: 0, paddingBottom: 0 }, (ehAvisar || ehCategorias || caso.fase === 'cadastrar_grupo' || caso.fase === 'especialidades_grupo') && estilos.fundoSheet]} {...(ehFoto || ehWizard ? {} : pan.panHandlers)}>
           {/* A folha de desfazer é um Modal de verdade e cobre o cabeçalho: qualquer saída dela
               (os dois botões, o toque fora, o voltar do Android) vai para o próximo caso. */}
           {/* O wizard tem rolagem e grade próprias: sem o deslize da galeria (só ‹ ›). */}
@@ -847,6 +898,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             : caso.fase === 'especialidades_grupo' ? <DemoFolhaEspecialidades key={i} {...props} />
             : caso.fase === 'cadastrar_servico' ? <DemoWizard key={i} {...props} />
             : caso.fase === 'cadastrar_obra' ? <DemoWizardObra key={i} {...props} />
+            : ehPedidos ? <DemoMeusPedidos key={i} {...props} />
             : caso.fase === 'cadastrar_grupo' ? <DemoFolhaGrupo key={i} {...props} />
             : ehDesfazer ? <SheetDesfazerEscolha key={i} {...props} onFechar={() => ir(1)} onDesfazer={() => ir(1)} />
             : caso.fase === 'desistiu_sheet' ? <SheetProfissionalDesistiu key={i} {...props} visivel onVerInteressados={() => ir(1)} onEsperar={() => ir(1)} />

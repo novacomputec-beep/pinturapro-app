@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, ScrollView, Image, BackHandler } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, larguraMaxima } from '../../utils/tema'
+import { contaContratar, ehTipoContratar, lerUltimoTipoContratar } from '../../utils/contas'
 import {
   COR_TRABALHAR, COR_CONTRATAR, CARTOES_TIPO, ROTULO_LADO, FundoBrilhos, CartaoEscolha, CaixaAviso, BotaoVoltar, Wordmark,
   estilosEscolha as s,
@@ -19,10 +20,14 @@ const tipoDe = (conta) => (typeof conta === 'string' ? conta : conta?.tipo)
 // Só aparecem os lados e os tipos que a pessoa TEM; `ultimoTipo` (utils/contas) ganha a
 // tag "ÚLTIMO USADO". Tipo que a API devolveu e esta versão do app não conhece aparece no
 // fim, com o próprio nome, em vez de sumir e deixar a conta inalcançável.
-export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, onEscolher }) {
+// O lado CONTRATAR tem UM card só (Fase 1), mesmo com as duas contas contratantes no e-mail:
+// entra na última contratante usada (`ultimoTipo` se for uma delas, senão `ultimoContratar`),
+// senão dono_reparo, senão dono_obra — utils/contas.contaContratar.
+export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, ultimoContratar, onEscolher }) {
   const tipos = (contas || []).map(tipoDe).filter(Boolean)
+  const contratar = contaContratar(tipos, ehTipoContratar(ultimoTipo) ? ultimoTipo : ultimoContratar)
   const lados = LADOS
-    .map(lado => ({ lado, tipos: TIPOS_CONHECIDOS.filter(t => CARTOES_TIPO[t].lado === lado && tipos.includes(t)) }))
+    .map(lado => ({ lado, tipos: TIPOS_CONHECIDOS.filter(t => CARTOES_TIPO[t].lado === lado && tipos.includes(t) && (!ehTipoContratar(t) || t === contratar)) }))
     .filter(l => l.tipos.length > 0)
   const desconhecidos = tipos.filter(t => !TIPOS_CONHECIDOS.includes(t))
   const ocupado = !!tipoCarregando
@@ -36,7 +41,7 @@ export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, onEscol
       rotulo={c.rotulo}
       tamanhoRotulo={14}
       titulo={c.titulo}
-      etiqueta={tipo === ultimoTipo ? 'ÚLTIMO USADO' : null}
+      etiqueta={tipo === ultimoTipo || (ehTipoContratar(tipo) && ehTipoContratar(ultimoTipo)) ? 'ÚLTIMO USADO' : null}
       onPress={() => onEscolher(tipo)}
       disabled={ocupado}
       carregando={tipoCarregando === tipo}
@@ -67,12 +72,21 @@ export function EntrarComoConteudo({ contas, tipoCarregando, ultimoTipo, onEscol
 // Tela "Entrar como:" — renderizada pela LoginScreen (não é rota) quando o login devolve
 // 2+ contas. E-mail e senha ficam no estado da LoginScreen; daqui só sai o tipo escolhido.
 // Visual da escolha de perfil do cadastro: mesmos halos, logo com o voltar sobreposto, cards.
-export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, onEscolher, onVoltar }) {
+// `email` (opcional): o do login, para ler a última conta CONTRATANTE usada neste aparelho —
+// só importa quando o e-mail tem as duas e o último perfil geral não é uma delas.
+export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, email, onEscolher, onVoltar }) {
   // Voltar do Android retorna ao login em vez de sair da pilha.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => { onVoltar(); return true })
     return () => sub.remove()
   }, [onVoltar])
+
+  const [ultimoContratar, setUltimoContratar] = useState(null)
+  useEffect(() => {
+    let vivo = true
+    lerUltimoTipoContratar(email).then((t) => { if (vivo) setUltimoContratar(t) })
+    return () => { vivo = false }
+  }, [email])
 
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={s.tela}>
@@ -85,7 +99,7 @@ export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, o
             <Wordmark tamanho={26} />
           </View>
         </View>
-        <EntrarComoConteudo contas={contas} tipoCarregando={tipoCarregando} ultimoTipo={ultimoTipo} onEscolher={onEscolher} />
+        <EntrarComoConteudo contas={contas} tipoCarregando={tipoCarregando} ultimoTipo={ultimoTipo} ultimoContratar={ultimoContratar} onEscolher={onEscolher} />
       </ScrollView>
     </SafeAreaView>
   )

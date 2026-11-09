@@ -13,6 +13,7 @@ import ModalDenuncia from '../../components/ModalDenuncia'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { rotuloCategorias } from '../../utils/categorias'
+import { EtiquetaTipo } from '../DonoObra/MeusPedidosScreen'
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
@@ -22,17 +23,29 @@ const formatarValor = (v) =>
 const formatarData = (d) =>
   d ? new Date(d).toLocaleDateString('pt-BR') : '—'
 
+// Endpoint de cada vertical, por lado. Os MESMOS quatro de sempre.
+const ENDPOINTS = {
+  dono:      { obra: '/obras/meus-contratos-dono', reparo: '/reparos/meus-contratos-dono' },
+  prestador: { obra: '/obras/meus-contratos',      reparo: '/reparos/meus-contratos' },
+}
+
 export default function ContratosFinalizadosScreen({ navigation, route }) {
-  const tipo = route?.params?.tipo === 'obra' ? 'obra' : 'reparo'
+  // tipo='ambos' (Fase 1, só o DONO): serviços E obras concluídos numa lista só — a aba
+  // "Finalizados" do lado contratante unificado. Lê os dois endpoints do dono, junta do mais
+  // recente para o mais antigo e marca em cada contrato a vertical dele (`_tipo`), que é quem
+  // decide detalhe, avaliação e valor daquele card. 'obra' e 'reparo' seguem como sempre.
+  const pedido = route?.params?.tipo
   // perfil='dono' usa os endpoints do solicitante (mostra o prestador contratado);
   // padrão 'prestador' mantém o comportamento legado (mostra o dono/solicitante).
   const perfil = route?.params?.perfil === 'dono' ? 'dono' : 'prestador'
-  const ehObra = tipo === 'obra'
   const ehDono = perfil === 'dono'
-  const endpoint = ehDono
-    ? (ehObra ? '/obras/meus-contratos-dono' : '/reparos/meus-contratos-dono')
-    : (ehObra ? '/obras/meus-contratos'      : '/reparos/meus-contratos')
-  const telaDetalhe = ehObra ? 'DetalheObra' : 'DetalheReparo'
+  const ambos = pedido === 'ambos' && ehDono
+  const tipo = ambos ? 'ambos' : pedido === 'obra' ? 'obra' : 'reparo'
+  const verticais = ambos ? ['reparo', 'obra'] : [tipo]
+  // A vertical da TELA (textos do cabeçalho e do vazio); no 'ambos' eles têm copy própria.
+  const ehObraTela = tipo === 'obra'
+  // Vertical de UM contrato: a marcada na carga; sem marca (lista de um tipo só), a da tela.
+  const ehObraDe = (c) => (c?._tipo || tipo) === 'obra'
 
   const [contratos, setContratos] = useState([])
   const [carregando, setCarregando] = useState(true)
@@ -90,7 +103,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const handleEnviarAvaliacao = async (estrelas, etiquetas = []) => {
     try {
       await comRetry(() => api.post('/avaliacoes', {
-        contrato_tipo: ehObra ? 'obra' : 'reparo',
+        contrato_tipo: ehObraDe(avaliandoContrato) ? 'obra' : 'reparo',
         contrato_id: avaliandoContrato.id,
         nota: estrelas,
         etiquetas,
@@ -114,7 +127,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const handleEnviarDenuncia = async (categoria, descricao) => {
     try {
       await comRetry(() => api.post('/denuncias', {
-        contrato_tipo: ehObra ? 'obra' : 'reparo',
+        contrato_tipo: ehObraDe(denunciandoContrato) ? 'obra' : 'reparo',
         contrato_id: denunciandoContrato.id,
         categoria,
         descricao,
@@ -130,8 +143,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
   const buscar = async () => {
     try {
-      const data = await comRetry(() => api.get(endpoint))
-      const lista = data.contratos || []
+      // Uma requisição por vertical (uma só fora do 'ambos'). Cada contrato sai marcado com a
+      // vertical de onde veio; no 'ambos' a lista é intercalada pela data de conclusão, do
+      // mais recente para o mais antigo (data ilegível vai para o fim).
+      const respostas = await Promise.all(verticais.map(v => comRetry(() => api.get(ENDPOINTS[perfil][v]))))
+      const quando = (c) => { const t = new Date(c.match_feito_em).getTime(); return Number.isFinite(t) ? t : 0 }
+      const lista = verticais.flatMap((v, i) => (respostas[i]?.contratos || []).map(c => ({ ...c, _tipo: v })))
+      if (ambos) lista.sort((a, b) => quando(b) - quando(a))
       setContratos(lista)
       setErro(null)
       return lista
@@ -174,8 +192,8 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   const onRefresh = () => { setAtualizando(true); buscar() }
 
   const abrirDetalhe = (item) => {
-    if (ehObra) navigation.navigate('DetalheObra', { obra: item })
-    else        navigation.navigate('DetalheReparo', { reparo: item })
+    if (ehObraDe(item)) navigation.navigate('DetalheObra', { obra: item })
+    else                navigation.navigate('DetalheReparo', { reparo: item })
   }
 
   const ligarDono = (tel) => {
@@ -191,11 +209,16 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
   }
 
   const renderItem = ({ item }) => {
+    const ehObra = ehObraDe(item)
     const valorBase = ehObra ? item.valor : item.valor_estimado
     return (
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
-          <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+          <View style={estilos.cardTituloLinha}>
+            <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+            {/* Só na lista dos dois tipos: a mesma etiqueta pequena de "Meus pedidos". */}
+            {ambos && <EtiquetaTipo tipo={ehObra ? 'obra' : 'reparo'} />}
+          </View>
           <View style={estilos.badgeConcluido}>
             <Text style={estilos.badgeConcluidoTexto}>✅ Concluído</Text>
           </View>
@@ -291,8 +314,9 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Contratos Finalizados</Text>
+        {/* 'ambos': "pedido(s)" — nem "obra" nem "serviço" sozinho cobre a lista. */}
         <Text style={estilos.subtitulo}>
-          {contratos.length} {ehObra ? 'obra' : 'serviço'}{contratos.length !== 1 ? 's' : ''} concluído{contratos.length !== 1 ? 's' : ''}
+          {contratos.length} {ambos ? 'pedido' : ehObraTela ? 'obra' : 'serviço'}{contratos.length !== 1 ? 's' : ''} concluído{contratos.length !== 1 ? 's' : ''}
         </Text>
       </View>
 
@@ -306,11 +330,13 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           <Text style={estilos.vazioIcone}>✅</Text>
           <Text style={estilos.vazioTitulo}>Nenhum contrato finalizado</Text>
           <Text style={estilos.vazioSub}>
-            {ehDono
-              ? (ehObra
+            {ambos
+              ? 'Serviços e obras concluídos em que você contratou um profissional aparecerão aqui.'
+              : ehDono
+              ? (ehObraTela
                   ? 'Obras concluídas em que você contratou um profissional aparecerão aqui.'
                   : 'Serviços concluídos em que você contratou um profissional aparecerão aqui.')
-              : (ehObra
+              : (ehObraTela
                   ? 'Obras concluídas em que você foi o profissional contratado aparecerão aqui.'
                   : 'Serviços concluídos em que você foi o profissional contratado aparecerão aqui.')}
           </Text>
@@ -318,7 +344,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       ) : (
         <FlatList
           data={contratos}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item) => `${item._tipo}:${item.id}`}
           renderItem={renderItem}
           contentContainerStyle={[estilos.lista, larguraMaxima]}
           refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
@@ -330,7 +356,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
       <ModalAvaliacao
         visivel={!!avaliandoContrato}
         nomeAvaliado={avaliandoContrato ? (ehDono ? avaliandoContrato.prestador_nome : avaliandoContrato.dono_nome) : ''}
-        ehObra={ehObra}
+        ehObra={avaliandoContrato ? ehObraDe(avaliandoContrato) : ehObraTela}
         demanda={avaliandoContrato}
         onEnviar={handleEnviarAvaliacao}
         onFechar={() => setAvaliandoContrato(null)}
@@ -354,7 +380,8 @@ const estilos = StyleSheet.create({
   lista:              { paddingHorizontal: espacos.tela, paddingBottom: 32 + alturas.barraServico, paddingTop: 8 },
   card:               { backgroundColor: cores.fundoCard, borderRadius: 16, borderWidth: 0.5, borderColor: cores.borda, padding: 16 },
   cardHeader:         { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-  cardTitulo:         { fontSize: 14, fontWeight: '600', color: cores.textoForte, flex: 1, marginRight: 8, lineHeight: 20 },
+  cardTituloLinha:    { flex: 1, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginRight: 8 },
+  cardTitulo:         { fontSize: 14, fontWeight: '600', color: cores.textoForte, flexShrink: 1, lineHeight: 20 },
   badgeConcluido:     { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#1a3a1a' },
   badgeConcluidoTexto:{ fontSize: 11, fontWeight: '700', color: '#4caf50' },
   cardMeta:           { fontSize: 12, color: cores.textoFraco, marginBottom: 12, textTransform: 'capitalize' },

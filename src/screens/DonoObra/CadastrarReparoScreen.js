@@ -23,18 +23,23 @@ import {
 
 // Cadastro de serviço do dono em 4 passos (Arte-Cadastrar-Servico): grupos → detalhes →
 // prazo e valor → endereço. SÓ o layout mudou: estado, validações, payload de POST
-// /reparos/dono, fluxo de mídia, bifurcação de Alvenaria, sugestões, reset pós-envio e o
-// sinal para a RetomadaMatchHost são os de sempre. As peças de tela moram em
+// /reparos/dono, fluxo de mídia, sugestões, reset pós-envio e o sinal para a
+// RetomadaMatchHost são os de sempre. As peças de tela moram em
 // ./CadastrarServicoPassos; os grupos e exemplos em utils/gruposServico.
+//
+// Fase 1 (Arte-Fase1-Contratar): esta tela é a raiz da aba "Novo pedido" do dono, com o
+// título "Cadastrar pedido". O passo 1 ganhou o tile "Obras de Construção Civil", que
+// empilha o CadastrarObraScreen (o ← de lá volta aos grupos). A antiga bifurcação de
+// Alvenaria ("Pedreiro ou ajudante" → obra) saiu: a porta para a obra é o tile, e Alvenaria
+// é uma categoria como as outras.
 //
 // Até MAX_CATEGORIAS_DEMANDA (3) categorias por serviço, começando sem nenhuma marcada: a
 // escolha é da pessoa (e obrigatória, ver validar/CAMPOS_OBRIGATORIOS). A primeira marcada
 // vai como `categoria` (a coluna de sempre) e a lista inteira como `categorias`.
 
-// Alvenaria é a única categoria com bifurcação: "pequeno reparo" fica aqui, "pedreiro ou
-// ajudante" é OBRA e segue para CadastrarObraScreen com o que já foi preenchido. Slug, e
-// não rótulo: o rótulo é apresentação e pode mudar; o slug é o contrato.
-const SLUG_ALVENARIA = 'alvenaria'
+// Rota desta tela como raiz da aba "Novo pedido" (AppNavigator). É por ela que o título vira
+// "Cadastrar pedido" e que o banner "Como funciona" aparece no passo 1.
+const ROTA_NOVO_PEDIDO = 'CadastrarPedidoMain'
 
 // Campos obrigatórios em ordem visual (de cima p/ baixo, passo a passo). Quando a pessoa
 // tenta avançar/publicar incompleto, a tela vai ao passo do 1º campo com erro, rola até ele
@@ -92,10 +97,6 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [pickerMidia, setPickerMidia] = useState(null)
   // Folha do grupo aberto no passo 1 (objeto de gruposComCategorias) ou null.
   const [grupoAberto, setGrupoAberto] = useState(null)
-  // Folha de escolha de Alvenaria. null = fechada; { anterior } = aberta, guardando a
-  // categoria que estava selecionada antes do toque, para o "voltar" do Android desfazer
-  // a seleção: a escolha é obrigatória, então sair sem escolher NÃO deixa Alvenaria marcada.
-  const [escolhaAlvenaria, setEscolhaAlvenaria] = useState(null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -130,15 +131,14 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const midia = useUploadMidiaDemanda({ vertical: 'reparo', montadoRef, logPrefix: '[CadastrarReparo]' })
 
   // Reset APÓS ENVIO BEM-SUCEDIDO — espelhado em CadastrarObraScreen. Após um envio
-  // bem-sucedido navegamos para 'Meus Reparos' (outra aba); ao voltar para 'Novo Reparo'
+  // bem-sucedido navegamos para 'Meus pedidos' (outra aba); ao voltar para 'Novo pedido'
   // o foco dispara este reset, limpando as mídias e liberando os bitmaps de preview. Em
   // caso de FALHA o usuário permanece nesta mesma tela (sem nova transição de foco),
   // então os anexos NÃO são descartados e podem ser reenviados.
   // O foco sozinho não diz POR QUE a tela foi focada: sem a trava abaixo, uma simples
   // ida-e-volta de aba era indistinguível do retorno pós-envio e apagava um formulário
   // já preenchido. Só a criação confirmada arma o reset, e ele se desarma ao rodar.
-  // Extraído para uma função porque tem DOIS gatilhos: o foco pós-envio (abaixo) e a obra
-  // publicada a partir deste formulário (efeito seguinte). midia.resetar é estável.
+  // midia.resetar é estável.
   // Volta ao passo 1: depois de publicar, a próxima composição começa limpa, do começo.
   const limparFormulario = useCallback(() => {
     setPasso(1)
@@ -161,7 +161,6 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     setErros({})
     setEnderecoEncontrado(false)
     setBuscandoCep(false)
-    setEscolhaAlvenaria(null)
     setGrupoAberto(null)
     enviandoRef.current = false
   }, [midia.resetar])
@@ -171,18 +170,6 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     submetidoRef.current = false
     limparFormulario()
   }, [limparFormulario]))
-
-  // A OBRA nascida deste formulário (escolha "Pedreiro ou ajudante") foi publicada:
-  // CadastrarObraScreen volta para cá com este parâmetro antes de ir para a lista. O
-  // conteúdo já virou obra, então mantê-lo aqui seria convidar a publicar a mesma coisa
-  // duas vezes — e os arquivos de mídia locais foram apagados pelo upload da obra, o que
-  // deixaria previews quebrados. Se a pessoa só VOLTAR (seta) sem publicar, nada disto
-  // roda e o formulário está intacto. O parâmetro é consumido para não disparar de novo.
-  useEffect(() => {
-    if (!route?.params?.obraPublicada) return
-    navigation.setParams({ obraPublicada: undefined })
-    limparFormulario()
-  }, [route?.params?.obraPublicada, navigation, limparFormulario])
 
   // Volta ao topo a cada foco: aba que fica montada preserva o scroll entre idas e
   // vindas, e o formulário reaparecia no meio. Efeito separado do reset acima (que só
@@ -209,12 +196,12 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // anterior sem perder nada. No passo 1 segue o comportamento de sempre (sai da tela).
   useFocusEffect(useCallback(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (grupoAberto || escolhaAlvenaria || pickerMidia) return false
+      if (grupoAberto || pickerMidia) return false
       if (passo > 1) { setPasso(p => p - 1); return true }
       return false
     })
     return () => sub.remove()
-  }, [passo, grupoAberto, escolhaAlvenaria, pickerMidia]))
+  }, [passo, grupoAberto, pickerMidia]))
 
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
   // destruição da MainActivity (Android). Implementação única em utils/midia.
@@ -378,15 +365,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // Toque numa linha da folha, no tile "Não achei" ou num chip de sugestão. Marcada →
   // desmarca. Não marcada → entra, se ainda há vaga (no limite as linhas restantes ficam
   // desabilitadas, então este guarda é para o chip de sugestão e para toques em sequência).
-  // Alvenaria entrando abre a folha de escolha obrigatória — fechando antes a folha do grupo,
-  // porque dois Modals empilhados não convivem no Android; a categoria já fica marcada para a
-  // folha aparecer sobre o estado que a pessoa acabou de pedir, e o "voltar" sem escolher
-  // devolve a lista anterior.
   const noLimite = categorias.length >= MAX_CATEGORIAS_DEMANDA
   const selecionarCategoria = (id) => {
     if (categorias.includes(id)) { setCategorias(categorias.filter(c => c !== id)); return }
     if (noLimite) return
-    if (id === SLUG_ALVENARIA) { setGrupoAberto(null); setEscolhaAlvenaria({ anterior: categorias }) }
     setCategorias([...categorias, id])
   }
 
@@ -395,43 +377,15 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     .map(slug => CATEGORIA_POR_SLUG.get(slug))
     .filter(Boolean)
 
-  // "🧱 Pequeno reparo": fica aqui, com Alvenaria selecionada.
-  const ficarNoReparo = () => setEscolhaAlvenaria(null)
-
-  // Voltar do Android com a folha aberta: nenhuma escolha feita, então a lista volta à
-  // anterior (sem Alvenaria). A folha não fecha por toque fora — a escolha é obrigatória.
-  const desistirDaEscolha = () => {
-    if (escolhaAlvenaria) setCategorias(escolhaAlvenaria.anterior)
-    setEscolhaAlvenaria(null)
-  }
-
-  // Arrastar para baixo nas duas folhas desta tela (useArrastarParaFechar): o picker de mídia
-  // fecha como o toque fora e o voltar; a folha de Alvenaria desfaz a escolha, exatamente o
-  // que o voltar do Android já fazia (desistirDaEscolha).
+  // Arrastar o título do picker de mídia para baixo fecha como o toque fora e o voltar.
   const arrastePicker = useArrastarParaFechar(() => setPickerMidia(null), pickerMidia != null)
-  const arrasteAlvenaria = useArrastarParaFechar(desistirDaEscolha, escolhaAlvenaria != null)
 
-  // "🏗️ Pedreiro ou ajudante": é obra. Leva o que já foi preenchido para
-  // CadastrarObraScreen — título, descrição, endereço completo (CEP, rua, número,
-  // complemento, bairro, cidade, UF, ponto de referência) e as mídias, inclusive as já
-  // enviadas (o upload não é por vertical) — na MESMA conta. Valor e prazo ficam de fora:
-  // as escalas de obra são outras (a lista de prazos nem coincide) e um valor de reparo
-  // pré-preenchido numa obra induziria a publicar barato sem perceber.
-  // `rotaOrigem` é o nome desta rota (muda entre o stack da aba e o legado): é por ele
-  // que a obra publicada volta para cá com { obraPublicada: true } e limpa o formulário.
-  // A categoria selecionada NÃO volta à anterior: a pessoa pediu Alvenaria e, se voltar
-  // pela seta, encontra o formulário como o deixou.
-  const irParaObra = () => {
-    setEscolhaAlvenaria(null)
+  // Tile "Obras de Construção Civil" do passo 1: empilha o cadastro de obra que já existe
+  // (CadastrarObraScreen, na mesma aba). Nada é levado daqui — a obra começa do zero — e este
+  // formulário fica como está por baixo: o ← de lá devolve a pessoa aos grupos.
+  const abrirObra = () => {
     Keyboard.dismiss()
-    navigation.navigate('CadastrarObra', {
-      deReparo: {
-        rotaOrigem: route?.name,
-        titulo, descricao,
-        cep, logradouro, numero, complemento, bairro, cidade, uf, pontoReferencia, enderecoEncontrado,
-        midias: midia.itens,
-      },
-    })
+    navigation.navigate('CadastrarObra')
   }
 
   // Desfecho do serviço publicado com sucesso. Sem permissão de notificação, o sheet
@@ -440,9 +394,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // concedida (ou falha na consulta) o mostrar() devolve false e vale o fluxo de sempre —
   // alerta, lista e o soft-ask, que nesse caso é no-op por conta própria.
   const anunciarPublicado = async () => {
-    if (await avisarPedidoRef.mostrar?.()) { navigation.navigate('Meus Reparos'); return }
+    if (await avisarPedidoRef.mostrar?.()) { navigation.navigate('Meus pedidos'); return }
     Alert.alert('✅ Serviço publicado!', 'Seu serviço já está visível para profissionais qualificados da sua região!',
-      [{ text: 'OK', onPress: () => { navigation.navigate('Meus Reparos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
+      [{ text: 'OK', onPress: () => { navigation.navigate('Meus pedidos'); softAskRef.mostrar?.('dono_reparo') } }], { cancelable: false })
   }
 
   // Publica as mídias e trata sucesso total ou parcial (retry só das pendentes).
@@ -464,7 +418,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         `Seu serviço foi criado, mas ${falhas.length} mídia(s) não foram enviadas. Deseja tentar enviá-las novamente?${dicaVideo}`,
         [
           { text: 'Tentar novamente', onPress: () => { setCarregando(true); finalizarPublicacao(reparoId, falhas) } },
-          { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Meus Reparos') },
+          { text: 'Continuar assim mesmo', onPress: () => navigation.navigate('Meus pedidos') },
         ],
         { cancelable: false }
       )
@@ -534,25 +488,28 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // Picker: fecha, solta o teclado e abre a câmera/galeria com a mesma folga de sempre.
   const abrirMidia = (fn) => { Keyboard.dismiss(); setPickerMidia(null); setTimeout(() => fn(), 500) }
 
-  // Esta tela é a RAIZ da aba "Novo Reparo" (dono_reparo): a stack da aba só contém esta rota
-  // (index 0) e não existe "voltar" no passo 1 — a seta nem é renderizada. No fluxo empilhado
-  // legado (DonoApp, tipo_dono indefinido) a mesma tela é empilhada (index > 0) e aí a seta
-  // aparece e volta de fato. Checamos o index da PRÓPRIA stack — canGoBack() sobe para o
-  // tab/root e podia resolver true nesta raiz de aba. Nos passos 2–4 a seta volta um passo.
+  // Esta tela é a RAIZ da aba "Novo pedido" do dono: a stack da aba começa nesta rota
+  // (index 0) e não existe "voltar" no passo 1 — a seta nem é renderizada. Se um dia for
+  // empilhada (index > 0), a seta aparece e volta de fato. Checamos o index da PRÓPRIA stack
+  // — canGoBack() sobe para o tab/root e podia resolver true nesta raiz de aba. Nos passos
+  // 2–4 a seta volta um passo.
   const naRaiz = (navigation.getState()?.index ?? 0) === 0
   const mostrarVoltar = passo > 1 || !naRaiz
+  const deNovoPedido = route?.name === ROTA_NOVO_PEDIDO
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <MolduraWizard
         passo={passo}
+        // "Cadastrar pedido" quando aberta pela aba "Novo pedido" (serviço E obra saem daqui);
+        // fora dela vale o título padrão da moldura, "Cadastrar serviço".
+        tituloTela={deNovoPedido ? 'Cadastrar pedido' : undefined}
         onVoltar={voltarPasso}
         mostrarVoltar={mostrarVoltar}
         scrollRef={scrollRef}
         reservaInferior={reservaInferior}
-        // Só na raiz da aba "Novo Serviço" (rota *Main) e no 1º passo: é a tela inicial do
-        // dono_reparo e a aba Perfil existe. No stack legado (rota 'CadastrarReparo') não há Perfil.
-        acimaDoTitulo={passo === 1 && route?.name === 'CadastrarReparoMain' ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
+        // Só na raiz da aba "Novo pedido" e no 1º passo: é a tela inicial do dono.
+        acimaDoTitulo={passo === 1 && deNovoPedido ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
         rodape={passo < TOTAL_PASSOS
           ? <RodapeWizard rotulo="Continuar →" onPress={avancar} />
           : <RodapeWizard
@@ -573,6 +530,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
               bloqueado={noLimite}
               onAbrir={(g) => { Keyboard.dismiss(); setGrupoAberto(g) }}
               onOutros={() => selecionarCategoria(SLUG_OUTROS)}
+              onObras={deNovoPedido ? abrirObra : undefined}
             />
             <ChipsEscolhidos categorias={categorias} onRemover={selecionarCategoria} />
             {/* Sugestões: só depois da primeira marcada e enquanto há vaga. */}
@@ -652,46 +610,6 @@ export default function CadastrarReparoScreen({ navigation, route }) {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
-
-      {/* Escolha OBRIGATÓRIA ao tocar em Alvenaria. O overlay é uma View, não um
-          TouchableOpacity como o do picker acima: não há "tocar fora para fechar" nem
-          botão Cancelar — as duas saídas são as duas opções. O botão voltar do Android
-          (onRequestClose) e o arraste da alça/cabeçalho para baixo desfazem a seleção em
-          vez de deixar Alvenaria marcada sem escolha. Verde = fica (mesmo token de
-          aprovação do app); azul = vai para a obra (token informativo) — a cor diz de
-          longe qual opção muda de tela. */}
-      <Modal visible={escolhaAlvenaria != null} transparent animationType="slide" onRequestClose={desistirDaEscolha}>
-        <View style={estilos.modalOverlay}>
-          <Animated.View style={[estilos.modalSheet, arrasteAlvenaria.estiloArraste]}>
-            <View {...arrasteAlvenaria.panHandlers}>
-              <View style={estilos.escolhaAlca} />
-              {/* "✕ Fechar" = desistir da escolha, o mesmo do voltar do Android e do arraste. */}
-              <LinhaCabecalhoFolha onFechar={desistirDaEscolha}>
-                <Text style={estilos.escolhaTitulo}>🧱 O que você precisa?</Text>
-              </LinhaCabecalhoFolha>
-              <Text style={estilos.escolhaSubtitulo}>Assim sua demanda chega aos profissionais certos</Text>
-            </View>
-            {/* Cada opção: emoji grande numa coluna à esquerda; à direita título, descrição
-                e a linha-link na cor da opção dizendo para onde ela leva. */}
-            <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoVerde]} onPress={ficarNoReparo} activeOpacity={0.8}>
-              <Text style={estilos.escolhaOpcaoEmoji}>🧱</Text>
-              <View style={estilos.escolhaOpcaoTexto}>
-                <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.sucesso }]}>Pequeno reparo</Text>
-                <Text style={estilos.escolhaOpcaoDesc}>Tapar buraco, consertar muro, rachadura, reboco pontual</Text>
-                <Text style={[estilos.escolhaOpcaoLink, { color: cores.sucesso }]}>Continua aqui em Serviços →</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity style={[estilos.escolhaOpcao, estilos.escolhaOpcaoAzul]} onPress={irParaObra} activeOpacity={0.8}>
-              <Text style={estilos.escolhaOpcaoEmoji}>🏗️</Text>
-              <View style={estilos.escolhaOpcaoTexto}>
-                <Text style={[estilos.escolhaOpcaoTitulo, { color: cores.info }]}>Pedreiro ou ajudante</Text>
-                <Text style={estilos.escolhaOpcaoDesc}>Diária, reforma, construção, obra maior</Text>
-                <Text style={[estilos.escolhaOpcaoLink, { color: cores.info }]}>Vai para Construção civil, com seus dados já preenchidos →</Text>
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Modal>
     </SafeAreaView>
   )
 }
@@ -704,19 +622,4 @@ const estilos = StyleSheet.create({
   modalTitulo: { fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 16, textAlign: 'center' },
   modalOpcao: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 16, alignItems: 'center', marginBottom: 8 },
   modalOpcaoTexto: { fontSize: 15, color: cores.textoForte, fontWeight: '500' },
-  // Folha de escolha de Alvenaria. Reusa modalOverlay/modalSheet/modalTitulo do picker;
-  // o que é próprio dela está aqui. As duas opções têm a MESMA forma e só trocam o par
-  // fundo/borda (sucessoSuave+sucesso, infoSuave+info) — mesmo casamento Suave/sólida
-  // que o TelaAviso usa, para o verde e o azul nunca saírem de tons diferentes do app.
-  escolhaAlca: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: cores.textoFraco, marginTop: -8, marginBottom: 16 },
-  escolhaTitulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, textAlign: 'center', marginBottom: 4 },
-  escolhaSubtitulo: { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20, marginBottom: 16 },
-  escolhaOpcao: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, borderRadius: raios.grande, borderWidth: 1.5, padding: 16, marginBottom: 12 },
-  escolhaOpcaoVerde: { backgroundColor: cores.sucessoSuave, borderColor: cores.sucesso },
-  escolhaOpcaoAzul: { backgroundColor: cores.infoSuave, borderColor: cores.info },
-  escolhaOpcaoEmoji: { fontSize: 36, lineHeight: 44 },
-  escolhaOpcaoTexto: { flex: 1 },
-  escolhaOpcaoTitulo: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
-  escolhaOpcaoDesc: { fontSize: 13, color: cores.textoForte, lineHeight: 19, opacity: 0.85, marginBottom: 8 },
-  escolhaOpcaoLink: { fontSize: 12, fontWeight: '700', lineHeight: 17 },
 })

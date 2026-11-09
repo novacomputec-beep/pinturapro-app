@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
@@ -35,6 +36,10 @@ export const URGENCIAS = [
 ]
 
 const CATEGORIA_POR_SLUG = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
+
+// Tile largo de obras do passo 1 do "Cadastrar pedido" (Arte-Fase1-Contratar): a porta para o
+// cadastro de obra, junto dos grupos de serviço. Os exemplos são os da arte.
+export const TILE_OBRAS = { emoji: '🏗️', titulo: 'Obras de Construção Civil', desc: 'Pintura, reforma, construção, pedreiro' }
 
 // ─── Moldura: cabeçalho com barra de progresso, miolo rolável e rodapé fixo ───────────────
 // O rodapé fica FORA da ScrollView e dentro do KeyboardAvoidingView: visível sempre, com o
@@ -96,7 +101,11 @@ export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota }
 // (os tiles sem marcada apagam, o de um grupo com marcada segue abrindo para desmarcar).
 // tileOutros: { titulo, desc, emoji } do tile largo (TILE_OUTROS por padrão; as especialidades
 // passam "Outros serviços"). legendas: linha "N marcada(s)" / "Toque para ver" em cada tile.
-export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros, tileOutros = TILE_OUTROS, legendas = false }) {
+// onObras: só no "Cadastrar pedido" do dono (Arte-Fase1-Contratar) — desenha o tile largo em
+// destaque (TILE_OBRAS, borda e gradiente laranja) ENTRE os grupos e o "Não achei o meu
+// serviço"; o toque abre o cadastro de obra. Não é categoria: não marca, não conta no limite
+// e segue ativo com o limite atingido.
+export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbrir, onOutros, tileOutros = TILE_OUTROS, legendas = false, onObras }) {
   return (
     <View style={estilos.grade}>
       {grupos.map((g) => {
@@ -120,6 +129,24 @@ export function GradeGrupos({ grupos, contagem, outrosMarcado, bloqueado, onAbri
           </TouchableOpacity>
         )
       })}
+      {onObras ? (
+        <TouchableOpacity
+          style={estilos.tileObras}
+          onPress={onObras}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={`${TILE_OBRAS.titulo}: ${TILE_OBRAS.desc}`}
+        >
+          <LinearGradient colors={['#3A2110', '#1E140C', '#141110']} locations={[0, 0.6, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={estilos.tileObrasMiolo}>
+            <Text style={estilos.tileEmoji}>{TILE_OBRAS.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[estilos.tileTitulo, estilos.tileObrasTitulo]}>{TILE_OBRAS.titulo}</Text>
+              <Text style={estilos.tileDesc}>{TILE_OBRAS.desc}</Text>
+            </View>
+            <Text style={estilos.tileObrasSeta}>→</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      ) : null}
       <TouchableOpacity
         style={[estilos.tileLargo, outrosMarcado && estilos.tileAtivo, bloqueado && !outrosMarcado && estilos.tileApagado]}
         onPress={onOutros}
@@ -518,6 +545,12 @@ const estilos = StyleSheet.create({
   tileBadge: { position: 'absolute', top: 8, right: 8, minWidth: 22, height: 22, borderRadius: 11, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   tileBadgeTexto: { fontSize: 12, fontWeight: '800', color: '#0A0A0A' },
   tileLargo: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoCard, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, padding: 14 },
+  // Tile de obras: a borda e o raio ficam no Touchable, que recorta o gradiente (mesmo molde
+  // do CartaoEscolha); o gradiente só carrega o padding. Laranja da arte, do canto para o fundo.
+  tileObras: { width: '100%', borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.grande, overflow: 'hidden' },
+  tileObrasMiolo: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  tileObrasTitulo: { textAlign: 'left', fontSize: 15, fontWeight: '700', color: '#F2C9A5' },
+  tileObrasSeta: { fontSize: 18, fontWeight: '700', color: cores.primaria },
   // Tiles da obra: mais altos (têm a linha de exemplos) e com o ✓ no canto quando escolhidos.
   tileObra: { minHeight: 128, gap: 4 },
   tileExemplos: { fontSize: 11, color: cores.textoMedio, textAlign: 'center', lineHeight: 15 },

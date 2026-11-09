@@ -74,12 +74,11 @@ export default function DicasTemaScreen({ navigation, route }) {
       case 'ativar_avisos':
         navigation.navigate('PerfilMain', { ativarNotificacoes: Date.now() })
         return
-      case 'meus_pedidos': {
-        const tipo = ehPrestador ? usuario?.tipo_prestador : usuario?.tipo_dono
-        const obra = ehPrestador ? tipo === 'pintor' : tipo !== 'reparo'
-        navigation.navigate(obra ? 'Minhas Obras' : 'Meus Reparos')
+      case 'meus_pedidos':
+        // Profissional: a aba do tipo dele. Dono: "Meus pedidos", uma só para serviços e obras.
+        if (ehPrestador) navigation.navigate(usuario?.tipo_prestador === 'pintor' ? 'Minhas Obras' : 'Meus Reparos')
+        else navigation.navigate('Meus pedidos')
         return
-      }
       case 'editar_perfil':
         navigation.navigate('EditarPerfil')
         return

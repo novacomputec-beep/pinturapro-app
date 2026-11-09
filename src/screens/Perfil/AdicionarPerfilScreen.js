@@ -25,7 +25,8 @@ export function AdicionarPerfilConteudo({ perfil, selecionadas, onAlternar }) {
   return (
     <>
       <Text style={estilos.titulo}>{perfil?.icone} {perfil?.rotulo}</Text>
-      <Text style={estilos.subtitulo}>Novo perfil no mesmo e-mail e senha.</Text>
+      {/* Contratar é um perfil só (Fase 1): diz o que ele cobre, sem "serviço" ou "obra" sozinho. */}
+      <Text style={estilos.subtitulo}>{perfil?.profissional ? 'Novo perfil no mesmo e-mail e senha.' : `${perfil?.descricao}. Novo perfil no mesmo e-mail e senha.`}</Text>
 
       <View style={estilos.aviso}>
         <Text style={estilos.avisoTexto}>✅ Já aproveitamos do seu cadastro: nome, CPF, telefone, e-mail, senha e cidade.</Text>

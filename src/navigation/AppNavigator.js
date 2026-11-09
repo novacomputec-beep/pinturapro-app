@@ -61,29 +61,25 @@ import FeedReparosScreen      from '../screens/Reparos/FeedReparosScreen'
 import DetalheReparoScreen    from '../screens/Reparos/DetalheReparoScreen'
 import MeusInteressesScreen   from '../screens/Reparos/MeusInteressesScreen'
 
-// App — Dono de Obra
-import MinhasObrasScreen      from '../screens/DonoObra/MinhasObrasScreen'
+// App — Dono (lado contratante unificado, Fase 1)
+import MeusPedidosScreen      from '../screens/DonoObra/MeusPedidosScreen'
 import CadastrarObraScreen    from '../screens/DonoObra/CadastrarObraScreen'
 import CadastrarReparoScreen  from '../screens/DonoObra/CadastrarReparoScreen'
+import { useTemObras, temObrasAtual } from '../utils/temObras'
 
 const Stack                = createNativeStackNavigator()
 const Tab                  = createBottomTabNavigator()
 const FeedStack            = createNativeStackNavigator()
 const ReparoStack          = createNativeStackNavigator()
-const DonoStack            = createNativeStackNavigator()
 const PerfilStack          = createNativeStackNavigator()
-const NovoReparoStack      = createNativeStackNavigator()
-const MeusReparosStack     = createNativeStackNavigator()
-const NovaObraStack        = createNativeStackNavigator()
-const MinhasObrasStack     = createNativeStackNavigator()
+const NovoPedidoStack      = createNativeStackNavigator()
+const MeusPedidosStack     = createNativeStackNavigator()
 const MeusInteressesStack  = createNativeStackNavigator()
 const MinhasObrasInteresseStack = createNativeStackNavigator()
 const ContratosFinObraStack     = createNativeStackNavigator()
 const ContratosFinReparoStack   = createNativeStackNavigator()
-const ContratosFinDonoReparoStack = createNativeStackNavigator()
-const ContratosFinDonoObraStack   = createNativeStackNavigator()
-const DonoReparoTab        = createBottomTabNavigator()
-const DonoObraTab          = createBottomTabNavigator()
+const ContratosFinDonoStack     = createNativeStackNavigator()
+const DonoTab              = createBottomTabNavigator()
 
 export { navigationRef }
 
@@ -93,6 +89,21 @@ export { navigationRef }
 let usuarioContexto = null
 export const setUsuarioContexto = (u) => { usuarioContexto = u }
 
+// Abas do DONO (Fase 1, Arte-Fase1-Contratar): um navegador só para o role dono_obra, com
+// qualquer tipo_dono — "Novo pedido", "Meus pedidos", "Finalizados" (rota 'Contratos
+// Finalizados', como nas abas do profissional), "Mensagens" (só com tem_obras) e "Perfil".
+// Os nomes ANTIGOS das abas do dono seguem aceitos como apelidos: quem ainda pedir "Meus
+// Reparos"/"Minhas Obras" (as duas listas viraram uma) ou "Novo Reparo"/"Nova Obra" (os dois
+// cadastros viraram um) cai na aba nova. Só vale para o dono — no profissional "Meus
+// Reparos" e "Minhas Obras" continuam sendo abas de verdade.
+const APELIDOS_ABA_DONO = {
+  'Meus Reparos': 'Meus pedidos',
+  'Minhas Obras': 'Meus pedidos',
+  'Novo Reparo':  'Novo pedido',
+  'Nova Obra':    'Novo pedido',
+}
+export const abaDoDono = (nome) => APELIDOS_ABA_DONO[nome] || nome
+
 const navegarParaNotificacao = (data) => {
   if (!navigationRef.current || !data?.tipo) return
   const u = usuarioContexto || {}
@@ -100,34 +111,36 @@ const navegarParaNotificacao = (data) => {
   const usaTabsReparador = u.role === 'prestador' && u.tipo_prestador !== 'pintor'
   const ehPrestador      = usaTabsPintor || usaTabsReparador
   const ehDono           = u.role === 'dono_obra'
-  const ehDonoReparo     = ehDono && u.tipo_dono === 'reparo'
-  // Donos com navegador de abas (reparo/pintura) possuem a aba "Contratos Finalizados".
-  // O fallback (tipo_dono indefinido) usa um stack sem essa aba.
-  const ehDonoComAba     = u.role === 'dono_obra' && (u.tipo_dono === 'reparo' || u.tipo_dono === 'pintura')
-  // Aba que hospeda o DetalheObra. O dono_reparo não tem "Minhas Obras" — sua obra (saída
-  // "Pedreiro ou ajudante" de Alvenaria) vive em "Meus Reparos", onde DetalheObra está
-  // registrado. Todos os outros papéis seguem com o literal de sempre.
-  const abaObra          = ehDonoReparo ? 'Meus Reparos' : 'Minhas Obras'
+  // Todo dono tem o navegador de abas (com "Contratos Finalizados" e "Perfil"): não existe
+  // mais o stack de fallback para tipo_dono indefinido.
+  const ehDonoComAba     = ehDono
+  // Abas que hospedam o DetalheObra e o DetalheReparo. Para o DONO as duas são "Meus
+  // pedidos" (serviços e obras na mesma lista, os dois detalhes registrados lá); para o
+  // profissional, os literais de sempre.
+  const abaObra          = ehDono ? 'Meus pedidos' : 'Minhas Obras'
+  const abaReparo        = ehDono ? 'Meus pedidos' : 'Meus Reparos'
 
   // Aba de itens em andamento conforme o navegador montado para este usuário
   const tabEmAndamento =
     usaTabsPintor    ? 'Minhas Obras' :
     usaTabsReparador ? 'Meus Reparos' :
-    ehDonoReparo     ? 'Meus Reparos' :
-                       'Minhas Obras'   // dono de obra (pintura/fallback)
+                       'Meus pedidos'   // dono (qualquer tipo_dono)
 
-  const navegar = (nome) => navigationRef.current.navigate(nome)
+  // Toda navegação deste roteador passa por aqui: para o dono, um nome antigo de aba é
+  // traduzido para a aba nova (abaDoDono); para os demais o nome segue como veio.
+  const ir = (aba, params) => navigationRef.current.navigate(ehDono ? abaDoDono(aba) : aba, params)
+  const navegar = (nome) => ir(nome)
   try {
     // Alertas de expiração (obra/reparo): cobrem por prefixo TODOS os marcos
     // (…_6h/_60/_30/_15) e o legado …_sem_interessados — deep-link direto ao detalhe.
     // Só navega com o id presente; sem id, cai no switch (que não trata estes tipos)
     // e não faz nada, em vez de abrir o detalhe com id indefinido.
     if (data.tipo.startsWith('obra_expirando') && data.obra_id) {
-      navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+      ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
       return
     }
     if (data.tipo.startsWith('reparo_expirando') && data.reparo_id) {
-      navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+      ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
       return
     }
     switch (data.tipo) {
@@ -142,9 +155,10 @@ const navegarParaNotificacao = (data) => {
         break
       // Mensagens
       case 'nova_mensagem':
-        // dono_reparo não tem a aba Mensagens: com id, abre a obra; sem id, a lista.
-        if (ehDonoReparo) {
-          if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        // A aba Mensagens do dono só existe com tem_obras (utils/temObras). Sem ela — ou
+        // antes de a consulta voltar —, com id abre a obra; sem id, a lista.
+        if (ehDono && !temObrasAtual()) {
+          if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
           else navegar(tabEmAndamento)
           break
         }
@@ -156,7 +170,7 @@ const navegarParaNotificacao = (data) => {
         // (abrirAvaliacao). Vale também para o encerramento automático, em que o dono não
         // passou pelo botão "Encerrar". Sem id, cai no destino de sempre.
         if (ehDono && data.obra_id) {
-          navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id }, abrirAvaliacao: true }, initial: false })
+          ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id }, abrirAvaliacao: true }, initial: false })
           break
         }
         // PROFISSIONAL: o dono encerrou. Cai na lista de finalizados já com o ModalDenuncia
@@ -169,7 +183,7 @@ const navegarParaNotificacao = (data) => {
       case 'reparo_encerrado':
         // DONO: mesmo destino de 'obra_encerrada' acima, no detalhe do reparo.
         if (ehDono && data.reparo_id) {
-          navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirAvaliacao: true }, initial: false })
+          ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirAvaliacao: true }, initial: false })
           break
         }
         if (usaTabsReparador && data.reparo_id) {
@@ -182,12 +196,12 @@ const navegarParaNotificacao = (data) => {
       // isso compartilham o destino: um id só, da vertical certa, sem probe cruzado.
       case 'candidatura_aceita':
       case 'match_obra':
-        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'interesse_aceito':
       case 'match_reparo':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Proposta NOVA recebida (dono) — deep-link direto ao detalhe, que é onde vive a
@@ -195,17 +209,17 @@ const navegarParaNotificacao = (data) => {
       // único indício é o contador "N profissional(is) interessado(s)": não diz QUAL
       // demanda recebeu a proposta nem leva até ela. Mesma forma de 'candidatura_aceita'.
       case 'nova_candidatura':
-        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       case 'novo_interesse':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Contraproposta do dono — deep-link direto ao detalhe (reparo ou obra) p/ o prestador responder
       case 'contraproposta_dono':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Demanda próxima: quem recebe ainda NÃO está envolvido com ela, então o item vive
@@ -224,25 +238,25 @@ const navegarParaNotificacao = (data) => {
       // sem o id o dono não tem como abrir o motivo da recusa.
       case 'obra_aprovada':
       case 'obra_recusada':
-        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // O par do reparo (routes/index.js: notificarAprovacaoReparo), mesma razão: o reparo
       // recusado não aparece em "Meus Reparos", só o detalhe mostra o motivo.
       case 'reparo_aprovado':
       case 'reparo_recusado':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Faltam 5 min no cronômetro do match — dono_reparo vai direto ao detalhe p/ aumentar prazo ou aguardar
       case 'reparo_5min_restantes':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Mesmo marco do lado da obra: o dono decide entre aumentar o prazo e esperar, e as
       // duas coisas estão no detalhe.
       case 'obra_5min_restantes':
-        if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Negociação da CHEGADA (janela proposta → aceita/recusada → chegada declarada →
@@ -251,9 +265,9 @@ const navegarParaNotificacao = (data) => {
       // profissional propõe outra janela depois de uma recusa. Cair na lista deixaria a
       // pessoa a um toque da ação sem dizer QUAL item está esperando por ela — o mesmo
       // motivo que já tirou 'nova_candidatura' da lista.
-      // Quem escolhe a aba é o par obra/reparo, não o papel: 'Meus Reparos' atende
-      // reparador E dono_reparo, 'Minhas Obras' atende pintor E dono_obra. Mesma forma de
-      // 'contraproposta_dono', que também chega aos dois lados.
+      // Quem escolhe a aba é o par obra/reparo (abaReparo/abaObra): no profissional, 'Meus
+      // Reparos' (reparador) e 'Minhas Obras' (pintor); no dono as duas são 'Meus pedidos'.
+      // Mesma forma de 'contraproposta_dono', que também chega aos dois lados.
       case 'chegada_prevista':
       case 'chegada_prevista_pendente':
       case 'chegada_prevista_aceita':
@@ -313,15 +327,15 @@ const navegarParaNotificacao = (data) => {
       // a conclusão. O botão "Concluí o serviço/a obra" vive no detalhe. Payload
       // { tipo, reparo_id | obra_id } — mesmo probe.
       case 'lembrete_conclusao':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Vigia do comparecimento ("o profissional veio?"): mesmo destino, com o param que abre
       // o modal de resposta assim que o detalhe carrega.
       case 'confirmar_comparecimento':
-        if (data.reparo_id) navigationRef.current.navigate('Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirComparecimento: true }, initial: false })
-        else if (data.obra_id) navigationRef.current.navigate(abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id }, abrirComparecimento: true }, initial: false })
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, abrirComparecimento: true }, initial: false })
+        else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id }, abrirComparecimento: true }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Estado da CONTA, não de uma demanda: o que se faz a respeito (ler o motivo,
@@ -394,8 +408,8 @@ const navegarParaNotificacao = (data) => {
       // papel, como no 'link_demanda' logo abaixo.
       case 'nova_pergunta':
       case 'pergunta_respondida':
-        if (data.reparo_id) navigationRef.current.navigate(ehPrestador ? 'Reparos' : 'Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
-        else if (data.obra_id) navigationRef.current.navigate(ehPrestador ? 'Obras' : abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        if (data.reparo_id) ir(ehPrestador ? 'Reparos' : abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+        else if (data.obra_id) ir(ehPrestador ? 'Obras' : abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Link compartilhado (protudo://p/CODIGO | https://protudo.app.br/p/CODIGO), já
@@ -408,10 +422,10 @@ const navegarParaNotificacao = (data) => {
       case 'link_demanda':
         if (data.reparo_id) {
           if (usaTabsPintor) { mostrarAviso('Este link é de um serviço doméstico, fora da sua área.'); break }
-          navigationRef.current.navigate(ehPrestador ? 'Reparos' : 'Meus Reparos', { screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+          ir(ehPrestador ? 'Reparos' : abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         } else if (data.obra_id) {
           if (usaTabsReparador) { mostrarAviso('Este link é de uma obra, fora da sua área.'); break }
-          navigationRef.current.navigate(ehPrestador ? 'Obras' : abaObra, { screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+          ir(ehPrestador ? 'Obras' : abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         }
         break
       // Avisos do PAINEL (comunicado do admin e promoção): não apontam para nenhuma tela do
@@ -433,10 +447,12 @@ const navegarParaNotificacao = (data) => {
 
 // A aba Perfil mostra a FOTO do usuário no lugar do boneco genérico: é a única aba que
 // aponta para algo que é DELE, e o próprio rosto se reconhece antes de qualquer ícone.
-// Serve as quatro tab bars do app (pintor, prestador, dono de reparo, dono de obra) —
-// todas passam por aqui, então a foto entra nas quatro de uma vez.
+// Serve as três tab bars do app (pintor, prestador, dono) — todas passam por aqui, então a
+// foto entra nas três de uma vez.
 const TabIcone = ({ nome, focado }) => {
-  const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo Reparo': '➕', 'Meus Reparos': '📋', 'Nova Obra': '🏗️', 'Minhas Obras': '📋' }
+  // 'Novo pedido' e 'Meus pedidos' são as abas do dono; 'Meus Reparos' e 'Minhas Obras'
+  // seguem sendo as do profissional.
+  const mapa = { Obras: '🏗️', 'Contratos Finalizados': '✅', Mensagens: '💬', Perfil: '👤', Reparos: '🔧', 'Novo pedido': '➕', 'Meus pedidos': '📋', 'Meus Reparos': '📋', 'Minhas Obras': '📋' }
   const { usuario } = useAuth()
   // Rede de segurança da foto, como nos cards do feed: a URL pode não renderizar (link
   // quebrado, mídia removida, transformação recusada). Sem isto sobraria um círculo vazio.
@@ -839,20 +855,14 @@ const ContratosFinReparoNavigator = () => (
   </ContratosFinReparoStack.Navigator>
 )
 
-// Stack: Contratos Finalizados (dono_reparo — reparos concluídos onde contratou um prestador)
-const ContratosFinDonoReparoNavigator = () => (
-  <ContratosFinDonoReparoStack.Navigator screenOptions={{ headerShown: false }}>
-    <ContratosFinDonoReparoStack.Screen name="ContratosFinDonoReparoMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'reparo', perfil: 'dono' }} />
-    <ContratosFinDonoReparoStack.Screen name="DetalheReparo"              component={DetalheReparoScreen} />
-  </ContratosFinDonoReparoStack.Navigator>
-)
-
-// Stack: Contratos Finalizados (dono_obra — obras concluídas onde contratou um prestador)
-const ContratosFinDonoObraNavigator = () => (
-  <ContratosFinDonoObraStack.Navigator screenOptions={{ headerShown: false }}>
-    <ContratosFinDonoObraStack.Screen name="ContratosFinDonoObraMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'obra', perfil: 'dono' }} />
-    <ContratosFinDonoObraStack.Screen name="DetalheObra"              component={DetalheObraScreen} />
-  </ContratosFinDonoObraStack.Navigator>
+// Stack: Contratos Finalizados (dono — serviços E obras concluídos onde contratou um
+// profissional, na mesma lista: tipo 'ambos'). Os dois detalhes ficam registrados aqui.
+const ContratosFinDonoNavigator = () => (
+  <ContratosFinDonoStack.Navigator screenOptions={{ headerShown: false }}>
+    <ContratosFinDonoStack.Screen name="ContratosFinDonoMain" component={ContratosFinalizadosScreen} initialParams={{ tipo: 'ambos', perfil: 'dono' }} />
+    <ContratosFinDonoStack.Screen name="DetalheReparo"        component={DetalheReparoScreen} />
+    <ContratosFinDonoStack.Screen name="DetalheObra"          component={DetalheObraScreen} />
+  </ContratosFinDonoStack.Navigator>
 )
 
 // Estilo compartilhado da barra de abas. Deriva a reserva inferior do inset da barra
@@ -897,7 +907,7 @@ const TabsPintorNavigator = () => {
 
 // Tabs do Prestador (Reparos, Meus Reparos, Contratos Finalizados, Perfil) — sem Mensagens:
 // a tela é obra-only (candidaturas + /mensagens/obra/:id) e a aba só existe nos navegadores
-// de pintura (TabsPintorNavigator, DonoObraTabNavigator).
+// de pintura (TabsPintorNavigator) e nas do dono que tem obra (DonoTabNavigator).
 const TabsPrestadorNavigator = () => {
   const tabBarStyle = useTabBarStyle()
   return (
@@ -919,92 +929,56 @@ const TabsPrestadorNavigator = () => {
   )
 }
 
-// Tab: Novo Reparo (dono_reparo)
-const NovoReparoTabStack = () => (
-  <NovoReparoStack.Navigator screenOptions={{ headerShown: false }}>
-    <NovoReparoStack.Screen name="CadastrarReparoMain" component={CadastrarReparoScreen} />
-    {/* Destino da escolha "Pedreiro ou ajudante" em Alvenaria: a obra é cadastrada pela
-        MESMA conta (dono_reparo), empilhada sobre o formulário de serviço para que a
-        seta de voltar devolva a pessoa ao que ela estava preenchendo. Mesmo nome de
-        rota do stack legado (DonoObraNavigator), então o navigate é um só na tela. */}
-    <NovoReparoStack.Screen name="CadastrarObra"        component={CadastrarObraScreen} />
-  </NovoReparoStack.Navigator>
+// ─── DONO: lado contratante unificado (Fase 1, Arte-Fase1-Contratar) ──────────────────────
+// UM navegador de abas para o role dono_obra, com qualquer tipo_dono (reparo, pintura ou
+// indefinido): substitui as abas do dono de serviço, as do dono de obra e o stack de fallback.
+// A API já devolve à conta contratante os serviços e as obras da PESSOA (mesmo CPF), então
+// não há mais "lado" a escolher aqui.
+
+// Aba "Novo pedido": o cadastro de serviço é a raiz ("Cadastrar pedido"); o tile "Obras de
+// Construção Civil" do passo 1 empilha o cadastro de obra, e o ← de lá volta aos grupos.
+const NovoPedidoTabStack = () => (
+  <NovoPedidoStack.Navigator screenOptions={{ headerShown: false }}>
+    <NovoPedidoStack.Screen name="CadastrarPedidoMain" component={CadastrarReparoScreen} />
+    <NovoPedidoStack.Screen name="CadastrarObra"       component={CadastrarObraScreen} />
+  </NovoPedidoStack.Navigator>
 )
 
-// Tab: Meus Reparos (dono_reparo)
-const MeusReparosTabStack = () => (
-  <MeusReparosStack.Navigator screenOptions={{ headerShown: false }}>
-    <MeusReparosStack.Screen name="ListaReparos" component={MinhasObrasScreen} initialParams={{ soAba: 'reparos' }} />
-    <MeusReparosStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
-    {/* O dono_reparo pode ter obras (saída "Pedreiro ou ajudante" de Alvenaria); a lista
-        as mostra e o toque no card precisa ter para onde ir. */}
-    <MeusReparosStack.Screen name="DetalheObra"   component={DetalheObraScreen} />
-  </MeusReparosStack.Navigator>
+// Aba "Meus pedidos": serviços e obras na mesma lista; o card abre o detalhe do tipo dele.
+const MeusPedidosTabStack = () => (
+  <MeusPedidosStack.Navigator screenOptions={{ headerShown: false }}>
+    <MeusPedidosStack.Screen name="ListaPedidos"  component={MeusPedidosScreen} />
+    <MeusPedidosStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
+    <MeusPedidosStack.Screen name="DetalheObra"   component={DetalheObraScreen} />
+  </MeusPedidosStack.Navigator>
 )
 
-// Tab Navigator para dono de reparo
 const donoTabOpts = {
   headerShown: false,
   tabBarActiveTintColor: cores.primaria,
   tabBarInactiveTintColor: cores.textoFraco,
   tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
 }
-const DonoReparoTabNavigator = () => {
+const DonoTabNavigator = () => {
   const tabBarStyle = useTabBarStyle()
+  const { usuario } = useAuth()
+  // "Mensagens" é o chat de OBRA: só aparece para quem tem alguma obra (GET /auth/contas →
+  // tem_obras, por pessoa). Quem nunca abriu obra vê quatro abas; ao publicar a primeira, a
+  // quinta surge sem reabrir o app (utils/temObras).
+  const temObras = useTemObras(usuario?.id)
   return (
-  <DonoReparoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarStyle, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
-    {/* `title` muda SÓ o rótulo visível; o name segue 'Novo Reparo' porque é a chave de
-        rota usada por navigate() e pelo mapa de ícones do TabIcone (route.name). */}
-    <DonoReparoTab.Screen name="Novo Reparo"   component={NovoReparoTabStack} options={{ title: 'Novo Serviço' }} />
-    <DonoReparoTab.Screen name="Meus Reparos"  component={MeusReparosTabStack} options={{ title: 'Meus Serviços' }} />
-    <DonoReparoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoReparoNavigator} options={{ title: 'Finalizados' }} />
-    <DonoReparoTab.Screen name="Perfil"        component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
-  </DonoReparoTab.Navigator>
+  <DonoTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarStyle, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
+    <DonoTab.Screen name="Novo pedido"  component={NovoPedidoTabStack} />
+    <DonoTab.Screen name="Meus pedidos" component={MeusPedidosTabStack} />
+    {/* `title` muda SÓ o rótulo visível; o name segue 'Contratos Finalizados', a mesma chave
+        de rota das abas do profissional — é o nome que as telas de detalhe e os avisos de
+        conclusão já navegam. */}
+    <DonoTab.Screen name="Contratos Finalizados" component={ContratosFinDonoNavigator} options={{ title: 'Finalizados' }} />
+    {temObras && <DonoTab.Screen name="Mensagens" component={MensagensScreen} />}
+    <DonoTab.Screen name="Perfil"       component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
+  </DonoTab.Navigator>
   )
 }
-
-// Tab: Nova Obra (dono_obra)
-const NovaObraTabStack = () => (
-  <NovaObraStack.Navigator screenOptions={{ headerShown: false }}>
-    <NovaObraStack.Screen name="CadastrarObraMain" component={CadastrarObraScreen} />
-  </NovaObraStack.Navigator>
-)
-
-// Tab: Minhas Obras (dono_obra)
-const MinhasObrasTabStack = () => (
-  <MinhasObrasStack.Navigator screenOptions={{ headerShown: false }}>
-    <MinhasObrasStack.Screen name="ListaObras"   component={MinhasObrasScreen} initialParams={{ soAba: 'obras' }} />
-    <MinhasObrasStack.Screen name="DetalheObra"  component={DetalheObraScreen} />
-    <MinhasObrasStack.Screen name="DetalheReparo" component={DetalheReparoScreen} />
-  </MinhasObrasStack.Navigator>
-)
-
-// Tab Navigator para dono de pintura
-const DonoObraTabNavigator = () => {
-  const tabBarStyle = useTabBarStyle()
-  return (
-  <DonoObraTab.Navigator screenOptions={({ route }) => ({ ...donoTabOpts, tabBarStyle, tabBarIcon: ({ focused }) => <TabIcone nome={route.name} focado={focused} /> })}>
-    <DonoObraTab.Screen name="Nova Obra"      component={NovaObraTabStack} />
-    <DonoObraTab.Screen name="Minhas Obras"   component={MinhasObrasTabStack} />
-    <DonoObraTab.Screen name="Contratos Finalizados" component={ContratosFinDonoObraNavigator} options={{ title: 'Finalizados' }} />
-    <DonoObraTab.Screen name="Mensagens"      component={MensagensScreen} />
-    <DonoObraTab.Screen name="Perfil"         component={PerfilStackNavigator} options={{ title: 'Perfil' }} />
-  </DonoObraTab.Navigator>
-  )
-}
-
-// Stack do Dono de Obra (fallback para tipo_dono não definido)
-const DonoObraNavigator = () => (
-  <DonoStack.Navigator screenOptions={{ headerShown: false }}>
-    <DonoStack.Screen name="MinhasObras"      component={MinhasObrasScreen} />
-    <DonoStack.Screen name="CadastrarObra"    component={CadastrarObraScreen} />
-    <DonoStack.Screen name="CadastrarReparo"  component={CadastrarReparoScreen} />
-    <DonoStack.Screen name="DetalheObra"      component={DetalheObraScreen} />
-    <DonoStack.Screen name="DetalheReparo"    component={DetalheReparoScreen} />
-    <DonoStack.Screen name="EditarPerfil"     component={EditarPerfilScreen} />
-    <DonoStack.Screen name="AlterarSenha"     component={AlterarSenhaScreen} />
-  </DonoStack.Navigator>
-)
 
 // Janela em que o toque lido no cold start ainda merece ser despachado. 60 s cobre a
 // restauração de sessão lenta-mas-normal (um timeout de 30 s do /auth/perfil mais um
@@ -1142,13 +1116,8 @@ export default function AppNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false, statusBarTranslucent: false, statusBarColor: '#0A0A0A', statusBarStyle: 'light' }}>
         {usuario ? (
           usuario.role === 'dono_obra' ? (
-            usuario.tipo_dono === 'reparo' ? (
-              <Stack.Screen name="DonoReparoApp" component={DonoReparoTabNavigator} />
-            ) : usuario.tipo_dono === 'pintura' ? (
-              <Stack.Screen name="DonoObraApp" component={DonoObraTabNavigator} />
-            ) : (
-              <Stack.Screen name="DonoApp" component={DonoObraNavigator} />
-            )
+            // Um navegador só para o dono, com qualquer tipo_dono (Fase 1).
+            <Stack.Screen name="DonoApp" component={DonoTabNavigator} />
           ) : usuario.role === 'prestador' ? (
             liberaAbas ? (
               // Prestador recém-aprovado vê a tela de boas-vindas única antes das

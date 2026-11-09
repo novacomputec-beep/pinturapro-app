@@ -107,19 +107,16 @@ export default function RespostasEquipeScreen({ navigation }) {
     }
   }
 
-  // Aba de cadastro do DONO. Varia com o navegador montado (AppNavigator): dono_reparo tem
-  // "Novo Reparo", dono_obra tem "Nova Obra". Prestador não cadastra serviço — para ele o
-  // atalho não existe (null = botão não renderiza), em vez de um navigate que cai no catch.
+  // Aba de cadastro do DONO: "Novo pedido", a mesma para todo dono (AppNavigator — serviço e
+  // obra saem dela). Prestador não cadastra pedido — para ele o atalho não existe (null =
+  // botão não renderiza), em vez de um navigate que cai no catch.
   const ehDono = usuario?.role === 'dono_obra'
-  const abaNovoServico = !ehDono ? null
-    : usuario?.tipo_dono === 'reparo' ? 'Novo Reparo'
-    : usuario?.tipo_dono === 'pintura' ? 'Nova Obra'
-    : null
+  const abaNovoServico = ehDono ? 'Novo pedido' : null
 
   const acaoDoItem = (acao) => {
     if (acao === 'novo_servico') {
       if (!abaNovoServico) return null
-      return { rotulo: '➕ Abrir “Novo serviço”', onPress: () => navigation.navigate(abaNovoServico) }
+      return { rotulo: '➕ Abrir “Novo pedido”', onPress: () => navigation.navigate(abaNovoServico) }
     }
     if (acao === 'completar_perfil') {
       return { rotulo: '👤 Completar meu perfil', onPress: () => navigation.navigate('EditarPerfil') }

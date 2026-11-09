@@ -378,10 +378,11 @@ export default function PerfilScreen({ navigation, route }) {
   // pintor/construtor — role 'prestador' ou o legado 'assinante'). Donos dão avaliações,
   // não as recebem por aqui, então não veem a entrada.
   const ehPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
-  // Só o dono de reparo ganha a seta de voltar nesta tela compartilhada: sua aba
-  // "Perfil" não tem outra forma de retornar à lista. Os demais papéis (pintor,
-  // prestador, dono de obra) NÃO são afetados — a seta não é renderizada para eles.
-  const ehDonoReparo = isDono && usuario?.tipo_dono === 'reparo'
+  // O dono ganha a seta de voltar nesta tela compartilhada, de volta à lista "Meus pedidos".
+  // Era só do dono de serviço; com as abas do dono unificadas (Fase 1) vale para todo dono,
+  // com qualquer tipo_dono. Os profissionais (pintor, prestador) NÃO são afetados — a seta
+  // não é renderizada para eles.
+  const mostrarVoltarDono = isDono
   // Rótulo do estado da permissão. null = ainda consultando (ou falha na consulta): melhor
   // não mostrar rótulo nenhum do que afirmar algo errado sobre a permissão.
   // 'Permitir' (e não 'Desativadas') para quem NUNCA foi perguntado: 'undetermined' é o
@@ -425,8 +426,8 @@ export default function PerfilScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={larguraMaxima} showsVerticalScrollIndicator={false}>
 
         <View style={estilos.header}>
-          {ehDonoReparo && (
-            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Meus Reparos')}>
+          {mostrarVoltarDono && (
+            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Meus pedidos')}>
               <Text style={estilos.btnVoltarTexto}>←</Text>
             </TouchableOpacity>
           )}
