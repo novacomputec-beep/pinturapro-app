@@ -17,7 +17,7 @@ export const SLUG_OUTROS = 'outros'
 
 // Categorias recém-chegadas: ganham a etiqueta verde "NOVO" na folha do grupo. Lista para
 // esvaziar quando deixarem de ser novidade.
-export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas']
+export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro']
 export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
 
 export const GRUPOS_SERVICO = [
@@ -25,7 +25,7 @@ export const GRUPOS_SERVICO = [
   { id: 'festas',     titulo: 'Festas e eventos',      emoji: '🎉', slugs: ['garcom', 'churrasqueiro', 'cozinheiro', 'confeiteiro', 'salgadeiro', 'decoracao_festas', 'aluguel_festas', 'recreacao_infantil', 'filmagem_fotografia', 'musico', 'dj'] },
   { id: 'beleza',     titulo: 'Beleza e bem-estar',    emoji: '💇', slugs: ['cabelo', 'barbeiro', 'manicure', 'maquiagem', 'design_sobrancelhas', 'depilacao', 'massagem', 'podologo', 'personal_trainer', 'tatuagem'] },
   { id: 'cuidar',     titulo: 'Cuidar de alguém',      emoji: '🤝', slugs: ['baba', 'cuidador', 'pet'] },
-  { id: 'transporte', titulo: 'Transporte e veículos', emoji: '🚗', slugs: ['motorista', 'motociclista', 'mudancas', 'lavajato', 'mecanica'] },
+  { id: 'transporte', titulo: 'Transporte e veículos', emoji: '🚗', slugs: ['motorista', 'motociclista', 'mudancas', 'lavajato', 'mecanica', 'borracheiro'] },
   { id: 'aulas',      titulo: 'Aulas e internet',      emoji: '💻', slugs: ['aula_particular', 'profissional_home_office', 'editor_video', 'social_midia', 'tradutor', 'panfletagem'] },
   { id: 'seguranca',  titulo: 'Segurança',             emoji: '🛡️', slugs: ['vigia', 'seguranca'] },
   { id: 'arte',       titulo: 'Arte e criação',        emoji: '🎨', slugs: ['artesanato', 'costura', 'placas_fachadas'] },
@@ -89,6 +89,7 @@ export const EXEMPLOS_SERVICO = {
   informatica:              'Computador, notebook, impressora, formatação',
   gesseiro:                 'Forro, sanca, drywall, moldura',
   placas_fachadas:          'Letreiro, fachada de loja, adesivo, banner',
+  borracheiro:              'Pneu furado, troca, calibragem',
   outros:                   'Não achou? Descreva no próximo passo.',
 }
 
