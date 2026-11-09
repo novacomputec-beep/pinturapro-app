@@ -38,6 +38,7 @@ import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } fr
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
+import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, ehDaMinhaConta, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -234,10 +235,13 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 // (camposAtraso), dono_nome / dono_foto_url, sugestoes_restantes e desfazer_liberado_em (só ao
 // dono). Os blocos pós-match leem tudo da linha, então eles entram nela aqui. Linha
 // nula/ausente fica como veio.
+// Entram também conta_id / sou_escolhido / sou_dono (utils/identidadeDemanda): quem é o leitor
+// nesta obra, por PESSOA — é deles, e não do id da conta logada, que saem isDono, o
+// "sou o profissional escolhido" e toda comparação de "fui eu / foi a outra parte".
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos']) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -492,12 +496,15 @@ export default function DetalheObraScreen({ route, navigation }) {
     return `${reaisStr},${String(centavos % 100).padStart(2, '0')}`
   }
 
-  // Ids podem chegar como número ou string conforme o endpoint; compara em String para não
-  // errar o lado por diferença de tipo (mesmo padrão de ContratosScreen.js:74). Os testes
-  // != null vêm ANTES porque String(undefined) === String(undefined) daria "igual" — dois
-  // ids ausentes (deep-link que só passa { id }, antes do buscar()) não podem casar.
-  const isDono = usuario?.id != null && obra?.criado_por != null &&
-    String(usuario.id) === String(obra.criado_por)
+  // Identidade por PESSOA (utils/identidadeDemanda): a API diz se quem lê é o dono (sou_dono —
+  // qualquer conta contratante da pessoa) e qual conta AGE nesta obra (conta_id — para o
+  // profissional com duas contas pode ser a outra, não a logada). Sem os campos (API antiga,
+  // ou o deep-link que só passa { id }, antes do buscar()) vale a comparação de sempre com a
+  // conta logada, em String e com os != null antes — dois ids ausentes não podem casar.
+  const isDono = souDonoDaDemanda(obra, usuario)
+  // A conta que age aqui: é com ela que se compara quem declarou a chegada, quem propôs o
+  // horário e quem pediu o encerramento, e é ela que os blocos pós-match recebem (usuarioId).
+  const meuId = contaNaDemanda(obra, usuario)
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
   useEffect(() => {
@@ -810,12 +817,10 @@ export default function DetalheObraScreen({ route, navigation }) {
       try {
         const atual = await comRetry(() => obrasService.detalhe(obra.id), { timeout: true })
         const o = atual?.obra || atual
-        // String() nos dois lados: o id vem número ou string conforme o endpoint, mesma
-        // disciplina do isDono (:320) e do pintorMatch. Os != null vêm ANTES porque
-        // String(undefined) === String(undefined) daria "igual" — dois ids ausentes não
-        // podem casar e transformar a declaração de terceiro em sucesso deste usuário.
-        const declaracaoMinha = o?.chegada_declarada_por != null && usuario?.id != null &&
-          String(o.chegada_declarada_por) === String(usuario.id)
+        // "Minha" = da conta que age nesta obra (conta_id da resposta que acabou de chegar;
+        // sem o campo, a conta logada) — utils/identidadeDemanda, que compara em String e
+        // nunca casa dois ids ausentes: a declaração de terceiro não vira sucesso deste usuário.
+        const declaracaoMinha = ehDaMinhaConta(o?.chegada_declarada_por, comIdentidade(atual, o), usuario)
         const declareiAgora = !declaradaAntes && !!o?.chegada_declarada_em && declaracaoMinha
         const confirmeiAgora = isDono && !confirmadaAntes && !!o?.chegada_confirmada_em
         if (declareiAgora || confirmeiAgora) { await buscar(); return }
@@ -831,7 +836,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     // a_caminho_em junto: é o que troca o botão por "você avisou que está a caminho" e o
     // buscar() em seguida traz dono_telefone, que a API só libera a partir daqui.
     const aplicarSucesso = (matchFeitoEm, aCaminhoEm) => {
-      setObra(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: usuario.id, a_caminho_em: aCaminhoEm || prev.a_caminho_em || new Date().toISOString() }))
+      setObra(prev => ({ ...prev, match_feito_em: matchFeitoEm || prev.match_feito_em || new Date().toISOString(), match_usuario_id: meuId, sou_escolhido: true, a_caminho_em: aCaminhoEm || prev.a_caminho_em || new Date().toISOString() }))
       buscar()
       Alert.alert('✅ Confirmado!', MSG_SUCESSO)
     }
@@ -859,12 +864,10 @@ export default function DetalheObraScreen({ route, navigation }) {
           try {
             const atual = await obrasService.detalhe(obra.id)
             const obraAtual = atual?.obra || atual
-            // Comparação em String como em pintorMatch/souPintorDoMatch (:778, :791): o id vem
-            // número ou string conforme o endpoint, e com === o match que DEU certo era lido
-            // como de outro pintor — a reconsulta não salvava nada e o alerta de erro subia
-            // mesmo assim. Os != null vêm antes porque dois ids ausentes casariam.
-            const matchId = obraAtual?.match_usuario_id
-            if (matchId != null && usuario?.id != null && String(matchId) === String(usuario.id)) { aplicarSucesso(obraAtual.match_feito_em, obraAtual.a_caminho_em); return }
+            // "Deste pintor" = sou_escolhido da resposta (o match é de uma conta profissional
+            // da pessoa); sem o campo, a comparação de sempre com a conta logada, em String —
+            // com === o match que DEU certo era lido como de outro pintor e o alerta subia.
+            if (souEscolhidoNaDemanda(comIdentidade(atual, obraAtual), usuario)) { aplicarSucesso(obraAtual.match_feito_em, obraAtual.a_caminho_em); return }
           } catch (e2) { console.log('[DetalheObra] reconsulta pós-match falhou | code:', e2.code) }
           Alert.alert('Erro', err.mensagem || 'Não foi possível confirmar.')
         } finally {
@@ -1405,17 +1408,16 @@ export default function DetalheObraScreen({ route, navigation }) {
   // encerramento_solicitado_por preenchido (junto com encerramento_solicitado_em) na
   // linha da obra.
   const encerramentoPendente = obra?.encerramento_solicitado_por != null
-  // Quem pediu vê "aguardando"; a outra parte vê "confirmar". Comparação em String como no
-  // isDono; encerramentoPendente já garante o id do solicitante presente.
-  const euSolicitei = encerramentoPendente && usuario?.id != null &&
-    String(obra.encerramento_solicitado_por) === String(usuario.id)
+  // Quem pediu vê "aguardando"; a outra parte vê "confirmar". "Eu" = a conta que age nesta
+  // obra (meuId), não necessariamente a logada.
+  const euSolicitei = encerramentoPendente && ehDaMinhaConta(obra.encerramento_solicitado_por, obra, usuario)
   // Rótulo dos botões de encerrar (dono e pintor): o padrão só vale fora do pendente.
   const rotuloEncerrar = (padrao) =>
     euSolicitei ? '⏳ Aguardando a outra parte' : encerramentoPendente ? '✅ Confirmar encerramento' : padrao
-  // Mesma comparação guardada do isDono/ehMatch: temMatch já garante match_usuario_id
-  // presente, então só falta exigir o id do usuário logado antes de comparar em String.
-  const souPintorDoMatch = temMatch && usuario?.id != null &&
-    String(obra.match_usuario_id) === String(usuario.id)
+  // sou_escolhido da API (o match é de qualquer conta profissional da pessoa); sem o campo,
+  // match_usuario_id × conta logada. temMatch na frente: uma mudança local (match desfeito,
+  // prazo vencido) zera o match antes de a próxima leitura atualizar o campo.
+  const souPintorDoMatch = !!temMatch && souEscolhidoNaDemanda(obra, usuario)
   // Profissional FORA da disputa: ou foi recusado, ou o dono já escolheu outro. Para ele
   // o prazo desta obra deixou de ser um prazo — não é notícia dele, e ver o relógio correr
   // sugere que ainda há algo a fazer. Os dois vocabulários de recusa do backend estão
@@ -1484,8 +1486,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Sem chegada_declarada_por na resposta o flag fica false e o botão não aparece — lado
   // seguro, porque contestar desfaz o match e devolve a obra ao feed.
   const chegadaDeclaradaPorOutro = !!obra?.chegada_declarada_em &&
-    obra?.chegada_declarada_por != null && usuario?.id != null &&
-    String(obra.chegada_declarada_por) !== String(usuario.id)
+    obra?.chegada_declarada_por != null && meuId != null &&
+    String(obra.chegada_declarada_por) !== String(meuId)
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
@@ -1516,7 +1518,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const horarioAceito = !!obra?.chegada_prevista_em
   const faseProAguardaHorario = !!souPintorDoMatch && !encerrada && !horarioAceito
   const clienteContrapropos = !!obra?.chegada_pendente_em && obra?.chegada_proposta_por != null &&
-    usuario?.id != null && String(obra.chegada_proposta_por) !== String(usuario.id)
+    meuId != null && String(obra.chegada_proposta_por) !== String(meuId)
   // Valor combinado visto pelo pintor: a própria candidatura (contraproposta, proposto ou a
   // oferta legada), senão o valor da obra.
   const valorCombinadoPro = minhaCandidatura
@@ -1917,7 +1919,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
             pontoReferencia={obra.ponto_referencia}
             outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
-            usuarioId={usuario?.id}
+            usuarioId={meuId}
             onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
             /* Negociação do horário: POST /chegada-prevista (pintor) e /responder. */
             agendamento={{
@@ -2297,7 +2299,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               {temMatch && !encerrada && !chegadaConfirmada && !faseAguardaHorario && (
                 <CardAgendamento
                   demanda={obra}
-                  usuarioId={usuario?.id}
+                  usuarioId={meuId}
                   souDono
                   nomeOutro={primeiroNome(pintorMatch?.nome)}
                   frente="obra"
@@ -2657,7 +2659,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                 <>
                   <CardAgendamento
                     demanda={obra}
-                    usuarioId={usuario?.id}
+                    usuarioId={meuId}
                     souDono={false}
                     limite={obra.expira_em}
                     frente="obra"
@@ -2794,7 +2796,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                             (propor, aguardando, agendado) — ver components/Agendamento. */}
                         <CardAgendamento
                           demanda={obra}
-                          usuarioId={usuario?.id}
+                          usuarioId={meuId}
                           souDono={false}
                           limite={obra.expira_em}
                           frente="obra"
