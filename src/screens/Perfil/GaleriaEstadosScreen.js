@@ -35,6 +35,7 @@ import { TILE_OUTROS_ESPECIALIDADES, AVISO_TETO, titulosEspecialidades, avisoEsp
 import { listarPerfis, perfilDoTipo } from '../../utils/contas'
 import { BotaoPrimario } from '../../components'
 import LinhaAvisosTodasAreas from '../../components/AvisosTodasAreas'
+import { ExcluirContaConteudo } from '../../components/ModalExcluirConta'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
 
 // Galeria OCULTA dos estados do pós-match: a TelaPosMatch REAL (components/PosMatchFixo)
@@ -364,6 +365,18 @@ const CASOS_DICAS = [
 const propsDicas = (caso) => caso.fase === 'dicas'
   ? { temas: caso.carregando ? [] : TEMAS_DICAS, vistas: new Set(caso.vistas || []), carregando: !!caso.carregando, erro: null, onRetry: null, onAbrirTema: noop }
   : { tema: TEMAS_DICAS[caso.tema], onAcao: noop, acaoDisponivel: null }
+
+// Arte-Excluir-Conta: o card do ModalExcluirConta (ExcluirContaConteudo), centralizado como no
+// Modal real. A confirmação é digitar EXCLUIR (maiúsculas ou minúsculas, espaços ignorados): o
+// campo é de verdade, então dá para digitar e ver o botão vermelho ligar. "Excluir" e
+// "Cancelar" aqui só passam para o próximo caso — nada é chamado na API.
+const CASOS_EXCLUIR_CONTA = [
+  { lado: 'dono', fase: 'excluir_conta', rotulo: 'Excluir conta · campo vazio (botão desligado)' },
+  { lado: 'dono', fase: 'excluir_conta', rotulo: 'Excluir conta · palavra incompleta (botão desligado)', texto: 'EXCLU' },
+  { lado: 'pro', fase: 'excluir_conta', rotulo: 'Excluir conta · " excluir " em minúsculas e com espaços (botão ligado)', texto: ' excluir ' },
+  { lado: 'pro', fase: 'excluir_conta', rotulo: 'Excluir conta · excluindo (tudo travado)', texto: 'EXCLUIR', excluindo: true },
+  { lado: 'pro', fase: 'excluir_conta', rotulo: 'Excluir conta · erro do servidor (continua aberto)', texto: 'EXCLUIR', erro: 'Não foi possível excluir a conta. Tente novamente.' },
+]
 
 // Arte-Avisos-Todos: a linha do Perfil do profissional com o Switch do aviso "fora da sua
 // área", no mesmo cartão de ações (entre "Minhas especialidades" e a linha seguinte). O Switch
@@ -809,6 +822,7 @@ const TODOS = [
   ...CASOS_CATEGORIAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_DICAS.map((c) => ({ ...c, frente: null })),
   ...CASOS_AVISOS_TODOS.map((c) => ({ ...c, frente: null })),
+  ...CASOS_EXCLUIR_CONTA.map((c) => ({ ...c, frente: null })),
   ...CASOS_QUEM_PERGUNTOU.map((c) => ({ ...c, frente: null })),
   ...CASOS_DESFAZER.map((c) => ({ ...c, frente: null })),
   ...CASOS_DESISTIU,
@@ -922,7 +936,7 @@ const propsCelebracao = (caso) => {
   }
 }
 
-const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', avisos_todos: 'Perfil · avisos de todas as áreas', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', meus_pedidos: 'Meus pedidos (dono)', pedidos_feed: 'Pedidos para você (profissional)', meus_trabalhos: 'Meus trabalhos (profissional)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
+const NOMES_FASE = { aguardando: 'Aguardando', proposto: 'Proposto', agendado: 'Agendado', a_caminho: 'A caminho', em_andamento: 'Em andamento', avaliacao: 'Avaliação', celebracao: 'Avaliação recebida', ajustar_foto: 'Ajustar foto', verificacao_refs: 'Verificação · referências', minhas_refs: 'Minhas referências', avisar_pedido: 'Avisar pedido publicado', avisados: 'Profissionais avisados', indicar: 'Indicar o ProTudo', convite: 'Convidar colega', perfis: 'Meus perfis', adicionar: 'Adicionar perfil', entrar_como: 'Entrar como', editar_categorias: 'Categorias do pedido', dicas: 'Dicas do ProTudo', dica_tema: 'Dicas · tema', avisos_todos: 'Perfil · avisos de todas as áreas', excluir_conta: 'Perfil · excluir conta', quem_perguntou: 'Quem perguntou', desfazer_sheet: 'Desfazer escolha', desistiu_sheet: 'Profissional desistiu · folha', desistiu_detalhe: 'Profissional desistiu · detalhe', cadastrar_servico: 'Cadastrar serviço (wizard)', cadastrar_grupo: 'Cadastrar serviço · folha do grupo', cadastrar_obra: 'Cadastrar obra (wizard)', meus_pedidos: 'Meus pedidos (dono)', pedidos_feed: 'Pedidos para você (profissional)', meus_trabalhos: 'Meus trabalhos (profissional)', especialidades: 'Especialidades do profissional', especialidades_grupo: 'Especialidades · folha do grupo' }
 
 export default function GaleriaEstadosScreen({ navigation }) {
   const [i, setI] = useState(0)
@@ -953,6 +967,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
   const ehDicas = caso.fase === 'dicas' || caso.fase === 'dica_tema'
   const ehQuemPerguntou = caso.fase === 'quem_perguntou'
   const ehAvisosTodos = caso.fase === 'avisos_todos'
+  const ehExcluirConta = caso.fase === 'excluir_conta'
   const ehDesfazer = caso.fase === 'desfazer_sheet'
   const ehDesistiu = caso.fase === 'desistiu_sheet' || caso.fase === 'desistiu_detalhe'
   const ehEspecialidades = caso.fase === 'especialidades' || caso.fase === 'especialidades_grupo'
@@ -962,9 +977,9 @@ export default function GaleriaEstadosScreen({ navigation }) {
   // recuo e rolagem próprios, e o rótulo da galeria é só o do caso.
   const ehPedidos = caso.fase === 'meus_pedidos' || ehTrabalhar
   const props = useMemo(() => (
-    ehAvisosTodos ? { ligado: !!caso.ligado, salvando: !!caso.salvando } : ehTrabalhar ? propsTrabalhar(caso) : ehPedidos ? propsPedidos(caso) :ehEspecialidades ? propsEspecialidades(caso) :caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
-  ), [caso, ehAvisosTodos, ehTrabalhar, ehPedidos, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
-  const rotulo = ehAvisosTodos || ehPedidos || ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehDesistiu || ehWizard
+    ehExcluirConta ? { textoInicial: caso.texto || '', excluindoInicial: !!caso.excluindo, erroInicial: caso.erro || '' } : ehAvisosTodos ? { ligado: !!caso.ligado, salvando: !!caso.salvando } : ehTrabalhar ? propsTrabalhar(caso) : ehPedidos ? propsPedidos(caso) :ehEspecialidades ? propsEspecialidades(caso) :caso.fase === 'cadastrar_obra' ? propsWizardObra(caso) : ehWizard ? propsWizard(caso) : ehDesistiu ? propsDesistiu(caso) : ehDesfazer ? propsDesfazer(caso) : ehQuemPerguntou ? propsQuemPerguntou(caso) : ehDicas ? propsDicas(caso) : ehCategorias ? propsCategorias(caso) : ehEntrarComo ? propsEntrarComo(caso) : ehPerfis ? propsPerfis(caso) : ehConvite ? propsConvite(caso) : ehIndicar ? propsIndicar(caso) : ehAvisados ? propsAvisados(caso) : ehAvisar ? propsAvisar(caso) : ehMinhasRefs ? propsMinhasRefs(caso) : ehRefs ? propsReferencias(caso) : ehFoto ? propsAjustarFoto(caso) : ehAvaliacao ? propsAvaliacao(caso) : ehCelebracao ? propsCelebracao(caso) : propsDoCaso(caso)
+  ), [caso, ehExcluirConta, ehAvisosTodos, ehTrabalhar, ehPedidos, ehWizard, ehDesistiu, ehDesfazer, ehQuemPerguntou, ehDicas, ehCategorias, ehEntrarComo, ehPerfis, ehConvite, ehIndicar, ehAvisados, ehAvisar, ehMinhasRefs, ehRefs, ehFoto, ehAvaliacao, ehCelebracao])
+  const rotulo = ehExcluirConta || ehAvisosTodos || ehPedidos || ehFoto || ehRefs || ehMinhasRefs || ehAvisar || ehAvisados || ehIndicar || ehConvite || ehPerfis || ehEntrarComo || ehCategorias || ehDicas || ehQuemPerguntou || ehDesfazer || ehDesistiu || ehWizard
     ? `${i + 1}/${total} · ${caso.rotulo}`
     : `${i + 1}/${total} · ${caso.frente === 'obra' ? 'Obra' : 'Serviço'} · ${caso.lado === 'dono' ? 'Dono' : 'Profissional'} · ${caso.rotulo}`
 
@@ -1010,6 +1025,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
             : ehAvisar ? <View key={i} style={estilos.sheet}><AvisarPedidoConteudo {...props} onFechar={() => ir(1)} /></View>
             : ehCategorias ? <DemoEditarCategorias key={i} {...props} />
             : ehQuemPerguntou ? <DemoQuemPerguntou key={i} {...props} />
+            : ehExcluirConta ? <View key={i} style={estilos.excluirFundo}><ExcluirContaConteudo {...props} onConfirmar={() => ir(1)} onFechar={() => ir(1)} /></View>
             : ehAvisosTodos ? <DemoAvisosTodos key={i} {...props} />
             : caso.fase === 'dicas' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasConteudo {...props} /></ScrollView>
             : caso.fase === 'dica_tema' ? <ScrollView key={i} showsVerticalScrollIndicator={false}><DicasTemaConteudo {...props} /></ScrollView>
@@ -1033,6 +1049,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   // Arte-Avisos-Todos: o cartão de ações do Perfil (acoesWrap/itemAcao) em volta da linha real.
+  excluirFundo: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   avisosCartao: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 16, overflow: 'hidden', marginTop: 12 },
   avisosLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   avisosLinhaTexto: { fontSize: 14, color: cores.textoForte },
