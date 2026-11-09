@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native'
 import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
+import { acaoEhMinha } from '../utils/identidadeDemanda'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Agendamento do serviço (dia + hora) negociado entre o profissional e o solicitante, em
@@ -240,7 +241,8 @@ const ContagemAgendado = ({ alvo, frente }) => {
 // demanda: a linha do reparo/obra (chegada_prevista_em, chegada_pendente_em,
 //          chegada_proposta_por, chegada_pendente_rodada, match_usuario_id).
 // usuarioId: a conta que AGE na demanda (conta_id da API — utils/identidadeDemanda), não
-//          necessariamente a logada; é com ela que "a proposta pendente é minha" compara.
+//          necessariamente a logada; é com ela que "a proposta pendente é minha" compara
+//          (acaoEhMinha — para o dono, é dele toda proposta que não é do profissional escolhido).
 // souDono / nomeOutro: quem vê e como chamar o outro lado ("Carlos", ou o genérico).
 // limite: expira_em — teto do picker do PROFISSIONAL; o dono contrapropõe sem teto.
 // podePropor: quem pode abrir a 1ª proposta (só o profissional do match, regra da API).
@@ -285,7 +287,8 @@ export function CardAgendamento({ demanda, usuarioId, souDono, nomeOutro, limite
   }
 
   if (pendente) {
-    const minha = propostaPor != null && usuarioId != null && String(propostaPor) === String(usuarioId)
+    // acaoEhMinha: para o dono (demanda.sou_dono), minha = o autor não é o profissional escolhido.
+    const minha = usuarioId != null && acaoEhMinha(propostaPor, demanda, usuarioId)
     if (minha) {
       return (
         <View style={estilos.aguardandoCard}>

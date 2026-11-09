@@ -38,7 +38,7 @@ import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } fr
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
-import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, ehDaMinhaConta, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
+import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -504,6 +504,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const isDono = souDonoDaDemanda(obra, usuario)
   // A conta que age aqui: é com ela que se compara quem declarou a chegada, quem propôs o
   // horário e quem pediu o encerramento, e é ela que os blocos pós-match recebem (usuarioId).
+  // Quem compara é acaoEhMinha (utils/identidadeDemanda): para o DONO (sou_dono) a ação é dele
+  // sempre que o autor não é a conta do profissional escolhido — a pessoa pode ter agido pela
+  // outra conta contratante dela.
   const meuId = contaNaDemanda(obra, usuario)
   const isPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
 
@@ -820,7 +823,8 @@ export default function DetalheObraScreen({ route, navigation }) {
         // "Minha" = da conta que age nesta obra (conta_id da resposta que acabou de chegar;
         // sem o campo, a conta logada) — utils/identidadeDemanda, que compara em String e
         // nunca casa dois ids ausentes: a declaração de terceiro não vira sucesso deste usuário.
-        const declaracaoMinha = ehDaMinhaConta(o?.chegada_declarada_por, comIdentidade(atual, o), usuario)
+        const linhaAtual = comIdentidade(atual, o)
+        const declaracaoMinha = acaoEhMinha(o?.chegada_declarada_por, linhaAtual, contaNaDemanda(linhaAtual, usuario))
         const declareiAgora = !declaradaAntes && !!o?.chegada_declarada_em && declaracaoMinha
         const confirmeiAgora = isDono && !confirmadaAntes && !!o?.chegada_confirmada_em
         if (declareiAgora || confirmeiAgora) { await buscar(); return }
@@ -1410,7 +1414,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const encerramentoPendente = obra?.encerramento_solicitado_por != null
   // Quem pediu vê "aguardando"; a outra parte vê "confirmar". "Eu" = a conta que age nesta
   // obra (meuId), não necessariamente a logada.
-  const euSolicitei = encerramentoPendente && ehDaMinhaConta(obra.encerramento_solicitado_por, obra, usuario)
+  const euSolicitei = encerramentoPendente && acaoEhMinha(obra.encerramento_solicitado_por, obra, meuId)
   // Rótulo dos botões de encerrar (dono e pintor): o padrão só vale fora do pendente.
   const rotuloEncerrar = (padrao) =>
     euSolicitei ? '⏳ Aguardando a outra parte' : encerramentoPendente ? '✅ Confirmar encerramento' : padrao
@@ -1487,7 +1491,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // seguro, porque contestar desfaz o match e devolve a obra ao feed.
   const chegadaDeclaradaPorOutro = !!obra?.chegada_declarada_em &&
     obra?.chegada_declarada_por != null && meuId != null &&
-    String(obra.chegada_declarada_por) !== String(meuId)
+    !acaoEhMinha(obra.chegada_declarada_por, obra, meuId)
   // Encerrar NÃO é travado pela chegada: o botão está sempre utilizável. Travá-lo punia
   // quem não tinha culpa — o profissional terminava o serviço e ficava refém de um toque
   // que só a outra parte podia dar, sem nenhuma saída dentro do app.
@@ -1518,7 +1522,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   const horarioAceito = !!obra?.chegada_prevista_em
   const faseProAguardaHorario = !!souPintorDoMatch && !encerrada && !horarioAceito
   const clienteContrapropos = !!obra?.chegada_pendente_em && obra?.chegada_proposta_por != null &&
-    meuId != null && String(obra.chegada_proposta_por) !== String(meuId)
+    meuId != null && !acaoEhMinha(obra.chegada_proposta_por, obra, meuId)
   // Valor combinado visto pelo pintor: a própria candidatura (contraproposta, proposto ou a
   // oferta legada), senão o valor da obra.
   const valorCombinadoPro = minhaCandidatura

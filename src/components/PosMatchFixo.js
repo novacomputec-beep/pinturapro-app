@@ -7,6 +7,7 @@ import { formatarDuracao } from '../utils/tempo'
 import { rotulosEspecialidades } from '../utils/categorias'
 import { avatar } from '../utils/imagemOtimizada'
 import { rotuloMotivo } from '../utils/cancelamento'
+import { acaoEhMinha } from '../utils/identidadeDemanda'
 import ChipsCategoria from './ChipsCategoria'
 import { formatarAgendado, PickerAgendamento, RODADAS_MAX_AGENDAMENTO } from './Agendamento'
 
@@ -637,7 +638,8 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 // antigos. onExpirar: o gancho do relógio do prazo (só sem horário aceito).
 // IDENTIDADE: esta tela não lê a sessão. souDono vem do sou_dono da API e usuarioId é a conta
 // que AGE na demanda (conta_id — utils/identidadeDemanda), que para o profissional com duas
-// contas pode não ser a logada; "a proposta de horário pendente é minha" compara com ela. O
+// contas pode não ser a logada; "a proposta de horário pendente é minha" compara com ela
+// (acaoEhMinha — para o dono, é dele toda proposta que não é do profissional escolhido). O
 // que é de chegada, encerramento e cancelamento já chega decidido pela tela (declaradaPorOutro,
 // rotuloBotao/desabilitado, cancelamento.paraMim), com a mesma identidade.
 // agendamento: { nomeOutro, limite, enviando, onPropor(iso), respondendo, onResponder(acao, iso) }.
@@ -658,7 +660,8 @@ export default function TelaPosMatch({
   const agoraTela = useAgora()
   const pendente = demanda?.chegada_pendente_em
   const propostaPor = demanda?.chegada_proposta_por || demanda?.match_usuario_id
-  const minhaPendente = !!pendente && propostaPor != null && usuarioId != null && String(propostaPor) === String(usuarioId)
+  // acaoEhMinha: para o dono (demanda.sou_dono), minha = o autor não é o profissional escolhido.
+  const minhaPendente = !!pendente && usuarioId != null && acaoEhMinha(propostaPor, demanda, usuarioId)
   // Proposta enviada ou respondida: a folha fecha sozinha.
   useEffect(() => { setPicker(null) }, [pendente, propostaPor])
 
