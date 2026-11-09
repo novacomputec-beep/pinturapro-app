@@ -16,6 +16,7 @@ import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta from '../../components/ModalExcluirConta'
 import ModalSuporte from '../../components/ModalSuporte'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
+import LinhaAvisosTodasAreas, { avisosTodasAreasLigado } from '../../components/AvisosTodasAreas'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
@@ -67,7 +68,7 @@ const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, a
 )
 
 export default function PerfilScreen({ navigation, route }) {
-  const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken } = useAuth()
+  const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken, setUsuario } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
@@ -311,6 +312,36 @@ export default function PerfilScreen({ navigation, route }) {
       Alert.alert('Erro', err.mensagem || 'Não foi possível salvar sua preferência. Tente novamente.')
     } finally {
       if (montadoRef.current) setSalvandoPromo(false)
+    }
+  }
+
+  // Aviso "FORA DA SUA ÁREA" (Arte-Avisos-Todos; só o profissional vê a linha): pedidos da
+  // cidade que não são da área dele chegam também, só por push. usuarios.avisos_todas_areas
+  // nasce LIGADO no servidor — campo ausente vale ligado (avisosTodasAreasLigado).
+  // Mesmo desenho do Switch de promoções: `avisosLocal` é a escolha desta montagem (null =
+  // ainda não tocou, vale o perfil carregado), otimista, e volta ao valor anterior se a
+  // gravação falhar; `salvandoAvisos` trava o Switch enquanto ela está em voo.
+  // Grava por PUT /auth/perfil mandando SÓ este campo (chave ausente = 'não mexa', como no
+  // salvamento das especialidades) e com o mesmo comRetry: regravar o mesmo valor é inócuo.
+  // Por ter precedência sobre o perfil carregado, um GET do foco que chegue atrasado não
+  // repõe o valor antigo. A cópia da sessão acompanha, para o caso de o próximo GET falhar.
+  const [avisosLocal, setAvisosLocal] = useState(null)
+  const [salvandoAvisos, setSalvandoAvisos] = useState(false)
+  const avisosTodasAreas = avisosLocal !== null ? avisosLocal : avisosTodasAreasLigado(dadosCompletos, usuario)
+  const handleAlternarAvisos = async (valor) => {
+    const anterior = avisosTodasAreas
+    setAvisosLocal(valor)
+    setSalvandoAvisos(true)
+    try {
+      await comRetry(() => authService.atualizarPerfil({ avisos_todas_areas: valor }), { timeout: true, servidor: true })
+      setUsuario(prev => (prev ? { ...prev, avisos_todas_areas: valor } : prev))
+      if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, avisos_todas_areas: valor } : d))
+    } catch (err) {
+      console.log('[Perfil] falha ao salvar avisos de todas as áreas | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (montadoRef.current) setAvisosLocal(anterior)
+      Alert.alert('Erro', err.mensagem || 'Não foi possível salvar sua preferência. Tente novamente.')
+    } finally {
+      if (montadoRef.current) setSalvandoAvisos(false)
     }
   }
 
@@ -596,6 +627,9 @@ export default function PerfilScreen({ navigation, route }) {
                 estado={salvandoEsp ? 'Salvando...' : String(normalizarEspecialidades(dados?.especialidades).length)}
                 onPress={() => navigation.navigate('Especialidades', { selecionadas: normalizarEspecialidades(dados?.especialidades), lado: dados?.tipo_prestador === 'pintor' ? 'pintura' : 'reparo', origem: 'PerfilMain' })}
               />
+              <Separador />
+              {/* Arte-Avisos-Todos: card verde com o Switch do aviso "fora da sua área". */}
+              <LinhaAvisosTodasAreas valor={avisosTodasAreas} onMudar={handleAlternarAvisos} desabilitado={salvandoAvisos} />
               <Separador />
               {/* Só quem já enviou referências (usuario.tem_referencias, do GET /auth/perfil).
                   Com referencias_problema o admin pediu correção: borda vermelha + "Corrigir",
