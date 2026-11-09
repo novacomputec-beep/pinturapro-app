@@ -42,7 +42,11 @@ import { cores, raios } from '../utils/tema'
 const MFS = 1.15
 const T = ({ linhas, ...p }) => <Text numberOfLines={linhas} maxFontSizeMultiplier={MFS} {...p} />
 
+// Pushes que releem a conversa: a mensagem pronta do outro lado ('chegada_prevista') e a recusa
+// do horário ('chegada_prevista_recusada' — muda a fase e, com ela, o catálogo). O detalhe da
+// demanda já relê a si mesmo em QUALQUER push com o seu id (DetalheReparo/DetalheObra).
 export const TIPO_PUSH = 'chegada_prevista'
+const TIPOS_PUSH_RELER = new Set([TIPO_PUSH, 'chegada_prevista_recusada'])
 const CHAVE_VISTAS = 'mensagens_prontas_vistas'
 
 export const temConversa = (dados) => !!(dados?.fase || (Array.isArray(dados?.historico) && dados.historico.length > 0))
@@ -114,12 +118,12 @@ export const useMensagensProntas = (tabela, demandaId, { ativo = true, chaveFase
   // Primeiro carregamento e releitura a cada mudança de fase da demanda.
   useEffect(() => { if (ativo) recarregar() }, [recarregar, chaveFase, ativo])
 
-  // Push do outro lado (data.tipo 'chegada_prevista' + o id desta demanda) → relê.
+  // Push do outro lado (TIPOS_PUSH_RELER + o id desta demanda) → relê.
   useEffect(() => {
     if (!ativo || !demandaId) return undefined
     const chave = tabela === 'obras' ? 'obra_id' : 'reparo_id'
     return aoPushRecebido((data) => {
-      if (data?.tipo !== TIPO_PUSH) return
+      if (!TIPOS_PUSH_RELER.has(data?.tipo)) return
       const alvo = data?.[chave]
       if (alvo != null && String(alvo) === String(demandaId)) recarregar()
     })

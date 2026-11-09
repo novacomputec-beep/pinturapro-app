@@ -41,6 +41,7 @@ import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderP
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
+import { mostrarAviso } from '../../utils/deepLink'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
 // CardObra no feed), porque cada tile precisa do SEU estado de falha: um item
@@ -539,6 +540,9 @@ export default function DetalheObraScreen({ route, navigation }) {
       buscar()
     }
     const assinaturaApp = AppState.addEventListener('change', (estado) => { if (estado === 'active') recarregar() })
+    // Sem filtro de tipo, de propósito: qualquer push desta obra relê o detalhe — inclusive
+    // 'chegada_prevista' (mensagem pronta do outro lado) e 'chegada_prevista_recusada' (o
+    // horário recusado muda a fase e o catálogo das mensagens prontas).
     const sairDoPush = aoPushRecebido((data) => {
       const alvo = data?.obra_id
       if (alvo != null && String(alvo) === String(id)) recarregar()
@@ -1743,9 +1747,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   }
 
   // "Escolher outro profissional" (dono, pode_escolher_outro = true no GET — o profissional não
-  // respondeu a 2 avisos): confirma num Alert, POST /obras/:id/escolher-outro e o buscar() traz
-  // a obra sem escolhido — o corpo rolável volta com a lista de candidatos (a tela de propostas
-  // da obra). Erros no molde do handleDesfazerEscolha. Espelha DetalheReparo.
+  // respondeu a 2 avisos): confirma num Alert, POST /obras/dono/:id/escolher-outro e o buscar()
+  // traz a obra sem escolhido — o corpo rolável volta com a lista de candidatos (a tela de
+  // propostas da obra). 409 por código vira toast curto: ESCOLHER_OUTRO_INDISPONIVEL e
+  // HORARIO_EM_NEGOCIACAO; demais erros no molde do handleDesfazerEscolha. Espelha DetalheReparo.
   const [escolhendoOutro, setEscolhendoOutro] = useState(false)
   const handleEscolherOutro = () => {
     if (escolhendoOutro) return
@@ -1755,13 +1760,15 @@ export default function DetalheObraScreen({ route, navigation }) {
       { text: 'Escolher outro', style: 'destructive', onPress: async () => {
         setEscolhendoOutro(true)
         try {
-          await api.post(`/obras/${obra.id}/escolher-outro`)
+          await api.post(`/obras/dono/${obra.id}/escolher-outro`)
           await buscar()
           Alert.alert('Obra reaberta', 'Escolha o novo profissional entre os candidatos.')
         } catch (err) {
           console.log('[DetalheObra] falha ao escolher outro | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
           if (await recarregarSeFalhaDeRede(err, recarregarObra)) return
-          Alert.alert(err.status === 409 ? 'Não foi possível' : 'Erro', err.mensagem || 'Não foi possível escolher outro profissional.')
+          if (err.status === 409 && err.codigo === 'ESCOLHER_OUTRO_INDISPONIVEL') mostrarAviso('Escolher outro não está mais disponível para esta obra.')
+          else if (err.status === 409 && err.codigo === 'HORARIO_EM_NEGOCIACAO') mostrarAviso('O profissional já propôs um horário — responda à proposta.')
+          else Alert.alert(err.status === 409 ? 'Não foi possível' : 'Erro', err.mensagem || 'Não foi possível escolher outro profissional.')
           if (err.status != null) recarregarObra().catch(e => console.log('[DetalheObra] recarga pós-erro falhou | code:', e?.code))
         } finally {
           if (mountedRef.current) setEscolhendoOutro(false)
