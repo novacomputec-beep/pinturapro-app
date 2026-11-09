@@ -27,6 +27,7 @@ import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import TelaPosMatch from '../../components/PosMatchFixo'
+import { useMensagensProntas } from '../../components/MensagensProntas'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
@@ -1555,6 +1556,13 @@ export default function DetalheObraScreen({ route, navigation }) {
     : horarioAceito ? 'agendado'
     : obra?.chegada_pendente_em ? 'proposto'
     : 'aguardando'
+  // Mensagens prontas (components/MensagensProntas): só nas fases do pós-match, para o dono e
+  // o profissional escolhido. A chave de fase relê o catálogo quando o estado muda (a API serve
+  // frases por fase); o push 'chegada_prevista' com obra_id é tratado dentro do hook.
+  const conversaProntas = useMensagensProntas('obras', obra?.id, {
+    ativo: !!fasePosMatch,
+    chaveFase: `${fasePosMatch}|${obra?.match_usuario_id || ''}|${obra?.chegada_prevista_em || ''}|${obra?.a_caminho_em || ''}|${obra?.chegada_confirmada_em || ''}`,
+  })
   // "🚫 O profissional não chegou" na tela A CAMINHO (só depois do limite de chegada): com o
   // horário AGENDADO vencido a saída é a vigia (POST /confirmar-comparecimento 'nao'), porque
   // POST /expirar-match recusa as partes depois do "Estou a caminho" (403 USE_CANCELAR_MATCH)
@@ -2014,6 +2022,9 @@ export default function DetalheObraScreen({ route, navigation }) {
               onContrato: () => Alert.alert('📋 Contrato', 'Enviamos um contrato simples para o seu e-mail e para o da outra parte. Usar é opcional — mas é ele que protege vocês dois.'),
               onDenunciar: fasePosMatch === 'em_andamento' ? () => setSuporteAberto(true) : undefined,
             }}
+            /* Mensagens prontas: bloco "Conversa com <nome>" sob o card do topo (some sem fase
+               e sem histórico — temConversa). Botões de horário/a caminho/WhatsApp seguem iguais. */
+            conversa={{ dados: conversaProntas.dados, enviando: conversaProntas.enviando, onEnviar: conversaProntas.enviar }}
           />
           {isDono && (
             <ModalCompareceu

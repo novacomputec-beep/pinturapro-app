@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated } from 'react-native'
+import { View, Text, Image, TouchableOpacity, Modal, ScrollView, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { cores, raios } from '../utils/tema'
@@ -10,6 +10,7 @@ import { rotuloMotivo } from '../utils/cancelamento'
 import { acaoEhMinha } from '../utils/identidadeDemanda'
 import ChipsCategoria from './ChipsCategoria'
 import { formatarAgendado, PickerAgendamento, RODADAS_MAX_AGENDAMENTO } from './Agendamento'
+import ConversaProntas, { temConversa } from './MensagensProntas'
 
 // Tela FIXA do pós-match (dono e profissional, reparo e obra) nas cinco fases entre o match
 // e o encerramento: aguardando horário, horário proposto, agendado, a caminho, em andamento.
@@ -26,6 +27,11 @@ import { formatarAgendado, PickerAgendamento, RODADAS_MAX_AGENDAMENTO } from './
 //   1. card do topo: chips, título (1 linha), endereço (1 linha) e UMA faixa dividida ao
 //      meio — "VALOR COMBINADO" verde | rótulo/valor do estado (prazo para chegar / faltam /
 //      chega até / chegou às);
+//   1b. (só quando há conversa) o bloco "Conversa com <nome>" das MENSAGENS PRONTAS
+//      (components/MensagensProntas): últimas 3 mensagens, link para a conversa inteira e os
+//      chips de resposta. É a ÚNICA exceção à tela fixa: com ele o corpo passa a rolar
+//      (ScrollView com flexGrow — sem overflow continua distribuído igual), porque o bloco
+//      não cabe no orçamento de 630dp junto com os de sempre. Sem conversa, nada muda.
 //   2. o bloco de estado da fase, com o conteúdo e as ações de hoje;
 //   3. mini card da outra parte (nome, selo/nota, especialidade ou "Cliente");
 //   4. aviso âmbar encurtado (3 linhas) — só nas fases em que ele aparece hoje;
@@ -651,9 +657,11 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 // cancelamento: { pedido, paraMim, nomeOutro, respondendo, onResponder, onAbrir, desabilitado } | null.
 // desfazer (dono, fase aguardando): { liberadoEm, onAbrir, desabilitado } | null — Arte-Desfazer-Escolha.
 // links: { onReferencia, onDetalhes, onContrato, onDenunciar }.
+// conversa: { dados, enviando, onEnviar } | null — mensagens prontas (useMensagensProntas na
+//   tela); o bloco só entra quando temConversa(dados).
 export default function TelaPosMatch({
   fase, demanda, frente, souDono, valor, endereco, pontoReferencia, outro, usuarioId, onExpirar,
-  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links,
+  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links, conversa,
 }) {
   const ehObra = frente === 'obra'
   const [picker, setPicker] = useState(null) // null | 'propor' | 'sugerir'
@@ -740,12 +748,22 @@ export default function TelaPosMatch({
     ? 'Cliente · contato liberado após o "Estou a caminho"'
     : 'Cliente'
 
+  // Mensagens prontas: com conversa o corpo rola (ver o cabeçalho do arquivo, item 1b).
+  const mostraConversa = !!conversa && temConversa(conversa.dados)
+  const Corpo = mostraConversa ? ScrollView : View
+  const propsCorpo = mostraConversa
+    ? { style: { flex: 1 }, contentContainerStyle: estilos.telaRolavel, showsVerticalScrollIndicator: false, keyboardShouldPersistTaps: 'handled' }
+    : { style: estilos.tela }
+
   // A folha do picker fica FORA do View 'space-evenly': um Modal irmão contaria como filho
   // e ganharia um vão próprio na distribuição.
   return (
     <>
-    <View style={estilos.tela}>
+    <Corpo {...propsCorpo}>
       <CardTopo demanda={demanda} endereco={endereco} pontoReferencia={pontoReferencia} valor={valor} faixa={faixa} />
+      {mostraConversa ? (
+        <ConversaProntas dados={conversa.dados} outro={outro} souDono={souDono} enviando={conversa.enviando} onEnviar={conversa.onEnviar} />
+      ) : null}
       {estado}
       <MiniPessoa souDono={souDono} outro={outro} linha2={linha2Cliente} />
       {/* Fase amarela do "não marcou" (dono, aguardando): a nota fica SOB o card do
@@ -767,7 +785,7 @@ export default function TelaPosMatch({
           <T style={estilos.btnCancelarTexto}>✕ Cancelar serviço</T>
         </TouchableOpacity>
       ) : null}
-    </View>
+    </Corpo>
 
       <FolhaPicker
         visivel={!!picker}
@@ -786,6 +804,9 @@ export default function TelaPosMatch({
 
 const estilos = StyleSheet.create({
   tela: { flex: 1, justifyContent: 'space-evenly' },
+  // Conteúdo do ScrollView (com a conversa): flexGrow no lugar de flex, e um vão mínimo
+  // entre os blocos para quando a tela rola (o space-evenly não deixa vão ao transbordar).
+  telaRolavel: { flexGrow: 1, justifyContent: 'space-evenly', rowGap: 8, paddingBottom: 4 },
 
   // 1. Card do topo (~150dp)
   topo: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 12 },
