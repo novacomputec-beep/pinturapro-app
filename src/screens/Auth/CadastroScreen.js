@@ -18,9 +18,12 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
-import { MAX_ESPECIALIDADES, normalizarEspecialidades, rotuloEspecialidade } from '../../utils/categorias'
+import { normalizarEspecialidades } from '../../utils/categorias'
 import { buscarIndicador, codigoDoInstallReferrer } from '../../utils/indicacao'
 import EscolhaPerfil from './EscolhaPerfil'
+// Peças do passo profissional e do plano, compartilhadas com o "Quero trabalhar" de quem já é
+// dono (Perfil/AdicionarPerfilScreen) — components/CadastroProfissional.
+import { IndicadorPassos, CamposEnderecoCep, CamposProfissional, SeletorPlano, consultarCep } from '../../components/CadastroProfissional'
 
 // ─── MÚLTIPLAS CONTAS POR E-MAIL ─────────────────────────────
 const MSG_OUTRO_TIPO = 'Você já tem cadastro no ProTudo com este e-mail. Use a mesma senha da sua conta.'
@@ -94,18 +97,6 @@ const mascararCpfCnpj = (valor) => {
     .replace(/(\d{3})(\d)/, '$1/$2')
     .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
 }
-
-const IndicadorPassos = ({ passo, total }) => (
-  <View style={estilos.indicador}>
-    {Array.from({ length: total }).map((_, i) => (
-      <View key={i} style={[
-        estilos.indicadorDot,
-        i < passo - 1 && estilos.indicadorDotFeito,
-        i === passo - 1 && estilos.indicadorDotAtivo,
-      ]} />
-    ))}
-  </View>
-)
 
 const classificarErro = (err) => {
   if (err?.code === 'ECONNABORTED' || err?.message?.toLowerCase().includes('timeout')) return 'TIMEOUT'
@@ -418,27 +409,15 @@ export default function CadastroScreen({ navigation, route }) {
     if (cepLimpo.length !== 8) return
     setBuscandoCep(true)
     try {
-      const resp = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
-      const dados = await resp.json()
-      if (dados.erro) { Alert.alert('CEP não encontrado', 'Verifique o CEP informado.'); return }
-      if (montadoRef.current) {
-        setCidade(dados.localidade || '')
-        setUf(dados.uf || '')
-        setLogradouro(dados.logradouro || '')
-        setBairro(dados.bairro || '')
-        setEnderecoEncontrado(true)
-      }
-      const endereco = [dados.logradouro, dados.bairro, dados.localidade, dados.uf, 'Brasil'].filter(Boolean).join(', ')
-      const geoResp = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(endereco)}&format=json&limit=1`,
-        { headers: { 'User-Agent': 'ProTudo/1.0' } }
-      )
-      const geoData = await geoResp.json()
-      if (geoData.length > 0 && montadoRef.current) {
-        setLatitude(parseFloat(geoData[0].lat))
-        setLongitude(parseFloat(geoData[0].lon))
-      }
+      // ViaCEP + Nominatim em components/CadastroProfissional (consultarCep), a mesma consulta
+      // do "Quero trabalhar" de quem já é dono.
+      const e = await consultarCep(cepLimpo)
+      if (!montadoRef.current) return
+      setCidade(e.cidade); setUf(e.uf); setLogradouro(e.logradouro); setBairro(e.bairro)
+      setEnderecoEncontrado(true)
+      if (e.latitude != null) { setLatitude(e.latitude); setLongitude(e.longitude) }
     } catch (err) {
+      if (err?.naoEncontrado) { Alert.alert('CEP não encontrado', 'Verifique o CEP informado.'); return }
       console.log('[Cadastro] falha ao buscar CEP | msg:', err.message)
       Alert.alert('Erro', await mensagemErroRede('Não foi possível buscar o CEP. Verifique sua conexão.'))
     } finally {
@@ -730,13 +709,6 @@ export default function CadastroScreen({ navigation, route }) {
     }
   }
 
-  const getValorPlano = () => {
-    if (tipoConta === 'prestador') return { mensal: 'R$ 49,90', anual: 'R$ 41,58', anualTotal: 'R$ 499/ano' }
-    return { mensal: 'R$ 99,90', anual: 'R$ 83,25', anualTotal: 'R$ 999/ano' }
-  }
-
-  const valores = getValorPlano()
-
   if (passo === 0) {
     // Escolha de perfil em 3 telas (EscolhaPerfil). Navegação igual à de sempre: o voltar da
     // 1ª tela vai ao Splash; o das outras (e o hardware back, acima) volta à 1ª. O "trocar"
@@ -786,16 +758,17 @@ export default function CadastroScreen({ navigation, route }) {
           {/* PASSO 1 — Dados pessoais */}
           {passo === 1 && (
             <View>
-              {/* Social: nome (quando o provedor o informou) e e-mail vêm travados — o
-                  e-mail é o do ticket, e o servidor ignora qualquer outro. Sem senha. */}
+              {/* Social: nome e sobrenome vêm PREENCHIDOS pelo provedor mas editáveis (o Google
+                  manda apelidos e nomes incompletos); só o e-mail fica travado — é o do ticket,
+                  e o servidor ignora qualquer outro. Sem senha. */}
               {social ? (
                 <Text style={estilos.notaSocial}>
                   ✓ Entrando com {NOME_PROVEDOR[social.provedor] || 'o provedor'} · sem senha
                 </Text>
               ) : null}
               <View style={estilos.duasColunas}>
-                <Input label="NOME" placeholder="Primeiro nome" value={nome} onChangeText={setNome} erro={erros.nome} estilo={{ flex: 1 }} editable={!(social && social.nome)} estiloInput={social && social.nome ? estilos.inputTravado : undefined} />
-                <Input label="SOBRENOME" placeholder="Sobrenome" value={sobrenome} onChangeText={setSobrenome} estilo={{ flex: 1 }} editable={!(social && social.nome)} estiloInput={social && social.nome ? estilos.inputTravado : undefined} />
+                <Input label="NOME" placeholder="Primeiro nome" value={nome} onChangeText={setNome} erro={erros.nome} estilo={{ flex: 1 }} />
+                <Input label="SOBRENOME" placeholder="Sobrenome" value={sobrenome} onChangeText={setSobrenome} estilo={{ flex: 1 }} />
               </View>
               <Input label="E-MAIL" placeholder="seu@email.com" value={email} onChangeText={(t) => { setEmail(t); invalidarDisponibilidade() }} keyboardType="email-address" autoCapitalize="none" erro={erros.email} editable={!social} estiloInput={social ? estilos.inputTravado : undefined} />
               <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
@@ -819,20 +792,11 @@ export default function CadastroScreen({ navigation, route }) {
                 </Text>
               )}
               {isPrestador && (
-                <>
-                  <Text style={estilos.dicaCep}>Comece pelo CEP — endereço, estado e cidade são preenchidos automaticamente</Text>
-                  <View style={estilos.cepRow}>
-                    <Input label="CEP" placeholder="00000-000" value={cep} onChangeText={buscarCep} keyboardType="numeric" maxLength={8} erro={erros.cep} estilo={{ flex: 1 }} />
-                    {buscandoCep && <ActivityIndicator color={cores.primaria} style={{ marginTop: 28, marginLeft: 12 }} />}
-                    {enderecoEncontrado && !buscandoCep && <Text style={estilos.cepOk}>✅</Text>}
-                  </View>
-                  <Input label="LOGRADOURO (rua/avenida)" placeholder="Preenchido pelo CEP" value={logradouro} onChangeText={setLogradouro} />
-                  <View style={estilos.duasColunas}>
-                    <Input label="NÚMERO" placeholder="Ex: 123" value={numero} onChangeText={setNumero} keyboardType="numeric" estilo={{ flex: 1 }} />
-                    <Input label="COMPLEMENTO" placeholder="Apto/bloco (opcional)" value={complemento} onChangeText={setComplemento} estilo={{ flex: 2 }} />
-                  </View>
-                  <Input label="BAIRRO" placeholder="Preenchido pelo CEP" value={bairro} onChangeText={setBairro} />
-                </>
+                <CamposEnderecoCep
+                  cep={cep} onCep={buscarCep} buscandoCep={buscandoCep} enderecoEncontrado={enderecoEncontrado} erroCep={erros.cep}
+                  logradouro={logradouro} setLogradouro={setLogradouro} numero={numero} setNumero={setNumero}
+                  complemento={complemento} setComplemento={setComplemento} bairro={bairro} setBairro={setBairro}
+                />
               )}
               <SeletorLocalidade
                 uf={uf}
@@ -843,120 +807,26 @@ export default function CadastroScreen({ navigation, route }) {
               />
               <Input label="CPF / CNPJ" placeholder="000.000.000-00" value={cpfCnpj} onChangeText={(t) => { setCpfCnpj(mascararCpfCnpj(t)); invalidarDisponibilidade() }} onBlur={verificarCpfDisponivel} keyboardType="numeric" erro={erros.cpfCnpj} />
               {isPrestador && (
-                <>
-                  <View style={estilos.duasColunas}>
-                    <Input label="ANOS DE EXP." placeholder="Ex: 8" value={anosExp} onChangeText={setAnosExp} keyboardType="numeric" estilo={{ flex: 1 }} />
-                    <Input label="TAMANHO DA EQUIPE" placeholder="Nº de pessoas" value={equipe} onChangeText={setEquipe} keyboardType="numeric" estilo={{ flex: 1 }} />
-                  </View>
-                  {/* Campo de ABERTURA, não de digitação: a lista é fechada e a escolha
-                      acontece na EspecialidadesScreen. O ✕ de cada pill remove ali mesmo,
-                      sem reabrir a tela — tirar uma de cinco não vale uma navegação. */}
-                  <Text style={estilos.labelSecao}>ESPECIALIDADES (até {MAX_ESPECIALIDADES})</Text>
-                  <TouchableOpacity
-                    style={[estilos.campoEspecialidades, erros.especialidades && estilos.campoEspecialidadesErro]}
-                    onPress={() => navigation.navigate('Especialidades', { selecionadas: especialidades, lado: tipoConta === 'pintor' ? 'pintura' : 'reparo', origem: 'Cadastro' })}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={especialidades.length ? estilos.campoEspTexto : estilos.campoEspPlaceholder}>
-                      {especialidades.length ? `${especialidades.length} selecionada${especialidades.length > 1 ? 's' : ''}` : 'Escolher especialidades'}
-                    </Text>
-                    <Text style={estilos.campoEspSeta}>→</Text>
-                  </TouchableOpacity>
-                  {!!erros.especialidades && <Text style={estilos.erroEspecialidades}>{erros.especialidades}</Text>}
-                  {!!especialidades.length && (
-                    <View style={estilos.espPills}>
-                      {especialidades.map(slug => (
-                        <TouchableOpacity
-                          key={slug}
-                          style={estilos.espPill}
-                          onPress={() => setEspecialidades(atuais => atuais.filter(s => s !== slug))}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={estilos.espPillTexto}>{rotuloEspecialidade(slug)}</Text>
-                          <Text style={estilos.espPillX}>✕</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
-                  <Input label="RG (somente números)" placeholder="000000000" value={rg} onChangeText={(t) => setRg(t.replace(/\D/g, '').slice(0, 9))} keyboardType="numeric" />
-                  <Text style={estilos.labelSecao}>ÓRGÃO EMISSOR DO RG</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                    {['SSP', 'PC', 'PM', 'IFP', 'DETRAN', 'Outro'].map(o => (
-                      <TouchableOpacity key={o} style={[estilos.categoriaPill, rgOrgao === o && estilos.categoriaPillAtivo]} onPress={() => setRgOrgao(o)}>
-                        <Text style={[estilos.categoriaPillTexto, rgOrgao === o && estilos.categoriaPillTextoAtivo]}>{o}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <Text style={estilos.labelSecao}>ESTADO EMISSOR DO RG</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
-                    {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(s => (
-                      <TouchableOpacity key={s} style={[estilos.categoriaPill, rgEstado === s && estilos.categoriaPillAtivo]} onPress={() => setRgEstado(s)}>
-                        <Text style={[estilos.categoriaPillTexto, rgEstado === s && estilos.categoriaPillTextoAtivo]}>{s}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {/* Indicação de colega (opcional). Maiúsculas e sem espaços, como o código é
-                      emitido; valida ao sair do campo e mostra quem indicou. Digitar de novo
-                      apaga o ✓ e o erro até a próxima validação. */}
-                  <Input
-                    label="CÓDIGO DE INDICAÇÃO (opcional)"
-                    placeholder="Código do colega que te indicou"
-                    value={codigoIndicacao}
-                    onChangeText={(t) => { setCodigoIndicacao(t.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 20)); setIndicadoPor(null); setErros(e => ({ ...e, codigoIndicacao: undefined })) }}
-                    onBlur={() => validarCodigoIndicacao()}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    erro={erros.codigoIndicacao}
-                  />
-                  {!!indicadoPor && <Text style={estilos.indicacaoOk}>✓ Indicado por {indicadoPor}</Text>}
-                </>
+                <CamposProfissional
+                  anosExp={anosExp} setAnosExp={setAnosExp} equipe={equipe} setEquipe={setEquipe}
+                  especialidades={especialidades}
+                  onAbrirEspecialidades={() => navigation.navigate('Especialidades', { selecionadas: especialidades, lado: tipoConta === 'pintor' ? 'pintura' : 'reparo', origem: 'Cadastro' })}
+                  onRemoverEspecialidade={(slug) => setEspecialidades(atuais => atuais.filter(s => s !== slug))}
+                  erroEspecialidades={erros.especialidades}
+                  rg={rg} setRg={setRg} rgOrgao={rgOrgao} setRgOrgao={setRgOrgao} rgEstado={rgEstado} setRgEstado={setRgEstado}
+                  codigoIndicacao={codigoIndicacao}
+                  onChangeCodigoIndicacao={(c) => { setCodigoIndicacao(c); setIndicadoPor(null); setErros(e => ({ ...e, codigoIndicacao: undefined })) }}
+                  onBlurCodigoIndicacao={() => validarCodigoIndicacao()}
+                  erroCodigoIndicacao={erros.codigoIndicacao}
+                  indicadoPor={indicadoPor}
+                />
               )}
             </View>
           )}
 
           {/* PASSO 3 — Plano */}
           {passo === 3 && isPrestador && (
-            <View>
-              <Text style={estilos.planoSubtitulo}>
-                Escolha o plano para acessar {tipoConta === 'prestador' ? 'os pedidos disponíveis' : 'as obras disponíveis'}:
-              </Text>
-              <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'mensal' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('mensal')} activeOpacity={0.8}>
-                <View style={[estilos.planoRadio, planoSelecionado === 'mensal' && estilos.planoRadioAtivo]}>
-                  {planoSelecionado === 'mensal' && <View style={estilos.planoRadioDot} />}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={estilos.planoNome}>Plano Mensal</Text>
-                  <Text style={estilos.planoDesc}>Acesso completo</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={estilos.planoPreco}>{valores.mensal}</Text>
-                  <Text style={estilos.planoPeriodo}>/mês</Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity style={[estilos.planoCard, planoSelecionado === 'anual' && estilos.planoCardAtivo]} onPress={() => setPlanoSelecionado('anual')} activeOpacity={0.8}>
-                <View style={{ position: 'absolute', top: -10, right: 14 }}>
-                  <View style={estilos.planoDestaque}><Text style={estilos.planoDestaqueTexto}>Economize 2 meses</Text></View>
-                </View>
-                <View style={[estilos.planoRadio, planoSelecionado === 'anual' && estilos.planoRadioAtivo]}>
-                  {planoSelecionado === 'anual' && <View style={estilos.planoRadioDot} />}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={estilos.planoNome}>Plano Anual</Text>
-                  <Text style={estilos.planoDesc}>Melhor custo-benefício</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={estilos.planoPreco}>{valores.anual}</Text>
-                  <Text style={estilos.planoPeriodo}>/mês · {valores.anualTotal}</Text>
-                </View>
-              </TouchableOpacity>
-              {/* Menção à forma de pagamento: some no iOS (3.1.1), sem frase no lugar. */}
-              {mostrarCobranca && (
-              <View style={estilos.segurancaBox}>
-                <Text style={estilos.segurancaIcone}>🔒</Text>
-                <Text style={estilos.segurancaTexto}>Pagamento 100% seguro via PagBank. Cancele quando quiser.</Text>
-              </View>
-              )}
-            </View>
+            <SeletorPlano tipoConta={tipoConta} planoSelecionado={planoSelecionado} setPlanoSelecionado={setPlanoSelecionado} mostrarCobranca={mostrarCobranca} />
           )}
 
           {!!progresso && (
@@ -995,54 +865,14 @@ const estilos = StyleSheet.create({
   // (EscolhaPerfil.js) e não usa este.
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, lineHeight: 26, marginBottom: 6 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 12 },
-  indicador: { flexDirection: 'row', gap: 6, marginBottom: 12 },
-  indicadorDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: cores.fundoElevado },
-  indicadorDotAtivo: { width: 20, borderRadius: 3, backgroundColor: cores.primaria },
-  indicadorDotFeito: { backgroundColor: cores.sucesso },
+  // Indicador de passos, passo profissional e plano: estilos em components/CadastroProfissional.
   duasColunas: { flexDirection: 'row', gap: 12 },
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   // Cadastro via Google/Apple: linha de contexto e campos travados (esmaecidos, sem teclado).
   notaSocial: { fontSize: 12, color: cores.sucesso, marginBottom: 12, fontWeight: '600' },
   inputTravado: { opacity: 0.55 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
-  planoSubtitulo: { fontSize: 13, color: cores.textoMedio, marginBottom: 16 },
-  planoCard: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 12 },
-  planoCardAtivo: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
-  planoRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  planoRadioAtivo: { borderColor: cores.primaria, backgroundColor: cores.primaria },
-  planoRadioDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#0A0A0A' },
-  planoNome: { fontSize: 14, fontWeight: '600', color: cores.textoForte, marginBottom: 2 },
-  planoDesc: { fontSize: 11, color: cores.textoFraco },
-  planoPreco: { fontSize: 15, fontWeight: '700', color: cores.sucesso },
-  planoPeriodo: { fontSize: 10, color: cores.textoFraco, textAlign: 'right' },
-  planoDestaque: { backgroundColor: cores.primaria, borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 3 },
-  planoDestaqueTexto: { fontSize: 10, fontWeight: '700', color: '#0A0A0A' },
-  segurancaBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 12, marginTop: 4 },
-  segurancaIcone: { fontSize: 14 },
-  segurancaTexto: { flex: 1, fontSize: 11, color: cores.textoFraco, lineHeight: 17 },
   acoesRow: { marginTop: 24 },
-  labelSecao: { fontSize: 11, fontWeight: '600', color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
-  // Mesma caixa do Input (fundo, borda, raio, padding) para o campo não parecer de outra
-  // família só por abrir uma tela em vez de aceitar digitação.
-  campoEspecialidades: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 13, marginTop: 7 },
-  campoEspecialidadesErro: { borderColor: cores.perigo },
-  campoEspTexto: { fontSize: 14, color: cores.textoForte },
-  campoEspPlaceholder: { fontSize: 14, color: cores.placeholderCampo },
-  campoEspSeta: { fontSize: 14, color: cores.textoFraco },
-  erroEspecialidades: { color: cores.perigo, fontSize: 11, marginTop: 4 },
-  espPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, marginBottom: 4 },
-  espPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 6 },
-  espPillTexto: { fontSize: 12, color: cores.textoForte },
-  espPillX: { fontSize: 12, color: cores.primaria, fontWeight: '700' },
-  categoriaPill: { backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.pill, paddingHorizontal: 12, paddingVertical: 7 },
-  categoriaPillAtivo: { backgroundColor: cores.primaria, borderColor: cores.primaria },
-  categoriaPillTexto: { fontSize: 12, color: cores.textoMedio },
-  categoriaPillTextoAtivo: { color: '#0A0A0A', fontWeight: '600' },
   enviandoBox: { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 12, alignItems: 'center', marginTop: 12 },
   enviandoTexto: { fontSize: 13, color: cores.textoMedio },
-  cepRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  cepOk: { fontSize: 20, marginTop: 28, marginLeft: 12 },
-  // Confirmação do código de indicação, colada ao campo (o Input tem a própria margem).
-  indicacaoOk: { fontSize: 12, color: cores.sucesso, fontWeight: '600', marginTop: -8, marginBottom: 14 },
-  dicaCep: { fontSize: 11, color: cores.textoMedio, marginBottom: 10, marginTop: 12 },
 })
