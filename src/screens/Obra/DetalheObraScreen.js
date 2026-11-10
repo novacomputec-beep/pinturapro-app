@@ -33,6 +33,7 @@ import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPergunta
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { MarcaCompromissos, MarcaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
+import { BannerMatchExpirado, estiloDestaquePrazo } from '../../components/BannerMatchExpirado'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } from '../../components/DesfazerEscolha'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
@@ -328,7 +329,7 @@ export default function DetalheObraScreen({ route, navigation }) {
   // se ele ainda não avaliou este contrato.
   // rolarAteInteressados: vem do "Ver interessados e escolher outro" da folha de desistência na
   // home do dono (MinhasObrasScreen): depois da carga, rola o corpo até a lista uma vez.
-  const { obra: obraInicial, abrirComparecimento, abrirAvaliacao, rolarAteInteressados } = route.params
+  const { obra: obraInicial, abrirComparecimento, abrirAvaliacao, rolarAteInteressados, destacarPrazo } = route.params
   const { usuario, assinatura, assinaturaAtiva } = useAuth()
   const verificacao = useVerificacaoIdentidade()
   const [obra, setObra] = useState(obraInicial)
@@ -467,6 +468,28 @@ export default function DetalheObraScreen({ route, navigation }) {
     const t = setTimeout(rolarListaCandidatos, 450)
     return () => clearTimeout(t)
   }, [rolarAteInteressados, carregando])
+  // Toque no push 'match_expirado' (destacarPrazo, AppNavigator): uma vez, depois da primeira
+  // carga, rola até o bloco "Aumentar tempo" e liga o realce + a faixa
+  // (components/BannerMatchExpirado). O realce fica enquanto a tela viver.
+  const prazoY = useRef(0)
+  const [prazoDestacado, setPrazoDestacado] = useState(false)
+  const destacouPrazoRef = useRef(false)
+  useEffect(() => {
+    if (!destacarPrazo || carregando || destacouPrazoRef.current) return
+    destacouPrazoRef.current = true
+    setPrazoDestacado(true)
+    const t = setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, prazoY.current - 12), animated: true }), 450)
+    return () => clearTimeout(t)
+  }, [destacarPrazo, carregando])
+  // O mesmo push chegando com a tela JÁ aberta (1º plano): o listener geral relê a obra
+  // (1,5 s de debounce); aqui só liga o realce e rola depois que a releitura já desenhou o
+  // bloco (a obra volta a "aberta sem match").
+  useEffect(() => aoPushRecebido((data) => {
+    if (data?.tipo !== 'match_expirado' || obra?.id == null || String(data.obra_id) !== String(obra.id)) return
+    destacouPrazoRef.current = true
+    setPrazoDestacado(true)
+    setTimeout(() => scrollRef.current?.scrollTo({ y: Math.max(0, prazoY.current - 12), animated: true }), 2200)
+  }), [obra?.id])
 
   // Ausente/null (ou data ilegível vinda da API) cai no NaN e é tratado como "sem
   // espera": o botão segue como sempre foi, em vez de travar por um campo que não deu
@@ -2320,15 +2343,19 @@ export default function DetalheObraScreen({ route, navigation }) {
             <>
               {temMatch && !encerrada && !faseAguardaHorario && <CaixaConcluaPeloApp />}
               {obra.status === 'aberta' && !obra.match_usuario_id && (
-                <TouchableOpacity
-                  style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, (obra.expirada || emEsperaEstender) && { opacity: 0.6 }]}
-                  onPress={() => setModalEstender(true)}
-                  disabled={obra.expirada || emEsperaEstender}
-                >
-                  {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
-                      para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${esperaEstenderTexto})` : '⏳ Aumentar tempo da Obra'}</Text>
-                </TouchableOpacity>
+                <View onLayout={(e) => { prazoY.current = e.nativeEvent.layout.y }}>
+                  {/* Push 'match_expirado': faixa + realce do botão (prazoDestacado). */}
+                  {prazoDestacado && <BannerMatchExpirado />}
+                  <TouchableOpacity
+                    style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, prazoDestacado && estiloDestaquePrazo, (obra.expirada || emEsperaEstender) && { opacity: 0.6 }]}
+                    onPress={() => setModalEstender(true)}
+                    disabled={obra.expirada || emEsperaEstender}
+                  >
+                    {/* Prazo encerrado vem antes da espera: é definitivo, e anunciar minutos
+                        para quem já perdeu o prazo prometeria uma segunda chance inexistente. */}
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#E8833A' }}>{obra.expirada ? 'Prazo encerrado' : emEsperaEstender ? `⏳ Aguarde para estender (${esperaEstenderTexto})` : '⏳ Aumentar tempo da Obra'}</Text>
+                  </TouchableOpacity>
+                </View>
               )}
               <ModalEstenderPrazo
                 visivel={modalEstender}
