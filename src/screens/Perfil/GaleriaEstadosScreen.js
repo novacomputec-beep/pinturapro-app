@@ -15,7 +15,7 @@ import { MeusPerfisConteudo } from './MeusPerfisScreen'
 import { EntrarComoConteudo } from '../Auth/EntrarComoScreen'
 import { SheetDesfazerEscolha } from '../../components/DesfazerEscolha'
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu } from '../../components/ProfissionalDesistiu'
-import { AdicionarPerfilConteudo } from './AdicionarPerfilScreen'
+import { AdicionarPerfilConteudo, formDemo } from './AdicionarPerfilScreen'
 import { EditarCategoriasConteudo } from '../../components/EditarCategoriasSheet'
 import { DicasConteudo } from './DicasScreen'
 import { DicasTemaConteudo } from './DicasTemaScreen'
@@ -282,12 +282,12 @@ const CASOS_PERFIS = [
   { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · Contratar em uso + Trabalhar (seta)', usuario: { role: 'dono_obra', tipo_dono: 'reparo', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }] } },
   { lado: 'dono', fase: 'perfis', rotulo: 'Meus perfis · as 4 contas → 2 cards, trocando para Trabalhar (última usada: pintor)', usuario: { role: 'dono_obra', tipo_dono: 'pintura', contas: [{ tipo: 'reparador' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }, { tipo: 'pintor' }] }, ultimoTrabalhar: 'pintor', trocando: 'pintor' },
   { lado: 'pro', fase: 'perfis', rotulo: 'Meus perfis · Trabalhar em uso (conta de obra) + as 2 contratantes (um card, com seta)', usuario: { role: 'prestador', tipo_prestador: 'pintor', contas: [{ tipo: 'pintor' }, { tipo: 'dono_reparo' }, { tipo: 'dono_obra' }] }, ultimoContratar: 'dono_obra' },
-  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · trabalhar (serviços + obra, 2 marcadas)', tipo: 'reparador', selecionadas: ['eletrica', 'pedreiro_servente'] },
+  { lado: 'pro', fase: 'adicionar', rotulo: 'Adicionar perfil · trabalhar (passo "Perfil profissional" do cadastro: CEP, exp., especialidades 2 marcadas, RG, indicação)', tipo: 'reparador', selecionadas: ['eletrica', 'pedreiro_servente'] },
   { lado: 'dono', fase: 'adicionar', rotulo: 'Adicionar perfil · contratar (sem especialidades)', tipo: 'dono_reparo', selecionadas: [] },
 ]
 const propsPerfis = (caso) => caso.fase === 'perfis'
   ? { perfis: listarPerfis(caso.usuario, caso.ultimoContratar || null, caso.ultimoTrabalhar || null), trocando: caso.trocando || null, onTrocar: noop, onAdicionar: noop }
-  : { perfil: perfilDoTipo(caso.tipo), selecionadas: caso.selecionadas, onAlternar: noop }
+  : { perfil: perfilDoTipo(caso.tipo), selecionadas: caso.selecionadas, form: perfilDoTipo(caso.tipo)?.profissional ? formDemo(caso.selecionadas) : null }
 
 // Arte-Entrar-Como + Fases 1 e 2: o miolo do "Entrar como:" (EntrarComoConteudo) com só os
 // lados que a pessoa tem — UM card por lado ("Trabalhar" e "Contratar"), mesmo com as duas

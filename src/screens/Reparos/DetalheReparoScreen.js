@@ -23,7 +23,7 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
-import { emojiReparo, rotulosEspecialidades, categoriasDe } from '../../utils/categorias'
+import { emojiReparo, rotulosEspecialidades, categoriasDe, normalizarEspecialidades } from '../../utils/categorias'
 import { mostrarAviso } from '../../utils/deepLink'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
@@ -1553,7 +1553,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Arte-Indicar (components/Indicacao): só para o PROFISSIONAL (nunca o dono) em reparo
   // aberto e sem match — o mesmo "aberta" da arte de avisados. O código de indicação só é
   // consultado quando a caixa vai aparecer.
-  const mostrarIndicar = isPrestador && !isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada
+  // Some também quando o pedido é PARA este profissional — ele tem uma das categorias do pedido
+  // (ou é um pedido "outros", que vai a todos) ou já mandou interesse: indicar um colega aí é
+  // concorrência, não ajuda.
+  const minhasEspecialidades = normalizarEspecialidades(usuario?.especialidades)
+  const categoriasPedido = categoriasDe(reparo)
+  const pedidoEhMeu = categoriasPedido.includes('outros') || categoriasPedido.some((c) => minhasEspecialidades.includes(c))
+  const mostrarIndicar = isPrestador && !isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada && !pedidoEhMeu && !meuInteresse
   // "✏️ Editar" ao lado dos chips de categoria (Arte-Editar-Categorias): o espelho do dono da
   // mesma janela — aberto e sem profissional escolhido, a única em que a API aceita o PATCH.
   const podeEditarCategorias = isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada

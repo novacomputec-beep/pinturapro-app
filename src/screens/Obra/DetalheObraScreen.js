@@ -22,7 +22,8 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
-import { emojiObra, rotulosEspecialidades, rotuloCategoria } from '../../utils/categorias'
+import { emojiObra, rotulosEspecialidades, rotuloCategoria, normalizarEspecialidades } from '../../utils/categorias'
+import { ehEspecialidadeDeObra } from '../../utils/gruposServico'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
@@ -1472,7 +1473,11 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Arte-Indicar (components/Indicacao): só para o PROFISSIONAL (nunca o dono) em obra
   // aberta e sem match — o mesmo "aberta" da arte de avisados. O código de indicação só é
   // consultado quando a caixa vai aparecer.
-  const mostrarIndicar = isPrestador && !isDono && obra?.status === 'aberta' && !obra?.match_usuario_id && !temMatch && !encerrada
+  // Some também quando a obra é PARA este profissional — ele tem alguma especialidade de obra
+  // (pintor, pedreiro, construtor, engenheiro: é o que faz a obra aparecer para ele) ou já se
+  // candidatou: indicar um colega aí é concorrência, não ajuda.
+  const obraEhMinha = normalizarEspecialidades(usuario?.especialidades).some(ehEspecialidadeDeObra)
+  const mostrarIndicar = isPrestador && !isDono && obra?.status === 'aberta' && !obra?.match_usuario_id && !temMatch && !encerrada && !obraEhMinha && !minhaCandidatura
   const codigoIndicacao = useMeuCodigoIndicacao(mostrarIndicar)
   // Mesma comparação guardada dos flags acima: sem ela um id de tipo diferente faria o find
   // devolver undefined, apagando o botão de WhatsApp e o nome no ModalAvaliacao.
