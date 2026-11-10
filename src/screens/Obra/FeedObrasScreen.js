@@ -25,6 +25,7 @@ import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
+import { ChipClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -167,7 +168,11 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
             {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
           </Text>
           <View style={estilos.cardRodape}>
-            <Text style={estilos.interessados}>🎨{item.total_candidaturas || item.total_interessados || 0} interessado(s)</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+              <Text style={estilos.interessados}>🎨{item.total_candidaturas || item.total_interessados || 0} interessado(s)</Text>
+              {/* Marca do cliente (90 dias): cliente_nao_respondeu_90d da linha do feed (API). */}
+              <ChipClienteNaoRespondeu demanda={item} />
+            </View>
             <View style={estilos.btnVer}>
               <Text style={estilos.btnVerTexto}>Ver obra →</Text>
             </View>

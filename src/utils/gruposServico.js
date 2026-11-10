@@ -17,11 +17,11 @@ export const SLUG_OUTROS = 'outros'
 
 // Categorias recém-chegadas: ganham a etiqueta verde "NOVO" na folha do grupo. Lista para
 // esvaziar quando deixarem de ser novidade.
-export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro']
+export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro', 'seguranca_eletronica']
 export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
 
 export const GRUPOS_SERVICO = [
-  { id: 'casa',       titulo: 'Casa e reparos',        emoji: '🏠', slugs: ['hidraulica', 'eletrica', 'climatizacao', 'alvenaria', 'montagem_moveis', 'faxina', 'chaveiro', 'marcenaria', 'serralheria', 'vidraceiro', 'estofamento', 'dedetizacao', 'jardineiro', 'eletronica', 'informatica', 'gesseiro'] },
+  { id: 'casa',       titulo: 'Casa e reparos',        emoji: '🏠', slugs: ['hidraulica', 'eletrica', 'climatizacao', 'alvenaria', 'montagem_moveis', 'faxina', 'chaveiro', 'marcenaria', 'serralheria', 'vidraceiro', 'estofamento', 'dedetizacao', 'jardineiro', 'eletronica', 'informatica', 'gesseiro', 'seguranca_eletronica'] },
   { id: 'festas',     titulo: 'Festas e eventos',      emoji: '🎉', slugs: ['garcom', 'churrasqueiro', 'cozinheiro', 'confeiteiro', 'salgadeiro', 'decoracao_festas', 'aluguel_festas', 'recreacao_infantil', 'filmagem_fotografia', 'musico', 'dj'] },
   { id: 'beleza',     titulo: 'Beleza e bem-estar',    emoji: '💇', slugs: ['cabelo', 'barbeiro', 'manicure', 'maquiagem', 'design_sobrancelhas', 'depilacao', 'massagem', 'podologo', 'personal_trainer', 'tatuagem'] },
   { id: 'cuidar',     titulo: 'Cuidar de alguém',      emoji: '🤝', slugs: ['baba', 'cuidador', 'pet'] },
@@ -90,6 +90,7 @@ export const EXEMPLOS_SERVICO = {
   gesseiro:                 'Forro, sanca, drywall, moldura',
   placas_fachadas:          'Letreiro, fachada de loja, adesivo, banner',
   borracheiro:              'Pneu furado, troca, calibragem',
+  seguranca_eletronica:     'Câmeras, alarme, cerca elétrica, interfone',
   outros:                   'Não achou? Descreva no próximo passo.',
 }
 

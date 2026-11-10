@@ -91,6 +91,9 @@ export const CATEGORIAS_SERVICO = ordenar([
   // Mesmo slug da API (utils/especialidades.js, pinturapro-api 0592c9a); grupo "Transporte e
   // veículos" (utils/gruposServico).
   { slug: 'borracheiro',     rotulo: 'Borracheiro',        emoji: '🚙' },
+  // Arte 10/11/2026: no mesmo grupo da Elétrica ("Casa e reparos", utils/gruposServico). Slug
+  // igual ao que a API vai aceitar em utils/especialidades.js (ainda ausente em d826bdd).
+  { slug: 'seguranca_eletronica', rotulo: 'Segurança eletrônica', emoji: '📹' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 

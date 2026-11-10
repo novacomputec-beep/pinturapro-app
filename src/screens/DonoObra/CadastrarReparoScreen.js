@@ -14,6 +14,7 @@ import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categori
 import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/PedidosBloqueados'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -97,6 +98,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [pickerMidia, setPickerMidia] = useState(null)
   // Folha do grupo aberto no passo 1 (objeto de gruposComCategorias) ou null.
   const [grupoAberto, setGrupoAberto] = useState(null)
+  // 409 PEDIDOS_BLOQUEADOS do POST: { liberado_em } abre a tela cheia (components/PedidosBloqueados).
+  const [bloqueio, setBloqueio] = useState(null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -468,11 +471,14 @@ export default function CadastrarReparoScreen({ navigation, route }) {
       // inclusive quando alguma mídia falha — o reparo já foi criado de qualquer forma.
       submetidoRef.current = true
     } catch (e) {
-      console.log('[CadastrarReparo] falha ao criar reparo | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
-      const msg = e.mensagem || 'Não foi possível cadastrar o serviço. Tente novamente.'
-      Alert.alert('Erro', msg)
+      console.log('[CadastrarReparo] falha ao criar reparo | status:', e.status, '| code:', e.code, '| codigo:', e.codigo, '| msg:', e.mensagem)
       enviandoRef.current = false
       setCarregando(false)
+      // Pessoa com pedidos novos bloqueados (2 propostas de horário vencidas sem resposta em
+      // 90 dias): tela cheia no lugar do Alert; o formulário fica como está.
+      if (ehPedidosBloqueados(e)) { setBloqueio({ liberado_em: e.dados?.liberado_em || null }); return }
+      const msg = e.mensagem || 'Não foi possível cadastrar o serviço. Tente novamente.'
+      Alert.alert('Erro', msg)
       return
     }
     // Fase de mídia: cada item é isolado; falhas não cancelam as demais e podem ser reenviadas
@@ -610,6 +616,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
+      {/* 409 PEDIDOS_BLOQUEADOS: "Novos pedidos liberados em dd/mm" + "Falar com o suporte". */}
+      <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>
   )
 }
