@@ -497,6 +497,7 @@ const CASOS_WIZARD = [
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Festas" no limite', grupo: 'festas', categorias: ['garcom', 'dj', 'hidraulica'] },
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Arte e criação" (etiqueta NOVO)', grupo: 'arte', categorias: [] },
   { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Transporte e veículos" (Borracheiro 🚙 com NOVO, 1º da ordem alfabética)', grupo: 'transporte', categorias: ['borracheiro'] },
+  { lado: 'dono', fase: 'cadastrar_grupo', rotulo: 'Cadastrar serviço · folha "Casa e reparos" (Segurança eletrônica 📹 marcada, com NOVO, junto da Elétrica)', grupo: 'casa', categorias: ['eletrica', 'seguranca_eletronica'] },
 ]
 const propsWizard = (caso) => ({ passoInicial: caso.passo || 1, categoriasIniciais: caso.categorias || [], grupoId: caso.grupo || null, pedido: !!caso.pedido })
 
@@ -738,6 +739,7 @@ const CASOS_ESPECIALIDADES = [
   { lado: 'pro', fase: 'especialidades_grupo', rotulo: 'Especialidades · folha "Obras de Construção Civil" (1 marcada)', grupo: 'obras', selecionadas: ['hidraulica', 'eletrica', 'pedreiro_servente'] },
   { lado: 'pro', fase: 'especialidades_grupo', rotulo: 'Especialidades · folha "Casa e reparos" no teto', grupo: 'casa', selecionadas: ['hidraulica', 'eletrica', 'faxina', 'garcom', 'dj'] },
   { lado: 'pro', fase: 'especialidades_grupo', rotulo: 'Especialidades · folha "Transporte e veículos" (Borracheiro 🚙 marcado, com NOVO)', grupo: 'transporte', selecionadas: ['mecanica', 'borracheiro'] },
+  { lado: 'pro', fase: 'especialidades_grupo', rotulo: 'Especialidades · folha "Casa e reparos" (Segurança eletrônica 📹 marcada, com NOVO)', grupo: 'casa', selecionadas: ['eletrica', 'seguranca_eletronica'] },
 ]
 const propsEspecialidades = (caso) => ({ origem: caso.origem || 'Cadastro', selecionadasIniciais: caso.selecionadas || [], grupoId: caso.grupo || null })
 
