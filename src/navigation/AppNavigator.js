@@ -284,10 +284,6 @@ const navegarParaNotificacao = (data) => {
       case 'chegada_prevista_recusada':
       case 'chegada_declarada':
       case 'chegada_confirmada':
-      // match_expirado passava meses sem rota, caindo no default: o dono era avisado de
-      // que o profissional não chegou e o toque não abria nada. O detalhe é onde ele
-      // aumenta o prazo ou espera um novo interessado.
-      case 'match_expirado':
       // Encerramento em DUAS etapas: quem recebe este aviso é a OUTRA parte, e o botão que
       // confirma vive no detalhe — é lá que rotuloEncerrar vira "✅ Confirmar encerramento".
       // Chega aos dois lados e nos dois tipos de demanda, como 'contraproposta_dono'.
@@ -339,6 +335,16 @@ const navegarParaNotificacao = (data) => {
       case 'lembrete_conclusao':
         if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+        else navegar(tabEmAndamento)
+        break
+      // match_expirado passava meses sem rota, caindo no default: o dono era avisado de que o
+      // profissional não marcou horário e o toque não abria nada. Vai ao detalhe com
+      // `destacarPrazo`: a tela rola até o bloco "Aumentar tempo" (a data da demanda reaberta),
+      // realça o botão e mostra a faixa "Escolha outro interessado ou defina uma nova data"
+      // (components/BannerMatchExpirado).
+      case 'match_expirado':
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, destacarPrazo: true }, initial: false })
+        else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id }, destacarPrazo: true }, initial: false })
         else navegar(tabEmAndamento)
         break
       // Vigia do comparecimento ("o profissional veio?"): mesmo destino, com o param que abre
