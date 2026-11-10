@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Animated, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
@@ -66,7 +66,9 @@ const Motivos = ({ opcoes, valor, texto, onValor, onTexto, desabilitado }) => (
 // temHorario: há chegada_prevista_em (muda a frase do "sem punição"). nomeOutro: o primeiro
 // nome do outro lado, para a linha do comum acordo.
 // onCancelar(motivo, texto) / onPedirAcordo(motivo, texto): os dois POSTs da tela.
-export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nomeOutro, temHorario, enviando, onFechar, onCancelar, onPedirAcordo }) => {
+// interessados: quantos OUTROS interessados o pedido tem (fora o escolhido) — só o dono usa,
+// na caixa e no diálogo do "Não preciso mais do serviço".
+export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nomeOutro, temHorario, interessados, enviando, onFechar, onCancelar, onPedirAcordo }) => {
   const insets = useSafeAreaInsets()
   const [motivo, setMotivo] = useState(null)
   const [texto, setTexto] = useState('')
@@ -76,6 +78,28 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   const opcoes = souDono ? MOTIVOS_DONO : MOTIVOS_PROFISSIONAL
   const motivoOk = !!motivo && (motivo !== 'outro' || !!texto.trim())
   const tardio = simulacao?.tipo === 'tardio'
+  // Dono com 'nao_preciso': a API (cancelamentoMatchService.js:207) cancela o match E ENCERRA
+  // o pedido — ele não volta para os outros interessados. Os demais motivos (e o pedido de
+  // comum acordo, que a API trata com manter_aberta: true) mantêm o pedido aberto. A caixa
+  // verde só vale para esses; no 'nao_preciso' entra a vermelha, e o envio passa por um
+  // diálogo de confirmação antes do POST.
+  const encerra = !!souDono && motivo === 'nao_preciso'
+  const n = Number.isFinite(Number(interessados)) && Number(interessados) > 0 ? Number(interessados) : 0
+  const textoDispensa = n === 1 ? 'dispensa o interessado' : `dispensa os ${n} interessados`
+  const textoEncerra = n > 0
+    ? `⚠️ Isto ENCERRA o pedido e ${textoDispensa}. Ele não volta para os outros profissionais.`
+    : '⚠️ Isto ENCERRA o pedido. Ele não volta para os outros profissionais.'
+  const confirmarCancelar = () => {
+    if (!motivoOk || enviando) return
+    if (!encerra) { onCancelar(motivo, texto); return }
+    const corpo = n === 0
+      ? 'O pedido sai da sua lista.'
+      : n === 1 ? 'O interessado será dispensado e o pedido sai da sua lista.' : `Os ${n} interessados serão dispensados e o pedido sai da sua lista.`
+    Alert.alert('Encerrar o pedido?', corpo, [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Sim, encerrar', style: 'destructive', onPress: () => onCancelar(motivo, texto) },
+    ])
+  }
   // Antecedência que a API aplicou (12 h; 1 h nas demandas de faixa curta).
   const limite = Number.isFinite(Number(simulacao?.limite_horas)) && Number(simulacao.limite_horas) > 0 ? Number(simulacao.limite_horas) : 12
   const fechar = () => { if (!enviando) onFechar() }
@@ -117,7 +141,16 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
                   <Text style={estilos.linhaAcordo}>
                     🤝 Ou peça para {outro} cancelar de comum acordo: se aceitar, ninguém leva falta. Sem resposta em 2h, o pedido expira e o combinado continua.
                   </Text>
+                  {encerra ? (
+                    <View style={estilos.caixaVermelha}>
+                      <Text style={estilos.caixaVermelhaTexto}>{textoEncerra}</Text>
+                    </View>
+                  ) : null}
                 </>
+              ) : encerra ? (
+                <View style={estilos.caixaVermelha}>
+                  <Text style={estilos.caixaVermelhaTexto}>{textoEncerra}</Text>
+                </View>
               ) : (
                 <View style={estilos.caixaVerde}>
                   <Text style={estilos.caixaVerdeTexto}>✅ Sem punição. {textoPrazo} {textoLado}</Text>
@@ -135,7 +168,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
                   <TouchableOpacity style={[estilos.btnLaranja, (!motivoOk || enviando) && { opacity: 0.5 }]} onPress={() => onPedirAcordo(motivo, texto)} disabled={!motivoOk || enviando} activeOpacity={0.85}>
                     <Text style={estilos.btnLaranjaTexto}>{enviando ? 'Enviando…' : '🤝 Pedir de comum acordo'}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[estilos.btnVermelho, (!motivoOk || enviando) && { opacity: 0.5 }]} onPress={() => onCancelar(motivo, texto)} disabled={!motivoOk || enviando} activeOpacity={0.85}>
+                  <TouchableOpacity style={[estilos.btnVermelho, (!motivoOk || enviando) && { opacity: 0.5 }]} onPress={confirmarCancelar} disabled={!motivoOk || enviando} activeOpacity={0.85}>
                     <Text style={estilos.btnVermelhoTexto}>{enviando ? 'Enviando…' : 'Cancelar mesmo assim'}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={estilos.btnVoltarTexto} onPress={fechar} disabled={enviando}>
@@ -147,7 +180,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
                   <TouchableOpacity style={estilos.btnVoltar} onPress={fechar} disabled={enviando} activeOpacity={0.85}>
                     <Text style={estilos.btnVoltarRotulo}>Voltar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[estilos.btnVermelho, { flex: 1, marginBottom: 0 }, (!motivoOk || enviando) && { opacity: 0.5 }]} onPress={() => onCancelar(motivo, texto)} disabled={!motivoOk || enviando} activeOpacity={0.85}>
+                  <TouchableOpacity style={[estilos.btnVermelho, { flex: 1, marginBottom: 0 }, (!motivoOk || enviando) && { opacity: 0.5 }]} onPress={confirmarCancelar} disabled={!motivoOk || enviando} activeOpacity={0.85}>
                     <Text style={estilos.btnVermelhoTexto}>{enviando ? 'Enviando…' : 'Cancelar serviço'}</Text>
                   </TouchableOpacity>
                 </View>
