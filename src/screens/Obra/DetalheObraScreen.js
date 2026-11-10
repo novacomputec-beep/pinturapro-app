@@ -31,6 +31,7 @@ import { useMensagensProntas } from '../../components/MensagensProntas'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
+import { MarcaCompromissos, MarcaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } from '../../components/DesfazerEscolha'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
@@ -1965,7 +1966,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
             endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
             pontoReferencia={obra.ponto_referencia}
-            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url }}
+            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url, cliente_nao_respondeu_90d: obra.cliente_nao_respondeu_90d }}
             usuarioId={meuId}
             onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
             /* Negociação do horário: POST /chegada-prevista (pintor) e /responder. */
@@ -2196,6 +2197,10 @@ export default function DetalheObraScreen({ route, navigation }) {
           {isDono && !faseAguardaHorario && obra.endereco_obra ? (
             <Text style={estilos.enderecoLinha}>📍 {obra.endereco_obra}</Text>
           ) : null}
+          {/* Marca do cliente (90 dias) ao profissional, pré-match: cliente_nao_respondeu_90d da
+              linha da obra (API) → caixa vermelha logo abaixo do local. No pós-match a mesma
+              marca sai no mini card do cliente da tela fixa (PosMatchFixo.MiniPessoa). */}
+          {!isDono && !encerrada ? <MarcaClienteNaoRespondeu demanda={obra} /> : null}
           {/* Linha de referência do DONO: com valor, é a mesma linha de antes, agora tocável
               para corrigir; vazia, vira um convite discreto — sem ele não havia como saber
               que o campo existe. Fora do gate de endereco_obra de propósito: a referência é
@@ -2555,6 +2560,9 @@ export default function DetalheObraScreen({ route, navigation }) {
                     </View>
                     {linhaQualif ? <Text style={estilos.candidatoLinha}>⏱ {linhaQualif}</Text> : null}
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
+                    {/* Marca de compromisso (90 dias) da API: caixa vermelha "N compromisso(s) não
+                        cumprido(s)" ou linha verde "Cumpriu todos" (components/MarcasCompromisso). */}
+                    <MarcaCompromissos profissional={item} />
                     {encerrada && valorPedidoObra > 0 && (
                       <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
                         📋 Valor cadastrado: R$ {valorPedidoObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

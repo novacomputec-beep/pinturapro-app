@@ -33,6 +33,7 @@ import { useMensagensProntas } from '../../components/MensagensProntas'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
+import { MarcaCompromissos, MarcaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import ChipsCategoria from '../../components/ChipsCategoria'
 import { SheetCancelamento } from '../../components/CancelamentoMatch'
 import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } from '../../components/DesfazerEscolha'
@@ -2107,7 +2108,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             valor={isDono ? valorPrincipal : valorCombinadoPro}
             endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
             pontoReferencia={reparo.ponto_referencia}
-            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url }}
+            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url, cliente_nao_respondeu_90d: reparo.cliente_nao_respondeu_90d }}
             usuarioId={meuId}
             onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
             /* Negociação do horário: POST /chegada-prevista (profissional) e /responder. */
@@ -2350,6 +2351,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
           {isDono && !faseAguardaHorario && reparo.endereco_reparo ? (
             <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
           ) : null}
+          {/* Marca do cliente (90 dias) ao profissional, pré-match: cliente_nao_respondeu_90d da
+              linha do reparo (API) → caixa vermelha logo abaixo do local. No pós-match a mesma
+              marca sai no mini card do cliente da tela fixa (PosMatchFixo.MiniPessoa). */}
+          {!isDono && !encerrada ? <MarcaClienteNaoRespondeu demanda={reparo} /> : null}
           {/* Linha de referência do DONO: com valor, é a mesma linha de antes, agora tocável
               para corrigir; vazia, vira um convite discreto — sem ele não havia como saber
               que o campo existe. Fora do gate de endereco_reparo de propósito: a referência
@@ -2728,6 +2733,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                     </View>
                     {linhaQualif ? <Text style={estilos.candidatoLinha}>⏱ {linhaQualif}</Text> : null}
                     {espTexto ? <Text style={estilos.candidatoLinha}>🛠 Especialidades: {espTexto}</Text> : null}
+                    {/* Marca de compromisso (90 dias) da API: caixa vermelha "N compromisso(s) não
+                        cumprido(s)" ou linha verde "Cumpriu todos" (components/MarcasCompromisso). */}
+                    <MarcaCompromissos profissional={item} />
                     {encerrada && valorPedidoReparo > 0 && (
                       <Text style={{ fontSize: 13, color: cores.textoMedio, marginBottom: 4 }}>
                         📋 Valor cadastrado: R$ {valorPedidoReparo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}

@@ -138,7 +138,10 @@ api.interceptors.response.use(
     // crash silencioso. Método em maiúsculas porque o axios normaliza para minúsculas.
     const metodo = error.config?.method?.toUpperCase()
     const rota = error.config?.url
-    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo, retryAfter, metodo, rota })
+    // `dados`: o corpo da resposta de erro, cru, para quem precisa de mais que a mensagem e o
+    // código — o 409 PEDIDOS_BLOQUEADOS traz `liberado_em` (components/PedidosBloqueados).
+    // Só quando é objeto; HTML de proxy ou texto solto não entram.
+    return Promise.reject({ mensagem: msg, status: error.response?.status, code: error.code, codigo: dados?.codigo, dados: dados && typeof dados === 'object' ? dados : undefined, retryAfter, metodo, rota })
   }
 )
 

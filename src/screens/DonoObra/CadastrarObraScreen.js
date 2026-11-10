@@ -13,6 +13,7 @@ import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { tiposObraComExemplos, TILE_OUTROS_OBRA } from '../../utils/tiposObra'
 import { useAuth } from '../../contexts/AuthContext'
 import { marcarTemObras } from '../../utils/temObras'
+import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/PedidosBloqueados'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -141,6 +142,8 @@ export default function CadastrarObraScreen({ navigation }) {
   const [pickerMidia, setPickerMidia] = useState(null)
   // Arrastar o título do picker de mídia para baixo fecha como o toque fora e o voltar.
   const arrastePicker = useArrastarParaFechar(() => setPickerMidia(null), pickerMidia != null)
+  // 409 PEDIDOS_BLOQUEADOS do POST: { liberado_em } abre a tela cheia (components/PedidosBloqueados).
+  const [bloqueio, setBloqueio] = useState(null)
   const enviandoRef = useRef(false)
   // Criação confirmada pelo servidor: é o que autoriza o reset no próximo foco. Não dá
   // para reaproveitar enviandoRef aqui — ele já é true durante o envio, e uma ida a
@@ -527,11 +530,14 @@ export default function CadastrarObraScreen({ navigation }) {
       // dono sem esperar a próxima consulta a GET /auth/contas (utils/temObras).
       marcarTemObras(usuario?.id)
     } catch (e) {
-      console.log('[CadastrarObra] falha ao criar obra | status:', e.status, '| code:', e.code, '| msg:', e.mensagem)
-      const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
-      Alert.alert('Erro', msg)
+      console.log('[CadastrarObra] falha ao criar obra | status:', e.status, '| code:', e.code, '| codigo:', e.codigo, '| msg:', e.mensagem)
       enviandoRef.current = false
       setCarregando(false)
+      // Pessoa com pedidos novos bloqueados (2 propostas de horário vencidas sem resposta em
+      // 90 dias): tela cheia no lugar do Alert; o formulário fica como está.
+      if (ehPedidosBloqueados(e)) { setBloqueio({ liberado_em: e.dados?.liberado_em || null }); return }
+      const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
+      Alert.alert('Erro', msg)
       return
     }
     // Estado real de aprovação vindo da criação: decide se o alerta anuncia publicação ou
@@ -652,6 +658,8 @@ export default function CadastrarObraScreen({ navigation }) {
           </Animated.View>
         </TouchableOpacity>
       </Modal>
+      {/* 409 PEDIDOS_BLOQUEADOS: "Novos pedidos liberados em dd/mm" + "Falar com o suporte". */}
+      <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>
   )
 }

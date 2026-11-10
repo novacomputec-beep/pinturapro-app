@@ -5,6 +5,7 @@ import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
 import { rotulosEspecialidades } from '../utils/categorias'
+import { clienteNaoRespondeu, TEXTO_CLIENTE_NAO_RESPONDEU } from './MarcasCompromisso'
 import { avatar } from '../utils/imagemOtimizada'
 import { rotuloMotivo } from '../utils/cancelamento'
 import { acaoEhMinha } from '../utils/identidadeDemanda'
@@ -175,20 +176,31 @@ export const MiniPessoa = ({ souDono, outro, linha2 }) => {
     : (linha2 || 'Cliente')
   const especialidades = souDono ? rotulosEspecialidades(outro?.especialidades) : null
   const iniciais = iniciaisDe(outro?.nome)
+  // Marca de compromisso (90 dias) do CLIENTE ao profissional: cliente_nao_respondeu_90d da
+  // demanda, copiado para `outro` pelas telas de detalhe (components/MarcasCompromisso).
+  // Caixa vermelha compacta DENTRO do card (+~40dp no orçamento da tela fixa, só quando há).
+  const marcaCliente = !souDono && clienteNaoRespondeu(outro)
   return (
     <View style={estilos.mini}>
-      {outro?.foto_url ? (
-        <Image source={{ uri: avatar(outro.foto_url) }} style={estilos.miniAvatar} />
-      ) : (
-        <View style={[estilos.miniAvatar, estilos.miniAvatarVazio]}>
-          <T style={iniciais ? estilos.miniIniciais : estilos.miniEmoji}>{iniciais || (souDono ? '👷' : '🏠')}</T>
+      <View style={estilos.miniLinha}>
+        {outro?.foto_url ? (
+          <Image source={{ uri: avatar(outro.foto_url) }} style={estilos.miniAvatar} />
+        ) : (
+          <View style={[estilos.miniAvatar, estilos.miniAvatarVazio]}>
+            <T style={iniciais ? estilos.miniIniciais : estilos.miniEmoji}>{iniciais || (souDono ? '👷' : '🏠')}</T>
+          </View>
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T style={estilos.miniNome}>{outro?.nome || (souDono ? 'Profissional' : 'Cliente')}</T>
+          <T style={estilos.miniNota}>{nota}</T>
+          {especialidades ? <T style={estilos.miniMeta}>🛠 {especialidades}</T> : null}
         </View>
-      )}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <T style={estilos.miniNome}>{outro?.nome || (souDono ? 'Profissional' : 'Cliente')}</T>
-        <T style={estilos.miniNota}>{nota}</T>
-        {especialidades ? <T style={estilos.miniMeta}>🛠 {especialidades}</T> : null}
       </View>
+      {marcaCliente ? (
+        <View style={estilos.miniMarca}>
+          <T linhas={2} style={estilos.miniMarcaTexto}>{TEXTO_CLIENTE_NAO_RESPONDEU}</T>
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -922,7 +934,11 @@ const estilos = StyleSheet.create({
   btnPrincipalTexto: { fontSize: 15, fontWeight: '700', color: '#0A0A0A' },
 
   // 3. Mini card (~62dp)
-  mini: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, paddingVertical: 8, paddingHorizontal: 12 },
+  mini: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, paddingVertical: 8, paddingHorizontal: 12 },
+  miniLinha: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // Marca "cliente não respondeu" (só ao profissional): caixa vermelha compacta, ≤ 2 linhas.
+  miniMarca: { marginTop: 8, backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.pequeno, paddingHorizontal: 8, paddingVertical: 5 },
+  miniMarcaTexto: { fontSize: 11, lineHeight: 15, color: cores.textoForte },
   miniAvatar: { width: 40, height: 40, borderRadius: 20 },
   miniAvatarVazio: { backgroundColor: cores.primariaSuave, borderWidth: 0.5, borderColor: cores.primariaBorda, alignItems: 'center', justifyContent: 'center' },
   miniIniciais: { color: cores.primaria, fontSize: 14, fontWeight: '700' },
