@@ -1951,6 +1951,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         souDono={isDono}
         nomeOutro={nomeOutroCancelamento}
         temHorario={!!obra.chegada_prevista_em}
+        interessados={outrosCandidatosDesfazer}
         enviando={cancelando}
         onFechar={() => setSheetCancelar(false)}
         onCancelar={(motivo, texto) => handleCancelarMatch(motivo, texto, false)}

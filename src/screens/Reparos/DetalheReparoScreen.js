@@ -2094,6 +2094,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         souDono={isDono}
         nomeOutro={nomeOutroCancelamento}
         temHorario={!!reparo.chegada_prevista_em}
+        interessados={outrosInteressadosDesfazer}
         enviando={cancelando}
         onFechar={() => setSheetCancelar(false)}
         onCancelar={(motivo, texto) => handleCancelarMatch(motivo, texto, false)}
