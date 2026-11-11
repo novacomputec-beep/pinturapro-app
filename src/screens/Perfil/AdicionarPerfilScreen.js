@@ -86,7 +86,14 @@ export const formDemo = (selecionadas = []) => ({
 })
 
 export default function AdicionarPerfilScreen({ navigation, route }) {
-  const tipo = route?.params?.tipo
+  // `tipo` fica guardado em estado desde a montagem: se algum navigate de volta para esta
+  // tela trocar os params sem o `tipo` (foi o que a EspecialidadesScreen fazia antes do
+  // `merge: true`), a tela continua sabendo que perfil está criando e NÃO descarta o que a
+  // pessoa já digitou — "Tipo de perfil inválido." só aparece quando nunca houve tipo válido.
+  const [tipoSalvo, setTipoSalvo] = useState(() => route?.params?.tipo)
+  const tipoParam = route?.params?.tipo
+  useEffect(() => { if (tipoParam && perfilDoTipo(tipoParam)) setTipoSalvo(tipoParam) }, [tipoParam])
+  const tipo = (tipoParam && perfilDoTipo(tipoParam)) ? tipoParam : tipoSalvo
   const perfil = perfilDoTipo(tipo)
   const precisaEsp = !!perfil?.profissional
   const { usuario, loginComToken } = useAuth()
@@ -129,12 +136,16 @@ export default function AdicionarPerfilScreen({ navigation, route }) {
     return () => { montadoRef.current = false }
   }, [])
 
-  // Retorno da EspecialidadesScreen, por params serializáveis (como no CadastroScreen).
+  // Retorno da EspecialidadesScreen, por params serializáveis (como no CadastroScreen). O
+  // setParams({ especialidades: undefined }) logo depois de aplicar é o mesmo do cadastro: sem
+  // ele, remover uma pill pelo ✕ e sair/voltar da tela faria o param antigo ressuscitar a
+  // seleção. Só `especialidades` é tocado; `tipo` fica nos params (setParams mescla).
   const especialidadesRetorno = route?.params?.especialidades
   useEffect(() => {
     if (especialidadesRetorno === undefined) return
     setEspecialidades(normalizarEspecialidades(especialidadesRetorno))
     setErros((e) => (e.especialidades ? { ...e, especialidades: undefined } : e))
+    navigation.setParams({ especialidades: undefined })
   }, [especialidadesRetorno])
 
   // Plano só no caminho pago: Android fora do lançamento grátis (iOS: Apple 3.1.1).
