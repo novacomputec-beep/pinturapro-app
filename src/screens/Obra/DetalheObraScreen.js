@@ -40,6 +40,7 @@ import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensage
 import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista, desistenciaDoPush } from '../../components/ProfissionalDesistiu'
+import { interessadosVisiveis, ehRecusado } from '../../utils/listaInteressados'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
@@ -1441,7 +1442,9 @@ export default function DetalheObraScreen({ route, navigation }) {
   const semEscolhido = isDono && !encerrada && !temMatch && !obra?.match_usuario_id && !candidatoAceitoDono
   const mostrarDesistencia = semEscolhido && desistencias.length > 0
   const idsDesistentes = new Set(desistencias.map(d => String(d?.id)))
-  const candidatosNaDisputa = idsDesistentes.size > 0 ? candidatos.filter(c => !idsDesistentes.has(String(c?.id))) : candidatos
+  // Fora da lista também os 'cancelado'/'expirado' e quem está em prestadores_bloqueados
+  // (utils/listaInteressados): um cancelado que não era desistência voltava como card escolhível.
+  const candidatosNaDisputa = interessadosVisiveis(idsDesistentes.size > 0 ? candidatos.filter(c => !idsDesistentes.has(String(c?.id))) : candidatos, obra)
   // Encerramento em duas etapas: quando uma parte pede, o servidor devolve
   // encerramento 'pendente' e a obra NÃO fecha — fecha só quando a outra confirma.
   // Enquanto pende, o status segue 'aberta', então `encerrada` continua false e a tela
@@ -2528,7 +2531,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // Aceita as duas grafias de recusa (ver STATUS_GRUPO em
                   // ContratosScreen.js:24); 'recusada' é a do endpoint legado e de fato
                   // aparece aqui, então só 'recusado' deixaria metade das linhas como card.
-                  if (item.status === 'recusado' || item.status === 'recusada') {
+                  if (ehRecusado(item)) {
                     const nota = item.avaliacoes_total > 0
                       ? `⭐ ${Number(item.avaliacoes_media).toFixed(1)} (${item.avaliacoes_total})`
                       : '🆕 Novo'
