@@ -42,6 +42,7 @@ import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensage
 import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista, desistenciaDoPush } from '../../components/ProfissionalDesistiu'
+import { interessadosVisiveis, ehRecusado } from '../../utils/listaInteressados'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
@@ -1672,7 +1673,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const semEscolhido = isDono && !encerrada && !temMatch && !reparo?.match_usuario_id && !interesseAceitoDono
   const mostrarDesistencia = semEscolhido && desistencias.length > 0
   const idsDesistentes = new Set(desistencias.map(d => String(d?.id)))
-  const interessadosNaDisputa = idsDesistentes.size > 0 ? interessados.filter(i => !idsDesistentes.has(String(i?.id))) : interessados
+  // Fora da lista também os 'cancelado'/'expirado' e quem está em prestadores_bloqueados
+  // (utils/listaInteressados): um cancelado que não era desistência voltava como card escolhível.
+  const interessadosNaDisputa = interessadosVisiveis(idsDesistentes.size > 0 ? interessados.filter(i => !idsDesistentes.has(String(i?.id))) : interessados, reparo)
 
   // "Estou a caminho" já dado (POST /match grava a_caminho_em): é o que libera a troca de
   // telefones nos dois lados — antes dele a API devolve telefone/dono_telefone nulos.
@@ -2700,7 +2703,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   // Aceita as duas grafias de recusa (ver STATUS_GRUPO em
                   // ContratosScreen.js:24) — só 'recusado' deixaria metade das linhas
                   // como card, que é o bug que este mesmo par já corrigiu no badge.
-                  if (item.status === 'recusado' || item.status === 'recusada') {
+                  if (ehRecusado(item)) {
                     const nota = item.avaliacoes_total > 0
                       ? `⭐ ${Number(item.avaliacoes_media).toFixed(1)} (${item.avaliacoes_total})`
                       : '🆕 Novo'
