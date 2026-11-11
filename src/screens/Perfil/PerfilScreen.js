@@ -22,6 +22,7 @@ import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
 import { contarPerfis } from '../../utils/contas'
+import { buscarServicoCombinado } from '../../utils/servicoCombinado'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
 import { buscarDicas, lerDicasVistas, contarNovas, rotuloNovas } from '../../services/dicas'
 
@@ -369,6 +370,33 @@ export default function PerfilScreen({ navigation, route }) {
   // — e a API apaga TODAS as contas da pessoa (pinturapro-api 268f192). Em caso de sucesso a
   // sessão é limpa (logout) e o navegador monta o ramo deslogado, que abre na tela de
   // boas-vindas (Splash, a primeira dele).
+  // Antes do passo EXCLUIR (Arte-Excluir-Conta, 11/11/2026): se uma conta profissional da pessoa
+  // é o escolhido de uma demanda aberta (as listas de "Meus trabalhos" — utils/servicoCombinado),
+  // o Alert de sempre avisa e oferece ir ao serviço; "Excluir mesmo assim" segue para o modal.
+  // Sem serviço combinado, ou com as listas fora do ar, o modal abre direto como antes.
+  const [conferindoServico, setConferindoServico] = useState(false)
+  const abrirExcluir = async () => {
+    if (conferindoServico) return
+    setConferindoServico(true)
+    let servico = null
+    try { servico = await buscarServicoCombinado(usuario) } finally { setConferindoServico(false) }
+    if (!servico) { setMostrarExcluir(true); return }
+    const nome = servico.nomeCliente || 'o cliente'
+    // A mesma aba que o AppNavigator usa para abrir o detalhe em cada navegador (dono / profissional).
+    const aba = usuario?.role === 'dono_obra' ? 'Meus pedidos' : 'Meus trabalhos'
+    const irParaServico = () => navigation.navigate(aba, servico.ehObra
+      ? { screen: 'DetalheObra', params: { obra: { id: servico.id, titulo: servico.titulo || undefined } }, initial: false }
+      : { screen: 'DetalheReparo', params: { reparo: { id: servico.id, titulo: servico.titulo || undefined } }, initial: false })
+    Alert.alert(
+      'Você tem um serviço combinado',
+      `Você tem um serviço combinado com ${nome}. Se não puder fazer, toque em 'Desistir do serviço' — sem penalidade antes do horário.`,
+      [
+        { text: 'Ir para o serviço', onPress: irParaServico },
+        { text: 'Excluir mesmo assim', style: 'destructive', onPress: () => setMostrarExcluir(true) },
+      ],
+    )
+  }
+
   const handleExcluirConta = async () => {
     try {
       // { timeout: true }: 4xx nunca é reexecutado, então o retry não repete uma exclusão já
@@ -730,7 +758,7 @@ export default function PerfilScreen({ navigation, route }) {
           <ItemAcao
             titulo="🗑️ Excluir minha conta"
             perigo
-            onPress={() => setMostrarExcluir(true)}
+            onPress={abrirExcluir}
           />
         </View>
 
