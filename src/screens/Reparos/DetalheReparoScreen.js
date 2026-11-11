@@ -28,7 +28,7 @@ import { mostrarAviso } from '../../utils/deepLink'
 import { formatarDuracao, formatarPrazoAtendimento } from '../../utils/tempo'
 import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
-import TelaPosMatch from '../../components/PosMatchFixo'
+import TelaPosMatch, { ROTULO_CANCELAR_DONO } from '../../components/PosMatchFixo'
 import { useMensagensProntas } from '../../components/MensagensProntas'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
@@ -248,7 +248,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'pode_escolher_outro', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'pode_escolher_outro', 'motivo_escolher_outro', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -1391,9 +1391,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
       console.log('[DetalheReparo] falha ao responder interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      // 409 MATCH_ATIVO: o profissional já é o do match — a mensagem do servidor diz o caminho
-      // ("Cancelar serviço"). Mesmo alerta de erro de sempre, com o texto dele.
-      if (err.codigo === 'MATCH_ATIVO') { Alert.alert('Erro', err.mensagem || 'Este profissional já foi escolhido.'); return }
+      // 409 MATCH_ATIVO: o profissional já é o do match. Texto do app, não o do servidor: o da API
+      // (ac199f0) ainda cita "Cancelar serviço", e o botão do dono passou a ser "Trocar
+      // profissional ou cancelar".
+      if (err.codigo === 'MATCH_ATIVO') { Alert.alert('Erro', `Este profissional já foi escolhido. Use "${ROTULO_CANCELAR_DONO}" na tela do pedido.`); return }
       // É AQUI que o dono recebe o 409 PROFISSIONAL_SUSPENSO ao tentar aceitar: o aceite
       // não vale, e o motivo é o profissional, não a conexão de quem está aceitando.
       if (alertouSuspensao(err)) return

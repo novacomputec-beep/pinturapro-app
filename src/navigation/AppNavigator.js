@@ -151,6 +151,19 @@ const navegarParaNotificacao = (data) => {
       ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
       return
     }
+    // "Você já pode escolher outro profissional" (dono): o card vermelho vive na tela fixa do
+    // pós-match (PosMatchFixo.CardEscolherOutro — "não respondeu a 2 avisos" ou, com
+    // motivo_escolher_outro 'desinstalou', "<nome> desinstalou o app"). Qualquer push que traga
+    // `motivo_escolher_outro`/`escolher_outro` no payload, ou um dos tipos abaixo, abre o detalhe —
+    // independentemente do nome do tipo que a API vier a usar (hoje, ac199f0, o aviso sai como
+    // 'chegada_prevista' + desfazer_liberado, que o switch já leva ao detalhe).
+    const ehEscolherOutro = data.motivo_escolher_outro != null || data.escolher_outro === true ||
+      ['escolher_outro', 'profissional_desinstalou', 'pode_escolher_outro'].includes(data.tipo)
+    if (ehEscolherOutro && (data.reparo_id || data.obra_id)) {
+      if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
+      else ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
+      return
+    }
     switch (data.tipo) {
       // Feed
       case 'nova_obra':

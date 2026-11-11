@@ -21,7 +21,7 @@ const DIA_MS = 86400000
 // o mapa cobre a resposta sem `erro` e diz, para cada código, o que a pessoa pode fazer.
 const MENSAGENS_DESFAZER = {
   AGUARDE: 'Dê um tempo ao profissional: ainda não chegou a hora de desfazer a escolha. A tela mostra a partir de quando.',
-  HORARIO_EM_NEGOCIACAO: 'O profissional já propôs ou combinou um horário. Para sair do atendimento, use "Cancelar serviço".',
+  HORARIO_EM_NEGOCIACAO: 'O profissional já propôs ou combinou um horário. Para sair do atendimento, use "Trocar profissional ou cancelar".',
   A_CAMINHO: 'O profissional já está a caminho ou chegou: não dá mais para desfazer a escolha.',
   SEM_MATCH: 'Não há profissional escolhido para desfazer.',
   DEMANDA_FECHADA: 'Este pedido não está mais em andamento.',

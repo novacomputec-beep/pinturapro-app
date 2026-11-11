@@ -36,7 +36,8 @@ import ConversaProntas, { temConversa } from './MensagensProntas'
 //   4. aviso âmbar encurtado (3 linhas) — só nas fases em que ele aparece hoje;
 //   5. uma linha de links: Ponto de referência (dono), Descrição e fotos, Contrato,
 //      Denunciar (em andamento);
-//   6. "Cancelar serviço" por último, nas fases em que existe hoje (até o "Estou a caminho").
+//   6. "Trocar profissional ou cancelar" (dono) / "Cancelar serviço" (profissional) por último,
+//      nas fases em que existe hoje (até o "Estou a caminho").
 //      Dono com pode_escolher_outro (GET do detalhe) e sem ter tocado "Esperar mais um pouco"
 //      nesta sessão: no LUGAR dele entra o card vermelho "não respondeu a 2 avisos" com
 //      "🔄 Escolher outro profissional" e "Esperar mais um pouco" (CardEscolherOutro).
@@ -301,10 +302,19 @@ const LinhaCancelamentoMeu = ({ nomeOutro }) => (
 // profissional" (a tela confirma num Alert e faz o POST escolher-outro) e "Esperar mais um pouco"
 // (só esconde o card nesta sessão — ESPERAR_DISPENSADOS, por demanda, sobrevive ao remount).
 const ESPERAR_DISPENSADOS = new Set()
-const CardEscolherOutro = ({ nome, onEscolherOutro, onEsperar, desabilitado }) => (
+// motivo: motivo_escolher_outro do GET do detalhe (11/11/2026). 'desinstalou' = o profissional
+// desinstalou o app (utils/desinstalacoes da API) e por isso não vê os avisos — mesmo card,
+// título e texto próprios; qualquer outro valor (ou ausente, API ac199f0) = "não respondeu a 2 avisos".
+export const MOTIVO_ESCOLHER_OUTRO_DESINSTALOU = 'desinstalou'
+const textosEscolherOutro = (nome, motivo) => motivo === MOTIVO_ESCOLHER_OUTRO_DESINSTALOU
+  ? { titulo: `⚠️ ${nome} desinstalou o app`, texto: 'Ele pode não estar vendo os avisos. Você pode escolher outro profissional entre os que se interessaram — sem nenhuma penalidade.' }
+  : { titulo: `⚠️ ${nome} não respondeu a 2 avisos`, texto: 'Ele foi avisado pelo app e por e-mail e ainda não marcou o horário. Você pode escolher outro profissional entre os que se interessaram — sem nenhuma penalidade.' }
+const CardEscolherOutro = ({ nome, motivo, onEscolherOutro, onEsperar, desabilitado }) => {
+  const t = textosEscolherOutro(nome || 'O profissional', motivo)
+  return (
   <View style={estilos.vermelho}>
-    <T linhas={2} style={estilos.vermelhoTitulo}>⚠️ {nome || 'O profissional'} não respondeu a 2 avisos</T>
-    <T linhas={4} style={estilos.caixaLinha}>Ele foi avisado pelo app e por e-mail e ainda não marcou o horário. Você pode escolher outro profissional entre os que se interessaram — sem nenhuma penalidade.</T>
+    <T linhas={2} style={estilos.vermelhoTitulo}>{t.titulo}</T>
+    <T linhas={4} style={estilos.caixaLinha}>{t.texto}</T>
     <TouchableOpacity style={[estilos.btnLaranja, desabilitado && { opacity: 0.5 }]} onPress={onEscolherOutro} disabled={!!desabilitado} activeOpacity={0.85} accessibilityRole="button">
       <T style={estilos.btnLaranjaTexto} adjustsFontSizeToFit minimumFontScale={0.8}>🔄 Escolher outro profissional</T>
     </TouchableOpacity>
@@ -312,7 +322,15 @@ const CardEscolherOutro = ({ nome, onEscolherOutro, onEsperar, desabilitado }) =
       <T style={estilos.btnVazadoTexto}>Esperar mais um pouco</T>
     </TouchableOpacity>
   </View>
-)
+  )
+}
+
+// Rótulo do botão de sair do atendimento, por lado (11/11/2026): para o DONO a folha oferece
+// trocar de profissional ou encerrar, e o nome diz isso; o profissional segue com "Cancelar
+// serviço" (é o que o aviso "Você tem um serviço combinado" cita para ele).
+export const ROTULO_CANCELAR_DONO = 'Trocar profissional ou cancelar'
+export const ROTULO_CANCELAR_PROFISSIONAL = 'Cancelar serviço'
+export const rotuloBotaoCancelar = (souDono) => (souDono ? ROTULO_CANCELAR_DONO : ROTULO_CANCELAR_PROFISSIONAL)
 
 // Proposta de horário recebida: Confirmar / Sugerir outro (mesmo onResponder do
 // CardAgendamento, mesma régua de sugestoes_restantes / rodadas).
@@ -844,10 +862,10 @@ export default function TelaPosMatch({
         { texto: '🚩 Denunciar', onPress: links?.onDenunciar, perigo: true },
       ]} />
       {mostraEscolherOutro ? (
-        <CardEscolherOutro nome={agendamento?.nomeOutro} onEscolherOutro={escolherOutro.onConfirmar} onEsperar={dispensarEsperar} desabilitado={escolherOutro.desabilitado} />
+        <CardEscolherOutro nome={agendamento?.nomeOutro} motivo={demanda?.motivo_escolher_outro} onEscolherOutro={escolherOutro.onConfirmar} onEsperar={dispensarEsperar} desabilitado={escolherOutro.desabilitado} />
       ) : mostraCancelar ? (
-        <TouchableOpacity style={[estilos.btnCancelar, cancelamento.desabilitado && { opacity: 0.5 }]} onPress={cancelamento.onAbrir} disabled={!!cancelamento.desabilitado} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel="Cancelar serviço">
-          <T style={estilos.btnCancelarTexto}>✕ Cancelar serviço</T>
+        <TouchableOpacity style={[estilos.btnCancelar, cancelamento.desabilitado && { opacity: 0.5 }]} onPress={cancelamento.onAbrir} disabled={!!cancelamento.desabilitado} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={rotuloBotaoCancelar(souDono)}>
+          <T style={estilos.btnCancelarTexto}>✕ {rotuloBotaoCancelar(souDono)}</T>
         </TouchableOpacity>
       ) : null}
     </View>
