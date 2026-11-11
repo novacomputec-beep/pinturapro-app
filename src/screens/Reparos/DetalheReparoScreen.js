@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal, AppState
@@ -41,7 +41,7 @@ import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } fr
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
-import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista } from '../../components/ProfissionalDesistiu'
+import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista, desistenciaDoPush } from '../../components/ProfissionalDesistiu'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
@@ -452,7 +452,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // (mesclarTopo) só ao dono. A folha aparece uma vez por desistência (marca local por
   // reparo + id do interesse); o "Ver interessados" rola o corpo até a lista (scrollRef +
   // a posição medida no onLayout do título da seção).
-  const desistencias = Array.isArray(reparo?.desistencias) ? reparo.desistencias : []
+  // Arte-Profissional-Saiu: toque no push match_cancelado { motivo: 'conta_excluida' } traz
+  // route.params.desistenciaPush; a API apaga a proposta e a conta do profissional, então a
+  // desistência não vem em `desistencias` — entra a sintética (components/ProfissionalDesistiu),
+  // só enquanto a API não trouxer uma mais recente.
+  const desistenciaPush = useMemo(() => desistenciaDoPush(route.params?.desistenciaPush), [route.params?.desistenciaPush])
+  const desistencias = useMemo(() => {
+    const daApi = Array.isArray(reparo?.desistencias) ? reparo.desistencias : []
+    return desistenciaPush && daApi.length === 0 ? [desistenciaPush] : daApi
+  }, [reparo?.desistencias, desistenciaPush])
   const desistenciaRecente = desistenciaMaisRecente(desistencias)
   const [desistenciaPendente, marcarDesistenciaVista] = useDesistenciaNaoVista('reparo', reparo?.id, desistenciaRecente)
   const scrollRef = useRef(null)
@@ -2282,7 +2290,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
         <View style={estilos.corpo}>
 
           {/* Arte-Profissional-Desistiu: caixa âmbar no topo enquanto não há escolhido. */}
-          {mostrarDesistencia && <CardDesistiu desistencia={desistenciaRecente} />}
+          {mostrarDesistencia && <CardDesistiu desistencia={desistenciaRecente} frente="servico" />}
 
           {/* !encerrada: o rótulo ("📅 Amanhã") descreve o prazo CONFIGURADO, não o tempo
               que resta — não muda com a aproximação e não sabia nada do encerramento. Num
@@ -2917,7 +2925,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 })
               )}
               {/* Arte-Profissional-Desistiu: quem já foi escolhido e saiu, apagado, abaixo da lista. */}
-              {mostrarDesistencia && <SecaoQuemDesistiu desistencias={desistencias} />}
+              {mostrarDesistencia && <SecaoQuemDesistiu desistencias={desistencias} frente="servico" />}
               </>)}
             </>
           )}
