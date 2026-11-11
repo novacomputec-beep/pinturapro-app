@@ -70,11 +70,14 @@ export default function EspecialidadesScreen({ navigation, route }) {
   }
 
   // navigate (e não goBack) porque é o navigate que carrega os params de volta. Como a
-  // origem JÁ está na pilha, o navigate volta para a instância existente e só mescla os
-  // params — não empilha uma segunda cópia da tela de cadastro.
+  // origem JÁ está na pilha, o navigate volta para a instância existente — não empilha uma
+  // segunda cópia da tela de cadastro. `merge: true` é obrigatório: no React Navigation 6 o
+  // navigate para uma tela já na pilha SUBSTITUI os params dela (não mescla), e sem a flag o
+  // AdicionarPerfil perdia o `tipo` (voltava como "Tipo de perfil inválido.", bug da 1.1.9) e
+  // o Cadastro perdia `social`. Com a flag só `especialidades` muda; o resto fica.
   const confirmar = () => {
     if (!selecionadas.length) return
-    if (origem) navigation.navigate(origem, { especialidades: selecionadas })
+    if (origem) navigation.navigate({ name: origem, params: { especialidades: selecionadas }, merge: true })
     else navigation.goBack()
   }
 
