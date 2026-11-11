@@ -61,6 +61,37 @@ export const textoMotivo = (d) => {
   return detalhe ? `${rotulo} — ${detalhe}` : rotulo
 }
 
+// Arte-Profissional-Saiu (11/11/2026): o profissional escolhido EXCLUIU A CONTA
+// (cancelamentoMatchService.desfazerMatchesPorExclusao da API, motivo 'conta_excluida'). Não é
+// uma desistência dele neste pedido: o título vira "<Nome> saiu do ProTudo" na folha, no card e
+// na linha de "QUEM DESISTIU"; motivo, linhas, botões e cores seguem iguais.
+export const MOTIVO_CONTA_EXCLUIDA = 'conta_excluida'
+export const saiuDoApp = (d) => d?.motivo === MOTIVO_CONTA_EXCLUIDA
+// Título da folha/card/linha para uma desistência: "<Nome> saiu do ProTudo" ou "<Nome> desistiu
+// do serviço / da obra".
+export const tituloDesistencia = (d, frente = 'servico', nomePadrao = 'O profissional') => {
+  const nome = d?.nome || nomePadrao
+  if (saiuDoApp(d)) return `${nome} saiu do ProTudo`
+  return `${nome} desistiu ${frente === 'obra' ? 'da obra' : 'do serviço'}`
+}
+
+// Desistência SINTÉTICA a partir do toque no push match_cancelado { motivo: 'conta_excluida' }
+// (AppNavigator → route.params.desistenciaPush): a API apaga a proposta e a conta do profissional
+// na mesma transação, então o detalhe volta SEM esta desistência em `desistencias` — sem isto o
+// dono abria o pedido reaberto e nada explicava por quê. Sem nome (a conta não existe mais),
+// hora = a do toque, id próprio por push (a marca "vista" vale para este toque).
+export const TEXTO_MOTIVO_CONTA_EXCLUIDA = 'Excluiu a conta no ProTudo'
+export const desistenciaDoPush = (desistenciaPush) => {
+  if (!desistenciaPush || desistenciaPush.motivo !== MOTIVO_CONTA_EXCLUIDA) return null
+  return {
+    id: `push:${MOTIVO_CONTA_EXCLUIDA}:${desistenciaPush.chave || desistenciaPush.cancelado_em || 'x'}`,
+    usuario_id: null, nome: null, foto_url: null,
+    cancelado_em: desistenciaPush.cancelado_em || new Date().toISOString(),
+    motivo: MOTIVO_CONTA_EXCLUIDA, motivo_texto: TEXTO_MOTIVO_CONTA_EXCLUIDA, detalhe: null, acordo: false,
+    doPush: true,
+  }
+}
+
 // "ainda há 2 interessados esperando a sua escolha" / "aguardando novos interessados".
 export const linhaInteressados = (interessadosAtivos) => {
   const n = Number(interessadosAtivos) || 0
@@ -153,9 +184,7 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
   const insets = useSafeAreaInsets()
   const { panHandlers, estiloArraste } = useArrastarParaFechar(onEsperar, !!visivel)
   const d = desistencia || {}
-  const nome = d.nome || 'O profissional'
   const quando = quandoDesistiu(d.cancelado_em)
-  const doQue = frente === 'obra' ? 'da obra' : 'do serviço'
   const sub = [titulo ? `"${titulo}"` : null, quando].filter(Boolean).join(' · ')
   return (
     <Modal visible={!!visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onEsperar}>
@@ -168,7 +197,7 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
             <View style={estilos.cabecalho}>
               <AvatarDesistente d={d} />
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={estilos.titulo}>{nome} desistiu {doQue}</Text>
+                <Text style={estilos.titulo}>{tituloDesistencia(d, frente)}</Text>
                 {sub ? <Text style={estilos.subtitulo} numberOfLines={2}>{sub}</Text> : null}
               </View>
               {/* "✕ Fechar" no fim da linha do cabeçalho: o mesmo onEsperar do toque fora. */}
@@ -199,13 +228,15 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
 }
 
 // Caixa âmbar no topo do detalhe, enquanto não há profissional escolhido.
-export function CardDesistiu({ desistencia, estilo }) {
+export function CardDesistiu({ desistencia, estilo, frente }) {
   const d = desistencia || {}
   const nome = d.nome || 'O profissional'
   const hora = horaDesistiu(d.cancelado_em)
+  // Arte-Profissional-Saiu: "<Nome> saiu do ProTudo"; senão o "<Nome> desistiu" curto de sempre.
+  const titulo = saiuDoApp(d) ? tituloDesistencia(d, frente) : `${nome} desistiu`
   return (
     <View style={[estilos.card, estilo]}>
-      <Text style={estilos.cardTitulo}>⚠️ {nome} desistiu{hora ? ` ${hora}` : ''}</Text>
+      <Text style={estilos.cardTitulo}>⚠️ {titulo}{hora ? ` ${hora}` : ''}</Text>
       <Text style={estilos.cardTexto}>
         <Text style={estilos.cardForte}>Motivo: </Text>{textoMotivo(d)}. Seu pedido voltou a ficar aberto. Escolha outro interessado abaixo ou aguarde novos.
       </Text>
@@ -214,7 +245,7 @@ export function CardDesistiu({ desistencia, estilo }) {
 }
 
 // Bloco tracejado e apagado abaixo da lista: quem já foi escolhido e saiu.
-export function SecaoQuemDesistiu({ desistencias, estilo }) {
+export function SecaoQuemDesistiu({ desistencias, estilo, frente }) {
   const lista = Array.isArray(desistencias) ? desistencias.filter(Boolean) : []
   if (lista.length === 0) return null
   return (
@@ -225,7 +256,8 @@ export function SecaoQuemDesistiu({ desistencias, estilo }) {
           <AvatarDesistente d={d} tamanho={36} comX={false} />
           <View style={{ flex: 1, minWidth: 0, marginLeft: 10 }}>
             <View style={estilos.desistenteTopo}>
-              <Text style={estilos.desistenteNome} numberOfLines={1}>{d.nome || 'Profissional'}</Text>
+              {/* Arte-Profissional-Saiu: "<Nome> saiu do ProTudo" no lugar do nome sozinho. */}
+              <Text style={estilos.desistenteNome} numberOfLines={1}>{saiuDoApp(d) ? tituloDesistencia(d, frente, 'Profissional') : (d.nome || 'Profissional')}</Text>
               <View style={estilos.tag}><Text style={estilos.tagTexto}>desistiu</Text></View>
             </View>
             <Text style={estilos.desistenteMeta} numberOfLines={2}>

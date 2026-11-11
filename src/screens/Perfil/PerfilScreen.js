@@ -389,7 +389,7 @@ export default function PerfilScreen({ navigation, route }) {
       : { screen: 'DetalheReparo', params: { reparo: { id: servico.id, titulo: servico.titulo || undefined } }, initial: false })
     Alert.alert(
       'Você tem um serviço combinado',
-      `Você tem um serviço combinado com ${nome}. Se não puder fazer, toque em 'Desistir do serviço' — sem penalidade antes do horário.`,
+      `Você tem um serviço combinado com ${nome}. Se não puder fazer, toque em 'Cancelar serviço' — sem penalidade antes do horário.`,
       [
         { text: 'Ir para o serviço', onPress: irParaServico },
         { text: 'Excluir mesmo assim', style: 'destructive', onPress: () => setMostrarExcluir(true) },

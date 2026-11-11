@@ -327,7 +327,20 @@ const navegarParaNotificacao = (data) => {
       case 'pedido_cancelamento':
       case 'pedido_cancelamento_recusado':
       case 'pedido_cancelamento_expirado':
-      case 'match_cancelado':
+      // Arte-Profissional-Saiu: match_cancelado com motivo 'conta_excluida' (o profissional escolhido
+      // excluiu a conta — cancelamentoMatchService.desfazerMatchesPorExclusao) leva ao detalhe com
+      // `desistenciaPush`: a API já apagou a proposta e a conta dele, então o detalhe não traz a
+      // desistência em `desistencias`, e é este param que abre a folha "<Nome> saiu do ProTudo".
+      // Qualquer outro motivo segue o caminho de sempre (o detalhe traz a desistência da API).
+      case 'match_cancelado': {
+        const desistenciaPush = data.motivo === 'conta_excluida'
+          ? { motivo: 'conta_excluida', cancelado_em: new Date().toISOString(), chave: String(Date.now()) }
+          : undefined
+        if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id }, desistenciaPush }, initial: false })
+        else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id }, desistenciaPush }, initial: false })
+        else navegar(tabEmAndamento)
+        break
+      }
       // Lembrete "Ainda trabalhando?" ao profissional (alertaService.lembrarConclusaoPendente):
       // a cada 6 h (reparo) / 3 dias (obra) desde a chegada confirmada, enquanto ninguém pede
       // a conclusão. O botão "Concluí o serviço/a obra" vive no detalhe. Payload
