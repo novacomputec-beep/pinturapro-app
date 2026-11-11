@@ -14,7 +14,7 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import { distanciaItemKm, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
 import ChipsCategoria from '../../components/ChipsCategoria'
@@ -27,7 +27,8 @@ import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
-import { ChipClienteNaoRespondeu } from '../../components/MarcasCompromisso'
+import { LinhaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
+import { textoInteressados, LinhaLocal } from '../../components/CardFeed'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -147,6 +148,11 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
           )}
         </View>
 
+        {/* Marca do cliente (90 dias, cliente_nao_respondeu_90d da linha do feed): linha vermelha
+            de largura total logo abaixo de categoria + "Finaliza em", nunca truncada — a mesma
+            posição do CardObra. */}
+        <LinhaClienteNaoRespondeu demanda={item} />
+
         {/* Label e valor na mesma linha (Text aninhado, como local/distância
             abaixo): alinha pela baseline sozinho e poupa ~24dp por card. */}
         <Text style={estilos.valorLinha}>
@@ -175,16 +181,11 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
             ) : (
               <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
             )}
-            <Text style={estilos.cardLocal} numberOfLines={1}>
-              📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}{item.uf ? `, ${item.uf}` : ''}
-              {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
-            </Text>
+            <LinhaLocal item={item} dist={dist} estiloTexto={estilos.cardLocal} estiloDistancia={estilos.cardDistancia} />
             <View style={estilos.cardRodape}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-                <Text style={estilos.interessados}>🔧{item.total_interessados || 0} interessado(s)</Text>
-                {/* Marca do cliente (90 dias): cliente_nao_respondeu_90d da linha do feed (API). */}
-                <ChipClienteNaoRespondeu demanda={item} />
-              </View>
+              <Text style={[estilos.interessados, (Number(item.total_interessados) || 0) <= 0 && estilos.interessadosPrimeiro, { flexShrink: 1 }]} numberOfLines={1}>
+                {textoInteressados(Number(item.total_interessados) || 0)}
+              </Text>
               <View style={estilos.btnVer}>
                 <Text style={estilos.btnVerTexto}>Ver serviço →</Text>
               </View>
@@ -741,10 +742,11 @@ const estilos = StyleSheet.create({
   textoCol: { flex: 1 },
   cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
   tituloComEtiqueta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardLocal: { fontSize: 12, color: cores.textoMedio, marginTop: 3 },
+  cardLocal: { fontSize: 12, color: cores.textoMedio },
   cardDistancia: { color: cores.primaria, fontWeight: '600' },
-  cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8 },
   interessados: { fontSize: 11, color: cores.textoMedio },
+  interessadosPrimeiro: { color: cores.sucesso, fontWeight: '700' },
   btnVer: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 },
   btnVerTexto: { fontSize: 11, fontWeight: '700', color: '#0A0A0A' },
 

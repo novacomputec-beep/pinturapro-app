@@ -53,7 +53,7 @@ export const MarcaClienteNaoRespondeu = ({ demanda, estilo }) => {
   )
 }
 
-// Profissional: chip pequeno no card do feed (ao lado de "N interessado(s)").
+// Profissional: chip pequeno (legado — o feed passou a usar a LinhaClienteNaoRespondeu abaixo).
 export const ChipClienteNaoRespondeu = ({ demanda }) => {
   if (!clienteNaoRespondeu(demanda)) return null
   return (
@@ -63,7 +63,22 @@ export const ChipClienteNaoRespondeu = ({ demanda }) => {
   )
 }
 
+export const TEXTO_LINHA_CLIENTE_NAO_RESPONDEU = '⚠️ Cliente não respondeu um profissional recentemente'
+
+// Profissional: linha vermelha de largura total no card do feed (Arte-Card-Obra-Feed, 11/11/2026),
+// logo abaixo da linha categoria + "Finaliza em". Sem numberOfLines: a frase nunca é cortada.
+export const LinhaClienteNaoRespondeu = ({ demanda, estilo }) => {
+  if (!clienteNaoRespondeu(demanda)) return null
+  return (
+    <View style={[estilos.linha, estilo]} accessibilityLabel="Cliente não respondeu um profissional recentemente">
+      <Text style={estilos.linhaTexto}>{TEXTO_LINHA_CLIENTE_NAO_RESPONDEU}</Text>
+    </View>
+  )
+}
+
 const estilos = StyleSheet.create({
+  linha:              { alignSelf: 'stretch', backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.pequeno, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 12 },
+  linhaTexto:         { fontSize: 12, lineHeight: 17, fontWeight: '600', color: cores.perigo },
   caixaVermelha:      { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 8, marginTop: 6, marginBottom: 4 },
   caixaVermelhaTexto: { fontSize: 12, lineHeight: 17, color: cores.textoForte },
   linhaVerde:         { fontSize: 12, lineHeight: 17, color: cores.sucesso, fontWeight: '600', marginTop: 2, marginBottom: 4 },

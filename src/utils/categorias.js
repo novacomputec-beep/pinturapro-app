@@ -265,3 +265,19 @@ export const rotuloCategoria = (slug) => {
   const limpo = s.replace(/_/g, ' ')
   return limpo.charAt(0).toUpperCase() + limpo.slice(1)
 }
+
+// Emoji de UM slug de qualquer das três listas (serviço, construção, obra); null quando o
+// slug não é conhecido — quem chama decide o fallback (o card do feed de obras cai no
+// emojiObra da categoria). Existe para a linha de especialidades inferidas da obra não
+// montar um quarto mapa à mão.
+export const emojiCategoria = (slug) => {
+  const s = slug != null ? String(slug).trim() : ''
+  return (s && TODAS_CATEGORIAS.find((x) => x.slug === s)?.emoji) || null
+}
+
+// Especialidades INFERIDAS de uma obra (obras.especialidades_inferidas na API: slugs de
+// ofício deduzidos do título + descrição). Só slugs conhecidos, sem repetição, até `max`.
+// Lista vazia quando a linha não traz o campo (o GET /obras do feed ainda não o seleciona)
+// — aí o card usa a categoria da obra como sempre.
+export const especialidadesInferidasDe = (obra, max = 3) =>
+  normalizarEspecialidades(obra?.especialidades_inferidas).slice(0, max)

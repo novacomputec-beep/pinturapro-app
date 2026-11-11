@@ -74,10 +74,13 @@ export const STATUS_BADGE = {
   pendente:   { cor: cores.primaria,   fundo: cores.primariaSuave, texto: 'Pendente'   },
   aprovada:   { cor: cores.sucesso,    fundo: cores.sucessoSuave,  texto: 'Aprovada'   },
   ativa:      { cor: cores.sucesso,    fundo: cores.sucessoSuave,  texto: 'Ativa'      },
-  recusada:   { cor: cores.perigo,     fundo: cores.perigoSuave,   texto: 'Recusada'   },
+  // Candidatura não escolhida pelo cliente: cinza neutro, não vermelho — não é falta nem erro
+  // do profissional (Arte não-escolhido, 11/11/2026). Só o CardCandidatura lê estas duas
+  // chaves (Perfil usa o status da assinatura, que não tem 'recusada').
+  recusada:   { cor: cores.textoMedio, fundo: cores.fundoElevado,  texto: 'Não selecionado' },
   // Vocabulário do fluxo aceitar/recusar via DetalheObra (espelha aprovada/recusada)
-  aceito:              { cor: cores.sucesso,  fundo: cores.sucessoSuave,  texto: 'Aceita'         },
-  recusado:            { cor: cores.perigo,   fundo: cores.perigoSuave,   texto: 'Recusada'       },
+  aceito:              { cor: cores.sucesso,    fundo: cores.sucessoSuave, texto: 'Aceita'          },
+  recusado:            { cor: cores.textoMedio, fundo: cores.fundoElevado, texto: 'Não selecionado' },
   contraproposta_dono: { cor: cores.primaria, fundo: cores.primariaSuave, texto: 'Contraproposta' },
 }
 

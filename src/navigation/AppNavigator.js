@@ -16,7 +16,7 @@ import { navigationRef } from './navigationRef'
 import { codigoDoLink, resolverDemandaPorCodigo, mostrarAviso } from '../utils/deepLink'
 import { emitirPushRecebido } from '../utils/eventosPush'
 import { avatar } from '../utils/imagemOtimizada'
-import CelebracaoMatchHost from '../components/CelebracaoMatchHost'
+import CelebracaoMatchHost, { celebracaoRef } from '../components/CelebracaoMatchHost'
 import SoftAskNotificacao, { softAskRef } from '../components/SoftAskNotificacao'
 import AvisarPedidoSheet from '../components/AvisarPedidoSheet'
 import RetomadaMatchHost from '../components/RetomadaMatchHost'
@@ -409,12 +409,18 @@ const navegarParaNotificacao = (data) => {
       // navigate não resolve — mas aí a tela em foco já é a do próprio aviso.)
       case 'boas_vindas':
         navegar(ehPrestador ? abaFeed : tabEmAndamento); break
-      // Desfechos que NÃO pedem ação: a proposta foi recusada, ou aprovada pelo endpoint
-      // legado. Não há botão a apertar no detalhe, e abrir a demanda de quem acabou de ser
-      // recusado é insistir onde já não há o que fazer — a lista mostra o novo estado e
-      // deixa a pessoa seguir para a próxima.
+      // Não escolhido (Arte não-escolhido, 11/11/2026): o toque leva ao FEED do profissional —
+      // é lá que está o próximo pedido — e dispara na hora a verificação que abre o modal
+      // "Desta vez foi outro profissional" (CelebracaoMatchHost), em vez de deixar a pessoa
+      // numa lista em que a linha só mudou de badge. verificar(true) ignora o intervalo de 15s;
+      // o modal só aparece se a recusa ainda não foi vista (marca d'água).
       case 'interesse_recusado':
       case 'candidatura_recusada':
+        navegar(ehPrestador ? abaFeed : tabEmAndamento)
+        if (ehPrestador) setTimeout(() => { celebracaoRef.verificar?.(true) }, 400)
+        break
+      // Aprovada pelo endpoint legado: não há botão a apertar no detalhe; a lista mostra o
+      // novo estado.
       case 'candidatura_aprovada':
         navegar(tabEmAndamento); break
       // Perguntas sobre o pedido: 'nova_pergunta' chega ao DONO (há uma pergunta a responder,
