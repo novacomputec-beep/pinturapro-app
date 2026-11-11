@@ -1995,6 +1995,8 @@ export default function DetalheObraScreen({ route, navigation }) {
             valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
             endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
             pontoReferencia={obra.ponto_referencia}
+            /* Arte-Endereco-Apos-Horario: só usada quando a API manda endereco_liberado: false. */
+            distanciaKm={isDono ? null : distancia}
             outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url, cliente_nao_respondeu_90d: obra.cliente_nao_respondeu_90d }}
             usuarioId={meuId}
             onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}

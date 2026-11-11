@@ -141,14 +141,37 @@ const useContagem = (alvo, onExpirar) => {
 // Peças
 // ---------------------------------------------------------------------------------------
 
+// Arte-Endereco-Apos-Horario (11/11/2026): para o PROFISSIONAL escolhido, a API passa a dizer
+// com `endereco_liberado` se o endereço completo já pode ser mostrado (false até o horário
+// ser combinado). Com false, o card do topo mostra só "📍 bairro · cidade · X km" e a linha
+// âmbar do cadeado; true/ausente (API antiga, dono) → endereço completo + referência, como hoje.
+export const enderecoBloqueado = (demanda, souDono) => !souDono && demanda?.endereco_liberado === false
+export const TEXTO_ENDERECO_BLOQUEADO = '🔒 Endereço completo liberado quando o horário for combinado'
+// "bairro · cidade · X km" só com o que existe; nenhum campo nulo vira "null" nem derruba a tela.
+export const enderecoResumido = (demanda, distanciaKm) => {
+  const partes = [demanda?.bairro, demanda?.cidade].map(p => (p == null ? '' : String(p).trim())).filter(Boolean)
+  const km = Number(distanciaKm)
+  if (distanciaKm != null && Number.isFinite(km) && km >= 0) partes.push(km < 1 ? 'menos de 1 km' : `${Math.round(km)} km`)
+  return partes.join(' · ')
+}
+
 // 1. Card do topo. `faixa`: { rotulo, valor, destaque } — a metade direita da faixa.
-const CardTopo = ({ demanda, endereco, pontoReferencia, valor, faixa }) => {
+// bloqueado/distanciaKm: a variante do endereço travado (acima).
+const CardTopo = ({ demanda, endereco, pontoReferencia, valor, faixa, bloqueado, distanciaKm }) => {
   const temValor = valor != null && Number(valor) > 0
+  const resumo = bloqueado ? enderecoResumido(demanda, distanciaKm) : ''
   return (
     <View style={estilos.topo}>
       <ChipsCategoria demanda={demanda} estilo={{ marginBottom: 6 }} />
       <T style={estilos.titulo}>{demanda?.titulo}</T>
-      {endereco ? <T style={estilos.endereco}>📍 {endereco}{pontoReferencia ? ` · 🔎 ${pontoReferencia}` : ''}</T> : null}
+      {bloqueado ? (
+        <>
+          {resumo ? <T style={estilos.endereco}>📍 {resumo}</T> : null}
+          <View style={estilos.enderecoTravado}>
+            <T linhas={2} style={estilos.enderecoTravadoTexto}>{TEXTO_ENDERECO_BLOQUEADO}</T>
+          </View>
+        </>
+      ) : endereco ? <T style={estilos.endereco}>📍 {endereco}{pontoReferencia ? ` · 🔎 ${pontoReferencia}` : ''}</T> : null}
       <View style={estilos.faixa}>
         <View style={[estilos.faixaMetade, estilos.faixaValor, !temValor && { opacity: 0.5 }]}>
           <T style={[estilos.faixaRotulo, { color: cores.sucesso }]}>VALOR COMBINADO</T>
@@ -696,8 +719,10 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 //   (useMensagensProntas na tela); a linha só entra quando temConversa(dados).
 // escolherOutro: { onConfirmar, desabilitado } | null — dono com pode_escolher_outro (a tela
 //   confirma e faz o POST); o card toma o lugar do "Cancelar serviço".
+// distanciaKm: distância do profissional até a demanda (distanciaItemKm da tela; null sem GPS) —
+//   só entra no card do topo quando o endereço está travado (Arte-Endereco-Apos-Horario).
 export default function TelaPosMatch({
-  fase, demanda, frente, souDono, valor, endereco, pontoReferencia, outro, usuarioId, onExpirar,
+  fase, demanda, frente, souDono, valor, endereco, pontoReferencia, distanciaKm, outro, usuarioId, onExpirar,
   agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links, conversa, escolherOutro,
 }) {
   const ehObra = frente === 'obra'
@@ -798,7 +823,7 @@ export default function TelaPosMatch({
   return (
     <>
     <View style={estilos.tela}>
-      <CardTopo demanda={demanda} endereco={endereco} pontoReferencia={pontoReferencia} valor={valor} faixa={faixa} />
+      <CardTopo demanda={demanda} endereco={endereco} pontoReferencia={pontoReferencia} valor={valor} faixa={faixa} bloqueado={enderecoBloqueado(demanda, souDono)} distanciaKm={distanciaKm} />
       {conversa && temConversa(conversa.dados) ? (
         <ConversaProntas dados={conversa.dados} novas={conversa.novas} outro={outro} souDono={souDono} enviando={conversa.enviando} onEnviar={conversa.onEnviar} onAbrir={conversa.onAbrir} />
       ) : null}
@@ -849,6 +874,9 @@ const estilos = StyleSheet.create({
   topo: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 12 },
   titulo: { fontSize: 17, fontWeight: '700', color: cores.textoForte, lineHeight: 22, marginBottom: 2 },
   endereco: { fontSize: 12, color: cores.textoMedio, lineHeight: 16, marginBottom: 8 },
+  // Endereço travado: a mesma borda âmbar do card de espera (estilos.amarelo), compacta.
+  enderecoTravado: { backgroundColor: 'rgba(255,193,7,0.10)', borderWidth: 1, borderColor: 'rgba(255,193,7,0.55)', borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 8 },
+  enderecoTravadoTexto: { fontSize: 12, fontWeight: '600', color: '#FFC107', lineHeight: 16 },
   faixa: { flexDirection: 'row', borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, overflow: 'hidden' },
   faixaMetade: { flex: 1, backgroundColor: cores.fundoElevado, paddingVertical: 7, paddingHorizontal: 10 },
   faixaValor: { backgroundColor: cores.sucessoSuave, borderRightWidth: 0.5, borderRightColor: cores.borda },

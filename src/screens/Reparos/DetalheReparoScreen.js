@@ -2138,6 +2138,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
             valor={isDono ? valorPrincipal : valorCombinadoPro}
             endereco={reparo.endereco_reparo || [reparo.cidade, reparo.bairro].filter(Boolean).join(', ')}
             pontoReferencia={reparo.ponto_referencia}
+            /* Arte-Endereco-Apos-Horario: só usada quando a API manda endereco_liberado: false. */
+            distanciaKm={isDono ? null : distancia}
             outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url, cliente_nao_respondeu_90d: reparo.cliente_nao_respondeu_90d }}
             usuarioId={meuId}
             onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
