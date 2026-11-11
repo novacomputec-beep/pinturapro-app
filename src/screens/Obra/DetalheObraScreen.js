@@ -2331,7 +2331,10 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
-          {temMatch && !encerrada && !topoCompacto && (
+          {/* Só para as DUAS partes do match (sou_dono / sou_escolhido da API, via isDono e
+              souPintorDoMatch): o profissional não escolhido também lê este detalhe e não
+              recebeu contrato nenhum. */}
+          {temMatch && !encerrada && !topoCompacto && (isDono || souPintorDoMatch) && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>

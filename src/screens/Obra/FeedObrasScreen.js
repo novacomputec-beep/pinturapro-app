@@ -13,10 +13,10 @@ import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import { distanciaItemKm, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { aoPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
-import { emojiObra, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
+import { emojiObra, emojiCategoria, rotuloCategoria, especialidadesInferidasDe, paraFiltro, CATEGORIAS_OBRA } from '../../utils/categorias'
 import { avatar } from '../../utils/imagemOtimizada'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra } from '../../utils/urgencia'
@@ -25,7 +25,8 @@ import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
-import { ChipClienteNaoRespondeu } from '../../components/MarcasCompromisso'
+import { LinhaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
+import { textoInteressados, LinhaLocal } from '../../components/CardFeed'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -98,7 +99,15 @@ const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
 // com ESTE card. `etiqueta` (opcional): a etiqueta "Obra" ao lado do título.
 export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
   const dist = distanciaItemKm(coords, item)
-  const emoji = emojiObra(item.categoria)
+  // Especialidades inferidas da obra (API obras.especialidades_inferidas): o ícone do card e a
+  // linha azul sob o título saem delas — emoji + rótulo das listas de utils/categorias. Sem o
+  // campo (ou sem slug conhecido), ícone e linha caem na categoria da obra de sempre (🏠 Residencial).
+  const inferidas = especialidadesInferidasDe(item)
+  const emoji = (inferidas.length ? emojiCategoria(inferidas[0]) : null) || emojiObra(item.categoria)
+  const linhaEspecialidades = inferidas.length
+    ? inferidas.map(s => `${emojiCategoria(s) || '🔧'} ${rotuloCategoria(s)}`).join(' · ')
+    : `${emojiObra(item.categoria)} ${rotuloCategoria(item.categoria) || 'Obra'}`
+  const nInteressados = Number(item.total_candidaturas ?? item.total_interessados) || 0
   // Rede de segurança do thumbnail: a capa pode não renderizar (URL quebrada,
   // mídia já removida, transformação recusada pelo Cloudinary). Sem isto o <Image>
   // deixaria um quadrado preto; assim cai no emoji da categoria.
@@ -135,6 +144,10 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
         )}
       </View>
 
+      {/* Marca do cliente (90 dias, cliente_nao_respondeu_90d da linha do feed): linha vermelha
+          de largura total logo abaixo de categoria + "Finaliza em", nunca truncada. */}
+      <LinhaClienteNaoRespondeu demanda={item} />
+
       {/* Label e valor na mesma linha (Text aninhado, como local/distância
           abaixo): alinha pela baseline sozinho e poupa ~24dp por card. */}
       <Text style={estilos.valorLinha}>
@@ -155,24 +168,22 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
           </View>
         )}
         <View style={estilos.textoCol}>
+          {/* Título em até 2 linhas (a etiqueta "Obra" fica na mesma linha de flexWrap). */}
           {etiqueta ? (
             <View style={estilos.tituloComEtiqueta}>
-              <Text style={[estilos.cardTitulo, { flexShrink: 1 }]} numberOfLines={1}>{item.titulo}</Text>
+              <Text style={[estilos.cardTitulo, { flexShrink: 1 }]} numberOfLines={2}>{item.titulo}</Text>
               {etiqueta}
             </View>
           ) : (
-            <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
+            <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
           )}
-          <Text style={estilos.cardLocal} numberOfLines={1}>
-            📍 {item.cidade}{item.bairro ? `, ${item.bairro}` : ''}{item.uf ? `, ${item.uf}` : ''}
-            {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
-          </Text>
+          {/* Linha azul: especialidades inferidas (ou a categoria da obra). */}
+          <Text style={estilos.linhaEspecialidades} numberOfLines={1}>{linhaEspecialidades}</Text>
+          <LinhaLocal item={item} dist={dist} estiloTexto={estilos.cardLocal} estiloDistancia={estilos.cardDistancia} />
           <View style={estilos.cardRodape}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-              <Text style={estilos.interessados}>🎨{item.total_candidaturas || item.total_interessados || 0} interessado(s)</Text>
-              {/* Marca do cliente (90 dias): cliente_nao_respondeu_90d da linha do feed (API). */}
-              <ChipClienteNaoRespondeu demanda={item} />
-            </View>
+            <Text style={[estilos.interessados, nInteressados <= 0 && estilos.interessadosPrimeiro, { flexShrink: 1 }]} numberOfLines={1}>
+              {textoInteressados(nInteressados)}
+            </Text>
             <View style={estilos.btnVer}>
               <Text style={estilos.btnVerTexto}>Ver obra →</Text>
             </View>
@@ -706,12 +717,15 @@ const estilos = StyleSheet.create({
   thumbVazia: { backgroundColor: '#2E2E2E', alignItems: 'center', justifyContent: 'center' },
   thumbIcone: { fontSize: 24 },
   textoCol: { flex: 1 },
-  cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte },
-  tituloComEtiqueta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardLocal: { fontSize: 12, color: cores.textoMedio, marginTop: 3 },
+  cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte, lineHeight: 20 },
+  tituloComEtiqueta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  // Linha azul das especialidades inferidas (cores.info), entre o título e o endereço.
+  linhaEspecialidades: { fontSize: 12, fontWeight: '600', color: cores.info, marginTop: 3 },
+  cardLocal: { fontSize: 12, color: cores.textoMedio },
   cardDistancia: { color: cores.primaria, fontWeight: '600' },
-  cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  cardRodape: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8 },
   interessados: { fontSize: 11, color: cores.textoMedio },
+  interessadosPrimeiro: { color: cores.sucesso, fontWeight: '700' },
   btnVer: { backgroundColor: cores.primaria, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 },
   btnVerTexto: { fontSize: 11, fontWeight: '700', color: '#0A0A0A' },
 

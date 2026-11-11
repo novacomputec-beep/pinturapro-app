@@ -2495,7 +2495,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </View>
           )}
 
-          {temMatch && !encerrada && !topoCompacto && (
+          {/* Só para as DUAS partes do match (sou_dono / sou_escolhido da API, via isDono e
+              souPrestadorDoMatch): o profissional não escolhido também lê este detalhe e não
+              recebeu contrato nenhum. */}
+          {temMatch && !encerrada && !topoCompacto && (isDono || souPrestadorDoMatch) && (
             <View style={estilos.contratoBanner}>
               <Text style={estilos.contratoBannerTitulo}>📋 Contrato enviado por e-mail</Text>
               <Text style={estilos.contratoBannerTexto}>

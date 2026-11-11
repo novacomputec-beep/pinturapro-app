@@ -40,6 +40,37 @@ const nomeDoProfissional = async (ehObra, demandaId, matchUsuarioId) => {
 const subtituloMatch = (nome, titulo) =>
   `${nome} vai fazer sua “${titulo}”.\n\nAgora é só aguardar: ele(a) vai te enviar o dia e o horário pelo app.`
 
+// Oportunidades para o profissional que NÃO foi escolhido (Arte não-escolhido, 11/11/2026):
+// GET /prestador/oportunidades-resumo → quantos pedidos abertos há perto dele e quantos na
+// especialidade dele. Lê as duas contagens com tolerância ao nome do campo (a rota ainda não
+// existe na API de41ec6: { abertos_perto | perto | total, na_especialidade | especialidade }).
+// Devolve null quando a chamada falha, não responde ou devolve 0 pedidos perto — aí o modal
+// mantém o texto de sempre e esconde as caixas. Nunca lança: é enfeite do aviso, não o aviso.
+const oportunidadesResumo = async () => {
+  try {
+    const r = await api.get('/prestador/oportunidades-resumo')
+    const perto = Number(r?.abertos_perto ?? r?.perto ?? r?.total ?? r?.pedidos_abertos ?? 0)
+    const esp = Number(r?.na_especialidade ?? r?.especialidade ?? r?.minha_especialidade ?? 0)
+    if (!Number.isFinite(perto) || perto <= 0) return null
+    return { perto, especialidade: Number.isFinite(esp) && esp > 0 ? esp : 0 }
+  } catch (err) {
+    console.log('[Celebracao] oportunidades-resumo indisponível, aviso de recusa segue sem caixas | status:', err?.status, '| code:', err?.code)
+    return null
+  }
+}
+
+// Aplica o resumo ao evento de recusa: subtítulo, as duas caixas e o CTA com a contagem.
+// Sem resumo (null), devolve o evento como veio.
+const comOportunidades = (evento, resumo) => {
+  if (!resumo) return evento
+  return {
+    ...evento,
+    oportunidades: resumo,
+    subtitulo: 'Faz parte — e já tem mais trabalho esperando por você:',
+    ctaTexto: `Ver os ${resumo.perto} pedidos abertos`,
+  }
+}
+
 // Contrato finalizado do DONO ainda sem avaliação, para o lembrete que reaparece.
 // `ja_avaliei` só existe no payload de contratos finalizados — a lista de demandas não o
 // traz —, então não há como saber sem esta SEGUNDA requisição. Ela roda apenas quando a
@@ -412,7 +443,7 @@ const detectar = async (usuario) => {
     // Sem título disponível volta ao texto anterior, genérico mas correto.
     const nomeRec = nomeDe(recs)
     // `dica`: a caixa "Como ser o escolhido na próxima" (render), só neste evento.
-    if (recs.length) return {
+    if (recs.length) return comOportunidades({
       semConfete: true, dica: true,
       chaves: recs.map(x => `recusa:${x.id}`), emoji: '😕',
       titulo: 'Desta vez foi outro profissional',
@@ -421,7 +452,7 @@ const detectar = async (usuario) => {
         : `${nomeRec ? `${nomeRec} e outros ${recs.length - 1}` : `${recs.length}`} serviços foram para outros profissionais. Não desanime: novos serviços chegam todos os dias no ProTudo! 🚀`,
       ctaTexto: 'Ver outros serviços',
       navegar: () => navigationRef.current?.navigate(FEED_PRO),
-    }
+    }, await oportunidadesResumo())
   }
   // pintor/construtor — o dono aceitou sua candidatura
   if (ehPintor) {
@@ -496,7 +527,7 @@ const detectar = async (usuario) => {
     // concordância que este ramo já mantém ("foram dadas", "Ver outras obras").
     const nomeRec = nomeDe(recs)
     // `dica`: a caixa "Como ser o escolhido na próxima" (render), só neste evento.
-    if (recs.length) return {
+    if (recs.length) return comOportunidades({
       semConfete: true, dica: true,
       chaves: recs.map(x => `recusa:${x.id}`), emoji: '😕',
       titulo: 'Desta vez foi outro profissional',
@@ -505,7 +536,7 @@ const detectar = async (usuario) => {
         : `${nomeRec ? `${nomeRec} e outras ${recs.length - 1}` : `${recs.length}`} obras foram para outros profissionais. Não desanime: novas obras chegam todos os dias no ProTudo! 🚀`,
       ctaTexto: 'Ver outras obras',
       navegar: () => navigationRef.current?.navigate(FEED_PRO),
-    }
+    }, await oportunidadesResumo())
   }
   return null
 }
@@ -806,6 +837,20 @@ export default function CelebracaoMatchHost() {
               {evento.emoji ? <Text style={estilos.emoji}>{evento.emoji}</Text> : null}
               <Text style={estilos.titulo}>{evento.titulo}</Text>
               <Text style={[estilos.subtitulo, evento.dica && { marginBottom: 0 }]}>{evento.subtitulo || evento.mensagem}</Text>
+              {/* Oportunidades (recusa, GET /prestador/oportunidades-resumo): duas caixas com as
+                  contagens. Só quando a chamada voltou com pedidos abertos > 0. */}
+              {evento.oportunidades ? (
+                <View style={estilos.statsRow}>
+                  <View style={estilos.stat}>
+                    <Text style={estilos.statNumero}>{evento.oportunidades.perto}</Text>
+                    <Text style={estilos.statTexto}>{evento.oportunidades.perto === 1 ? 'pedido aberto perto de você' : 'pedidos abertos perto de você'}</Text>
+                  </View>
+                  <View style={estilos.stat}>
+                    <Text style={estilos.statNumero}>{evento.oportunidades.especialidade}</Text>
+                    <Text style={estilos.statTexto}>na sua especialidade</Text>
+                  </View>
+                </View>
+              ) : null}
               {/* Dica da recusa: o que faz um profissional ser escolhido — as etapas pelo app. */}
               {evento.dica ? (
                 <View style={estilos.dica}>
@@ -864,6 +909,11 @@ const estilos = StyleSheet.create({
   rolagem:    { width: '100%', maxWidth: 380 },
   rolagemConteudo: { flexGrow: 1, justifyContent: 'center' },
   card:       { width: '100%', maxWidth: 380, backgroundColor: cores.fundoCard, borderRadius: 24, borderWidth: 1, borderColor: cores.primaria, padding: 28, alignItems: 'center' },
+  // Caixas de oportunidades (evento de recusa com resumo): número grande laranja + legenda.
+  statsRow:   { flexDirection: 'row', gap: 10, alignSelf: 'stretch', marginTop: 16 },
+  stat:       { flex: 1, backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 10, alignItems: 'center' },
+  statNumero: { fontSize: 26, fontWeight: '800', color: cores.primaria, lineHeight: 30 },
+  statTexto:  { fontSize: 12, color: cores.textoMedio, textAlign: 'center', lineHeight: 16, marginTop: 2 },
   // Caixa da dica (evento de recusa).
   dica:       { alignSelf: 'stretch', backgroundColor: '#2A1D0C', borderWidth: 1, borderColor: '#E8833A', borderRadius: 16, padding: 14, marginTop: 18, marginBottom: 24 },
   dicaTitulo: { fontSize: 14.5, fontWeight: '800', color: '#FFB066', marginBottom: 6 },

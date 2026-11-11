@@ -26,8 +26,10 @@ const STATUS_INFO = {
   pendente:            { texto: 'Aguardando resposta', cor: '#FFC107', bg: '#3a3a1a' },
   aceito:              { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
   aprovada:            { texto: '✅ Proposta aceita',  cor: '#4caf50', bg: '#1a3a1a' },
-  recusado:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
-  recusada:            { texto: '✗ Recusado',          cor: '#f44336', bg: '#3a1a1a' },
+  // Não escolhido pelo cliente: cinza neutro, não vermelho — não é falta nem erro do
+  // profissional (Arte não-escolhido, 11/11/2026). Mesma leitura no CardCandidatura.
+  recusado:            { texto: 'Não selecionado',     cor: cores.textoMedio, bg: cores.fundoElevado },
+  recusada:            { texto: 'Não selecionado',     cor: cores.textoMedio, bg: cores.fundoElevado },
   contraproposta_dono: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
   expirado:            { texto: '⏰ Expirado',         cor: '#f44336', bg: '#3a1a1a' },
 }

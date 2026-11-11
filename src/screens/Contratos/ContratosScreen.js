@@ -348,8 +348,9 @@ const estilos = StyleSheet.create({
   alertaTexto: { fontSize: 12, color: '#FF6B35', textAlign: 'center' },
   btnVer: { backgroundColor: cores.primaria, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
   btnVerTexto: { fontSize: 13, fontWeight: '700', color: '#0A0A0A' },
-  recusadoAviso: { marginTop: 12, backgroundColor: cores.perigoSuave, borderRadius: raios.medio, padding: 10, alignItems: 'center' },
-  recusadoAvisoTexto: { fontSize: 12, color: cores.perigo },
+  // Cinza como o badge "Não selecionado" acima dele (components/index.js STATUS_BADGE).
+  recusadoAviso: { marginTop: 12, backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 10, alignItems: 'center' },
+  recusadoAvisoTexto: { fontSize: 12, color: cores.textoMedio },
   vazio: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   vazioIcone: { fontSize: 36, marginBottom: 16 },
   vazioTitulo: { fontSize: 16, fontWeight: '600', color: cores.textoFraco, marginBottom: 8 },
