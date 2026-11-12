@@ -227,11 +227,11 @@ export const rotulosEspecialidades = (esp) => {
 
 // ── Beleza e cuidados: onde o atendimento acontece ──────────────────────────────────────
 // Categorias em que o serviço pode ser na casa do cliente OU no espaço do profissional
-// (arte "Onde vai ser o atendimento?"). Mesma lista da API — manicure/pedicure, cabelo,
-// barbeiro, maquiagem, sobrancelha, depilação, massagem, podólogo, tatuagem, pet.
+// (arte "Onde vai ser o atendimento?"). Manicure/pedicure, cabelo, barbeiro, maquiagem,
+// sobrancelha, depilação, massagem, podólogo, pet. Tatuagem fica de fora: é sempre no estúdio.
 export const CATEGORIAS_CUIDADO = new Set([
   'manicure', 'cabelo', 'barbeiro', 'maquiagem', 'design_sobrancelhas',
-  'depilacao', 'massagem', 'podologo', 'tatuagem', 'pet',
+  'depilacao', 'massagem', 'podologo', 'pet',
 ])
 // true se ALGUM slug da lista (array ou CSV) é de beleza/cuidados.
 export const temCategoriaCuidado = (lista) => {
