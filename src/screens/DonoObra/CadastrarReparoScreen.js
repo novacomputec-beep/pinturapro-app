@@ -527,7 +527,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         // Só na raiz da aba "Novo pedido" e no 1º passo: é a tela inicial do dono.
         acimaDoTitulo={passo === 1 && deNovoPedido ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
         rodape={passo < TOTAL_PASSOS
-          ? <RodapeWizard rotulo="Continuar →" onPress={avancar} />
+          ? <RodapeWizard rotulo="Continuar →" onPress={avancar} apagado={passo === 1 && categorias.length === 0} />
           : <RodapeWizard
               rotulo="Publicar pedido →"
               onPress={handleCadastrar}
@@ -538,7 +538,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
       >
         {passo === 1 && (
           <View onLayout={registrarY('categorias')}>
-            {erros.categorias && <Text style={estilos.erroTexto}>{erros.categorias}</Text>}
+            {/* Sem o texto vermelho "Escolha ao menos uma categoria" (arte "Continuar apagado"):
+                o botão cinza do rodapé já diz o que falta. */}
             <GradeGrupos
               grupos={grupos}
               contagem={contagemPorGrupo(categorias)}

@@ -576,7 +576,7 @@ export default function CadastrarObraScreen({ navigation }) {
         scrollRef={scrollRef}
         reservaInferior={reservaInferior}
         rodape={passo < TOTAL_PASSOS
-          ? <RodapeWizard rotulo="Continuar →" onPress={avancar} />
+          ? <RodapeWizard rotulo="Continuar →" onPress={avancar} apagado={passo === 1 && !categoria} />
           : <RodapeWizard
               rotulo="Publicar obra →"
               onPress={handleCadastrar}
@@ -587,7 +587,8 @@ export default function CadastrarObraScreen({ navigation }) {
       >
         {passo === 1 && (
           <View onLayout={registrarY('categoria')}>
-            {erros.categoria && <Text style={estilos.erroTexto}>{erros.categoria}</Text>}
+            {/* Sem o texto vermelho de categoria (arte "Continuar apagado"): o botão cinza do
+                rodapé já diz o que falta. */}
             <GradeTiposObra tipos={tipos} tileOutros={TILE_OUTROS_OBRA} selecionado={categoria} onEscolher={(slug) => { setCategoria(slug); setErros(e => ({ ...e, categoria: undefined })) }} />
           </View>
         )}

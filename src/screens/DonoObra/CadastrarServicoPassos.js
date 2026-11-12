@@ -91,10 +91,19 @@ export const BarraProgresso = ({ passo }) => (
 )
 
 // Botão grande do rodapé. `nota`: texto curto acima dele (o "Enviando mídias…" do envio).
-export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota }) => (
+// `apagado` (arte "Continuar apagado"): o passo 1 sem nenhuma categoria escolhida. No lugar do
+// botão laranja, um bloco cinza do MESMO tamanho e posição, sem toque, com "Escolha uma
+// categoria acima"; escolhida a primeira, volta o "Continuar →" de sempre.
+export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota, apagado }) => (
   <>
     {nota ? <Text style={estilos.rodapeNota}>{nota}</Text> : null}
-    <BotaoPrimario titulo={rotulo} onPress={onPress} carregando={carregando} desabilitado={desabilitado} estilo={estilos.rodapeBotao} />
+    {apagado ? (
+      <View style={[estilos.rodapeBotao, estilos.rodapeApagado]} accessibilityRole="button" accessibilityState={{ disabled: true }}>
+        <Text style={estilos.rodapeApagadoTexto}>Escolha uma categoria acima</Text>
+      </View>
+    ) : (
+      <BotaoPrimario titulo={rotulo} onPress={onPress} carregando={carregando} desabilitado={desabilitado} estilo={estilos.rodapeBotao} />
+    )}
   </>
 )
 
@@ -573,6 +582,10 @@ const estilos = StyleSheet.create({
   // Rodapé fixo: linha fina em cima, mesmo fundo da tela.
   rodape: { paddingHorizontal: espacos.tela, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: cores.borda, backgroundColor: cores.fundo },
   rodapeBotao: { marginTop: 0 },
+  // Mesmas medidas do BotaoPrimario (components: raio grande, padding 16, texto 15/700); a
+  // borda de 1px sai do padding (15) para a altura ficar idêntica.
+  rodapeApagado: { backgroundColor: '#1c1d21', borderWidth: 1, borderColor: '#2c2f36', borderRadius: raios.grande, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
+  rodapeApagadoTexto: { color: '#5d6470', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 },
   rodapeNota: { fontSize: 12, color: cores.primaria, textAlign: 'center', marginBottom: 8, fontWeight: '600', lineHeight: 18 },
   label: { fontSize: 11, color: cores.textoForte, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
   erroTexto: { fontSize: 11, color: cores.perigo, marginBottom: 8 },
