@@ -21,7 +21,9 @@ import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades, temCategoriaCuidado } from '../../utils/categorias'
+import { LinearGradient } from 'expo-linear-gradient'
 import { contarPerfis } from '../../utils/contas'
+import { usePerfisETroca } from './MeusPerfisScreen'
 import { buscarServicoCombinado } from '../../utils/servicoCombinado'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
 import { buscarDicas, lerDicasVistas, contarNovas, rotuloNovas } from '../../services/dicas'
@@ -67,6 +69,64 @@ const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, a
     </View>
   </TouchableOpacity>
 )
+
+// Arte-Meus-Perfis-Destaque: card laranja logo abaixo do nome, no lugar da linha cinza "Meus
+// perfis". Com os dois lados: duas pills lado a lado, a do lado em uso cheia (sem toque) e a
+// outra contornada, que troca pelo MESMO fluxo da MeusPerfisScreen (usePerfisETroca). Com um
+// lado só: um botão "Também quero …" que abre a AdicionarPerfilScreen, como o ＋ de lá.
+// O número da pill é contarPerfis — lados que a pessoa tem, não contas.
+const LADOS_CARD = [
+  { marca: 'contratar', rotulo: '🏠 Contratar', convite: 'Também quero contratar' },
+  { marca: 'trabalhar', rotulo: '🧰 Trabalhar', convite: 'Também quero trabalhar' },
+]
+function CardMeusPerfis({ usuario, navigation }) {
+  const { perfis, trocando, trocar } = usePerfisETroca()
+  const total = contarPerfis(usuario)
+  const lados = LADOS_CARD.map((l) => ({ ...l, perfil: perfis.find((p) => p[l.marca]) })).filter((l) => l.perfil)
+  const faltando = lados.find((l) => l.perfil.estado === 'adicionar')
+  return (
+    <LinearGradient colors={['#5a2c0e', '#2e1708']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={estilos.perfisCard}>
+      <TouchableOpacity style={estilos.perfisTopo} onPress={() => navigation.navigate('MeusPerfis')} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Meus perfis: ${total}`}>
+        <Text style={estilos.perfisTitulo}>👥 Meus perfis</Text>
+        <View style={estilos.perfisContador}>
+          <Text style={estilos.perfisContadorTexto}>{total}</Text>
+        </View>
+      </TouchableOpacity>
+      {faltando ? (
+        <TouchableOpacity
+          style={[estilos.perfisPill, estilos.perfisPillContorno, estilos.perfisPillUnica]}
+          onPress={() => navigation.navigate('AdicionarPerfil', { tipo: faltando.perfil.tipo })}
+          accessibilityRole="button"
+        >
+          <Text style={estilos.perfisPillTextoContorno}>{faltando.convite}</Text>
+        </TouchableOpacity>
+      ) : (
+        <>
+          <Text style={estilos.perfisTexto}>Você contrata e trabalha com a mesma conta. Toque para trocar:</Text>
+          <View style={estilos.perfisPills}>
+            {lados.map((l) => {
+              const emUso = l.perfil.estado === 'em_uso'
+              return (
+                <TouchableOpacity
+                  key={l.marca}
+                  style={[estilos.perfisPill, emUso ? estilos.perfisPillCheia : estilos.perfisPillContorno]}
+                  onPress={() => trocar(l.perfil.tipo)}
+                  disabled={emUso || !!trocando}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: emUso, disabled: emUso || !!trocando }}
+                >
+                  {trocando === l.perfil.tipo
+                    ? <ActivityIndicator size="small" color="#e08a44" />
+                    : <Text style={emUso ? estilos.perfisPillTextoCheia : estilos.perfisPillTextoContorno}>{l.rotulo}</Text>}
+                </TouchableOpacity>
+              )
+            })}
+          </View>
+        </>
+      )}
+    </LinearGradient>
+  )
+}
 
 export default function PerfilScreen({ navigation, route }) {
   const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken, setUsuario } = useAuth()
@@ -562,6 +622,8 @@ export default function PerfilScreen({ navigation, route }) {
           )}
         </View>
 
+        <CardMeusPerfis usuario={usuario} navigation={navigation} />
+
         {/* No iOS o card de assinatura some inteiro — título, badge, plano e vencimento
             (3.1.1) — e no lugar entra o pedido de contato com o suporte. */}
         {mostrarCobranca ? (
@@ -692,6 +754,7 @@ export default function PerfilScreen({ navigation, route }) {
           </View>
         )}
 
+        <Text style={estilos.rotuloSecaoConta}>CONTA</Text>
         <View style={estilos.acoesWrap}>
           {/* Todos os papéis, em laranja (convite): some quando não há vídeo publicado. */}
           {temVideoComoFunciona && (
@@ -701,16 +764,7 @@ export default function PerfilScreen({ navigation, route }) {
             </>
           )}
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
-          <Separador />
-          {/* Arte-Meus-Perfis: os perfis da pessoa (em uso / trocar / adicionar). Todos os papéis.
-              O estado é quantos LADOS ela já tem — Contratar e/ou Trabalhar, os mesmos cards da
-              MeusPerfisScreen (utils/contas.contarPerfis), não o número de contas: duas contas
-              do mesmo lado são um perfil só. Some com um só. */}
-          <ItemAcao
-            titulo="👥 Meus perfis"
-            estado={contarPerfis(usuario) >= 2 ? String(contarPerfis(usuario)) : ''}
-            onPress={() => navigation.navigate('MeusPerfis')}
-          />
+          {/* "Meus perfis" saiu daqui: virou o card laranja logo abaixo do nome (CardMeusPerfis). */}
           <Separador />
           {/* Arte-Dicas: regras e atalhos da plataforma, por lado da conta. O selo laranja
               conta as dicas que o aparelho ainda não viu (some em zero). Todos os papéis. */}
@@ -896,6 +950,21 @@ const estilos = StyleSheet.create({
   promoTextos: { flex: 1 },
   promoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
   promoSubtitulo: { fontSize: 12, color: cores.textoMedio, lineHeight: 17 },
+  // Card "Meus perfis" (Arte-Meus-Perfis-Destaque)
+  perfisCard: { marginHorizontal: espacos.tela, borderWidth: 2, borderColor: '#e08a44', borderRadius: 18, padding: 16, marginBottom: 16 },
+  perfisTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  perfisTitulo: { fontSize: 17, fontWeight: '800', color: cores.textoForte },
+  perfisContador: { minWidth: 28, backgroundColor: '#e08a44', borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 3, alignItems: 'center' },
+  perfisContadorTexto: { fontSize: 13, fontWeight: '800', color: '#1a0d04', fontVariant: ['tabular-nums'] },
+  perfisTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginBottom: 12 },
+  perfisPills: { flexDirection: 'row', gap: 10 },
+  perfisPill: { flex: 1, minHeight: 44, borderRadius: raios.pill, borderWidth: 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  perfisPillUnica: { flex: 0, marginTop: 6 },
+  perfisPillCheia: { backgroundColor: '#e08a44', borderColor: '#e08a44' },
+  perfisPillContorno: { backgroundColor: 'transparent', borderColor: '#e08a44' },
+  perfisPillTextoCheia: { fontSize: 14, fontWeight: '800', color: '#1a0d04' },
+  perfisPillTextoContorno: { fontSize: 14, fontWeight: '800', color: '#e08a44' },
+  rotuloSecaoConta: { marginHorizontal: espacos.tela, fontSize: 11, fontWeight: '700', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
   atendeLinha: { paddingVertical: 8 },
   atendeCaixa: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: cores.textoFraco, alignItems: 'center', justifyContent: 'center' },
   atendeCaixaMarcada: { backgroundColor: '#F0822E', borderColor: '#F0822E' },

@@ -64,21 +64,15 @@ export function MeusPerfisConteudo({ perfis, trocando, onTrocar, onAdicionar }) 
   )
 }
 
-export default function MeusPerfisScreen({ navigation }) {
-  const { usuario, loginComToken, setUsuario } = useAuth()
+// Perfis da pessoa + a troca de perfil (POST /auth/trocar-conta → loginComToken). Mora aqui e
+// é usado também pelo card "Meus perfis" do PerfilScreen (Arte-Meus-Perfis-Destaque): o mesmo
+// fluxo nos dois lugares. NÃO relê o perfil — quem chama decide (esta tela relê ao focar; o
+// Perfil já relê o GET /auth/perfil a cada foco).
+export function usePerfisETroca() {
+  const { usuario, loginComToken } = useAuth()
   const [trocando, setTrocando] = useState(null)
   const montadoRef = useRef(true)
   useEffect(() => () => { montadoRef.current = false }, [])
-
-  // Relê `contas` ao focar: a lista pode ter mudado em outro aparelho, e o cache da sessão
-  // de antes deste campo não a tem. Só `contas` muda na sessão — nada de boas-vindas/push.
-  useFocusEffect(useCallback(() => {
-    let vivo = true
-    authService.perfil()
-      .then((r) => { if (vivo && Array.isArray(r?.contas)) setUsuario((prev) => (prev ? { ...prev, contas: r.contas } : prev)) })
-      .catch((err) => console.log('[MeusPerfis] perfil não recarregou, lista da sessão | code:', err?.code))
-    return () => { vivo = false }
-  }, [setUsuario]))
 
   // Última conta usada de CADA lado neste aparelho: decide para qual das duas o card único
   // do lado troca quando a pessoa tem ambas. Até a leitura voltar vale a ordem padrão.
@@ -111,6 +105,23 @@ export default function MeusPerfisScreen({ navigation }) {
       if (montadoRef.current) setTrocando(null)
     }
   }
+
+  return { perfis, trocando, trocar }
+}
+
+export default function MeusPerfisScreen({ navigation }) {
+  const { setUsuario } = useAuth()
+  const { perfis, trocando, trocar } = usePerfisETroca()
+
+  // Relê `contas` ao focar: a lista pode ter mudado em outro aparelho, e o cache da sessão
+  // de antes deste campo não a tem. Só `contas` muda na sessão — nada de boas-vindas/push.
+  useFocusEffect(useCallback(() => {
+    let vivo = true
+    authService.perfil()
+      .then((r) => { if (vivo && Array.isArray(r?.contas)) setUsuario((prev) => (prev ? { ...prev, contas: r.contas } : prev)) })
+      .catch((err) => console.log('[MeusPerfis] perfil não recarregou, lista da sessão | code:', err?.code))
+    return () => { vivo = false }
+  }, [setUsuario]))
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
