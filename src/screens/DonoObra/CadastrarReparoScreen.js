@@ -10,7 +10,7 @@ import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
-import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA, temCategoriaCuidado } from '../../utils/categorias'
 import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
@@ -20,6 +20,7 @@ import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento
 import {
   MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupo,
   PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, PASSO_DO_CAMPO, TOTAL_PASSOS,
+  CaixaLocalAtendimento,
 } from './CadastrarServicoPassos'
 
 // Cadastro de serviço do dono em 4 passos (Arte-Cadastrar-Servico): grupos → detalhes →
@@ -47,6 +48,7 @@ const ROTA_NOVO_PEDIDO = 'CadastrarPedidoMain'
 // e mostra um alerta claro.
 const CAMPOS_OBRIGATORIOS = [
   { chave: 'categorias',    msg: 'Escolha ao menos uma categoria antes de continuar.' },
+  { chave: 'localAtendimento', msg: 'Escolha onde vai ser o atendimento antes de continuar.' },
   { chave: 'titulo',        msg: 'Por favor, informe o título do serviço antes de continuar.' },
   { chave: 'descricao',     msg: 'Descreva o serviço necessário antes de continuar.' },
   { chave: 'urgencia',      msg: 'Selecione o prazo para iniciar o serviço antes de continuar.' },
@@ -73,6 +75,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [erros, setErros] = useState({})
   const [titulo, setTitulo] = useState('')
   const [categorias, setCategorias] = useState([])
+  // 'casa_cliente' | 'local_profissional' | 'tanto_faz' | null. Só pedido e só enviado
+  // quando há categoria de beleza/cuidados marcada (pedeLocal).
+  const [localAtendimento, setLocalAtendimento] = useState(null)
+  const pedeLocal = temCategoriaCuidado(categorias)
   // slug → slugs do grupo dele (services/gruposCategorias). Vazio até a resposta chegar, e
   // vazio de vez se ela falhar: sem grupos não há sugestão, e o cadastro segue igual.
   const [grupoDoSlugApi, setGrupoDoSlugApi] = useState({})
@@ -147,6 +153,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     setPasso(1)
     setTitulo('')
     setCategorias([])
+    setLocalAtendimento(null)
     setDescricao('')
     setValorEstimado('')
     setUrgencia(null)
@@ -282,6 +289,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const validarTudo = () => {
     const novos = {}
     if (categorias.length === 0) novos.categorias = 'Escolha ao menos uma categoria'
+    if (pedeLocal && !localAtendimento) novos.localAtendimento = 'Escolha onde vai ser o atendimento'
     if (!titulo.trim()) novos.titulo = 'Informe o título'
     if (!descricao.trim()) novos.descricao = 'Descreva o serviço necessário'
     if (!urgencia) novos.urgencia = 'Selecione o prazo para iniciar o serviço'
@@ -446,6 +454,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         // A primeira marcada é a coluna de sempre; a lista inteira vai ao lado dela.
         categoria: categorias[0],
         categorias,
+        // Só em beleza/cuidados; nas demais categorias a chave nem vai (payload de sempre).
+        ...(pedeLocal && localAtendimento ? { local_atendimento: localAtendimento } : {}),
         descricao: descricao.trim(),
         valor_estimado: valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
         pais: 'Brasil',
@@ -539,6 +549,15 @@ export default function CadastrarReparoScreen({ navigation, route }) {
               onObras={deNovoPedido ? abrirObra : undefined}
             />
             <ChipsEscolhidos categorias={categorias} onRemover={selecionarCategoria} />
+            {pedeLocal && (
+              <View onLayout={registrarY('localAtendimento')}>
+                <CaixaLocalAtendimento
+                  valor={localAtendimento}
+                  onEscolher={(v) => { setLocalAtendimento(v); setErros(e => ({ ...e, localAtendimento: undefined })) }}
+                  erro={erros.localAtendimento}
+                />
+              </View>
+            )}
             {/* Sugestões: só depois da primeira marcada e enquanto há vaga. */}
             {!noLimite && <Sugestoes sugestoes={sugestoes} onAdicionar={selecionarCategoria} />}
           </View>

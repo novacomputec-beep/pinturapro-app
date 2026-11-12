@@ -20,7 +20,7 @@ import LinhaAvisosTodasAreas, { avisosTodasAreasLigado } from '../../components/
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
-import { normalizarEspecialidades, rotulosEspecialidades } from '../../utils/categorias'
+import { normalizarEspecialidades, rotulosEspecialidades, temCategoriaCuidado } from '../../utils/categorias'
 import { contarPerfis } from '../../utils/contas'
 import { buscarServicoCombinado } from '../../utils/servicoCombinado'
 import { carregarVideoComoFunciona } from '../../services/videoComoFunciona'
@@ -357,6 +357,36 @@ export default function PerfilScreen({ navigation, route }) {
     }
   }
 
+  // "Onde você atende" (beleza/cuidados): usuarios.atende_casa_cliente / atende_local_proprio,
+  // os dois LIGADOS por padrão (campo ausente = ligado). Mesmo desenho do Switch de avisos:
+  // escolha local otimista, PUT /auth/perfil só com o campo tocado, volta se falhar. Desmarcar
+  // a última marcada não grava nada — só mostra "Marque pelo menos uma opção".
+  const [atendeLocal, setAtendeLocal] = useState({})
+  const [salvandoAtende, setSalvandoAtende] = useState(false)
+  const [avisoAtende, setAvisoAtende] = useState(false)
+  const atendeValor = (campo) =>
+    atendeLocal[campo] !== undefined ? atendeLocal[campo] : (dadosCompletos?.[campo] ?? usuario?.[campo]) !== false
+  const handleAlternarAtende = async (campo) => {
+    const outro = campo === 'atende_casa_cliente' ? 'atende_local_proprio' : 'atende_casa_cliente'
+    const anterior = atendeValor(campo)
+    const valor = !anterior
+    if (!valor && !atendeValor(outro)) { setAvisoAtende(true); return }
+    setAvisoAtende(false)
+    setAtendeLocal(l => ({ ...l, [campo]: valor }))
+    setSalvandoAtende(true)
+    try {
+      await comRetry(() => authService.atualizarPerfil({ [campo]: valor }), { timeout: true, servidor: true })
+      setUsuario(prev => (prev ? { ...prev, [campo]: valor } : prev))
+      if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, [campo]: valor } : d))
+    } catch (err) {
+      console.log('[Perfil] falha ao salvar onde atende | campo:', campo, '| status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (montadoRef.current) setAtendeLocal(l => ({ ...l, [campo]: anterior }))
+      Alert.alert('Erro', err.mensagem || 'Não foi possível salvar sua preferência. Tente novamente.')
+    } finally {
+      if (montadoRef.current) setSalvandoAtende(false)
+    }
+  }
+
   const confirmarLogout = () => {
     Alert.alert('Sair da conta', 'Tem certeza que deseja sair?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -607,6 +637,37 @@ export default function PerfilScreen({ navigation, route }) {
           )}
         </View>
 
+        {/* Só profissional com ao menos uma especialidade de beleza/cuidados. */}
+        {ehPrestador && temCategoriaCuidado(dados?.especialidades) && (
+          <View style={estilos.secaoCard}>
+            <Text style={estilos.secaoTitulo}>Onde você atende</Text>
+            <Separador estilo={{ marginBottom: 12 }} />
+            {[
+              { campo: 'atende_casa_cliente', emoji: '🏠', titulo: 'Atendo na casa do cliente' },
+              { campo: 'atende_local_proprio', emoji: '💈', titulo: 'Atendo no meu espaço' },
+            ].map((o) => {
+              const marcado = atendeValor(o.campo)
+              return (
+                <TouchableOpacity
+                  key={o.campo}
+                  style={[estilos.promoLinha, estilos.atendeLinha]}
+                  onPress={() => handleAlternarAtende(o.campo)}
+                  disabled={salvandoAtende}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: marcado, disabled: salvandoAtende }}
+                >
+                  <Text style={estilos.promoEmoji}>{o.emoji}</Text>
+                  <Text style={[estilos.promoTitulo, estilos.promoTextos, { marginBottom: 0 }]}>{o.titulo}</Text>
+                  <View style={[estilos.atendeCaixa, marcado && estilos.atendeCaixaMarcada]}>
+                    {marcado ? <Text style={estilos.atendeCheck}>✓</Text> : null}
+                  </View>
+                </TouchableOpacity>
+              )
+            })}
+            {avisoAtende ? <Text style={estilos.atendeAviso}>Marque pelo menos uma opção</Text> : null}
+          </View>
+        )}
+
         {/* SÓ Android: no iOS a seção não é renderizada. Os avisos de serviço (interesse,
             proposta, chegada, encerramento) não passam por este interruptor — ele governa
             apenas os envios promocionais do painel. */}
@@ -835,6 +896,11 @@ const estilos = StyleSheet.create({
   promoTextos: { flex: 1 },
   promoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
   promoSubtitulo: { fontSize: 12, color: cores.textoMedio, lineHeight: 17 },
+  atendeLinha: { paddingVertical: 8 },
+  atendeCaixa: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: cores.textoFraco, alignItems: 'center', justifyContent: 'center' },
+  atendeCaixaMarcada: { backgroundColor: '#F0822E', borderColor: '#F0822E' },
+  atendeCheck: { fontSize: 15, fontWeight: '800', color: cores.branco, lineHeight: 19 },
+  atendeAviso: { fontSize: 12, color: cores.perigo, fontWeight: '600', marginTop: 6 },
   acoesWrap: { marginHorizontal: espacos.tela, backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, overflow: 'hidden', marginBottom: 16 },
   itemAcao: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   itemAcaoTexto: { fontSize: 14, color: cores.textoForte },

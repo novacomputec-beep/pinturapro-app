@@ -225,6 +225,27 @@ export const rotulosEspecialidades = (esp) => {
   return rotulos.length ? rotulos.join(', ') : null
 }
 
+// ── Beleza e cuidados: onde o atendimento acontece ──────────────────────────────────────
+// Categorias em que o serviço pode ser na casa do cliente OU no espaço do profissional
+// (arte "Onde vai ser o atendimento?"). Mesma lista da API — manicure/pedicure, cabelo,
+// barbeiro, maquiagem, sobrancelha, depilação, massagem, podólogo, tatuagem, pet.
+export const CATEGORIAS_CUIDADO = new Set([
+  'manicure', 'cabelo', 'barbeiro', 'maquiagem', 'design_sobrancelhas',
+  'depilacao', 'massagem', 'podologo', 'tatuagem', 'pet',
+])
+// true se ALGUM slug da lista (array ou CSV) é de beleza/cuidados.
+export const temCategoriaCuidado = (lista) => {
+  const arr = Array.isArray(lista) ? lista : (typeof lista === 'string' ? lista.split(',') : [])
+  return arr.some((s) => CATEGORIAS_CUIDADO.has(String(s).trim()))
+}
+
+// Valores de reparos.local_atendimento (contrato com a API).
+export const LOCAIS_ATENDIMENTO = [
+  { id: 'casa_cliente',       emoji: '🏠', titulo: 'Na minha casa',            subtitulo: 'A profissional vem até você' },
+  { id: 'local_profissional', emoji: '💈', titulo: 'No local da profissional', subtitulo: 'Você vai até o salão ou espaço dela' },
+  { id: 'tanto_faz',          emoji: '🤝', titulo: 'Tanto faz',                subtitulo: null },
+]
+
 // ── Várias categorias por demanda (lado reparo) ─────────────────────────────────────────
 // Teto de categorias de um reparo. Mora aqui pelo mesmo motivo do MAX_ESPECIALIDADES: o
 // cadastro, o contador e a dica precisam do MESMO número.
