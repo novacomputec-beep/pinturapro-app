@@ -21,6 +21,7 @@ import VerificacaoIdentidadeSheet, { useVerificacaoIdentidade } from '../../comp
 import { comRetry, ehContaSuspensa, ehProfissionalSuspenso, recarregarSeFalhaDeRede, mensagemErroRede } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
+import PillLocalAtendimento from '../../components/PillLocalAtendimento'
 import { avatar, media, full, videoOtimizado } from '../../utils/imagemOtimizada'
 import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiReparo, rotulosEspecialidades, categoriasDe, normalizarEspecialidades } from '../../utils/categorias'
@@ -2392,6 +2393,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
               {!isDono && distancia != null && <Text style={estilos.localDistancia}>{`  ·  ${formatarDistancia(distancia)}`}</Text>}
             </Text>
           )}
+          {/* Profissional: onde é o atendimento (beleza/cuidados), logo abaixo do local. */}
+          {!isDono ? <PillLocalAtendimento demanda={reparo} /> : null}
           {isDono && !faseAguardaHorario && reparo.endereco_reparo ? (
             <Text style={estilos.enderecoLinha}>📍 {reparo.endereco_reparo}</Text>
           ) : null}

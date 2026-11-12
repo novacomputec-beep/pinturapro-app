@@ -15,6 +15,7 @@ import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, useCoordsUsuario } from '../../utils/distancia'
+import PillLocalAtendimento from '../../components/PillLocalAtendimento'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { emojiReparo, paraFiltro, CATEGORIAS_SERVICO } from '../../utils/categorias'
 import ChipsCategoria from '../../components/ChipsCategoria'
@@ -182,6 +183,8 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
               <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
             )}
             <LinhaLocal item={item} dist={dist} estiloTexto={estilos.cardLocal} estiloDistancia={estilos.cardDistancia} />
+            {/* Beleza/cuidados: onde é o atendimento (nada para tanto_faz/sem valor). */}
+            <PillLocalAtendimento demanda={item} />
             <View style={estilos.cardRodape}>
               <Text style={[estilos.interessados, (Number(item.total_interessados) || 0) <= 0 && estilos.interessadosPrimeiro, { flexShrink: 1 }]} numberOfLines={1}>
                 {textoInteressados(Number(item.total_interessados) || 0)}

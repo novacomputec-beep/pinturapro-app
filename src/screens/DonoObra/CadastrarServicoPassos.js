@@ -6,7 +6,7 @@ import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO, MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
+import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO, MAX_CATEGORIAS_DEMANDA, LOCAIS_ATENDIMENTO } from '../../utils/categorias'
 import { TILE_OUTROS, SLUG_OUTROS } from '../../utils/gruposServico'
 
 // Peças APRESENTACIONAIS do wizard "Cadastrar serviço" (Arte-Cadastrar-Servico), em 4 passos:
@@ -408,8 +408,39 @@ export const AvisosPublicar = () => (
   </>
 )
 
+// ─── Passo 1, beleza/cuidados: "Onde vai ser o atendimento?" ─────────────────────────────
+// Só aparece quando alguma categoria marcada está em CATEGORIAS_CUIDADO; aí é obrigatória.
+// Três linhas grandes (mesmo molde das linhas da folha do grupo), escolha única.
+export function CaixaLocalAtendimento({ valor, onEscolher, erro }) {
+  return (
+    <View style={[estilos.localCaixa, erro && { borderColor: cores.perigo }]} accessibilityRole="radiogroup">
+      <Text style={estilos.localCaixaTitulo}>📍 Onde vai ser o atendimento?</Text>
+      {erro ? <Text style={estilos.erroTexto}>{erro}</Text> : null}
+      {LOCAIS_ATENDIMENTO.map((o) => {
+        const marcada = valor === o.id
+        return (
+          <TouchableOpacity
+            key={o.id}
+            style={[estilos.linha, marcada && estilos.linhaMarcada]}
+            onPress={() => onEscolher(o.id)}
+            activeOpacity={0.8}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: marcada }}
+          >
+            <Text style={estilos.linhaEmoji}>{o.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.linhaNome}>{o.titulo}</Text>
+              {o.subtitulo ? <Text style={estilos.linhaExemplos}>{o.subtitulo}</Text> : null}
+            </View>
+          </TouchableOpacity>
+        )
+      })}
+    </View>
+  )
+}
+
 export const PASSO_DO_CAMPO = {
-  categorias: 1,
+  categorias: 1, localAtendimento: 1,
   titulo: 2, descricao: 2,
   urgencia: 3, valorEstimado: 3,
   cep: 4, logradouro: 4, numero: 4, uf: 4, cidade: 4,
@@ -604,6 +635,8 @@ const estilos = StyleSheet.create({
   caixa: { width: 28, height: 28, borderRadius: 8, borderWidth: 2, borderColor: cores.bordaCampo, alignItems: 'center', justifyContent: 'center' },
   caixaMarcada: { backgroundColor: cores.primaria, borderColor: cores.primaria },
   caixaCheck: { fontSize: 16, fontWeight: '800', color: '#0A0A0A', lineHeight: 20 },
+  localCaixa: { backgroundColor: cores.primariaSuave, borderWidth: 1.5, borderColor: cores.primaria, borderRadius: raios.medio, padding: 12, marginBottom: 16 },
+  localCaixaTitulo: { fontSize: 16, fontWeight: '800', color: cores.textoForte, marginBottom: 10 },
   // Passo 2
   tituloBordaAzul: { borderColor: cores.info, borderWidth: 1.5 },
   // Passo 3
