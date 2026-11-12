@@ -24,3 +24,5 @@ pinturapro-api/
 # android/app/, que é intencionalmente versionada (não é segredo: vai dentro do APK).
 google-services.json
 !android/app/google-services.json
+# Worktrees locais do Claude Code
+.claude/worktrees/
