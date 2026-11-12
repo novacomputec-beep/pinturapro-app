@@ -44,6 +44,7 @@ import ModalSuporte from '../../components/ModalSuporte'
 import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } from '../../components/CaixaAvisados'
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista, desistenciaDoPush } from '../../components/ProfissionalDesistiu'
 import { interessadosVisiveis, ehRecusado } from '../../utils/listaInteressados'
+import CancelarPedido from '../../components/CancelarPedido'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
@@ -3186,6 +3187,16 @@ export default function DetalheReparoScreen({ route, navigation }) {
             </>
           )}
         </View>
+        {/* Arte "Cancelar pedido": dono, pedido aberto e SEM profissional escolhido. Com match
+            a saída é o "Trocar profissional ou cancelar" do pós-match. */}
+        {isDono && !temMatch && !encerrada && reparo?.status !== 'cancelada' && reparo?.id ? (
+          <CancelarPedido
+            tipo="reparo"
+            id={reparo.id}
+            interessados={interessadosNaDisputa.filter(i => !ehRecusado(i)).length}
+            onCancelado={() => navigation.navigate('Meus pedidos', { screen: 'ListaPedidos' })}
+          />
+        ) : null}
       </ScrollView>
       )}
       </KeyboardAvoidingView>

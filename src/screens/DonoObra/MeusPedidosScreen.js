@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
+import { excluirPedido, ehMatchAtivo } from '../../utils/excluirPedido'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { categoriasDe, emojiReparo } from '../../utils/categorias'
@@ -308,18 +309,12 @@ export default function MeusPedidosScreen({ navigation }) {
       {
         text: 'Excluir', style: 'destructive', onPress: async () => {
           try {
-            // { timeout: true }: DELETE de um id é IDEMPOTENTE — repetir a exclusão de
-            // um id já removido devolveria 404, e 4xx nunca é reexecutado, então o retry
-            // não transforma sucesso em erro. Um socket ocioso derrubado pelo SO não
-            // falha só na hora (ERR_NETWORK): pode travar até o timeout de 30 s, e é o
-            // mesmo evento — a requisição não foi processada nos dois casos. { servidor }
-            // fica FORA: um 5xx prova que a requisição chegou e pode ter excluído.
+            // Chamada única (utils/excluirPedido): a mesma do "🗑️ Cancelar pedido" do detalhe.
+            await excluirPedido(tipo, item.id)
             if (tipo === 'obra') {
-              await comRetry(() => api.delete(`/obras/dono/${item.id}`), { timeout: true, persistir: true })
               setObras(prev => prev.filter(o => o.id !== item.id))
               setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
             } else {
-              await comRetry(() => api.delete(`/reparos/dono/${item.id}`), { timeout: true, persistir: true })
               setReparos(prev => prev.filter(r => r.id !== item.id))
               setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
             }
@@ -327,7 +322,7 @@ export default function MeusPedidosScreen({ navigation }) {
             console.log('[MeusPedidos] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
             // 409 MATCH_ATIVO: há profissional escolhido — a mensagem do servidor diz o caminho
             // ("Cancelar serviço" na tela do pedido). Mesmo alerta de erro, com o texto dele.
-            if (err.codigo === 'MATCH_ATIVO') { Alert.alert('Erro', err.mensagem || 'Já existe um profissional escolhido.'); return }
+            if (ehMatchAtivo(err)) { Alert.alert('Erro', err.mensagem || 'Já existe um profissional escolhido.'); return }
             // Rede pura → recarrega em vez de alertar. A lista É o resultado da ação: se
             // o DELETE não chegou, o item reaparece; se chegou e só a resposta se perdeu,
             // ele some. Nos dois casos a tela responde sozinha se a exclusão valeu.
