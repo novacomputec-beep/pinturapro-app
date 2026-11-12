@@ -16,12 +16,11 @@ import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta, { PALAVRA_CONFIRMACAO } from '../../components/ModalExcluirConta'
 import ModalSuporte from '../../components/ModalSuporte'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
-import LinhaAvisosTodasAreas, { avisosTodasAreasLigado } from '../../components/AvisosTodasAreas'
+import LinhaAvisosTodasAreas, { avisosTodasAreasLigado, CARTAO_VERDE } from '../../components/AvisosTodasAreas'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
 import { normalizarEspecialidades, rotulosEspecialidades, temCategoriaCuidado } from '../../utils/categorias'
-import { LinearGradient } from 'expo-linear-gradient'
 import { contarPerfis } from '../../utils/contas'
 import { usePerfisETroca } from './MeusPerfisScreen'
 import { buscarServicoCombinado } from '../../utils/servicoCombinado'
@@ -70,8 +69,8 @@ const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, a
   </TouchableOpacity>
 )
 
-// Arte-Meus-Perfis-Destaque: card laranja logo abaixo do nome, no lugar da linha cinza "Meus
-// perfis". Com os dois lados: duas pills lado a lado, a do lado em uso cheia (sem toque) e a
+// Arte-Meus-Perfis-Destaque, restilizada pela arte "Meus perfis compacto": card (no container
+// verde do "Quero receber avisos…") logo abaixo do nome, no lugar da linha cinza "Meus perfis". Com os dois lados: duas pills lado a lado, a do lado em uso cheia (sem toque) e a
 // outra contornada, que troca pelo MESMO fluxo da MeusPerfisScreen (usePerfisETroca). Com um
 // lado só: um botão "Também quero …" que abre a AdicionarPerfilScreen, como o ＋ de lá.
 // O número da pill é contarPerfis — lados que a pessoa tem, não contas.
@@ -85,7 +84,7 @@ function CardMeusPerfis({ usuario, navigation }) {
   const lados = LADOS_CARD.map((l) => ({ ...l, perfil: perfis.find((p) => p[l.marca]) })).filter((l) => l.perfil)
   const faltando = lados.find((l) => l.perfil.estado === 'adicionar')
   return (
-    <LinearGradient colors={['#5a2c0e', '#2e1708']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={estilos.perfisCard}>
+    <View style={estilos.perfisCard}>
       <TouchableOpacity style={estilos.perfisTopo} onPress={() => navigation.navigate('MeusPerfis')} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Meus perfis: ${total}`}>
         <Text style={estilos.perfisTitulo}>👥 Meus perfis</Text>
         <View style={estilos.perfisContador}>
@@ -102,7 +101,7 @@ function CardMeusPerfis({ usuario, navigation }) {
         </TouchableOpacity>
       ) : (
         <>
-          <Text style={estilos.perfisTexto}>Você contrata e trabalha com a mesma conta. Toque para trocar:</Text>
+          <Text style={estilos.perfisTexto} numberOfLines={1} adjustsFontSizeToFit>Você pode tanto contratar como trabalhar, escolha:</Text>
           <View style={estilos.perfisPills}>
             {lados.map((l) => {
               const emUso = l.perfil.estado === 'em_uso'
@@ -116,7 +115,7 @@ function CardMeusPerfis({ usuario, navigation }) {
                   accessibilityState={{ selected: emUso, disabled: emUso || !!trocando }}
                 >
                   {trocando === l.perfil.tipo
-                    ? <ActivityIndicator size="small" color="#e08a44" />
+                    ? <ActivityIndicator size="small" color={cores.sucesso} />
                     : <Text style={emUso ? estilos.perfisPillTextoCheia : estilos.perfisPillTextoContorno}>{l.rotulo}</Text>}
                 </TouchableOpacity>
               )
@@ -124,7 +123,7 @@ function CardMeusPerfis({ usuario, navigation }) {
           </View>
         </>
       )}
-    </LinearGradient>
+    </View>
   )
 }
 
@@ -951,19 +950,24 @@ const estilos = StyleSheet.create({
   promoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
   promoSubtitulo: { fontSize: 12, color: cores.textoMedio, lineHeight: 17 },
   // Card "Meus perfis" (Arte-Meus-Perfis-Destaque)
-  perfisCard: { marginHorizontal: espacos.tela, borderWidth: 2, borderColor: '#e08a44', borderRadius: 18, padding: 16, marginBottom: 16 },
-  perfisTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  perfisTitulo: { fontSize: 17, fontWeight: '800', color: cores.textoForte },
-  perfisContador: { minWidth: 28, backgroundColor: '#e08a44', borderRadius: raios.pill, paddingHorizontal: 10, paddingVertical: 3, alignItems: 'center' },
-  perfisContadorTexto: { fontSize: 13, fontWeight: '800', color: '#1a0d04', fontVariant: ['tabular-nums'] },
-  perfisTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginBottom: 12 },
-  perfisPills: { flexDirection: 'row', gap: 10 },
-  perfisPill: { flex: 1, minHeight: 44, borderRadius: raios.pill, borderWidth: 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  perfisPillUnica: { flex: 0, marginTop: 6 },
-  perfisPillCheia: { backgroundColor: '#e08a44', borderColor: '#e08a44' },
-  perfisPillContorno: { backgroundColor: 'transparent', borderColor: '#e08a44' },
-  perfisPillTextoCheia: { fontSize: 14, fontWeight: '800', color: '#1a0d04' },
-  perfisPillTextoContorno: { fontSize: 14, fontWeight: '800', color: '#e08a44' },
+  // Arte "Meus perfis compacto": o MESMO container do card verde "Quero receber avisos…"
+  // (CARTAO_VERDE). Aquele card mora dentro do acoesWrap (margem espacos.tela + borda 0,5) e
+  // tem margem 8 lá dentro; aqui, fora do wrap, a margem soma as três para a largura bater.
+  // Empilhado (coluna) em vez de linha; o marginBottom 16 mantém o respiro de antes até o card
+  // seguinte.
+  perfisCard: { ...CARTAO_VERDE, flexDirection: 'column', alignItems: 'stretch', gap: 0, marginHorizontal: espacos.tela + 0.5 + CARTAO_VERDE.marginHorizontal, marginBottom: 16 },
+  perfisTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  perfisTitulo: { fontSize: 15, fontWeight: '800', color: cores.textoForte },
+  perfisContador: { minWidth: 24, backgroundColor: cores.sucesso, borderRadius: raios.pill, paddingHorizontal: 8, paddingVertical: 1, alignItems: 'center' },
+  perfisContadorTexto: { fontSize: 12, fontWeight: '800', color: '#0A0A0A', fontVariant: ['tabular-nums'] },
+  perfisTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginBottom: 8 },
+  perfisPills: { flexDirection: 'row', gap: 8 },
+  perfisPill: { flex: 1, minHeight: 32, borderRadius: raios.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  perfisPillUnica: { flex: 0, marginTop: 4 },
+  perfisPillCheia: { backgroundColor: cores.sucesso, borderColor: cores.sucesso },
+  perfisPillContorno: { backgroundColor: 'transparent', borderColor: cores.sucesso },
+  perfisPillTextoCheia: { fontSize: 13, fontWeight: '800', color: '#0A0A0A' },
+  perfisPillTextoContorno: { fontSize: 13, fontWeight: '800', color: cores.sucesso },
   rotuloSecaoConta: { marginHorizontal: espacos.tela, fontSize: 11, fontWeight: '700', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
   atendeLinha: { paddingVertical: 8 },
   atendeCaixa: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: cores.textoFraco, alignItems: 'center', justifyContent: 'center' },

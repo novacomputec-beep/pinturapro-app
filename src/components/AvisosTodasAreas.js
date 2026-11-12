@@ -40,8 +40,12 @@ export default function LinhaAvisosTodasAreas({ valor, onMudar, desabilitado }) 
   )
 }
 
+// Container do card verde. Exportado: o card "Meus perfis" do PerfilScreen (arte "Meus perfis
+// compacto") usa EXATAMENTE este container — fundo, borda, raio e margens.
+export const CARTAO_VERDE = { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.sucessoSuave, borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, marginHorizontal: 8, marginVertical: 6, paddingHorizontal: 8, paddingVertical: 12 }
+
 const estilos = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: cores.sucessoSuave, borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.medio, marginHorizontal: 8, marginVertical: 6, paddingHorizontal: 8, paddingVertical: 12 },
+  card: CARTAO_VERDE,
   emoji: { fontSize: 20 },
   textos: { flex: 1, minWidth: 0 },
   titulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, lineHeight: 19, marginBottom: 3 },
