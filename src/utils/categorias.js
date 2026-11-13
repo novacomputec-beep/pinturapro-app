@@ -94,6 +94,12 @@ export const CATEGORIAS_SERVICO = ordenar([
   // Arte 10/11/2026: no mesmo grupo da Elétrica ("Casa e reparos", utils/gruposServico). Slug
   // igual ao que a API vai aceitar em utils/especialidades.js (ainda ausente em d826bdd).
   { slug: 'seguranca_eletronica', rotulo: 'Segurança eletrônica', emoji: '📹' },
+  // Arte "Grupos 10" (13/11/2026): grupo "Divulgação e publicidade" (utils/gruposServico). Slugs
+  // ainda AUSENTES na API (utils/especialidades.js + categoriasApp.js) — até entrarem lá, a API
+  // recusa o pedido/perfil que os marcar.
+  { slug: 'locucao',               rotulo: 'Locução',                 emoji: '🎙️' },
+  { slug: 'jingles_vinhetas',      rotulo: 'Jingles e vinhetas',      emoji: '🎵' },
+  { slug: 'marketing_publicidade', rotulo: 'Marketing e publicidade', emoji: '📈' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 

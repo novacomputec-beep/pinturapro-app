@@ -130,6 +130,10 @@ function CardMeusPerfis({ usuario, navigation }) {
 export default function PerfilScreen({ navigation, route }) {
   const { usuario, assinatura, logout, garantirPermissaoConcedida, registrarPushToken, setUsuario } = useAuth()
   const [dadosCompletos, setDadosCompletos] = useState(null)
+  // "Receber promoções": SÓ o valor do GET /auth/perfil desta tela (null = ainda não chegou).
+  // Nunca o usuário em cache do storage — depois de um build novo ele podia vir velho e o
+  // Switch aparecia desligado com o banco em true.
+  const [promoServidor, setPromoServidor] = useState(null)
   const [carregando, setCarregando] = useState(true)
   const [renovandoAssinatura, setRenovandoAssinatura] = useState(false)
   const [mostrarExcluir, setMostrarExcluir] = useState(false)
@@ -246,6 +250,9 @@ export default function PerfilScreen({ navigation, route }) {
         const seqNoInicio = espSalvasRef.current.seq
         try {
           const resposta = await comRetry(() => authService.perfil())
+          // Ausente (API antiga) = true, o padrão da coluna.
+          const promo = resposta?.usuario?.aceita_promocoes
+          setPromoServidor(typeof promo === 'boolean' ? promo : true)
           // Um PUT ainda em voo termina ANTES de esta resposta ser aplicada.
           if (salvamentoEspRef.current) await salvamentoEspRef.current
           const salvas = espSalvasRef.current
@@ -367,16 +374,26 @@ export default function PerfilScreen({ navigation, route }) {
   // padrão do servidor). Otimista: o Switch vira na hora e só volta se o PATCH falhar.
   // `salvandoPromo` trava o Switch durante a requisição, para dois toques rápidos não
   // cruzarem duas gravações com desfechos fora de ordem.
+  // Valor exibido: a escolha desta montagem ou o do GET /auth/perfil (promoServidor); sem
+  // nenhum dos dois o Switch não aparece (spinner) — nada de cache nem de padrão chutado.
+  // O PATCH só sai de um TOQUE: onValueChange com o mesmo valor já exibido (o Android pode
+  // ecoar a troca programática do `value`), antes do GET chegar ou com um envio em voo é
+  // ignorado — montar a tela ou o valor do servidor mudar nunca grava nada.
   const [promoLocal, setPromoLocal] = useState(null)
   const [salvandoPromo, setSalvandoPromo] = useState(false)
-  const aceitaPromocoes = promoLocal !== null ? promoLocal : (dadosCompletos?.aceita_promocoes ?? usuario?.aceita_promocoes ?? true)
+  const aceitaPromocoes = promoLocal !== null ? promoLocal : promoServidor
   const handleAlternarPromocoes = async (valor) => {
+    if (promoServidor === null || salvandoPromo || typeof valor !== 'boolean' || valor === aceitaPromocoes) return
     const anterior = aceitaPromocoes
     setPromoLocal(valor)
     setSalvandoPromo(true)
     try {
       await comRetry(() => api.patch('/auth/preferencias', { aceita_promocoes: valor }), { timeout: true, servidor: true })
-      if (montadoRef.current) setDadosCompletos(d => (d ? { ...d, aceita_promocoes: valor } : d))
+      if (montadoRef.current) {
+        setPromoServidor(valor)
+        setPromoLocal(null)
+        setDadosCompletos(d => (d ? { ...d, aceita_promocoes: valor } : d))
+      }
     } catch (err) {
       console.log('[Perfil] falha ao salvar preferência de promoções | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       if (montadoRef.current) setPromoLocal(anterior)
@@ -742,13 +759,17 @@ export default function PerfilScreen({ navigation, route }) {
                 <Text style={estilos.promoTitulo}>Receber promoções</Text>
                 <Text style={estilos.promoSubtitulo}>Novidades e ofertas do ProTudo. Os avisos de serviço continuam chegando normalmente.</Text>
               </View>
-              <Switch
-                value={aceitaPromocoes}
-                onValueChange={handleAlternarPromocoes}
-                disabled={salvandoPromo}
-                trackColor={{ false: cores.textoFraco, true: '#F0822E' }}
-                thumbColor={cores.branco}
-              />
+              {aceitaPromocoes === null ? (
+                <ActivityIndicator size="small" color={cores.textoMedio} />
+              ) : (
+                <Switch
+                  value={aceitaPromocoes}
+                  onValueChange={handleAlternarPromocoes}
+                  disabled={salvandoPromo}
+                  trackColor={{ false: cores.textoFraco, true: '#F0822E' }}
+                  thumbColor={cores.branco}
+                />
+              )}
             </View>
           </View>
         )}

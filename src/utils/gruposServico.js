@@ -1,12 +1,12 @@
 import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO } from './categorias'
 
-// Grupos do passo "Do que você precisa?" do cadastro de serviço (Arte-Cadastrar-Servico): a
-// única fonte dos 8 grupos, da ordem dos tiles, dos exemplos do dia a dia de cada categoria
+// Grupos do passo "Do que você precisa?" do cadastro de serviço (Arte-Cadastrar-Servico) e
+// das especialidades do profissional: a única fonte dos 10 grupos, da ordem dos tiles, dos exemplos do dia a dia de cada categoria
 // e do fallback. Os slugs são os de CATEGORIAS_SERVICO (contrato com a API); o que entra no
 // pedido continua sendo o slug — o grupo é só apresentação.
 //
 // Categoria que exista em CATEGORIAS_SERVICO e NÃO esteja em nenhum grupo (uma futura, por
-// exemplo) cai em "Casa e reparos" — nada some da tela. 'outros' nunca entra em grupo: é o
+// exemplo) cai em "Consertos da casa" — nada some da tela. 'outros' nunca entra em grupo: é o
 // tile largo "Não achei o meu serviço", que marca o slug direto.
 //
 // Dentro de cada folha as categorias saem em ordem ALFABÉTICA (regra fixa), seja qual for a
@@ -17,18 +17,24 @@ export const SLUG_OUTROS = 'outros'
 
 // Categorias recém-chegadas: ganham a etiqueta verde "NOVO" na folha do grupo. Lista para
 // esvaziar quando deixarem de ser novidade.
-export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro', 'seguranca_eletronica']
+export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro', 'seguranca_eletronica', 'locucao', 'jingles_vinhetas', 'marketing_publicidade']
 export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
 
+// Arte "Grupos 10" (13/11/2026): 10 tiles, 5 linhas de 2, NESTA ordem — a mesma no "Do que
+// você precisa?" do dono e nas especialidades do profissional (cadastro e Perfil), que leem
+// daqui. "Casa e reparos" virou "Consertos da casa" (id 'casa' mantido: é o GRUPO_FALLBACK) +
+// "Limpeza e jardim"; "Divulgação e publicidade" é novo. Slugs em ordem alfabética.
 export const GRUPOS_SERVICO = [
-  { id: 'casa',       titulo: 'Casa e reparos',        emoji: '🏠', slugs: ['hidraulica', 'eletrica', 'climatizacao', 'alvenaria', 'montagem_moveis', 'faxina', 'chaveiro', 'marcenaria', 'serralheria', 'vidraceiro', 'estofamento', 'dedetizacao', 'jardineiro', 'eletronica', 'gesseiro', 'seguranca_eletronica'] },
-  { id: 'festas',     titulo: 'Festas e eventos',      emoji: '🎉', slugs: ['garcom', 'churrasqueiro', 'cozinheiro', 'confeiteiro', 'salgadeiro', 'decoracao_festas', 'aluguel_festas', 'recreacao_infantil', 'filmagem_fotografia', 'musico', 'dj'] },
-  { id: 'beleza',     titulo: 'Beleza e bem-estar',    emoji: '💇', slugs: ['cabelo', 'barbeiro', 'manicure', 'maquiagem', 'design_sobrancelhas', 'depilacao', 'massagem', 'podologo', 'personal_trainer', 'tatuagem'] },
-  { id: 'cuidar',     titulo: 'Cuidar de alguém',      emoji: '🤝', slugs: ['baba', 'cuidador', 'pet'] },
-  { id: 'transporte', titulo: 'Transporte e veículos', emoji: '🚗', slugs: ['motorista', 'motociclista', 'mudancas', 'lavajato', 'mecanica', 'borracheiro'] },
-  { id: 'aulas',      titulo: 'Aulas e internet',      emoji: '💻', slugs: ['aula_particular', 'editor_video', 'informatica', 'panfletagem', 'profissional_home_office', 'social_midia', 'tradutor'] },
-  { id: 'seguranca',  titulo: 'Segurança',             emoji: '🛡️', slugs: ['vigia', 'seguranca'] },
-  { id: 'arte',       titulo: 'Arte e criação',        emoji: '🎨', slugs: ['artesanato', 'costura', 'placas_fachadas'] },
+  { id: 'casa',       titulo: 'Consertos da casa',        emoji: '🔧', slugs: ['alvenaria', 'chaveiro', 'climatizacao', 'eletrica', 'eletronica', 'estofamento', 'gesseiro', 'hidraulica', 'marcenaria', 'montagem_moveis', 'seguranca_eletronica', 'serralheria', 'vidraceiro'] },
+  { id: 'limpeza',    titulo: 'Limpeza e jardim',         emoji: '🧹', slugs: ['dedetizacao', 'faxina', 'jardineiro'] },
+  { id: 'festas',     titulo: 'Festas e eventos',         emoji: '🎉', slugs: ['aluguel_festas', 'churrasqueiro', 'confeiteiro', 'cozinheiro', 'decoracao_festas', 'dj', 'filmagem_fotografia', 'garcom', 'musico', 'recreacao_infantil', 'salgadeiro'] },
+  { id: 'beleza',     titulo: 'Beleza e bem-estar',       emoji: '💇', slugs: ['barbeiro', 'cabelo', 'depilacao', 'design_sobrancelhas', 'manicure', 'maquiagem', 'massagem', 'personal_trainer', 'podologo', 'tatuagem'] },
+  { id: 'cuidar',     titulo: 'Cuidar de alguém',         emoji: '🤝', slugs: ['baba', 'cuidador', 'pet'] },
+  { id: 'transporte', titulo: 'Transporte e veículos',    emoji: '🚗', slugs: ['borracheiro', 'lavajato', 'mecanica', 'motociclista', 'motorista', 'mudancas'] },
+  { id: 'aulas',      titulo: 'Aulas e internet',         emoji: '💻', slugs: ['aula_particular', 'informatica', 'profissional_home_office', 'tradutor'] },
+  { id: 'seguranca',  titulo: 'Segurança',                emoji: '🛡️', slugs: ['seguranca', 'vigia'] },
+  { id: 'arte',       titulo: 'Arte e criação',           emoji: '🎨', slugs: ['artesanato', 'costura'] },
+  { id: 'divulgacao', titulo: 'Divulgação e publicidade', emoji: '📣', slugs: ['editor_video', 'jingles_vinhetas', 'locucao', 'marketing_publicidade', 'panfletagem', 'placas_fachadas', 'social_midia'] },
 ]
 
 // Linha curta de exemplos do dia a dia, por slug. Categoria sem linha mostra só o nome.
@@ -91,6 +97,9 @@ export const EXEMPLOS_SERVICO = {
   placas_fachadas:          'Letreiro, fachada de loja, adesivo, banner',
   borracheiro:              'Pneu furado, troca, calibragem',
   seguranca_eletronica:     'Câmeras, alarme, cerca elétrica, interfone',
+  locucao:                  'Carro de som, porta de loja, rádio indoor',
+  jingles_vinhetas:         'Jingles, vinhetas, spots',
+  marketing_publicidade:    'Campanhas, divulgação, propaganda',
   outros:                   'Não achou? Descreva no próximo passo.',
 }
 
