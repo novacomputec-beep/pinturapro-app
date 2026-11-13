@@ -6,7 +6,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
-import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import * as Location from 'expo-location'
 import { useAuth } from '../../contexts/AuthContext'
@@ -501,14 +501,15 @@ export default function PedidosScreen({ navigation }) {
               )}
             </TouchableOpacity>
             <Modal visible={modalCidadeVisivel} animationType="slide" transparent onRequestClose={() => setModalCidadeVisivel(false)}>
+              <RaizGestosFolha>
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <View style={estilos.modalOverlay}>
                   <Animated.View style={[estilos.modalContainer, arrasteCidade.estiloArraste]} onLayout={arrasteCidade.medirFolha}>
-                    <View {...arrasteCidade.panHandlers}>
+                    <ZonaArraste gesto={arrasteCidade.gesto}>
                       <LinhaCabecalhoFolha onFechar={() => setModalCidadeVisivel(false)}>
                         <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>
                       </LinhaCabecalhoFolha>
-                    </View>
+                    </ZonaArraste>
 
                     <Text style={estilos.modalLabel}>Estado</Text>
                     <ScrollView style={ufSelecionada ? estilos.listaScrollEstadoColapsado : estilos.listaScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
@@ -558,6 +559,7 @@ export default function PedidosScreen({ navigation }) {
                   </Animated.View>
                 </View>
               </KeyboardAvoidingView>
+              </RaizGestosFolha>
             </Modal>
             <FlatList
               data={DISTANCIAS}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
 import { rotulosEspecialidades } from '../utils/categorias'
@@ -373,15 +373,17 @@ const CardPropostaRecebida = ({ demanda, pendente, nomeOutro, souDono, responden
 // voltar do Android; os chips de dia e hora seguem rolando.
 const FolhaPicker = ({ visivel, onFechar, titulo, limite, rotuloBotao, enviando, onEnviar }) => {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(onFechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(onFechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
+      <RaizGestosFolha>
       <View style={estilos.folhaFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }, estiloArraste]} onLayout={medirFolha}>
-          <PickerAgendamento titulo={titulo} limite={limite} rotuloBotao={rotuloBotao} enviando={enviando} onEnviar={onEnviar} onCancelar={onFechar} arraste={panHandlers} />
+          <PickerAgendamento titulo={titulo} limite={limite} rotuloBotao={rotuloBotao} enviando={enviando} onEnviar={onEnviar} onCancelar={onFechar} arraste={gesto} />
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }

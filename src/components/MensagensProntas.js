@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { View, Text, Image, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import api from '../services/api'
 import { comRetry } from '../utils/rede'
@@ -215,7 +215,7 @@ const FolhaConversa = ({ visivel, onFechar, dados, nome, fotoUrl, souDono, envia
   const insets = useSafeAreaInsets()
   const travada = !!enviando
   const fechar = travada ? null : onFechar
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(fechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(fechar, !!visivel)
   const rolagemRef = useRef(null)
   const historico = Array.isArray(dados?.historico) ? dados.historico : []
   const frases = Array.isArray(dados?.frases) ? dados.frases : []
@@ -225,10 +225,11 @@ const FolhaConversa = ({ visivel, onFechar, dados, nome, fotoUrl, souDono, envia
   const podeResponder = !!dados?.fase && frases.length > 0
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => fechar?.()}>
+      <RaizGestosFolha>
       <View style={estilos.folhaFundo}>
         <Pressable style={StyleSheet.absoluteFill} onPress={() => fechar?.()} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }, estiloArraste]} onLayout={medirFolha}>
-          <View {...panHandlers}>
+          <ZonaArraste gesto={gesto}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={travada}>
               <View style={estilos.cabecalho}>
@@ -239,7 +240,7 @@ const FolhaConversa = ({ visivel, onFechar, dados, nome, fotoUrl, souDono, envia
                 </View>
               </View>
             </LinhaCabecalhoFolha>
-          </View>
+          </ZonaArraste>
 
           <ScrollView
             ref={rolagemRef}
@@ -286,6 +287,7 @@ const FolhaConversa = ({ visivel, onFechar, dados, nome, fotoUrl, souDono, envia
           )}
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }

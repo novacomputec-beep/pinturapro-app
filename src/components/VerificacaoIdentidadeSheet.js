@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Pressable, AppState, KeyboardAvoidingView, Platform, Animated } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BotaoPrimario, BotaoSecundario, Input } from './index'
@@ -579,7 +579,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
   const seguirComProposta = () => { onFechar(); onAprovado?.() }
   // Arrastar a alça/título para baixo fecha a folha do formulário como o toque fora e o voltar
   // do Android (travado ao enviar). Hook antes do early return: ordem de hooks estável.
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel && fase === 'form')
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel && fase === 'form')
 
   if (fase !== 'form') {
     const aprovado = fase === 'aprovado'
@@ -634,17 +634,18 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
 
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
+      <RaizGestosFolha>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           {/* Alça + título fora do ScrollView: é a zona do arraste (o título é centralizado,
               então fica igual ao que era dentro do scroll centrado). */}
-          <View {...panHandlers}>
+          <ZonaArraste gesto={gesto}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
               <Text style={estilos.titulo}>🪪 Confirme sua identidade</Text>
             </LinhaCabecalhoFolha>
-          </View>
+          </ZonaArraste>
           <ScrollView contentContainerStyle={estilos.sheetScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={estilos.texto}>Só na sua primeira proposta. É o que dá segurança aos clientes.</Text>
             <View style={estilos.slotsRow}>
@@ -679,6 +680,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
         </Animated.View>
       </KeyboardAvoidingView>
       {elementoAjustarFoto}
+      </RaizGestosFolha>
     </Modal>
   )
 }

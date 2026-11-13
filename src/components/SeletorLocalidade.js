@@ -4,7 +4,7 @@ import {
   FlatList, ActivityIndicator, StyleSheet, TextInput, Animated,
 } from 'react-native'
 import { cores, raios, espacos } from '../utils/tema'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import BotaoFecharFolha from './BotaoFecharFolha'
 
 // Architecture note: pais is read-only (Brasil) for now.
@@ -30,7 +30,7 @@ export default function SeletorLocalidade({
   // Fechar a folha (toque fora, voltar do Android e arraste da alça/título para baixo): o
   // mesmo que os dois fechamentos já faziam, inclusive limpar a busca. A FlatList rola como antes.
   const fecharFolha = () => { setModalAberto(null); setBusca('') }
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(fecharFolha, modalAberto !== null)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(fecharFolha, modalAberto !== null)
 
   useEffect(() => {
     setCarregandoEstados(true)
@@ -114,6 +114,7 @@ export default function SeletorLocalidade({
         animationType="slide"
         onRequestClose={fecharFolha}
       >
+        <RaizGestosFolha>
         {/* KeyboardAvoidingView DENTRO do Modal: o do CadastroScreen fica fora dele e não
             alcança a folha. Com edge-to-edge (SDK 54, targetSdk 36) o adjustResize do
             manifesto não encolhe mais a janela para o teclado no Android 15+, então a folha
@@ -124,7 +125,7 @@ export default function SeletorLocalidade({
         <View style={estilos.overlay}>
           <TouchableOpacity style={{ flex: 1 }} onPress={fecharFolha} activeOpacity={1} />
           <Animated.View style={[estilos.sheet, estiloArraste]} onLayout={medirFolha}>
-            <View {...panHandlers}>
+            <ZonaArraste gesto={gesto}>
               <View style={estilos.handle} />
               {/* Linha do cabeçalho: título + "✕ Fechar"; o fio de baixo passou do título para a linha. */}
               <View style={estilos.linhaTitulo}>
@@ -133,7 +134,7 @@ export default function SeletorLocalidade({
                 </Text>
                 <BotaoFecharFolha onPress={fecharFolha} />
               </View>
-            </View>
+            </ZonaArraste>
             <TextInput
               style={estilos.buscaInput}
               placeholder={modalAberto === 'estado' ? 'Buscar estado...' : 'Buscar cidade...'}
@@ -172,6 +173,7 @@ export default function SeletorLocalidade({
           </Animated.View>
         </View>
         </KeyboardAvoidingView>
+        </RaizGestosFolha>
       </Modal>
     </View>
   )

@@ -6,7 +6,7 @@ import { comRetry, mensagemErroRede } from '../../utils/rede'
 import { useFocusEffect, useIsFocused } from '@react-navigation/native'
 import { cores, raios, alturas } from '../../utils/tema'
 import { useSelecaoMidia, useUploadMidiaDemanda } from '../../utils/midia'
-import useArrastarParaFechar from '../../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
@@ -633,13 +633,14 @@ export default function CadastrarObraScreen({ navigation }) {
       {/* Picker de mídia: as opções de sempre, filtradas pelo botão que abriu ('video' =
           câmera-vídeo ou galeria; 'foto' = câmera-foto ou galeria; 'todas' = as três). */}
       <Modal visible={pickerMidia != null} transparent animationType="slide" onRequestClose={() => setPickerMidia(null)}>
+        <RaizGestosFolha>
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
           <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]} onLayout={arrastePicker.medirFolha}>
-            <View {...arrastePicker.panHandlers}>
+            <ZonaArraste gesto={arrastePicker.gesto}>
               <LinhaCabecalhoFolha onFechar={() => setPickerMidia(null)}>
                 <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>
               </LinhaCabecalhoFolha>
-            </View>
+            </ZonaArraste>
             {pickerMidia !== 'video' && (
               <TouchableOpacity style={estilos.modalOpcao} onPress={() => abrirMidia(usarCameraFoto)}>
                 <Text style={estilos.modalOpcaoTexto}>📷 Câmera — Foto</Text>
@@ -658,6 +659,7 @@ export default function CadastrarObraScreen({ navigation }) {
             </TouchableOpacity>
           </Animated.View>
         </TouchableOpacity>
+        </RaizGestosFolha>
       </Modal>
       {/* 409 PEDIDOS_BLOQUEADOS: "Novos pedidos liberados em dd/mm" + "Falar com o suporte". */}
       <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />

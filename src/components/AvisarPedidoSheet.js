@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import { useAuth } from '../contexts/AuthContext'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Bottom sheet "Seu pedido foi publicado! 🎉" (arte Arte-Avisar-Pedido): aparece logo
@@ -52,7 +52,7 @@ const CartaoExemplo = () => (
 // Conteúdo puro (sem Modal): o sheet real e a Galeria usam o MESMO miolo.
 // modo: 'pedir' | 'bloqueado'. onAvisar: "Sim, me avise". onAgoraNao: "Agora não".
 // onAbrirAjustes: "Abrir ajustes". Os handlers do estado que não está em uso são ignorados.
-// arraste: panHandlers de useArrastarParaFechar (só o sheet real passa): alça e cabeçalho.
+// arraste: o `gesto` de useArrastarParaFechar (ZonaArraste) (só o sheet real passa): alça e cabeçalho.
 // onFechar: a pílula "✕ Fechar" à direita do título — o mesmo fechar do toque fora.
 export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjustes, ocupado = false, arraste, onFechar }) => {
   const textos = TEXTOS[modo] || TEXTOS.pedir
@@ -60,13 +60,13 @@ export const AvisarPedidoConteudo = ({ modo, onAvisar, onAgoraNao, onAbrirAjuste
   return (
     <>
       {/* alignSelf stretch: o sheet centraliza os filhos, e a zona do arraste precisa da largura toda. */}
-      <View style={{ alignSelf: 'stretch' }} {...(arraste || {})}>
+      <ZonaArraste gesto={arraste} style={{ alignSelf: 'stretch' }}>
         <View style={estilos.alca} />
         <LinhaCabecalhoFolha onFechar={onFechar}>
           <Text style={estilos.titulo}>Seu pedido foi publicado! 🎉</Text>
         </LinhaCabecalhoFolha>
         <Text style={estilos.corpo}>{textos.corpo}</Text>
-      </View>
+      </ZonaArraste>
 
       {bloqueado ? (
         <View style={estilos.passos}>
@@ -127,7 +127,7 @@ const AvisarPedidoSheet = () => {
 
   const fechar = () => setModo(null)
   // Arrastar a alça/cabeçalho para baixo fecha como o toque fora e o voltar do Android.
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(fechar, !!modo)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(fechar, !!modo)
 
   const aoAvisar = async () => {
     if (ocupadoRef.current) return
@@ -168,12 +168,14 @@ const AvisarPedidoSheet = () => {
 
   return (
     <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
+      <RaizGestosFolha>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
-          <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} arraste={panHandlers} onFechar={fechar} />
+          <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} arraste={gesto} onFechar={fechar} />
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }

@@ -4,6 +4,7 @@ import { cores, raios } from '../utils/tema'
 import { formatarDuracao } from '../utils/tempo'
 import { acaoEhMinha } from '../utils/identidadeDemanda'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
+import { ZonaArraste } from '../hooks/useArrastarParaFechar'
 
 // Agendamento do serviço (dia + hora) negociado entre o profissional e o solicitante, em
 // cima das colunas chegada_pendente_* / chegada_prevista_em da API (obras e reparos, mesmas
@@ -116,7 +117,7 @@ export const CaixaAtencaoApp = ({ compacta, grande }) => (
 // `limite` (expira_em da demanda) é o teto dos chips: a API recusa (400) um horário do
 // profissional depois do prazo. null = sem teto (a contraproposta do dono estica o prazo).
 // Só o FUTURO entra: hora cheia de 06:00 a 21:00 cujo início ainda não passou.
-// arraste: panHandlers de useArrastarParaFechar quando o picker vive numa folha de baixo
+// arraste: o `gesto` de useArrastarParaFechar (vai na ZonaArraste) quando o picker vive numa folha de baixo
 // (FolhaPicker do PosMatchFixo) — vão no título/subtítulo, nunca nos chips que rolam. Na folha
 // o cabeçalho ganha também a pílula "✕ Fechar" (onCancelar, o mesmo do toque fora); fora dela
 // (picker embutido na tela) o título fica como sempre.
@@ -165,14 +166,14 @@ export function PickerAgendamento({ titulo, limite, rotuloBotao, enviando, onEnv
 
   return (
     <View style={estilos.pickerWrap}>
-      <View {...(arraste || {})}>
+      <ZonaArraste gesto={arraste}>
         {arraste
           ? <LinhaCabecalhoFolha onFechar={onCancelar}><Text style={estilos.pickerTitulo}>{titulo}</Text></LinhaCabecalhoFolha>
           : <Text style={estilos.pickerTitulo}>{titulo}</Text>}
         {temLimite && (
           <Text style={estilos.pickerSub}>Dentro do prazo do pedido: até {formatarAgendado(limite) || '—'}</Text>
         )}
-      </View>
+      </ZonaArraste>
       {dias.length === 0 ? (
         <Text style={estilos.pickerVazio}>Não há horário disponível dentro do prazo do pedido. Peça ao solicitante para aumentar o prazo.</Text>
       ) : (

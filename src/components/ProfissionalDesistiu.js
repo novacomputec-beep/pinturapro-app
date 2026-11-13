@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, Image, Styl
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import BotaoFecharFolha from './BotaoFecharFolha'
 import { avatar } from '../utils/imagemOtimizada'
 
@@ -182,17 +182,18 @@ const Linha = ({ icone, children }) => (
 // alça/cabeçalho — useArrastarParaFechar). Os dois marcam como vista.
 export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente = 'servico', interessadosAtivos, onVerInteressados, onEsperar }) {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(onEsperar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(onEsperar, !!visivel)
   const d = desistencia || {}
   const quando = quandoDesistiu(d.cancelado_em)
   const sub = [titulo ? `"${titulo}"` : null, quando].filter(Boolean).join(' · ')
   return (
     <Modal visible={!!visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onEsperar}>
+      <RaizGestosFolha>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onEsperar} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           {/* Alça + cabeçalho fora do ScrollView: é a zona do arraste; o resto rola como antes. */}
-          <View {...panHandlers}>
+          <ZonaArraste gesto={gesto}>
             <View style={estilos.alca} />
             <View style={estilos.cabecalho}>
               <AvatarDesistente d={d} />
@@ -203,7 +204,7 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
               {/* "✕ Fechar" no fim da linha do cabeçalho: o mesmo onEsperar do toque fora. */}
               <BotaoFecharFolha onPress={onEsperar} />
             </View>
-          </View>
+          </ZonaArraste>
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={estilos.motivoBox}>
               <Text style={estilos.motivoRotulo}>MOTIVO</Text>
@@ -223,6 +224,7 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
           </ScrollView>
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }

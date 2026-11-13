@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios } from '../utils/tema'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import BotaoFecharFolha, { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Folhas de baixo e helpers do pós-match que as telas de detalhe usam ao lado da tela fixa
@@ -87,18 +87,19 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
   useEffect(() => { if (visivel) { setMinutos(null); setMotivo('') } }, [visivel])
   const fechar = () => { if (!enviando) onFechar?.() }
   // Arrastar o cabeçalho para baixo fecha como o toque fora e o voltar do Android (travado ao enviar).
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
+      <RaizGestosFolha>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={fechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]} onLayout={medirFolha}>
-          <View {...panHandlers}>
+          <ZonaArraste gesto={gesto}>
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
               <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
             </LinhaCabecalhoFolha>
             <Text style={estilos.atrasoFolhaTexto}>O cliente recebe o pedido na hora e decide se aceita. Você pode pedir até {MAX_PEDIDOS_ATRASO} vezes neste serviço.</Text>
-          </View>
+          </ZonaArraste>
           <View style={estilos.chips}>
             {MINUTOS_ATRASO.map((m) => (
               <TouchableOpacity
@@ -140,6 +141,7 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>
+      </RaizGestosFolha>
     </Modal>
   )
 }
@@ -155,16 +157,17 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
 // ao toque. A pílula (BotaoFecharFolha) substituiu o "✕" solto que havia aqui.
 export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, children, extras }) {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(onFechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(onFechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
+      <RaizGestosFolha>
       <View style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]} onLayout={medirFolha}>
-          <View style={estilos.detalhesCabecalho} {...panHandlers}>
+          <ZonaArraste gesto={gesto} style={estilos.detalhesCabecalho}>
             <Text style={estilos.detalhesTitulo} numberOfLines={2}>{titulo}</Text>
             <BotaoFecharFolha onPress={onFechar} />
-          </View>
+          </ZonaArraste>
           <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
             {descricao ? (
               <>
@@ -183,6 +186,7 @@ export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, chi
           {extras}
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Pressable, TextInput, ScrollView, KeyboardAvoidingView, Platform, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import { paraSeletor, CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA, rotuloCategoria } from '../utils/categorias'
 
@@ -37,7 +37,7 @@ export const listarRotulos = (slugs) => {
 //   originais    — as categorias do pedido hoje (as que entrarem a mais ficam verdes com ＋);
 //   selecionadas — a escolha atual; onAlternar(slug) marca/desmarca;
 //   busca/onBusca — o campo de busca; onSalvar — "Salvar e avisar"; salvando trava tudo.
-//   arraste — panHandlers de useArrastarParaFechar (só o sheet real passa): alça e cabeçalho.
+//   arraste — o `gesto` de useArrastarParaFechar (ZonaArraste) (só o sheet real passa): alça e cabeçalho.
 //   onFechar — a pílula "✕ Fechar" à direita do título; travada enquanto salva, como o toque fora.
 export const EditarCategoriasConteudo = ({ originais, selecionadas, busca, onBusca, onAlternar, onSalvar, salvando = false, arraste, onFechar }) => {
   const noLimite = selecionadas.length >= MAX_CATEGORIAS_DEMANDA
@@ -47,13 +47,13 @@ export const EditarCategoriasConteudo = ({ originais, selecionadas, busca, onBus
   const podeSalvar = selecionadas.length > 0 && mudou && !salvando
   return (
     <>
-      <View {...(arraste || {})}>
+      <ZonaArraste gesto={arraste}>
         <View style={estilos.alca} />
         <LinhaCabecalhoFolha onFechar={onFechar} desabilitado={salvando}>
           <Text style={estilos.titulo}>Categorias do pedido</Text>
         </LinhaCabecalhoFolha>
         <Text style={estilos.corpo}>Escolha até {MAX_CATEGORIAS_DEMANDA}. Os profissionais das categorias novas são avisados na hora.</Text>
-      </View>
+      </ZonaArraste>
 
       <TextInput
         style={estilos.busca}
@@ -159,10 +159,11 @@ export default function EditarCategoriasSheet({ visivel, categorias, onSalvar, o
 
   // Arrastar para baixo fecha como o toque fora e o voltar do Android — e, como eles, fica
   // desligado enquanto salva.
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(salvando ? null : onFechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(salvando ? null : onFechar, !!visivel)
 
   return (
     <Modal visible={!!visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={salvando ? undefined : onFechar}>
+      <RaizGestosFolha>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={salvando ? undefined : onFechar} accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
@@ -174,11 +175,12 @@ export default function EditarCategoriasSheet({ visivel, categorias, onSalvar, o
             onAlternar={alternar}
             onSalvar={salvar}
             salvando={salvando}
-            arraste={panHandlers}
+            arraste={gesto}
             onFechar={onFechar}
           />
         </Animated.View>
       </KeyboardAvoidingView>
+      </RaizGestosFolha>
     </Modal>
   )
 }

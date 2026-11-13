@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 import { MOTIVOS_PROFISSIONAL, rotuloMotivo } from '../utils/cancelamento'
 
@@ -72,21 +72,22 @@ export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTro
   const [etapa, setEtapa] = useState('escolha')
   useEffect(() => { if (visivel) setEtapa('escolha') }, [visivel])
   const fechar = () => { if (!enviando) onFechar() }
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const quem = nome || 'o profissional'
   const Quem = quem.charAt(0).toUpperCase() + quem.slice(1)
 
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => { if (etapa === 'trocar' && !enviando) setEtapa('escolha'); else fechar() }}>
+      <RaizGestosFolha>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
         <Animated.View style={[estilos.sheet, estilos.sheetNeutra, { paddingBottom: insets.bottom + 16 }, estiloArraste]} onLayout={medirFolha}>
-          <View style={estilos.zonaAlca} {...panHandlers}>
+          <ZonaArraste gesto={gesto} style={estilos.zonaAlca}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
               <Text style={estilos.tituloCompacto}>{etapa === 'trocar' ? `Trocar ${quem}?` : 'O que você quer fazer?'}</Text>
             </LinhaCabecalhoFolha>
-          </View>
+          </ZonaArraste>
           {etapa === 'escolha' ? (
             <>
               <Text style={estilos.subtituloCompacto}>Profissional escolhido: {Quem}</Text>
@@ -115,6 +116,7 @@ export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTro
           )}
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }
@@ -163,7 +165,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   // Arrastar a alça/cabeçalho para baixo fecha como o toque fora e o voltar do Android (travado
   // ao enviar). O título saiu do ScrollView para a linha do cabeçalho, ao lado da pílula
   // "✕ Fechar"; enquanto a simulação carrega a linha fica só com a pílula.
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const pronto = !carregando && !!simulacao
   const outro = nomeOutro || (souDono ? 'o profissional' : 'o cliente')
 
@@ -207,17 +209,18 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
 
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
+      <RaizGestosFolha>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
-          <View style={estilos.zonaAlca} {...panHandlers}>
+          <ZonaArraste gesto={gesto} style={estilos.zonaAlca}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
               {pronto ? (souDono
                 ? <Text style={estilos.tituloCompacto}>Cancelar o pedido inteiro?</Text>
                 : <Text style={estilos.titulo}>{tardio ? 'Cancelar em cima da hora?' : 'Cancelar este serviço?'}</Text>) : null}
             </LinhaCabecalhoFolha>
-          </View>
+          </ZonaArraste>
           {!pronto ? (
             <View style={estilos.carregando}>
               <ActivityIndicator color={cores.perigo} />
@@ -274,6 +277,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
           )}
         </Animated.View>
       </KeyboardAvoidingView>
+      </RaizGestosFolha>
     </Modal>
   )
 }

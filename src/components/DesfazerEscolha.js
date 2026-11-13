@@ -2,7 +2,7 @@ import React from 'react'
 import { View, Text, TouchableOpacity, Modal, Pressable, ScrollView, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
-import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // Desfazer a escolha do profissional (Arte-Desfazer-Escolha), dono de reparo e de obra, na
@@ -54,21 +54,22 @@ const Linha = ({ icone, children }) => (
 export function SheetDesfazerEscolha({ visivel, nome, interessados, prazoCurto, enviando, onFechar, onDesfazer }) {
   const insets = useSafeAreaInsets()
   const fechar = () => { if (!enviando) onFechar?.() }
-  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const n = Number(interessados) || 0
   const quem = nome || 'o profissional'
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
+      <RaizGestosFolha>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           {/* Alça + título fora do ScrollView: é a zona do arraste; a lista rola como antes. */}
-          <View {...panHandlers}>
+          <ZonaArraste gesto={gesto}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
               <Text style={estilos.titulo}>Desfazer a escolha de {quem}?</Text>
             </LinhaCabecalhoFolha>
-          </View>
+          </ZonaArraste>
           <ScrollView showsVerticalScrollIndicator={false}>
             <Linha icone="🚫">{quem.charAt(0).toUpperCase() + quem.slice(1)} sai do pedido e recebe <Text style={estilos.forte}>1 falta</Text> (3 em 90 dias suspendem a conta).</Linha>
             <Linha icone="🔓">O pedido volta a ficar aberto{n > 0 ? ` e os outros ${n} ${n === 1 ? 'interessado continua' : 'interessados continuam'} valendo` : ' e os outros interessados continuam valendo'}.</Linha>
@@ -88,6 +89,7 @@ export function SheetDesfazerEscolha({ visivel, nome, interessados, prazoCurto, 
           </ScrollView>
         </Animated.View>
       </View>
+      </RaizGestosFolha>
     </Modal>
   )
 }
