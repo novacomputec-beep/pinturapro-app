@@ -127,7 +127,7 @@ const AvisarPedidoSheet = () => {
 
   const fechar = () => setModo(null)
   // Arrastar a alça/cabeçalho para baixo fecha como o toque fora e o voltar do Android.
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(fechar, !!modo)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(fechar, !!modo)
 
   const aoAvisar = async () => {
     if (ocupadoRef.current) return
@@ -170,7 +170,7 @@ const AvisarPedidoSheet = () => {
     <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           <AvisarPedidoConteudo modo={modo} ocupado={ocupado} onAvisar={aoAvisar} onAgoraNao={fechar} onAbrirAjustes={aoAbrirAjustes} arraste={panHandlers} onFechar={fechar} />
         </Animated.View>
       </View>

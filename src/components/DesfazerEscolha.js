@@ -54,14 +54,14 @@ const Linha = ({ icone, children }) => (
 export function SheetDesfazerEscolha({ visivel, nome, interessados, prazoCurto, enviando, onFechar, onDesfazer }) {
   const insets = useSafeAreaInsets()
   const fechar = () => { if (!enviando) onFechar?.() }
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const n = Number(interessados) || 0
   const quem = nome || 'o profissional'
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           {/* Alça + título fora do ScrollView: é a zona do arraste; a lista rola como antes. */}
           <View {...panHandlers}>
             <View style={estilos.alca} />

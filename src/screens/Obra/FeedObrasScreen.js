@@ -538,7 +538,7 @@ export default function FeedObrasScreen({ navigation }) {
             <Modal visible={modalCidadeVisivel} animationType="slide" transparent onRequestClose={() => setModalCidadeVisivel(false)}>
               <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
                 <View style={estilos.modalOverlay}>
-                  <Animated.View style={[estilos.modalContainer, arrasteCidade.estiloArraste]}>
+                  <Animated.View style={[estilos.modalContainer, arrasteCidade.estiloArraste]} onLayout={arrasteCidade.medirFolha}>
                   <View {...arrasteCidade.panHandlers}>
                     <LinhaCabecalhoFolha onFechar={() => setModalCidadeVisivel(false)}>
                       <Text style={estilos.modalTitulo}>Buscar em outra cidade</Text>

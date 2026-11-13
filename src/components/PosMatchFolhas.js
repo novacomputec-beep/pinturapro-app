@@ -87,12 +87,12 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
   useEffect(() => { if (visivel) { setMinutos(null); setMotivo('') } }, [visivel])
   const fechar = () => { if (!enviando) onFechar?.() }
   // Arrastar o cabeçalho para baixo fecha como o toque fora e o voltar do Android (travado ao enviar).
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={fechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]}>
+        <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]} onLayout={medirFolha}>
           <View {...panHandlers}>
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
               <Text style={estilos.detalhesTitulo}>⏱ Quanto tempo a mais?</Text>
@@ -155,12 +155,12 @@ export function ModalPedirAtraso({ visivel, onFechar, onEnviar, enviando }) {
 // ao toque. A pílula (BotaoFecharFolha) substituiu o "✕" solto que havia aqui.
 export function ModalDetalhesDemanda({ visivel, onFechar, titulo, descricao, children, extras }) {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(onFechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(onFechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
       <View style={estilos.detalhesFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]}>
+        <Animated.View style={[estilos.detalhesCard, { paddingBottom: Math.max(28, insets.bottom + 20) }, estiloArraste]} onLayout={medirFolha}>
           <View style={estilos.detalhesCabecalho} {...panHandlers}>
             <Text style={estilos.detalhesTitulo} numberOfLines={2}>{titulo}</Text>
             <BotaoFecharFolha onPress={onFechar} />

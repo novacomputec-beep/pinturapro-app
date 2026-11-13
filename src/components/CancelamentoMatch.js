@@ -72,7 +72,7 @@ export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTro
   const [etapa, setEtapa] = useState('escolha')
   useEffect(() => { if (visivel) setEtapa('escolha') }, [visivel])
   const fechar = () => { if (!enviando) onFechar() }
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const quem = nome || 'o profissional'
   const Quem = quem.charAt(0).toUpperCase() + quem.slice(1)
 
@@ -80,7 +80,7 @@ export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTro
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => { if (etapa === 'trocar' && !enviando) setEtapa('escolha'); else fechar() }}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
-        <Animated.View style={[estilos.sheet, estilos.sheetNeutra, { paddingBottom: insets.bottom + 16 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, estilos.sheetNeutra, { paddingBottom: insets.bottom + 16 }, estiloArraste]} onLayout={medirFolha}>
           <View style={estilos.zonaAlca} {...panHandlers}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
@@ -163,7 +163,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
   // Arrastar a alça/cabeçalho para baixo fecha como o toque fora e o voltar do Android (travado
   // ao enviar). O título saiu do ScrollView para a linha do cabeçalho, ao lado da pílula
   // "✕ Fechar"; enquanto a simulação carrega a linha fica só com a pílula.
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
   const pronto = !carregando && !!simulacao
   const outro = nomeOutro || (souDono ? 'o profissional' : 'o cliente')
 
@@ -209,7 +209,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
-        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           <View style={estilos.zonaAlca} {...panHandlers}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>

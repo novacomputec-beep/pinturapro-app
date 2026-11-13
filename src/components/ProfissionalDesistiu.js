@@ -182,7 +182,7 @@ const Linha = ({ icone, children }) => (
 // alça/cabeçalho — useArrastarParaFechar). Os dois marcam como vista.
 export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente = 'servico', interessadosAtivos, onVerInteressados, onEsperar }) {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(onEsperar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(onEsperar, !!visivel)
   const d = desistencia || {}
   const quando = quandoDesistiu(d.cancelado_em)
   const sub = [titulo ? `"${titulo}"` : null, quando].filter(Boolean).join(' · ')
@@ -190,7 +190,7 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
     <Modal visible={!!visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onEsperar}>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onEsperar} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           {/* Alça + cabeçalho fora do ScrollView: é a zona do arraste; o resto rola como antes. */}
           <View {...panHandlers}>
             <View style={estilos.alca} />

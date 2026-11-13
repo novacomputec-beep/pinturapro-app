@@ -373,12 +373,12 @@ const CardPropostaRecebida = ({ demanda, pendente, nomeOutro, souDono, responden
 // voltar do Android; os chips de dia e hora seguem rolando.
 const FolhaPicker = ({ visivel, onFechar, titulo, limite, rotuloBotao, enviando, onEnviar }) => {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(onFechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(onFechar, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onFechar}>
       <View style={estilos.folhaFundo}>
         <TouchableOpacity style={{ flex: 1 }} onPress={onFechar} activeOpacity={1} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }, estiloArraste]}>
+        <Animated.View style={[estilos.folhaCard, { paddingBottom: Math.max(20, insets.bottom + 12) }, estiloArraste]} onLayout={medirFolha}>
           <PickerAgendamento titulo={titulo} limite={limite} rotuloBotao={rotuloBotao} enviando={enviando} onEnviar={onEnviar} onCancelar={onFechar} arraste={panHandlers} />
         </Animated.View>
       </View>

@@ -250,7 +250,9 @@ const Caixa = ({ marcada, apagada }) => (
 // — vão na alça e no cabeçalho, nunca na lista, que continua rolando.
 // onFechar: a pílula "✕ Fechar" à direita do título (BotaoFecharFolha) — o mesmo fechamento do
 // toque fora (onPronto na folha real; a Galeria passa o seu).
-export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso, arraste, onFechar }) {
+// arrasteLista: { panHandlers, aoRolar } (useArrastarParaFechar: panHandlersLista/aoRolarLista)
+// — com a lista no topo, puxar para baixo nela também arrasta a folha; rolando, ela só rola.
+export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso, arraste, arrasteLista, onFechar }) {
   const total = selecionadas.length
   const noLimite = total >= limite
   return (
@@ -263,7 +265,8 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, 
         <Text style={estilos.folhaSub}>{subtitulo || `Marque o que precisa · até ${limite} no pedido`}</Text>
         {aviso ? <Text style={estilos.folhaAviso}>{aviso}</Text> : null}
       </View>
-      <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
+      <View style={{ flexShrink: 1 }} {...(arrasteLista?.panHandlers || {})}>
+      <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false} onScroll={arrasteLista?.aoRolar} scrollEventThrottle={16}>
         {grupo.categorias.map((c) => {
           const marcada = selecionadas.includes(c.slug)
           const apagada = !marcada && noLimite
@@ -292,6 +295,7 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, 
           )
         })}
       </ScrollView>
+      </View>
       <BotaoPrimario titulo={`Pronto · ${total} ${total === 1 ? 'escolhida' : 'escolhidas'}`} onPress={onPronto} estilo={{ marginTop: 12 }} />
     </>
   )
@@ -302,13 +306,13 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, 
 // obrigatória aqui.
 export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto, limite, subtitulo, aviso }) {
   const insets = useSafeAreaInsets()
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(onPronto, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha, panHandlersLista, aoRolarLista } = useArrastarParaFechar(onPronto, !!visivel)
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={onPronto}>
       <View style={estilos.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onPronto} accessibilityRole="button" accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
-          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} arraste={panHandlers} onFechar={onPronto} /> : null}
+        <Animated.View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
+          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} arraste={panHandlers} arrasteLista={{ panHandlers: panHandlersLista, aoRolar: aoRolarLista }} onFechar={onPronto} /> : null}
         </Animated.View>
       </View>
     </Modal>

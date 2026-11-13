@@ -579,7 +579,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
   const seguirComProposta = () => { onFechar(); onAprovado?.() }
   // Arrastar a alça/título para baixo fecha a folha do formulário como o toque fora e o voltar
   // do Android (travado ao enviar). Hook antes do early return: ordem de hooks estável.
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel && fase === 'form')
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel && fase === 'form')
 
   if (fase !== 'form') {
     const aprovado = fase === 'aprovado'
@@ -636,7 +636,7 @@ export default function VerificacaoIdentidadeSheet({ visivel, onFechar, onConclu
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
-        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           {/* Alça + título fora do ScrollView: é a zona do arraste (o título é centralizado,
               então fica igual ao que era dentro do scroll centrado). */}
           <View {...panHandlers}>

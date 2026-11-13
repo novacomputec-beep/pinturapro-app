@@ -634,7 +634,7 @@ export default function CadastrarObraScreen({ navigation }) {
           câmera-vídeo ou galeria; 'foto' = câmera-foto ou galeria; 'todas' = as três). */}
       <Modal visible={pickerMidia != null} transparent animationType="slide" onRequestClose={() => setPickerMidia(null)}>
         <TouchableOpacity style={estilos.modalOverlay} activeOpacity={1} onPress={() => setPickerMidia(null)}>
-          <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]}>
+          <Animated.View style={[estilos.modalSheet, arrastePicker.estiloArraste]} onLayout={arrastePicker.medirFolha}>
             <View {...arrastePicker.panHandlers}>
               <LinhaCabecalhoFolha onFechar={() => setPickerMidia(null)}>
                 <Text style={estilos.modalTitulo}>{pickerMidia === 'video' ? 'Gravar vídeo' : pickerMidia === 'foto' ? 'Tirar fotos' : 'Adicionar mídia'}</Text>

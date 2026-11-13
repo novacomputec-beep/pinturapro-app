@@ -159,13 +159,13 @@ export default function EditarCategoriasSheet({ visivel, categorias, onSalvar, o
 
   // Arrastar para baixo fecha como o toque fora e o voltar do Android — e, como eles, fica
   // desligado enquanto salva.
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(salvando ? null : onFechar, !!visivel)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(salvando ? null : onFechar, !!visivel)
 
   return (
     <Modal visible={!!visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={salvando ? undefined : onFechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={salvando ? undefined : onFechar} accessibilityLabel="Fechar" />
-        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]}>
+        <Animated.View style={[estilos.sheet, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
           <EditarCategoriasConteudo
             originais={originais}
             selecionadas={selecionadas}

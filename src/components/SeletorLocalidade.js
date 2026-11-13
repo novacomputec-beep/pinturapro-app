@@ -30,7 +30,7 @@ export default function SeletorLocalidade({
   // Fechar a folha (toque fora, voltar do Android e arraste da alça/título para baixo): o
   // mesmo que os dois fechamentos já faziam, inclusive limpar a busca. A FlatList rola como antes.
   const fecharFolha = () => { setModalAberto(null); setBusca('') }
-  const { panHandlers, estiloArraste } = useArrastarParaFechar(fecharFolha, modalAberto !== null)
+  const { panHandlers, estiloArraste, medirFolha } = useArrastarParaFechar(fecharFolha, modalAberto !== null)
 
   useEffect(() => {
     setCarregandoEstados(true)
@@ -123,7 +123,7 @@ export default function SeletorLocalidade({
         <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <View style={estilos.overlay}>
           <TouchableOpacity style={{ flex: 1 }} onPress={fecharFolha} activeOpacity={1} />
-          <Animated.View style={[estilos.sheet, estiloArraste]}>
+          <Animated.View style={[estilos.sheet, estiloArraste]} onLayout={medirFolha}>
             <View {...panHandlers}>
               <View style={estilos.handle} />
               {/* Linha do cabeçalho: título + "✕ Fechar"; o fio de baixo passou do título para a linha. */}
