@@ -34,7 +34,7 @@ import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../compo
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
 import { MarcaCompromissos, MarcaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import { BannerMatchExpirado, estiloDestaquePrazo } from '../../components/BannerMatchExpirado'
-import { SheetCancelamento } from '../../components/CancelamentoMatch'
+import { SheetCancelamento, SheetTrocarOuCancelar } from '../../components/CancelamentoMatch'
 import { SheetDesfazerEscolha, mensagemErroDesfazer, prazoCurtoParaDesfazer } from '../../components/DesfazerEscolha'
 import { ModalDetalhesDemanda, ModalPedirAtraso, horaDe, camposAtrasoDe, mensagemErroAtraso } from '../../components/PosMatchFolhas'
 import ModalSuporte from '../../components/ModalSuporte'
@@ -426,6 +426,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Desfazer a escolha (Arte-Desfazer-Escolha, components/DesfazerEscolha): a folha e o envio.
   const [sheetDesfazer, setSheetDesfazer] = useState(false)
   const [desfazendo, setDesfazendo] = useState(false)
+  // Arte "Trocar ou cancelar v2" (dono): a folha "O que você quer fazer?" do botão pós-match.
+  const [folhaTrocar, setFolhaTrocar] = useState(false)
   // "🚩 Denunciar um problema" da tela de em andamento: pedido ao suporte (ModalSuporte) —
   // POST /denuncias só aceita contrato encerrado, e pelo profissional.
   const [suporteAberto, setSuporteAberto] = useState(false)
@@ -1704,7 +1706,8 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (cancelando) return
     setCancelando(true)
     try {
-      const resp = await (comumAcordo ? pedirCancelamentoAcordo : cancelarMatch)('obra', obra.id, { motivo, detalhe })
+      // Dono: só chega aqui pelo "Cancelar o pedido inteiro" → manter_aberta: false (encerra).
+      const resp = await (comumAcordo ? pedirCancelamentoAcordo : cancelarMatch)('obra', obra.id, { motivo, detalhe, manterAberta: isDono ? false : undefined })
       if (mountedRef.current) setSheetCancelar(false)
       // Dono com "Não preciso mais do serviço": a API cancela o match E encerra a obra
       // (demanda_encerrada) — não há o que reler nem "voltar para outros profissionais".
@@ -1759,13 +1762,15 @@ export default function DetalheObraScreen({ route, navigation }) {
   const outrosCandidatosDesfazer = candidatos.filter(c =>
     c?.usuario_id != null && String(c.usuario_id) !== String(obra?.match_usuario_id) &&
     c.status !== 'cancelado' && c.status !== 'cancelada').length
-  const handleDesfazerEscolha = async () => {
+  // daTroca: veio do "🔄 Sim, escolher outro profissional" (arte "Trocar ou cancelar v2") — o
+  // mesmo POST; na recusa vale a mensagem da API (ela diz o que fazer naquele estado).
+  const handleDesfazerEscolha = async (daTroca = false) => {
     if (desfazendo) return
     setDesfazendo(true)
     const prazoCurto = prazoCurtoParaDesfazer(obra?.expira_em)
     try {
       const resp = await api.post(`/obras/dono/${obra.id}/desfazer-match`)
-      if (mountedRef.current) setSheetDesfazer(false)
+      if (mountedRef.current) { setSheetDesfazer(false); setFolhaTrocar(false) }
       await buscar()
       const n = Number(resp?.interessados_avisados) || 0
       const corpo = `${n > 0 ? `Avisamos ${n} ${n === 1 ? 'candidato' : 'candidatos'}. ` : ''}Escolha o novo profissional quando quiser.`
@@ -1779,9 +1784,10 @@ export default function DetalheObraScreen({ route, navigation }) {
       }
     } catch (err) {
       console.log('[DetalheObra] falha ao desfazer a escolha | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
-      if (mountedRef.current) setSheetDesfazer(false)
+      if (mountedRef.current) { setSheetDesfazer(false); setFolhaTrocar(false) }
       if (await recarregarSeFalhaDeRede(err, recarregarObra)) return
-      Alert.alert(err.status === 409 ? 'Não foi possível desfazer' : 'Erro', mensagemErroDesfazer(err))
+      if (daTroca) Alert.alert(err.status === 409 ? 'Não foi possível trocar' : 'Erro', err.mensagem || mensagemErroDesfazer(err, 'Não foi possível trocar de profissional.'))
+      else Alert.alert(err.status === 409 ? 'Não foi possível desfazer' : 'Erro', mensagemErroDesfazer(err))
       if (err.status != null) recarregarObra().catch(e => console.log('[DetalheObra] recarga pós-erro falhou | code:', e?.code))
     } finally {
       if (mountedRef.current) setDesfazendo(false)
@@ -1965,10 +1971,22 @@ export default function DetalheObraScreen({ route, navigation }) {
         nomeOutro={nomeOutroCancelamento}
         temHorario={!!obra.chegada_prevista_em}
         interessados={outrosCandidatosDesfazer}
+        tituloPedido={obra.titulo}
         enviando={cancelando}
         onFechar={() => setSheetCancelar(false)}
         onCancelar={(motivo, texto) => handleCancelarMatch(motivo, texto, false)}
         onPedirAcordo={(motivo, texto) => handleCancelarMatch(motivo, texto, true)}
+      />
+
+      {/* Arte "Trocar ou cancelar v2" (dono): "Trocar" → desfazer-match; "Cancelar o pedido
+          inteiro" → a SheetCancelamento acima (único caminho do dono ao cancelar-match). */}
+      <SheetTrocarOuCancelar
+        visivel={folhaTrocar}
+        nome={primeiroNome(pintorMatch?.nome)}
+        enviando={desfazendo}
+        onFechar={() => setFolhaTrocar(false)}
+        onTrocar={() => handleDesfazerEscolha(true)}
+        onCancelarInteiro={() => { setFolhaTrocar(false); abrirCancelar() }}
       />
 
       {/* Arte-Desfazer-Escolha (dono): confirmação do desfazer-match. */}
@@ -1979,7 +1997,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         prazoCurto={prazoCurtoParaDesfazer(obra.expira_em, agora)}
         enviando={desfazendo}
         onFechar={() => setSheetDesfazer(false)}
-        onDesfazer={handleDesfazerEscolha}
+        onDesfazer={() => handleDesfazerEscolha()}
       />
 
       {/* Arte-Profissional-Desistiu (dono): a desistência mais recente ainda não vista. */}
@@ -2078,8 +2096,9 @@ export default function DetalheObraScreen({ route, navigation }) {
               nomeOutro: nomeOutroCancelamento,
               respondendo: respondendoCancelamento,
               onResponder: handleResponderCancelamento,
-              onAbrir: abrirCancelar,
-              desabilitado: cancelando,
+              // Dono: a folha "O que você quer fazer?" (Trocar / Cancelar o pedido inteiro).
+              onAbrir: isDono ? () => setFolhaTrocar(true) : abrirCancelar,
+              desabilitado: cancelando || desfazendo,
             } : null}
             /* Desfazer a escolha (dono, aguardando): nota antes de desfazer_liberado_em, caixa
                vermelha + folha depois. Sem o campo (não se aplica) nada aparece. */

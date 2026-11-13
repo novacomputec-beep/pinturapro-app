@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Animated, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, Modal, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import useArrastarParaFechar from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
-import { MOTIVOS_DONO, MOTIVOS_PROFISSIONAL, rotuloMotivo } from '../utils/cancelamento'
+import { MOTIVOS_PROFISSIONAL, rotuloMotivo } from '../utils/cancelamento'
 
 // Cancelamento do match pelas duas partes, antes do "Estou a caminho". Um componente só
 // para DetalheReparo e DetalheObra não divergirem (mesma razão de components/Agendamento):
@@ -31,9 +31,9 @@ export const BotaoCancelarServico = ({ onPress, desabilitado }) => (
 )
 
 // Radios do motivo + campo do "Outro". O texto vive aqui; a tela só recebe o escolhido.
-const Motivos = ({ opcoes, valor, texto, onValor, onTexto, desabilitado }) => (
+const Motivos = ({ opcoes, valor, texto, onValor, onTexto, desabilitado, semTitulo }) => (
   <View style={estilos.motivos}>
-    <Text style={estilos.motivosTitulo}>Motivo (obrigatório)</Text>
+    {semTitulo ? null : <Text style={estilos.motivosTitulo}>Motivo (obrigatório)</Text>}
     {opcoes.map((m) => {
       const ativo = valor === m.valor
       return (
@@ -61,44 +61,101 @@ const Motivos = ({ opcoes, valor, texto, onValor, onTexto, desabilitado }) => (
   </View>
 )
 
+// Arte "Trocar ou cancelar v2" (dono): o botão "✕ Trocar profissional ou cancelar" abre ESTA
+// folha, e não mais a de cancelamento. Passo 1 "O que você quer fazer?": verde "Trocar de
+// profissional" → confirmação "Trocar <nome>?" → onTrocar (o desfazer-match da tela, NUNCA o
+// cancelar-match); vermelho "Cancelar o pedido inteiro" → onCancelarInteiro (a tela fecha
+// esta folha e abre a SheetCancelamento, que é o único caminho do dono até o cancelar-match).
+// nome: primeiro nome do escolhido. enviando: o desfazer-match em voo (trava a folha).
+export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTrocar, onCancelarInteiro }) => {
+  const insets = useSafeAreaInsets()
+  const [etapa, setEtapa] = useState('escolha')
+  useEffect(() => { if (visivel) setEtapa('escolha') }, [visivel])
+  const fechar = () => { if (!enviando) onFechar() }
+  const { panHandlers, estiloArraste } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
+  const quem = nome || 'o profissional'
+  const Quem = quem.charAt(0).toUpperCase() + quem.slice(1)
+
+  return (
+    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => { if (etapa === 'trocar' && !enviando) setEtapa('escolha'); else fechar() }}>
+      <View style={estilos.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
+        <Animated.View style={[estilos.sheet, estilos.sheetNeutra, { paddingBottom: insets.bottom + 16 }, estiloArraste]}>
+          <View style={estilos.zonaAlca} {...panHandlers}>
+            <View style={estilos.alca} />
+            <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
+              <Text style={estilos.tituloCompacto}>{etapa === 'trocar' ? `Trocar ${quem}?` : 'O que você quer fazer?'}</Text>
+            </LinhaCabecalhoFolha>
+          </View>
+          {etapa === 'escolha' ? (
+            <>
+              <Text style={estilos.subtituloCompacto}>Profissional escolhido: {Quem}</Text>
+              <TouchableOpacity style={[estilos.opcao, estilos.opcaoVerde]} onPress={() => setEtapa('trocar')} activeOpacity={0.85} accessibilityRole="button">
+                <Text style={estilos.opcaoTitulo}>🔄 Trocar de profissional</Text>
+                <Text style={estilos.opcaoSub}>O pedido continua aberto; você escolhe outro.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[estilos.opcao, estilos.opcaoVermelha]} onPress={onCancelarInteiro} activeOpacity={0.85} accessibilityRole="button">
+                <Text style={estilos.opcaoTitulo}>✕ Cancelar o pedido inteiro</Text>
+                <Text style={estilos.opcaoSub}>O pedido sai do app.</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.linkVoltar} onPress={fechar} activeOpacity={0.7} accessibilityRole="button">
+                <Text style={estilos.linkVoltarTexto}>Voltar</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={estilos.subtituloCompacto}>Seu pedido continua aberto. Você escolhe outro entre os interessados.</Text>
+              <TouchableOpacity style={[estilos.btnCompacto, estilos.btnCompactoLaranja, enviando && { opacity: 0.6 }]} onPress={onTrocar} disabled={!!enviando} activeOpacity={0.85} accessibilityRole="button">
+                <Text style={[estilos.btnCompactoTexto, { color: '#0A0A0A' }]}>{enviando ? 'Enviando…' : '🔄 Sim, escolher outro profissional'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.linkVoltar} onPress={() => setEtapa('escolha')} disabled={!!enviando} activeOpacity={0.7} accessibilityRole="button">
+                <Text style={estilos.linkVoltarTexto}>Voltar</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </Animated.View>
+      </View>
+    </Modal>
+  )
+}
+
+// Motivos do "Cancelar o pedido inteiro?" (dono), na ordem da arte. Os slugs são os da API;
+// MOTIVOS_DONO (rótulos mostrados ao profissional) fica como está.
+const MOTIVOS_DONO_PEDIDO = [
+  { valor: 'nao_preciso', rotulo: 'Não preciso mais do serviço' },
+  { valor: 'imprevisto',  rotulo: 'Imprevisto' },
+  { valor: 'outro',       rotulo: 'Outro motivo' },
+]
+const LIMITE_TITULO_CURTO = 30
+const tituloCurto = (t) => {
+  const s = String(t || '').trim()
+  return s.length > LIMITE_TITULO_CURTO ? `${s.slice(0, LIMITE_TITULO_CURTO - 1).trimEnd()}…` : s
+}
+
 // visivel/carregando: a folha abre no toque e mostra o spinner enquanto a simulação não
 // volta. simulacao: { tipo: 'livre' | 'tardio' }. souDono decide os textos e os motivos.
 // temHorario: há chegada_prevista_em (muda a frase do "sem punição"). nomeOutro: o primeiro
 // nome do outro lado, para a linha do comum acordo.
 // onCancelar(motivo, texto) / onPedirAcordo(motivo, texto): os dois POSTs da tela.
 // interessados: quantos OUTROS interessados o pedido tem (fora o escolhido) — só o dono usa,
-// na caixa e no diálogo do "Não preciso mais do serviço".
-export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nomeOutro, temHorario, interessados, enviando, onFechar, onCancelar, onPedirAcordo }) => {
+// no aviso vermelho. tituloPedido: o título do pedido (dono, aviso vermelho).
+// Dono (arte "Trocar ou cancelar v2"): só se chega aqui pelo "Cancelar o pedido inteiro" da
+// SheetTrocarOuCancelar; a tela manda o cancelar-match com manter_aberta: false, então
+// qualquer motivo ENCERRA o pedido — é o que o aviso vermelho diz.
+export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nomeOutro, temHorario, interessados, tituloPedido, enviando, onFechar, onCancelar, onPedirAcordo }) => {
   const insets = useSafeAreaInsets()
   const [motivo, setMotivo] = useState(null)
   const [texto, setTexto] = useState('')
   // Cada abertura começa limpa: o motivo de um serviço não vale para outro.
   useEffect(() => { if (visivel) { setMotivo(null); setTexto('') } }, [visivel])
 
-  const opcoes = souDono ? MOTIVOS_DONO : MOTIVOS_PROFISSIONAL
+  const opcoes = souDono ? MOTIVOS_DONO_PEDIDO : MOTIVOS_PROFISSIONAL
   const motivoOk = !!motivo && (motivo !== 'outro' || !!texto.trim())
   const tardio = simulacao?.tipo === 'tardio'
-  // Dono com 'nao_preciso': a API (cancelamentoMatchService.js:207) cancela o match E ENCERRA
-  // o pedido — ele não volta para os outros interessados. Os demais motivos (e o pedido de
-  // comum acordo, que a API trata com manter_aberta: true) mantêm o pedido aberto. A caixa
-  // verde só vale para esses; no 'nao_preciso' entra a vermelha, e o envio passa por um
-  // diálogo de confirmação antes do POST.
-  const encerra = !!souDono && motivo === 'nao_preciso'
   const n = Number.isFinite(Number(interessados)) && Number(interessados) > 0 ? Number(interessados) : 0
-  const textoDispensa = n === 1 ? 'dispensa o interessado' : `dispensa os ${n} interessados`
-  const textoEncerra = n > 0
-    ? `⚠️ Isto ENCERRA o pedido e ${textoDispensa}. Ele não volta para os outros profissionais.`
-    : '⚠️ Isto ENCERRA o pedido. Ele não volta para os outros profissionais.'
   const confirmarCancelar = () => {
     if (!motivoOk || enviando) return
-    if (!encerra) { onCancelar(motivo, texto); return }
-    const corpo = n === 0
-      ? 'O pedido sai da sua lista.'
-      : n === 1 ? 'O interessado será dispensado e o pedido sai da sua lista.' : `Os ${n} interessados serão dispensados e o pedido sai da sua lista.`
-    Alert.alert('Encerrar o pedido?', corpo, [
-      { text: 'Voltar', style: 'cancel' },
-      { text: 'Sim, encerrar', style: 'destructive', onPress: () => onCancelar(motivo, texto) },
-    ])
+    onCancelar(motivo, texto)
   }
   // Antecedência que a API aplicou (12 h; 1 h nas demandas de faixa curta).
   const limite = Number.isFinite(Number(simulacao?.limite_horas)) && Number(simulacao.limite_horas) > 0 ? Number(simulacao.limite_horas) : 12
@@ -115,6 +172,39 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
     : 'O cliente será avisado e o pedido volta a receber propostas de outros profissionais.'
   const textoPrazo = temHorario ? `Faltam mais de ${limite}h para o horário combinado.` : 'Ainda não há horário combinado.'
 
+  // Aviso vermelho do dono: "<nome> e os outros interessados" só quando há outros.
+  const quemAvisa = outro.charAt(0).toUpperCase() + outro.slice(1)
+  const tCurto = tituloCurto(tituloPedido)
+  const avisoDono = `⚠️ ${tCurto ? `O pedido "${tCurto}"` : 'O pedido'} será encerrado e sairá do app. ${n > 0 ? `${quemAvisa} e os outros interessados serão avisados.` : `${quemAvisa} será avisado.`}`
+
+  const conteudoDono = (
+    <>
+      {tardio ? (
+        <View style={estilos.avisoCompacto}>
+          <Text style={estilos.avisoCompactoTexto}>⚠️ Faltam menos de {limite}h. Cancelar agora conta como falta para você (3 faltas em 90 dias suspendem a conta).</Text>
+        </View>
+      ) : null}
+      <Text style={estilos.porQue}>Por quê?</Text>
+      <Motivos opcoes={opcoes} valor={motivo} texto={texto} onValor={setMotivo} onTexto={setTexto} desabilitado={enviando} semTitulo />
+      <View style={estilos.avisoCompacto}>
+        <Text style={estilos.avisoCompactoTexto}>{avisoDono}</Text>
+      </View>
+      <View style={estilos.botoesRow}>
+        <TouchableOpacity style={[estilos.btnCompacto, estilos.btnCompactoLaranja, { flex: 1 }]} onPress={fechar} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
+          <Text style={[estilos.btnCompactoTexto, { color: '#0A0A0A' }]}>Voltar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[estilos.btnCompacto, estilos.btnCompactoContornoVermelho, { flex: 1 }, (!motivoOk || enviando) && { opacity: 0.5 }]} onPress={confirmarCancelar} disabled={!motivoOk || enviando} activeOpacity={0.85} accessibilityRole="button">
+          <Text style={[estilos.btnCompactoTexto, { color: cores.perigo }]}>{enviando ? 'Enviando…' : 'Sim, cancelar o pedido'}</Text>
+        </TouchableOpacity>
+      </View>
+      {tardio ? (
+        <TouchableOpacity style={estilos.linkVoltar} onPress={() => onPedirAcordo(motivo, texto)} disabled={!motivoOk || enviando} activeOpacity={0.7} accessibilityRole="button">
+          <Text style={[estilos.linkVoltarTexto, (!motivoOk || enviando) && { opacity: 0.5 }]}>🤝 Ou pedir para {outro} cancelar de comum acordo (sem falta)</Text>
+        </TouchableOpacity>
+      ) : null}
+    </>
+  )
+
   return (
     <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={estilos.backdrop}>
@@ -123,7 +213,9 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
           <View style={estilos.zonaAlca} {...panHandlers}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
-              {pronto ? <Text style={estilos.titulo}>{tardio ? 'Cancelar em cima da hora?' : 'Cancelar este serviço?'}</Text> : null}
+              {pronto ? (souDono
+                ? <Text style={estilos.tituloCompacto}>Cancelar o pedido inteiro?</Text>
+                : <Text style={estilos.titulo}>{tardio ? 'Cancelar em cima da hora?' : 'Cancelar este serviço?'}</Text>) : null}
             </LinhaCabecalhoFolha>
           </View>
           {!pronto ? (
@@ -133,6 +225,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
             </View>
           ) : (
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {souDono ? conteudoDono : (<>
               {tardio ? (
                 <>
                   <View style={estilos.caixaVermelha}>
@@ -141,16 +234,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
                   <Text style={estilos.linhaAcordo}>
                     🤝 Ou peça para {outro} cancelar de comum acordo: se aceitar, ninguém leva falta. Sem resposta em 2h, o pedido expira e o combinado continua.
                   </Text>
-                  {encerra ? (
-                    <View style={estilos.caixaVermelha}>
-                      <Text style={estilos.caixaVermelhaTexto}>{textoEncerra}</Text>
-                    </View>
-                  ) : null}
                 </>
-              ) : encerra ? (
-                <View style={estilos.caixaVermelha}>
-                  <Text style={estilos.caixaVermelhaTexto}>{textoEncerra}</Text>
-                </View>
               ) : (
                 <View style={estilos.caixaVerde}>
                   <Text style={estilos.caixaVerdeTexto}>✅ Sem punição. {textoPrazo} {textoLado}</Text>
@@ -185,6 +269,7 @@ export const SheetCancelamento = ({ visivel, carregando, simulacao, souDono, nom
                   </TouchableOpacity>
                 </View>
               )}
+              </>)}
             </ScrollView>
           )}
         </Animated.View>
@@ -280,5 +365,24 @@ const estilos = StyleSheet.create({
   rodape:            { fontSize: 11, color: cores.textoFraco, lineHeight: 16 },
 
   aguardando:        { backgroundColor: cores.fundoElevado, borderRadius: raios.medio, padding: 14, marginBottom: 16 },
+
+  // Arte "Trocar ou cancelar v2" (dono): folha do passo 1, cartões de opção e botões compactos.
+  sheetNeutra:       { borderTopColor: cores.borda },
+  tituloCompacto:    { fontSize: 18, fontWeight: '800', color: cores.textoForte, letterSpacing: -0.3, marginBottom: 10 },
+  subtituloCompacto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginBottom: 12 },
+  opcao:             { borderWidth: 1, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 14, marginBottom: 10 },
+  opcaoVerde:        { backgroundColor: cores.sucessoSuave, borderColor: cores.sucesso },
+  opcaoVermelha:     { backgroundColor: cores.perigoSuave, borderColor: cores.perigo },
+  opcaoTitulo:       { fontSize: 15, fontWeight: '700', color: cores.textoForte },
+  opcaoSub:          { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginTop: 2 },
+  linkVoltar:        { paddingVertical: 10, alignItems: 'center' },
+  linkVoltarTexto:   { fontSize: 13, color: cores.textoFraco, textAlign: 'center' },
+  porQue:            { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
+  avisoCompacto:     { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 12, marginBottom: 12 },
+  avisoCompactoTexto:{ fontSize: 12.5, fontWeight: '600', color: cores.textoForte, lineHeight: 18 },
+  btnCompacto:       { borderRadius: 12, padding: 10, alignItems: 'center', justifyContent: 'center' },
+  btnCompactoLaranja:{ backgroundColor: cores.primaria },
+  btnCompactoContornoVermelho: { borderWidth: 1.5, borderColor: cores.perigo, backgroundColor: 'transparent' },
+  btnCompactoTexto:  { fontSize: 14.5, fontWeight: '700' },
   aguardandoTexto:   { fontSize: 13, color: cores.textoMedio, textAlign: 'center', lineHeight: 20, marginBottom: 6 },
 })

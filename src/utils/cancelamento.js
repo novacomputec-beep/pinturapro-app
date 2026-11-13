@@ -58,8 +58,13 @@ const corpoMotivo = ({ motivo, detalhe }) => ({
   detalhe: (detalhe || '').trim().slice(0, DETALHE_MAX) || undefined,
 })
 
-export const cancelarMatch = (frente, id, { motivo, detalhe }) =>
-  comRetry(() => api.post(`${base(frente, id)}/cancelar-match`, corpoMotivo({ motivo, detalhe })))
+// manterAberta: false (dono, "Cancelar o pedido inteiro") → a API encerra o pedido com
+// qualquer motivo (cancelamentoMatchService: encerrar = dono && (nao_preciso || manter_aberta === false)).
+export const cancelarMatch = (frente, id, { motivo, detalhe, manterAberta }) =>
+  comRetry(() => api.post(`${base(frente, id)}/cancelar-match`, {
+    ...corpoMotivo({ motivo, detalhe }),
+    ...(manterAberta === false ? { manter_aberta: false } : {}),
+  }))
 
 export const pedirCancelamentoAcordo = (frente, id, { motivo, detalhe }) =>
   comRetry(() => api.post(`${base(frente, id)}/cancelamento-acordo`, corpoMotivo({ motivo, detalhe })))
