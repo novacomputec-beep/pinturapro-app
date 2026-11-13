@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Pressable, Alert, ActivityIndicator, Linking, Image, Platform, Switch
+  TouchableOpacity, Pressable, Alert, ActivityIndicator, Linking, Image, Platform, Switch, Animated, Easing
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import * as Notifications from 'expo-notifications'
 import * as Application from 'expo-application'
@@ -16,7 +17,7 @@ import { BotaoSecundario, Separador, BadgeStatus } from '../../components'
 import ModalExcluirConta, { PALAVRA_CONFIRMACAO } from '../../components/ModalExcluirConta'
 import ModalSuporte from '../../components/ModalSuporte'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
-import LinhaAvisosTodasAreas, { avisosTodasAreasLigado, CARTAO_VERDE } from '../../components/AvisosTodasAreas'
+import LinhaAvisosTodasAreas, { avisosTodasAreasLigado } from '../../components/AvisosTodasAreas'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { mostrarCobranca } from '../../utils/plataforma'
 import { avatar } from '../../utils/imagemOtimizada'
@@ -69,60 +70,81 @@ const ItemAcao = ({ titulo, onPress, perigo, destaque, cor, estado, estadoCor, a
   </TouchableOpacity>
 )
 
-// Arte-Meus-Perfis-Destaque, restilizada pela arte "Meus perfis compacto": card (no container
-// verde do "Quero receber avisos…") logo abaixo do nome, no lugar da linha cinza "Meus perfis". Com os dois lados: duas pills lado a lado, a do lado em uso cheia (sem toque) e a
-// outra contornada, que troca pelo MESMO fluxo da MeusPerfisScreen (usePerfisETroca). Com um
-// lado só: um botão "Também quero …" que abre a AdicionarPerfilScreen, como o ＋ de lá.
-// O número da pill é contarPerfis — lados que a pessoa tem, não contas.
-const LADOS_CARD = [
-  { marca: 'contratar', rotulo: '🏠 Contratar', convite: 'Também quero contratar' },
-  { marca: 'trabalhar', rotulo: '🧰 Trabalhar', convite: 'Também quero trabalhar' },
+// Arte "Meus perfis A · chave deslizante": logo abaixo do nome/e-mail/cidade, sem card nem
+// borda — rótulo "VOCÊ ESTÁ USANDO COMO" + "<N> perfis" (toque abre a MeusPerfisScreen, como o
+// topo do card antigo), uma chave de duas metades (🏠 Contratar | 🧰 Trabalhar) com o polegar
+// verde no lado em uso e a linha "Toque para trocar a qualquer momento". Tocar na outra metade
+// desliza o polegar (~200 ms) e roda a MESMA troca da MeusPerfisScreen (usePerfisETroca); se a
+// troca falhar, o polegar volta ao lado em uso. Com um lado só, a outra metade mostra
+// "+ Também quero …" em cinza e abre a AdicionarPerfilScreen. N = contarPerfis (lados, não contas).
+const LADOS_CHAVE = [
+  { marca: 'contratar', rotulo: '🏠 Contratar', convite: '+ Também quero contratar' },
+  { marca: 'trabalhar', rotulo: '🧰 Trabalhar', convite: '+ Também quero trabalhar' },
 ]
-function CardMeusPerfis({ usuario, navigation }) {
+const DURACAO_POLEGAR = 200
+function ChaveMeusPerfis({ usuario, navigation }) {
   const { perfis, trocando, trocar } = usePerfisETroca()
   const total = contarPerfis(usuario)
-  const lados = LADOS_CARD.map((l) => ({ ...l, perfil: perfis.find((p) => p[l.marca]) })).filter((l) => l.perfil)
-  const faltando = lados.find((l) => l.perfil.estado === 'adicionar')
+  const lados = LADOS_CHAVE.map((l) => ({ ...l, perfil: perfis.find((p) => p[l.marca]) }))
+  const idxEmUso = Math.max(0, lados.findIndex((l) => l.perfil?.estado === 'em_uso'))
+  // alvo: a metade tocada enquanto a troca roda; null = segue o lado em uso.
+  const [alvo, setAlvo] = useState(null)
+  const [larguraMetade, setLarguraMetade] = useState(0)
+  const pos = useRef(new Animated.Value(idxEmUso)).current
+  const posicionadoRef = useRef(false)
+  const destino = alvo ?? idxEmUso
+  useEffect(() => {
+    if (!larguraMetade) return
+    if (!posicionadoRef.current) { pos.setValue(destino); posicionadoRef.current = true; return }
+    Animated.timing(pos, { toValue: destino, duration: DURACAO_POLEGAR, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start()
+  }, [destino, larguraMetade, pos])
+
+  const tocar = async (i) => {
+    const l = lados[i]
+    if (!l?.perfil || trocando || alvo !== null) return
+    if (l.perfil.estado === 'em_uso') return
+    if (l.perfil.estado === 'adicionar') { navigation.navigate('AdicionarPerfil', { tipo: l.perfil.tipo }); return }
+    setAlvo(i)
+    // O polegar chega ao lado tocado e só então a troca começa.
+    await new Promise((r) => setTimeout(r, DURACAO_POLEGAR))
+    try { await trocar(l.perfil.tipo) } finally { setAlvo(null) }
+  }
+
+  const translateX = pos.interpolate({ inputRange: [0, 1], outputRange: [0, larguraMetade] })
   return (
-    <View style={estilos.perfisCard}>
-      <TouchableOpacity style={estilos.perfisTopo} onPress={() => navigation.navigate('MeusPerfis')} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Meus perfis: ${total}`}>
-        <Text style={estilos.perfisTitulo}>👥 Meus perfis</Text>
-        <View style={estilos.perfisContador}>
-          <Text style={estilos.perfisContadorTexto}>{total}</Text>
-        </View>
-      </TouchableOpacity>
-      {faltando ? (
-        <TouchableOpacity
-          style={[estilos.perfisPill, estilos.perfisPillContorno, estilos.perfisPillUnica]}
-          onPress={() => navigation.navigate('AdicionarPerfil', { tipo: faltando.perfil.tipo })}
-          accessibilityRole="button"
-        >
-          <Text style={estilos.perfisPillTextoContorno}>{faltando.convite}</Text>
+    <View style={estilos.chaveWrap}>
+      <View style={estilos.chaveRotulos}>
+        <Text style={estilos.chaveRotulo}>VOCÊ ESTÁ USANDO COMO</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('MeusPerfis')} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={`Meus perfis: ${total}`}>
+          <Text style={estilos.chaveTotal}>{total} {total === 1 ? 'perfil' : 'perfis'}</Text>
         </TouchableOpacity>
-      ) : (
-        <>
-          <Text style={estilos.perfisTexto} numberOfLines={1} adjustsFontSizeToFit>Você pode tanto contratar como trabalhar, escolha:</Text>
-          <View style={estilos.perfisPills}>
-            {lados.map((l) => {
-              const emUso = l.perfil.estado === 'em_uso'
-              return (
-                <TouchableOpacity
-                  key={l.marca}
-                  style={[estilos.perfisPill, emUso ? estilos.perfisPillCheia : estilos.perfisPillContorno]}
-                  onPress={() => trocar(l.perfil.tipo)}
-                  disabled={emUso || !!trocando}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: emUso, disabled: emUso || !!trocando }}
-                >
-                  {trocando === l.perfil.tipo
-                    ? <ActivityIndicator size="small" color={cores.sucesso} />
-                    : <Text style={emUso ? estilos.perfisPillTextoCheia : estilos.perfisPillTextoContorno}>{l.rotulo}</Text>}
-                </TouchableOpacity>
-              )
-            })}
-          </View>
-        </>
-      )}
+      </View>
+      <View style={estilos.chaveTrilho} onLayout={(e) => setLarguraMetade((e.nativeEvent.layout.width - 8 - 2) / 2)}>
+        {larguraMetade ? (
+          <Animated.View pointerEvents="none" style={[estilos.chavePolegar, { width: larguraMetade, transform: [{ translateX }] }]}>
+            <LinearGradient colors={['#7fd99a', '#5cc27f']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={estilos.chavePolegarMiolo} />
+          </Animated.View>
+        ) : null}
+        {lados.map((l, i) => {
+          const ativo = i === destino
+          const convite = l.perfil?.estado === 'adicionar'
+          return (
+            <Pressable
+              key={l.marca}
+              style={estilos.chaveMetade}
+              onPress={() => tocar(i)}
+              disabled={!l.perfil || !!trocando || alvo !== null}
+              accessibilityRole={convite ? 'button' : 'tab'}
+              accessibilityState={{ selected: ativo }}
+            >
+              {trocando === l.perfil?.tipo
+                ? <ActivityIndicator size="small" color="#0d2016" />
+                : <Text style={[estilos.chaveTexto, ativo ? estilos.chaveTextoAtivo : estilos.chaveTextoInativo]} numberOfLines={1} adjustsFontSizeToFit>{convite ? l.convite : l.rotulo}</Text>}
+            </Pressable>
+          )
+        })}
+      </View>
+      <Text style={estilos.chaveDica}>Toque para trocar a qualquer momento</Text>
     </View>
   )
 }
@@ -638,7 +660,7 @@ export default function PerfilScreen({ navigation, route }) {
           )}
         </View>
 
-        <CardMeusPerfis usuario={usuario} navigation={navigation} />
+        <ChaveMeusPerfis usuario={usuario} navigation={navigation} />
 
         {/* No iOS o card de assinatura some inteiro — título, badge, plano e vencimento
             (3.1.1) — e no lugar entra o pedido de contato com o suporte. */}
@@ -784,7 +806,7 @@ export default function PerfilScreen({ navigation, route }) {
             </>
           )}
           <ItemAcao titulo="✏️ Editar perfil" onPress={() => navigation.navigate('EditarPerfil')} />
-          {/* "Meus perfis" saiu daqui: virou o card laranja logo abaixo do nome (CardMeusPerfis). */}
+          {/* "Meus perfis" saiu daqui: virou a chave logo abaixo do nome (ChaveMeusPerfis). */}
           <Separador />
           {/* Arte-Dicas: regras e atalhos da plataforma, por lado da conta. O selo laranja
               conta as dicas que o aparelho ainda não viu (some em zero). Todos os papéis. */}
@@ -970,25 +992,21 @@ const estilos = StyleSheet.create({
   promoTextos: { flex: 1 },
   promoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },
   promoSubtitulo: { fontSize: 12, color: cores.textoMedio, lineHeight: 17 },
-  // Card "Meus perfis" (Arte-Meus-Perfis-Destaque)
-  // Arte "Meus perfis compacto": o MESMO container do card verde "Quero receber avisos…"
-  // (CARTAO_VERDE). Aquele card mora dentro do acoesWrap (margem espacos.tela + borda 0,5) e
-  // tem margem 8 lá dentro; aqui, fora do wrap, a margem soma as três para a largura bater.
-  // Empilhado (coluna) em vez de linha; o marginBottom 16 mantém o respiro de antes até o card
-  // seguinte.
-  perfisCard: { ...CARTAO_VERDE, flexDirection: 'column', alignItems: 'stretch', gap: 0, marginHorizontal: espacos.tela + 0.5 + CARTAO_VERDE.marginHorizontal, marginBottom: 16 },
-  perfisTopo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  perfisTitulo: { fontSize: 15, fontWeight: '800', color: cores.textoForte },
-  perfisContador: { minWidth: 24, backgroundColor: cores.sucesso, borderRadius: raios.pill, paddingHorizontal: 8, paddingVertical: 1, alignItems: 'center' },
-  perfisContadorTexto: { fontSize: 12, fontWeight: '800', color: '#0A0A0A', fontVariant: ['tabular-nums'] },
-  perfisTexto: { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginBottom: 8 },
-  perfisPills: { flexDirection: 'row', gap: 8 },
-  perfisPill: { flex: 1, minHeight: 32, borderRadius: raios.pill, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
-  perfisPillUnica: { flex: 0, marginTop: 4 },
-  perfisPillCheia: { backgroundColor: cores.sucesso, borderColor: cores.sucesso },
-  perfisPillContorno: { backgroundColor: 'transparent', borderColor: cores.sucesso },
-  perfisPillTextoCheia: { fontSize: 13, fontWeight: '800', color: '#0A0A0A' },
-  perfisPillTextoContorno: { fontSize: 13, fontWeight: '800', color: cores.sucesso },
+  // Arte "Meus perfis A · chave deslizante" (ChaveMeusPerfis): sem card; mesma margem lateral
+  // da tela e o respiro de 16 até o que vem abaixo, como o card de antes.
+  chaveWrap: { marginHorizontal: espacos.tela, marginBottom: 16 },
+  chaveRotulos: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  chaveRotulo: { fontSize: 11.5, fontWeight: '800', letterSpacing: 0.9, color: '#7d8696' },
+  chaveTotal: { fontSize: 12, fontWeight: '700', color: '#6fd18f' },
+  // Trilho: 50 de altura = 4 + 42 + 4 (+ a borda de 1).
+  chaveTrilho: { flexDirection: 'row', height: 50, backgroundColor: '#141518', borderWidth: 1, borderColor: '#262a30', borderRadius: 14, padding: 4 },
+  chavePolegar: { position: 'absolute', top: 4, bottom: 4, left: 4, borderRadius: 11, backgroundColor: '#5cc27f', shadowColor: '#5cc27f', shadowOpacity: 0.45, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
+  chavePolegarMiolo: { flex: 1, borderRadius: 11 },
+  chaveMetade: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  chaveTexto: { fontSize: 15, fontWeight: '800' },
+  chaveTextoAtivo: { color: '#0d2016' },
+  chaveTextoInativo: { color: '#8a919c' },
+  chaveDica: { fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginTop: 8 },
   rotuloSecaoConta: { marginHorizontal: espacos.tela, fontSize: 11, fontWeight: '700', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
   atendeLinha: { paddingVertical: 8 },
   atendeCaixa: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: cores.textoFraco, alignItems: 'center', justifyContent: 'center' },
