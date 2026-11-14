@@ -533,7 +533,7 @@ const TabIcone = ({ nome, focado }) => {
     )
   }
   return (
-    <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.3, color: focado ? cores.primaria : cores.textoFraco }}>
+    <Text style={{ fontSize: 20, opacity: focado ? 1 : 0.75, color: focado ? cores.primaria : cores.textoFraco }}>
       {mapa[nome] || '●'}
     </Text>
   )

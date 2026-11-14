@@ -27,7 +27,7 @@ export const cores = {
   sucessoBorda:  '#5DC98A44',
 
   perigo:        '#EE6A69',  // 4.5:1+ também sobre #1A1A1A (o #E24B4A ficava em 4.4)
-  perigoSuave:   '#E24B4A22',
+  perigoSuave:   '#EE6A6922',
 
   info:          '#3B82F6',  // azul — dicas/destaques informativos
   infoSuave:     '#3B82F622',
