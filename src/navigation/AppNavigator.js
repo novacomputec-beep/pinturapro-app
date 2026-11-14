@@ -683,7 +683,7 @@ function PagamentoPendenteScreen() {
             onPress={verificarPagamento}
             disabled={verificando}
           >
-            <Text style={{ fontSize: 14, color: verificando ? cores.textoFraco : cores.textoForte }}>
+            <Text style={{ fontSize: 14, color: verificando ? cores.textoDesabilitado : cores.textoForte }}>
               {verificando ? 'Verificando...' : mostrarCobranca ? 'Já paguei — verificar acesso' : 'Verificar acesso'}
             </Text>
           </TouchableOpacity>

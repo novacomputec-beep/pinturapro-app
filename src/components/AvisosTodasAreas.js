@@ -32,7 +32,7 @@ export default function LinhaAvisosTodasAreas({ valor, onMudar, desabilitado }) 
         value={!!valor}
         onValueChange={onMudar}
         disabled={!!desabilitado}
-        trackColor={{ false: cores.textoFraco, true: cores.sucesso }}
+        trackColor={{ false: '#444444', true: cores.sucesso }}
         thumbColor={cores.branco}
         accessibilityLabel={TITULO_AVISOS_TODAS_AREAS}
       />

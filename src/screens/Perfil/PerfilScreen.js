@@ -788,7 +788,7 @@ export default function PerfilScreen({ navigation, route }) {
                   value={aceitaPromocoes}
                   onValueChange={handleAlternarPromocoes}
                   disabled={salvandoPromo}
-                  trackColor={{ false: cores.textoFraco, true: '#F0822E' }}
+                  trackColor={{ false: '#444444', true: '#F0822E' }}
                   thumbColor={cores.branco}
                 />
               )}
@@ -1009,7 +1009,7 @@ const estilos = StyleSheet.create({
   chaveDica: { fontSize: 12, color: cores.textoFraco, textAlign: 'center', marginTop: 8 },
   rotuloSecaoConta: { marginHorizontal: espacos.tela, fontSize: 11, fontWeight: '700', color: cores.textoFraco, letterSpacing: 1, marginBottom: 8 },
   atendeLinha: { paddingVertical: 8 },
-  atendeCaixa: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: cores.textoFraco, alignItems: 'center', justifyContent: 'center' },
+  atendeCaixa: { width: 26, height: 26, borderRadius: 7, borderWidth: 2, borderColor: '#444444', alignItems: 'center', justifyContent: 'center' },
   atendeCaixaMarcada: { backgroundColor: '#F0822E', borderColor: '#F0822E' },
   atendeCheck: { fontSize: 15, fontWeight: '800', color: cores.branco, lineHeight: 19 },
   atendeAviso: { fontSize: 12, color: cores.perigo, fontWeight: '600', marginTop: 6 },

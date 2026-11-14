@@ -26,7 +26,7 @@ export const cores = {
   sucessoSuave:  '#5DC98A22',
   sucessoBorda:  '#5DC98A44',
 
-  perigo:        '#E24B4A',
+  perigo:        '#EE6A69',  // 4.5:1+ também sobre #1A1A1A (o #E24B4A ficava em 4.4)
   perigoSuave:   '#E24B4A22',
 
   info:          '#3B82F6',  // azul — dicas/destaques informativos
@@ -34,9 +34,13 @@ export const cores = {
   infoBorda:     '#3B82F644',
 
   textoForte:    '#F0EDE6',
-  textoMedio:    '#888888',
-  textoFraco:    '#444444',
-  textoMutado:   '#333333',
+  // Hierarquia de texto, todos ≥ 4.5:1 sobre fundo/fundoCard/fundoElevado (antes o
+  // Fraco/Mutado ficavam em ~2:1 e liam como "desabilitado").
+  textoMedio:    '#C9CFD8',  // secundário
+  textoFraco:    '#9AA3B2',  // terciário
+  textoMutado:   '#7D8696',  // quaternário
+  // Só para estado REALMENTE desabilitado (ação indisponível) — fica apagado de propósito.
+  textoDesabilitado: '#5D6470',
 
   branco:        '#FFFFFF',
   preto:         '#000000',
