@@ -1620,8 +1620,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // concorrência, não ajuda.
   const minhasEspecialidades = normalizarEspecialidades(usuario?.especialidades)
   const categoriasPedido = categoriasDe(reparo)
-  const pedidoEhMeu = categoriasPedido.includes('outros') || categoriasPedido.some((c) => minhasEspecialidades.includes(c))
-  const mostrarIndicar = isPrestador && !isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada && !pedidoEhMeu && !meuInteresse
+  const pedidoNasMinhasCategorias = categoriasPedido.includes('outros') || categoriasPedido.some((c) => minhasEspecialidades.includes(c))
+  const mostrarIndicar = isPrestador && !isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada && !pedidoNasMinhasCategorias && !meuInteresse
   // "✏️ Editar" ao lado dos chips de categoria (Arte-Editar-Categorias): o espelho do dono da
   // mesma janela — aberto e sem profissional escolhido, a única em que a API aceita o PATCH.
   const podeEditarCategorias = isDono && reparo?.status === 'aberta' && !reparo?.match_usuario_id && !temMatch && !encerrada
