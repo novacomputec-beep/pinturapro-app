@@ -83,7 +83,7 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'design_sobrancelhas', rotulo: 'Design de sobrancelhas', emoji: '✨' },
   { slug: 'vidraceiro',      rotulo: 'Vidraceiro',         emoji: '🪟' },
   { slug: 'serralheria',     rotulo: 'Serralheria',        emoji: '🔩' },
-  // Mesmos slugs da API (utils/especialidades.js): Informática em "Aulas e internet", Gesseiro em "Casa e reparos",
+  // Mesmos slugs da API (utils/especialidades.js): Informática em "Escritório e aulas", Gesseiro em "Casa e reparos",
   // Placas e fachadas em "Arte e criação" (utils/gruposServico).
   { slug: 'informatica',     rotulo: 'Informática',        emoji: '🖥️' },
   { slug: 'gesseiro',        rotulo: 'Gesseiro',           emoji: '🪜' },
@@ -100,6 +100,8 @@ export const CATEGORIAS_SERVICO = ordenar([
   { slug: 'locucao',               rotulo: 'Locução',                 emoji: '🎙️' },
   { slug: 'jingles_vinhetas',      rotulo: 'Jingles e vinhetas',      emoji: '🎵' },
   { slug: 'marketing_publicidade', rotulo: 'Marketing e publicidade', emoji: '📈' },
+  // Grupo "Escritório e aulas" (utils/gruposServico); slug igual ao da API.
+  { slug: 'contabilidade',   rotulo: 'Contabilidade',     emoji: '🧾' },
   { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
 ])
 
