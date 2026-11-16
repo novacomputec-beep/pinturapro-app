@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated } from 'react-native'
+import { View, Text, Image, TouchableOpacity, Modal, StyleSheet, Animated, ScrollView } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import useArrastarParaFechar, { RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { cores, raios } from '../utils/tema'
@@ -293,6 +293,84 @@ const CardCancelamentoParaMim = ({ pedido, nomeOutro, respondendo, onResponder }
     </View>
   )
 }
+// ─── Arte-Ela-Chegou-v2 (dono, serviço e obra) ──────────────────────────────────────────
+// Tratamento da pessoa nos textos da arte. Com o gênero do profissional ('f'/'feminino',
+// 'm'/'masculino' — campo `genero`, quando a API mandar) sai "A Ana chegou?" / "ela"; sem ele,
+// a forma neutra: o nome sozinho ("Ana chegou?") ou, sem nome, "O profissional chegou?".
+export const textosPessoa = (nome, genero) => {
+  const g = String(genero || '').trim().toLowerCase()
+  const n = nome || null
+  if (n && (g === 'f' || g === 'feminino')) return { sujeito: `A ${n}`, pronome: 'ela', objeto: `a ${n}`, para: 'para ela' }
+  if (n && (g === 'm' || g === 'masculino')) return { sujeito: `O ${n}`, pronome: 'ele', objeto: `o ${n}`, para: 'para ele' }
+  if (n) return { sujeito: n, pronome: n, objeto: n, para: `para ${n}` }
+  return { sujeito: 'O profissional', pronome: 'o profissional', objeto: 'o profissional', para: 'para o profissional' }
+}
+
+// Card "A <nome> chegou?" no lugar do bloco "O profissional veio?" + botão laranja: horário
+// combinado vencido e chegada sem resposta. vigia: { onResponder(resposta) → Promise<bool>,
+// enviando, genero, onRemarcado }. 'remarcar' com sucesso chama onRemarcado (abre a folha de
+// dia e hora). apagado: há um pedido de cancelamento a responder antes (card azul acima).
+const CardChegou = ({ vigia, nome, dataTexto, apagado }) => {
+  const t = textosPessoa(nome, vigia?.genero)
+  const travado = !!apagado || !!vigia?.enviando
+  const responder = (resposta) => async () => {
+    const ok = await vigia?.onResponder?.(resposta)
+    if (ok && resposta === 'remarcar') vigia?.onRemarcado?.()
+  }
+  return (
+    <View style={[estilos.cardLaranja, apagado && { opacity: 0.4 }]} pointerEvents={apagado ? 'none' : 'auto'}>
+      <T linhas={2} style={estilos.cardTitulo}>{t.sujeito} chegou?</T>
+      <T linhas={2} style={estilos.cardLinha}>O horário combinado era {dataTexto}.</T>
+      <TouchableOpacity style={[estilos.opcao, estilos.opcaoVerde, travado && { opacity: 0.6 }]} onPress={responder('sim')} disabled={travado} activeOpacity={0.85} accessibilityRole="button">
+        <T linhas={2} style={[estilos.opcaoTitulo, { color: '#0A0A0A' }]}>✅ Sim, {t.pronome} chegou</T>
+        <T linhas={2} style={[estilos.opcaoSub, { color: '#0A0A0A' }]}>O serviço começa a contar como em andamento.</T>
+      </TouchableOpacity>
+      <TouchableOpacity style={[estilos.opcao, travado && { opacity: 0.6 }]} onPress={responder('remarcar')} disabled={travado} activeOpacity={0.85} accessibilityRole="button">
+        <T linhas={2} style={estilos.opcaoTitulo}>🕐 Combinamos outro horário</T>
+        <T linhas={2} style={estilos.opcaoSub}>Você escolhe o novo dia e hora. Ninguém leva falta.</T>
+      </TouchableOpacity>
+      <TouchableOpacity style={[estilos.opcao, { borderColor: cores.perigo }, travado && { opacity: 0.6 }]} onPress={responder('nao')} disabled={travado} activeOpacity={0.85} accessibilityRole="button">
+        <T linhas={2} style={[estilos.opcaoTitulo, { color: cores.perigo }]}>❌ Não veio</T>
+        <T linhas={2} style={estilos.opcaoSub}>Você pode escolher outro profissional.</T>
+      </TouchableOpacity>
+      <T linhas={2} style={estilos.cardRodape}>Na dúvida, toque em "Combinamos outro horário".</T>
+    </View>
+  )
+}
+
+// Pedido de cancelamento DO PROFISSIONAL, visto pelo dono: card azul com o texto dele entre
+// aspas e três saídas — liberar o WhatsApp (responde ao pedido e o retira), manter (recusar)
+// ou aceitar cancelar. Os dois últimos são o onResponder de sempre.
+const CardPedidoCancelarDono = ({ pedido, nomeOutro, genero, respondendo, onResponder, onLiberarWhatsApp }) => {
+  const t = textosPessoa(nomeOutro, genero)
+  const detalhe = typeof pedido?.detalhe === 'string' ? pedido.detalhe.trim() : ''
+  const texto = detalhe ? `"${detalhe}"` : rotuloMotivo(pedido)
+  const ate = horaDe(pedido?.expira_em)
+  return (
+    <View style={estilos.cardAzul}>
+      <T linhas={2} style={estilos.cardTitulo}>💬 {nomeOutro || 'O profissional'} pediu para cancelar</T>
+      {texto ? <T linhas={3} style={[estilos.cardLinha, { fontStyle: 'italic' }]}>{texto}</T> : null}
+      <T style={[estilos.cardNota, { color: cores.info, fontWeight: '700' }]}>{ate ? `Responda até ${ate}` : 'Responda em até 2h'}</T>
+      {onLiberarWhatsApp ? (
+        <TouchableOpacity style={[estilos.opcao, { borderColor: cores.sucesso, alignItems: 'center', marginTop: 0 }, respondendo && { opacity: 0.6 }]} onPress={onLiberarWhatsApp} disabled={!!respondendo} activeOpacity={0.85} accessibilityRole="button">
+          <T linhas={2} style={[estilos.opcaoTitulo, { color: cores.sucesso, textAlign: 'center' }]}>📱 Responder: liberar meu WhatsApp {t.para}</T>
+        </TouchableOpacity>
+      ) : null}
+      <View style={[estilos.botoesRow, { marginTop: 8 }]}>
+        <TouchableOpacity style={[estilos.btnVerde, respondendo && { opacity: 0.6 }]} onPress={() => onResponder('recusar')} disabled={!!respondendo} activeOpacity={0.85} accessibilityRole="button">
+          <T style={estilos.btnVerdeTexto} adjustsFontSizeToFit minimumFontScale={0.8}>{respondendo ? 'Enviando…' : `Manter ${t.objeto}`}</T>
+        </TouchableOpacity>
+        <TouchableOpacity style={[estilos.btnVermelhoVazado, respondendo && { opacity: 0.6 }]} onPress={() => onResponder('aceitar')} disabled={!!respondendo} activeOpacity={0.85} accessibilityRole="button">
+          <T style={estilos.btnVermelhoVazadoTexto}>Aceitar cancelar</T>
+        </TouchableOpacity>
+      </View>
+      {onLiberarWhatsApp ? (
+        <T linhas={3} style={estilos.cardRodape}>Liberar o WhatsApp já responde ao pedido: {t.pronome} recebe o seu número e o cancelamento é retirado.</T>
+      ) : null}
+    </View>
+  )
+}
+
 const LinhaCancelamentoMeu = ({ nomeOutro }) => (
   <T linhas={2} style={estilos.linhaEspera}>⏳ Aguardando {nomeOutro || 'a outra parte'} responder ao pedido de cancelamento (expira em 2h)</T>
 )
@@ -537,20 +615,24 @@ const EstadoAgendado = ({ demanda, frente, souDono, nomeOutro, podeDizerACaminho
       </View>
     )
   }
+  // Arte-Ela-Chegou-v2: horário vencido e chegada sem resposta (vigia, só o dono) — o card
+  // "A <nome> chegou?" toma o lugar da caixa verde.
+  if (vigia) {
+    return (
+      <View>
+        <CardChegou vigia={vigia} nome={nomeOutro} dataTexto={dataTexto} />
+        {reagendamento?.minha ? (
+          <T linhas={2} style={estilos.linhaEspera}>⏳ Nova proposta ({formatarAgendado(demanda?.chegada_pendente_em) || '—'}) aguardando {nomeOutro || 'a outra parte'}</T>
+        ) : null}
+        {rodape}
+      </View>
+    )
+  }
   return (
     <View style={estilos.verde}>
-      {/* Com a vigia, a data vai para a linha do rótulo: o que importa é a pergunta. */}
-      <T style={estilos.verdeRotulo}>{ehObra ? '📅 INÍCIO AGENDADO' : '📅 AGENDADO'}{vigia ? ` · ${dataTexto}` : ''}</T>
-      {vigia ? null : <T style={estilos.verdeData} adjustsFontSizeToFit minimumFontScale={0.8}>{dataTexto}</T>}
-      {vigia ? (
-        <View style={estilos.vigia}>
-          <T style={estilos.vigiaTitulo}>🤔 O profissional veio?</T>
-          <T linhas={2} style={estilos.vigiaTexto}>O horário combinado já passou. Conte para a gente o que aconteceu.</T>
-          <TouchableOpacity style={estilos.btnLaranjaPequeno} onPress={vigia.onResponder} activeOpacity={0.85} accessibilityRole="button">
-            <T style={estilos.btnLaranjaPequenoTexto}>Responder</T>
-          </TouchableOpacity>
-        </View>
-      ) : souDono ? (
+      <T style={estilos.verdeRotulo}>{ehObra ? '📅 INÍCIO AGENDADO' : '📅 AGENDADO'}</T>
+      <T style={estilos.verdeData} adjustsFontSizeToFit minimumFontScale={0.8}>{dataTexto}</T>
+      {souDono ? (
         <T linhas={3} style={estilos.verdeLinha}>O app lembra você na véspera às 18h e 2 horas antes, e avisa quando o profissional sair a caminho.</T>
       ) : (
         <>
@@ -743,7 +825,7 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 //   só entra no card do topo quando o endereço está travado (Arte-Endereco-Apos-Horario).
 export default function TelaPosMatch({
   fase, demanda, frente, souDono, valor, endereco, pontoReferencia, distanciaKm, outro, usuarioId, onExpirar,
-  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links, conversa, escolherOutro,
+  agendamento, agendado, aCaminho, emAndamento, cancelamento, desfazer, links, conversa, escolherOutro, whatsappLiberado,
 }) {
   const ehObra = frente === 'obra'
   const [picker, setPicker] = useState(null) // null | 'propor' | 'sugerir'
@@ -789,8 +871,25 @@ export default function TelaPosMatch({
   const cancelMeu = cancelamento?.pedido && !cancelamento.paraMim
   const rodapeCancel = cancelMeu ? <LinhaCancelamentoMeu nomeOutro={cancelamento.nomeOutro} /> : null
 
+  // Arte-Ela-Chegou-v2: a vigia (dono, agendado, horário vencido sem resposta) com o
+  // onRemarcado que abre a folha de dia e hora. O atraso deixa o efeito que fecha a folha
+  // (pendente/propostaPor mudam com o 'remarcar') rodar antes.
+  const vigiaChegou = fase === 'agendado' && souDono && agendado?.vigia
+    ? { ...agendado.vigia, onRemarcado: () => setTimeout(() => setPicker('propor'), 400) }
+    : null
+  const cardsAltos = !!vigiaChegou || (!!cancelParaMim && !!souDono)
+
   let estado = null
-  if (cancelParaMim) {
+  if (cancelParaMim && souDono) {
+    // Pedido do profissional: o card azul primeiro; a pergunta da chegada fica apagada embaixo
+    // até o pedido ser respondido.
+    estado = (
+      <View style={{ gap: 8 }}>
+        <CardPedidoCancelarDono pedido={cancelamento.pedido} nomeOutro={cancelamento.nomeOutro} genero={cancelamento.genero} respondendo={cancelamento.respondendo} onResponder={cancelamento.onResponder} onLiberarWhatsApp={cancelamento.onLiberarWhatsApp} />
+        {vigiaChegou ? <CardChegou vigia={vigiaChegou} nome={agendamento?.nomeOutro} dataTexto={formatarAgendado(demanda?.chegada_prevista_em) || '—'} apagado /> : null}
+      </View>
+    )
+  } else if (cancelParaMim) {
     estado = <CardCancelamentoParaMim pedido={cancelamento.pedido} nomeOutro={cancelamento.nomeOutro} respondendo={cancelamento.respondendo} onResponder={cancelamento.onResponder} />
   } else if (fase === 'aguardando') {
     estado = <EstadoAguardando demanda={demanda} frente={frente} souDono={souDono} onAbrirPicker={() => setPicker('propor')} desfazer={souDono ? desfazer : null} rodape={rodapeCancel} />
@@ -817,7 +916,7 @@ export default function TelaPosMatch({
         podeDizerACaminho={agendado?.podeDizerACaminho}
         onACaminho={agendado?.onACaminho}
         enviandoACaminho={agendado?.enviandoACaminho}
-        vigia={agendado?.vigia || null}
+        vigia={vigiaChegou}
         reagendamento={pendente ? { minha: minhaPendente, respondendo: agendamento?.respondendo, onResponder: agendamento?.onResponder, onSugerir: () => setPicker('sugerir') } : null}
         rodape={rodapeCancel}
       />
@@ -833,7 +932,11 @@ export default function TelaPosMatch({
   // sessão) no LUGAR do "Cancelar serviço" — só nesse estado; fora dele, o botão de sempre.
   const mostraEscolherOutro = mostraAviso && !!souDono && !!escolherOutro?.onConfirmar && demanda?.pode_escolher_outro === true && !esperarDispensado && !cancelamento?.pedido
   const mostraCancelar = mostraAviso && !!cancelamento?.onAbrir && !cancelamento?.pedido && !mostraEscolherOutro
-  const linha2Cliente = fase === 'aguardando' || fase === 'proposto' || fase === 'agendado'
+  // Profissional, antes do "Estou a caminho": o dono liberou o WhatsApp (resposta ao pedido de
+  // cancelamento) — o botão aparece como depois do "Estou a caminho".
+  const whatsLiberado = !souDono && mostraAviso && !!whatsappLiberado?.telefone
+  const linha2Cliente = whatsLiberado ? 'Cliente · WhatsApp liberado'
+    : fase === 'aguardando' || fase === 'proposto' || fase === 'agendado'
     ? 'Cliente · contato liberado após o "Estou a caminho"'
     : 'Cliente'
 
@@ -842,12 +945,15 @@ export default function TelaPosMatch({
   // ConversaProntas, que renderiza um fragmento: a linha e o Modal — o Modal não ocupa vão.)
   return (
     <>
-    <View style={estilos.tela}>
+    {/* Mesma distribuição de sempre (space-evenly na altura da tela); só rola quando o
+        conteúdo não cabe — os cards da Arte-Ela-Chegou-v2 são mais altos que a tela fixa. */}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[estilos.tela, cardsAltos && { gap: 8 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <CardTopo demanda={demanda} endereco={endereco} pontoReferencia={pontoReferencia} valor={valor} faixa={faixa} bloqueado={enderecoBloqueado(demanda, souDono)} distanciaKm={distanciaKm} />
       {conversa && temConversa(conversa.dados) ? (
         <ConversaProntas dados={conversa.dados} novas={conversa.novas} outro={outro} souDono={souDono} enviando={conversa.enviando} onEnviar={conversa.onEnviar} onAbrir={conversa.onAbrir} />
       ) : null}
       {estado}
+      {whatsLiberado ? <BotaoWhatsApp telefone={whatsappLiberado.telefone} onPress={whatsappLiberado.onWhatsApp} souDono={false} /> : null}
       <MiniPessoa souDono={souDono} outro={outro} linha2={linha2Cliente} />
       {/* Fase amarela do "não marcou" (dono, aguardando): a nota fica SOB o card do
           profissional, não dentro da caixa — é sobre o que o app fará, não sobre ele. */}
@@ -870,16 +976,16 @@ export default function TelaPosMatch({
           <T style={estilos.btnCancelarTexto}>✕ {rotuloBotaoCancelar(souDono)}</T>
         </TouchableOpacity>
       ) : null}
-    </View>
+    </ScrollView>
 
       <FolhaPicker
         visivel={!!picker}
         onFechar={() => setPicker(null)}
-        titulo={ehObra ? 'Quando você vai começar a obra?' : 'Quando você vai fazer o serviço?'}
+        titulo={souDono ? 'Qual o novo dia e hora?' : ehObra ? 'Quando você vai começar a obra?' : 'Quando você vai fazer o serviço?'}
         /* Primeira proposta: teto no prazo do pedido. "Sugerir outro": o dono sem teto, o
            profissional com o prazo — a mesma régua do CardAgendamento. */
-        limite={picker === 'sugerir' && souDono ? null : agendamento?.limite}
-        rotuloBotao={picker === 'sugerir' ? `Enviar para ${agendamento?.nomeOutro || (souDono ? 'o profissional' : 'o cliente')}` : 'Enviar para o cliente confirmar'}
+        limite={souDono ? null : agendamento?.limite}
+        rotuloBotao={picker === 'sugerir' || souDono ? `Enviar para ${agendamento?.nomeOutro || (souDono ? 'o profissional' : 'o cliente')}` : 'Enviar para o cliente confirmar'}
         enviando={picker === 'sugerir' ? !!agendamento?.respondendo : !!agendamento?.enviando}
         onEnviar={(iso) => picker === 'sugerir' ? agendamento?.onResponder?.('contraproposta', iso) : agendamento?.onPropor?.(iso)}
       />
@@ -888,7 +994,7 @@ export default function TelaPosMatch({
 }
 
 const estilos = StyleSheet.create({
-  tela: { flex: 1, justifyContent: 'space-evenly' },
+  tela: { flexGrow: 1, justifyContent: 'space-evenly' },
 
   // 1. Card do topo (~150dp)
   topo: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.grande, padding: 12 },
@@ -935,6 +1041,12 @@ const estilos = StyleSheet.create({
   btnVazado: { borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, paddingVertical: 10, alignItems: 'center', marginTop: 8 },
   btnVazadoTexto: { fontSize: 13, fontWeight: '700', color: cores.textoForte },
 
+  // Arte-Ela-Chegou-v2: card azul do pedido de cancelamento e as opções com título + linha.
+  cardAzul: { backgroundColor: cores.infoSuave, borderWidth: 1, borderColor: cores.info, borderRadius: raios.grande, padding: 12 },
+  opcao: { borderWidth: 1, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingVertical: 9, paddingHorizontal: 12, marginTop: 8 },
+  opcaoVerde: { backgroundColor: cores.sucesso, borderColor: cores.sucesso },
+  opcaoTitulo: { fontSize: 14, fontWeight: '700', color: cores.textoForte },
+  opcaoSub: { fontSize: 11, color: cores.textoMedio, lineHeight: 15, marginTop: 2 },
   cardLaranja: { backgroundColor: '#3a2a00', borderWidth: 1, borderColor: cores.primaria, borderRadius: raios.grande, padding: 12 },
   rotuloLaranja: { fontSize: 11, fontWeight: '800', color: cores.primaria, letterSpacing: 0.5, marginBottom: 4 },
   cardTitulo: { fontSize: 15, fontWeight: '700', color: cores.textoForte, lineHeight: 20, marginBottom: 4 },

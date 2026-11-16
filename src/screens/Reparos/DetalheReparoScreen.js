@@ -46,7 +46,7 @@ import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } fr
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista, desistenciaDoPush } from '../../components/ProfissionalDesistiu'
 import { interessadosVisiveis, ehRecusado } from '../../utils/listaInteressados'
 import CancelarPedido from '../../components/CancelarPedido'
-import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
+import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, liberarWhatsApp, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
@@ -1800,11 +1800,13 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Abre o modal UMA vez por montagem: ao chegar pelo push, ou quando o servidor já perguntou.
   useEffect(() => {
     if (!comparecimentoPendente || comparecimentoAbertoRef.current) return
+    // Arte-Ela-Chegou-v2: no AGENDADO a pergunta já está na tela (card "chegou?"), sem modal.
+    if (fasePosMatch === 'agendado') return
     if (abrirComparecimento || reparo?.vigia_comparecimento_em) {
       comparecimentoAbertoRef.current = true
       setModalCompareceu(true)
     }
-  }, [comparecimentoPendente, abrirComparecimento, reparo?.vigia_comparecimento_em])
+  }, [comparecimentoPendente, abrirComparecimento, reparo?.vigia_comparecimento_em, fasePosMatch])
 
   // Push 'reparo_encerrado' ao dono (inclusive o encerramento automático): abre a avaliação
   // UMA vez por montagem, só se ainda não avaliou. O detalhe não traz ja_avaliei; quem traz é
@@ -1824,8 +1826,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Resposta do dono à vigia. Negociação (sem { timeout }), como handleResponderAgendamento:
   // o servidor decide o desfecho ('sim' confirma a chegada, 'nao' desfaz o match pelo cron,
   // 'remarcar' libera o horário) e o buscar() traz o estado novo.
-  const handleComparecimento = async (resposta) => {
-    if (comparecendo) return
+  // Devolve true/false (deu certo?). semAvisoRemarcar: o card "chegou?" abre a folha de dia e
+  // hora logo depois do 'remarcar', no lugar do alerta "o profissional vai propor".
+  const handleComparecimento = async (resposta, { semAvisoRemarcar = false } = {}) => {
+    if (comparecendo) return false
     setComparecendo(true)
     try {
       await comRetry(() => api.post(`/reparos/${reparo.id}/confirmar-comparecimento`, { resposta }))
@@ -1833,12 +1837,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
       await buscar()
       if (resposta === 'sim') Alert.alert('✅ Chegada confirmada', 'O serviço está em andamento. Quando terminar, encerrem pelo app.')
       else if (resposta === 'nao') Alert.alert('Registrado', 'Registramos que o profissional não veio. O serviço volta a ficar disponível para outros profissionais.')
-      else Alert.alert('Horário liberado', 'O profissional vai propor um novo horário, e você recebe um aviso para confirmar.')
+      else if (!semAvisoRemarcar) Alert.alert('Horário liberado', 'O profissional vai propor um novo horário, e você recebe um aviso para confirmar.')
+      return true
     } catch (err) {
       console.log('[DetalheReparo] falha ao registrar comparecimento | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { if (mountedRef.current) setModalCompareceu(false); return }
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { if (mountedRef.current) setModalCompareceu(false); return false }
       Alert.alert('Erro', err.mensagem || 'Não foi possível registrar sua resposta.')
       if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+      return false
     } finally {
       if (mountedRef.current) setComparecendo(false)
     }
@@ -1903,6 +1909,25 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
   // Resposta ao pedido de comum acordo do outro lado ('aceitar' cancela sem falta para
   // ninguém; 'recusar' mantém o combinado).
+  // Arte-Ela-Chegou-v2 (dono): responde ao pedido de cancelamento do profissional liberando o
+  // próprio WhatsApp — POST /liberar-whatsapp; o pedido é retirado e o buscar() traz o estado.
+  const handleLiberarWhatsApp = async () => {
+    if (respondendoCancelamento) return
+    setRespondendoCancelamento(true)
+    try {
+      await liberarWhatsApp('servico', reparo.id)
+      await buscar()
+      Alert.alert('📱 WhatsApp liberado', `${nomeOutroCancelamento || 'O profissional'} recebeu o seu número e o pedido de cancelamento foi retirado. O combinado continua valendo.`)
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao liberar WhatsApp | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível liberar o seu WhatsApp.')
+      if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setRespondendoCancelamento(false)
+    }
+  }
+
   const handleResponderCancelamento = async (acao) => {
     if (respondendoCancelamento) return
     setRespondendoCancelamento(true)
@@ -2214,7 +2239,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
               podeDizerACaminho,
               onACaminho: handleMatch,
               enviandoACaminho,
-              vigia: isDono && comparecimentoPendente ? { onResponder: () => setModalCompareceu(true) } : null,
+              // Arte-Ela-Chegou-v2: o card responde direto (sim / remarcar / nao), sem o modal.
+              vigia: isDono && comparecimentoPendente ? { onResponder: (r) => handleComparecimento(r, { semAvisoRemarcar: true }), enviando: comparecendo, genero: prestadorMatch?.genero } : null,
             }}
             /* A CAMINHO: chegada (handleChegada, o mesmo /chegada dos dois lados; declarada, o
                dono confirma ou contesta), pedido de atraso (profissional pede antes de declarar
@@ -2265,6 +2291,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
               nomeOutro: nomeOutroCancelamento,
               respondendo: respondendoCancelamento,
               onResponder: handleResponderCancelamento,
+              // Dono, pedido do profissional: card azul com "liberar meu WhatsApp".
+              onLiberarWhatsApp: isDono ? handleLiberarWhatsApp : undefined,
+              genero: isDono ? prestadorMatch?.genero : undefined,
               // Dono: a folha "O que você quer fazer?" (Trocar / Cancelar o pedido inteiro).
               onAbrir: isDono ? () => setFolhaTrocar(true) : abrirCancelar,
               desabilitado: cancelando || desfazendo,
@@ -2296,6 +2325,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
             conversa={{ dados: conversaProntas.dados, novas: conversaProntas.novas, enviando: conversaProntas.enviando, onEnviar: conversaProntas.enviar, onAbrir: conversaProntas.marcarVistas }}
             /* Dono com pode_escolher_outro: card vermelho no lugar do "Cancelar serviço". */
             escolherOutro={isDono ? { onConfirmar: handleEscolherOutro, desabilitado: escolhendoOutro || desfazendo || cancelando } : null}
+            /* Profissional: dono liberou o WhatsApp antes do "Estou a caminho" (dono_telefone já vem). */
+            whatsappLiberado={!isDono && donoTelefone ? { telefone: donoTelefone, onWhatsApp: () => abrirWhatsApp(donoTelefone) } : null}
           />
           {isDono && (
             <ModalCompareceu

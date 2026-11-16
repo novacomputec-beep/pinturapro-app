@@ -72,6 +72,12 @@ export const pedirCancelamentoAcordo = (frente, id, { motivo, detalhe }) =>
 export const responderPedidoCancelamento = (frente, id, aceitar) =>
   comRetry(() => api.post(`${base(frente, id)}/cancelamento-acordo/responder`, { aceitar: !!aceitar }))
 
+// Arte-Ela-Chegou-v2: o DONO responde ao pedido de cancelamento do profissional liberando o
+// próprio WhatsApp — o profissional recebe o número (dono_telefone no GET, antes do "Estou a
+// caminho") e o pedido é retirado. POST /:id/liberar-whatsapp, sem corpo.
+export const liberarWhatsApp = (frente, id) =>
+  comRetry(() => api.post(`${base(frente, id)}/liberar-whatsapp`, {}))
+
 export const pedidoCancelamentoDe = (resposta, linha) => {
   const p = resposta?.pedido_cancelamento ?? linha?.pedido_cancelamento ?? null
   return p && typeof p === 'object' ? p : null
