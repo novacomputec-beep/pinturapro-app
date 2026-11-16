@@ -67,11 +67,18 @@ export const textoMotivo = (d) => {
 // na linha de "QUEM DESISTIU"; motivo, linhas, botões e cores seguem iguais.
 export const MOTIVO_CONTA_EXCLUIDA = 'conta_excluida'
 export const saiuDoApp = (d) => d?.motivo === MOTIVO_CONTA_EXCLUIDA
+// Motivo 'atraso_chegada' (API): o escolhido não chegou no prazo combinado e o match caiu. Também
+// não é uma desistência: título próprio na folha, no card e na linha, e na folha um texto só no
+// lugar do motivo e das três linhas; os botões seguem iguais.
+export const MOTIVO_ATRASO_CHEGADA = 'atraso_chegada'
+export const naoChegou = (d) => d?.motivo === MOTIVO_ATRASO_CHEGADA
+const temTituloProprio = (d) => saiuDoApp(d) || naoChegou(d)
 // Título da folha/card/linha para uma desistência: "<Nome> saiu do ProTudo" ou "<Nome> desistiu
 // do serviço / da obra".
 export const tituloDesistencia = (d, frente = 'servico', nomePadrao = 'O profissional') => {
   const nome = d?.nome || nomePadrao
   if (saiuDoApp(d)) return `${nome} saiu do ProTudo`
+  if (naoChegou(d)) return `${nome} não chegou no prazo combinado`
   return `${nome} desistiu ${frente === 'obra' ? 'da obra' : 'do serviço'}`
 }
 
@@ -206,14 +213,20 @@ export function SheetProfissionalDesistiu({ visivel, desistencia, titulo, frente
             </View>
           </ZonaArraste>
           <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={estilos.motivoBox}>
-              <Text style={estilos.motivoRotulo}>MOTIVO</Text>
-              <Text style={estilos.motivoTexto}>{textoMotivo(d)}{d.acordo ? ' · de comum acordo' : ''}</Text>
-            </View>
+            {naoChegou(d) ? (
+              <Text style={[estilos.motivoTexto, { marginBottom: 4 }]}>O serviço voltou a ficar aberto. Escolha outro profissional entre os interessados.</Text>
+            ) : (
+              <>
+                <View style={estilos.motivoBox}>
+                  <Text style={estilos.motivoRotulo}>MOTIVO</Text>
+                  <Text style={estilos.motivoTexto}>{textoMotivo(d)}{d.acordo ? ' · de comum acordo' : ''}</Text>
+                </View>
 
-            <Linha icone="🔓">Seu pedido voltou a ficar aberto.</Linha>
-            <Linha icone="👥">{linhaInteressados(interessadosAtivos).replace(/^./, (c) => c.toUpperCase())}.</Linha>
-            <Linha icone="🔔">Novos profissionais continuam sendo avisados.</Linha>
+                <Linha icone="🔓">Seu pedido voltou a ficar aberto.</Linha>
+                <Linha icone="👥">{linhaInteressados(interessadosAtivos).replace(/^./, (c) => c.toUpperCase())}.</Linha>
+                <Linha icone="🔔">Novos profissionais continuam sendo avisados.</Linha>
+              </>
+            )}
 
             <TouchableOpacity style={estilos.btnLaranja} onPress={onVerInteressados} activeOpacity={0.85} accessibilityRole="button">
               <Text style={estilos.btnLaranjaTexto}>Ver interessados e escolher outro</Text>
@@ -235,7 +248,7 @@ export function CardDesistiu({ desistencia, estilo, frente }) {
   const nome = d.nome || 'O profissional'
   const hora = horaDesistiu(d.cancelado_em)
   // Arte-Profissional-Saiu: "<Nome> saiu do ProTudo"; senão o "<Nome> desistiu" curto de sempre.
-  const titulo = saiuDoApp(d) ? tituloDesistencia(d, frente) : `${nome} desistiu`
+  const titulo = temTituloProprio(d) ? tituloDesistencia(d, frente) : `${nome} desistiu`
   return (
     <View style={[estilos.card, estilo]}>
       <Text style={estilos.cardTitulo}>⚠️ {titulo}{hora ? ` ${hora}` : ''}</Text>
@@ -259,7 +272,7 @@ export function SecaoQuemDesistiu({ desistencias, estilo, frente }) {
           <View style={{ flex: 1, minWidth: 0, marginLeft: 10 }}>
             <View style={estilos.desistenteTopo}>
               {/* Arte-Profissional-Saiu: "<Nome> saiu do ProTudo" no lugar do nome sozinho. */}
-              <Text style={estilos.desistenteNome} numberOfLines={1}>{saiuDoApp(d) ? tituloDesistencia(d, frente, 'Profissional') : (d.nome || 'Profissional')}</Text>
+              <Text style={estilos.desistenteNome} numberOfLines={1}>{temTituloProprio(d) ? tituloDesistencia(d, frente, 'Profissional') : (d.nome || 'Profissional')}</Text>
               <View style={estilos.tag}><Text style={estilos.tagTexto}>desistiu</Text></View>
             </View>
             <Text style={estilos.desistenteMeta} numberOfLines={2}>

@@ -1402,6 +1402,16 @@ export default function DetalheReparoScreen({ route, navigation }) {
       // É AQUI que o dono recebe o 409 PROFISSIONAL_SUSPENSO ao tentar aceitar: o aceite
       // não vale, e o motivo é o profissional, não a conexão de quem está aceitando.
       if (alertouSuspensao(err)) return
+      // 409 PRAZO_VENCIDO: o prazo do pedido venceu e a escolha não vale. Mensagem da API e o
+      // caminho para resolver (o mesmo ModalEstenderPrazo do botão de aumentar tempo), nunca
+      // o "Erro" genérico.
+      if (err.codigo === 'PRAZO_VENCIDO') {
+        Alert.alert('Prazo vencido', err.mensagem || 'O prazo deste pedido venceu. Aumente o prazo para escolher o profissional.', [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Aumentar prazo', onPress: () => { if (mountedRef.current) setModalEstender(true) } },
+        ])
+        return
+      }
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível enviar. Verifique sua conexão.'), [
