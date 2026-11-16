@@ -9,6 +9,7 @@ import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { ehValorACombinar } from '../../components/ChipValorACombinar'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { rotuloCategorias } from '../../utils/categorias'
 import { textoFasePosMatch } from '../../components/Agendamento'
@@ -184,7 +185,7 @@ export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
       <View style={estilos.valoresRow}>
         <View>
           <Text style={estilos.valorLabel}>Valor do serviço</Text>
-          <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
+          <Text style={[estilos.valorTexto, ehValorACombinar(item) && { color: cores.info }]}>{ehValorACombinar(item) ? 'A combinar' : formatarValor(item.valor_estimado)}</Text>
         </View>
         {item.valor_proposto != null && (
           <View>

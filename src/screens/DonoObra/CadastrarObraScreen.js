@@ -121,6 +121,9 @@ export default function CadastrarObraScreen({ navigation }) {
   const [categoria, setCategoria] = useState(CATEGORIA_INICIAL)
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
+  // Arte-Valor-A-Combinar: "Não sei o valor — quero receber propostas". Marcado, o pedido sai
+  // sem valor e com valor_a_combinar = true; o valor digitado fica guardado para o desmarcar.
+  const [valorACombinar, setValorACombinar] = useState(false)
   const [prazo, setPrazo] = useState(null)
   const [dataInicial, setDataInicial] = useState('')
   const [cep, setCep] = useState('')
@@ -204,6 +207,7 @@ export default function CadastrarObraScreen({ navigation }) {
     setCategoria(CATEGORIA_INICIAL)
     setDescricao('')
     setValorEstimado('')
+    setValorACombinar(false)
     setPrazo(null)
     setDataInicial('')
     midia.resetar()
@@ -261,7 +265,7 @@ export default function CadastrarObraScreen({ navigation }) {
   // serviço do dono_reparo). Cai ao enviar, ao perder o foco ou ao desmontar.
   const focado = useIsFocused()
   const temConteudo = !!(
-    titulo || descricao || valorEstimado || prazo != null || dataInicial || categoria != null ||
+    titulo || descricao || valorEstimado || valorACombinar || prazo != null || dataInicial || categoria != null ||
     cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
     midia.itens.length > 0
   )
@@ -346,7 +350,7 @@ export default function CadastrarObraScreen({ navigation }) {
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
     if (enderecoEncontrado && !logradouro.trim()) novos.logradouro = 'Informe a rua/avenida'
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
-    if (!valorEstimado.trim()) novos.valorEstimado = 'Informe o valor oferecido'
+    if (!valorACombinar && !valorEstimado.trim()) novos.valorEstimado = 'Informe o valor oferecido'
     return novos
   }
   const validarPasso = (p) => {
@@ -496,7 +500,9 @@ export default function CadastrarObraScreen({ navigation }) {
         titulo: titulo.trim(),
         categoria,
         descricao: descricao.trim(),
-        valor: valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
+        // Só quando marcado: sem a marca o payload é o de sempre.
+        ...(valorACombinar ? { valor_a_combinar: true } : {}),
+        valor: !valorACombinar && valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
         pais: 'Brasil',
         uf: uf.trim(),
         cidade: cidade.trim(),
@@ -611,6 +617,7 @@ export default function CadastrarObraScreen({ navigation }) {
             prazos={PRAZOS} prazo={prazo} onPrazo={setPrazo}
             dataInicial={dataInicial} onDataInicial={(t) => setDataInicial(mascararData(t))}
             valor={valorEstimado} onValor={(t) => setValorEstimado(mascararValor(t))}
+            aCombinar={valorACombinar} onACombinar={(v) => { setValorACombinar(v); setErros(e => ({ ...e, valorEstimado: undefined })) }}
             erros={erros} registrarY={registrarY}
           />
         )}

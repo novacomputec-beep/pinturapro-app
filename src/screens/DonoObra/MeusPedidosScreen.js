@@ -10,6 +10,7 @@ import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { excluirPedido, ehMatchAtivo } from '../../utils/excluirPedido'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import { ehValorACombinar } from '../../components/ChipValorACombinar'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { categoriasDe, emojiReparo } from '../../utils/categorias'
 import { marcarTemObras } from '../../utils/temObras'
@@ -81,8 +82,8 @@ function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
             {dist != null && <Text style={estilos.cardDistancia}>{`  ·  ${formatarDistancia(dist)}`}</Text>}
           </Text>
         </View>
-        <Text style={estilos.cardValor}>
-          R$ {Number(item.valor || item.valor_estimado || 0).toLocaleString('pt-BR')}
+        <Text style={[estilos.cardValor, ehValorACombinar(item) && item.valor_acordado == null && { color: cores.info }]}>
+          {ehValorACombinar(item) && !(Number(item.valor || item.valor_estimado || 0) > 0) ? 'A combinar' : `R$ ${Number(item.valor || item.valor_estimado || 0).toLocaleString('pt-BR')}`}
         </Text>
       </View>
 

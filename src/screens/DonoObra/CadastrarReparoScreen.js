@@ -84,6 +84,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [grupoDoSlugApi, setGrupoDoSlugApi] = useState({})
   const [descricao, setDescricao] = useState('')
   const [valorEstimado, setValorEstimado] = useState('')
+  // Arte-Valor-A-Combinar: "Não sei o valor — quero receber propostas". Marcado, o pedido sai
+  // sem valor e com valor_a_combinar = true; o valor digitado fica guardado para o desmarcar.
+  const [valorACombinar, setValorACombinar] = useState(false)
   const [urgencia, setUrgencia] = useState(null)
   const [cep, setCep] = useState('')
   const [logradouro, setLogradouro] = useState('')
@@ -156,6 +159,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     setLocalAtendimento(null)
     setDescricao('')
     setValorEstimado('')
+    setValorACombinar(false)
     setUrgencia(null)
     midia.resetar()
     setCep('')
@@ -227,7 +231,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // enviar (campos limpos), ao perder o foco ou ao desmontar.
   const focado = useIsFocused()
   const temConteudo = !!(
-    titulo || descricao || valorEstimado || urgencia != null || categorias.length > 0 ||
+    titulo || descricao || valorEstimado || valorACombinar || urgencia != null || categorias.length > 0 ||
     cep || logradouro || numero || complemento || bairro || cidade || uf || pontoReferencia ||
     midia.itens.length > 0
   )
@@ -298,7 +302,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     if (!cep || cep.length < 8) novos.cep = 'Informe um CEP válido'
     if (enderecoEncontrado && !logradouro.trim()) novos.logradouro = 'Informe a rua/avenida'
     if (enderecoEncontrado && !numero.trim()) novos.numero = 'Informe o número'
-    if (!valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
+    if (!valorACombinar && !valorEstimado.trim()) novos.valorEstimado = 'Informe quanto você quer pagar'
     return novos
   }
   const validarPasso = (p) => {
@@ -457,7 +461,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         // Só em beleza/cuidados; nas demais categorias a chave nem vai (payload de sempre).
         ...(pedeLocal && localAtendimento ? { local_atendimento: localAtendimento } : {}),
         descricao: descricao.trim(),
-        valor_estimado: valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
+        // Só quando marcado: sem a marca o payload é o de sempre.
+        ...(valorACombinar ? { valor_a_combinar: true } : {}),
+        valor_estimado: !valorACombinar && valorEstimado ? parseFloat(valorEstimado.replace(/\./g, '').replace(',', '.')) : null,
         pais: 'Brasil',
         uf: uf.trim(),
         cidade: cidade.trim(),
@@ -580,6 +586,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
           <PassoPrazoValor
             urgencia={urgencia} onUrgencia={setUrgencia}
             valor={valorEstimado} onValor={(t) => setValorEstimado(mascararValor(t))}
+            aCombinar={valorACombinar} onACombinar={(v) => { setValorACombinar(v); setErros(e => ({ ...e, valorEstimado: undefined })) }}
             erros={erros} registrarY={registrarY}
           />
         )}

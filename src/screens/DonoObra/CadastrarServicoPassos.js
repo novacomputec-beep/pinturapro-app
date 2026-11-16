@@ -333,8 +333,54 @@ export function PassoDetalhes({ titulo, descricao, onTitulo, onDescricao, erros,
   )
 }
 
+// "Quanto quer pagar?" (serviço e obra): o campo de valor em destaque e, abaixo dele, o cartão
+// marcável da Arte-Valor-A-Combinar — "Não sei o valor — quero receber propostas". Marcado
+// (borda e caixa laranja), o campo fica apagado e não editável; o pedido sai com
+// valor_a_combinar = true e sem valor.
+function CampoValor({ valor, onValor, aCombinar, onACombinar, erro, rotuloAcessivel }) {
+  return (
+    <>
+      <Text style={estilos.secaoTitulo}>Quanto quer pagar?</Text>
+      <View style={[estilos.valorCaixa, erro && !aCombinar && { borderColor: cores.perigo }, aCombinar && estilos.tileApagado]}>
+        <Text style={estilos.valorPrefixo}>R$</Text>
+        <Input
+          placeholder="0,00"
+          value={aCombinar ? '' : valor}
+          onChangeText={onValor}
+          keyboardType="numeric"
+          editable={!aCombinar}
+          estilo={estilos.valorInputWrap}
+          estiloInput={estilos.valorInput}
+          accessibilityLabel={rotuloAcessivel}
+        />
+      </View>
+      {erro && !aCombinar ? <Text style={estilos.erroTexto}>{erro}</Text> : null}
+      {onACombinar ? (
+        <>
+          <TouchableOpacity
+            style={[estilos.linha, estilos.aCombinarCartao, aCombinar && estilos.linhaMarcada]}
+            onPress={() => onACombinar(!aCombinar)}
+            activeOpacity={0.8}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!aCombinar }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.linhaNome}>Não sei o valor — quero receber propostas</Text>
+              <Text style={estilos.linhaExemplos}>Os profissionais dizem quanto cobram e você escolhe.</Text>
+            </View>
+            <Caixa marcada={!!aCombinar} />
+          </TouchableOpacity>
+          <Text style={estilos.valorNota}>É como pedir orçamento a vários de uma vez.</Text>
+        </>
+      ) : (
+        <Text style={estilos.valorNota}>Os profissionais podem aceitar o seu valor ou sugerir outro. Você escolhe.</Text>
+      )}
+    </>
+  )
+}
+
 // ─── Passo 3: prazo (9 opções, as mesmas) + valor em destaque ─────────────────────────────
-export function PassoPrazoValor({ urgencia, onUrgencia, valor, onValor, erros, registrarY }) {
+export function PassoPrazoValor({ urgencia, onUrgencia, valor, onValor, aCombinar, onACombinar, erros, registrarY }) {
   return (
     <>
       <View onLayout={registrarY?.('urgencia')}>
@@ -350,21 +396,7 @@ export function PassoPrazoValor({ urgencia, onUrgencia, valor, onValor, erros, r
         </View>
       </View>
       <View onLayout={registrarY?.('valorEstimado')}>
-        <Text style={estilos.secaoTitulo}>Quanto quer pagar?</Text>
-        <View style={[estilos.valorCaixa, erros?.valorEstimado && { borderColor: cores.perigo }]}>
-          <Text style={estilos.valorPrefixo}>R$</Text>
-          <Input
-            placeholder="0,00"
-            value={valor}
-            onChangeText={onValor}
-            keyboardType="numeric"
-            estilo={estilos.valorInputWrap}
-            estiloInput={estilos.valorInput}
-            accessibilityLabel="Quanto você quer pagar, em reais"
-          />
-        </View>
-        {erros?.valorEstimado ? <Text style={estilos.erroTexto}>{erros.valorEstimado}</Text> : null}
-        <Text style={estilos.valorNota}>Os profissionais podem aceitar o seu valor ou sugerir outro. Você escolhe.</Text>
+        <CampoValor valor={valor} onValor={onValor} aCombinar={aCombinar} onACombinar={onACombinar} erro={erros?.valorEstimado} rotuloAcessivel="Quanto você quer pagar, em reais" />
       </View>
     </>
   )
@@ -518,7 +550,7 @@ export function GradeTiposObra({ tipos, tileOutros, selecionado, onEscolher }) {
 
 // Passo 3 da obra: os 6 prazos de sempre (3 por linha, "Defina a data" abre o campo de data
 // dd/mm/aaaa) + o valor em destaque com a mesma nota do serviço.
-export function PassoPrazoValorObra({ prazos, prazo, onPrazo, dataInicial, onDataInicial, valor, onValor, erros, registrarY }) {
+export function PassoPrazoValorObra({ prazos, prazo, onPrazo, dataInicial, onDataInicial, valor, onValor, aCombinar, onACombinar, erros, registrarY }) {
   const linhas = []
   for (let i = 0; i < prazos.length; i += 3) linhas.push(prazos.slice(i, i + 3))
   return (
@@ -545,13 +577,7 @@ export function PassoPrazoValorObra({ prazos, prazo, onPrazo, dataInicial, onDat
         )}
       </View>
       <View onLayout={registrarY?.('valorEstimado')}>
-        <Text style={estilos.secaoTitulo}>Quanto quer pagar?</Text>
-        <View style={[estilos.valorCaixa, erros?.valorEstimado && { borderColor: cores.perigo }]}>
-          <Text style={estilos.valorPrefixo}>R$</Text>
-          <Input placeholder="0,00" value={valor} onChangeText={onValor} keyboardType="numeric" estilo={estilos.valorInputWrap} estiloInput={estilos.valorInput} accessibilityLabel="Valor oferecido para a obra, em reais" />
-        </View>
-        {erros?.valorEstimado ? <Text style={estilos.erroTexto}>{erros.valorEstimado}</Text> : null}
-        <Text style={estilos.valorNota}>Os profissionais podem aceitar o seu valor ou sugerir outro. Você escolhe.</Text>
+        <CampoValor valor={valor} onValor={onValor} aCombinar={aCombinar} onACombinar={onACombinar} erro={erros?.valorEstimado} rotuloAcessivel="Valor oferecido para a obra, em reais" />
       </View>
     </>
   )
@@ -641,6 +667,7 @@ const estilos = StyleSheet.create({
   folhaSub: { fontSize: 12, color: cores.textoMedio, marginBottom: 12 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, padding: 12, marginBottom: 8, minHeight: 64 },
   linhaMarcada: { borderColor: cores.primaria, backgroundColor: cores.primariaSuave },
+  aCombinarCartao: { marginTop: 12, marginBottom: 0 },
   linhaEmoji: { fontSize: 26, width: 34, textAlign: 'center' },
   linhaNomeLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   linhaNome: { fontSize: 15, fontWeight: '700', color: cores.textoForte },

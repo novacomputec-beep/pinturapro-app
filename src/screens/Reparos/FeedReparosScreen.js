@@ -14,6 +14,7 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
+import ChipValorACombinar, { ehValorACombinar } from '../../components/ChipValorACombinar'
 import { distanciaItemKm, useCoordsUsuario } from '../../utils/distancia'
 import PillLocalAtendimento from '../../components/PillLocalAtendimento'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
@@ -156,9 +157,13 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
 
         {/* Label e valor na mesma linha (Text aninhado, como local/distância
             abaixo): alinha pela baseline sozinho e poupa ~24dp por card. */}
-        <Text style={estilos.valorLinha}>
-          Valor oferecido: <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
-        </Text>
+        {ehValorACombinar(item) ? (
+          <ChipValorACombinar estilo={{ marginBottom: 14 }} />
+        ) : (
+          <Text style={estilos.valorLinha}>
+            Valor oferecido: <Text style={estilos.valorTexto}>{formatarValor(item.valor_estimado)}</Text>
+          </Text>
+        )}
 
         <View style={estilos.conteudoRow}>
           {temFoto ? (

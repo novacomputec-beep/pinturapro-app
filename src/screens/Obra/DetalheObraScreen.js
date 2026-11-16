@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { BotaoPrimario, BotaoSecundario, AvisoContatoOculto } from '../../components'
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
+import ChipValorACombinar, { ehValorACombinar } from '../../components/ChipValorACombinar'
 import ModalAumentarValor from '../../components/ModalAumentarValor'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
@@ -640,6 +641,11 @@ export default function DetalheObraScreen({ route, navigation }) {
     if (!possuiFerramentas) { Alert.alert('Atenção', 'Informe se possui os materiais e equipamentos necessários.'); return }
     // Identidade só é pedida aqui, na primeira proposta: quem ainda não enviou
     // documentos abre a sheet; quem está em análise recebe o aviso.
+    // Arte-Valor-A-Combinar: o cliente não definiu valor, então a proposta TEM de trazer um.
+    if (ehValorACombinar(obra) && !(parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) > 0)) {
+      Alert.alert('Informe o seu valor', 'O cliente não definiu o valor deste pedido. Diga quanto você cobra para enviar sua proposta.')
+      return
+    }
     if (!(await verificacao.liberada())) return
     setEnviando(true)
     try {
@@ -669,6 +675,15 @@ export default function DetalheObraScreen({ route, navigation }) {
       // Rede de segurança: o servidor recusou por falta de verificação (403
       // VERIFICACAO_NECESSARIA) mesmo com o usuario local dizendo o contrário.
       if (await verificacao.tratouErro(err)) return
+      // 400 VALOR_OBRIGATORIO: pedido "valor a combinar" e a proposta foi sem valor (detalhe
+      // carregado antes da marca, por exemplo). Nada foi gravado: o formulário fica aberto, já
+      // no modo "valor obrigatório", e o texto é o do app (fala com o profissional).
+      if (err.codigo === 'VALOR_OBRIGATORIO') {
+        setObra(prev => (prev ? { ...prev, valor_a_combinar: true } : prev))
+        setValorAceito(false)
+        Alert.alert('Informe o seu valor', 'O cliente não definiu o valor deste pedido. Diga quanto você cobra para enviar sua proposta.')
+        return
+      }
       // Obra PRÓPRIA (a mesma pessoa, noutra conta, chegou aqui por link ou pelo feed):
       // o servidor recusa com um `codigo` estável e a mensagem certa. Sai antes da
       // reconsulta — não há candidatura a descobrir — e mostra a mensagem como veio.
@@ -2214,7 +2229,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* Fases pós-match (aguardando horário, proposta, agendado, a caminho, em andamento)
               vivem na tela fixa acima (TelaPosMatch); este corpo rolável nunca as desenha. */}
 
-          {!topoCompacto && (obra.valor || obra.valor_estimado) && (
+          {!topoCompacto && Number(obra.valor || obra.valor_estimado || 0) > 0 && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
               <View style={estilos.valorDestaqueLinha}>
                 <View>
@@ -2234,9 +2249,12 @@ export default function DetalheObraScreen({ route, navigation }) {
             </View>
           )}
 
+          {/* Arte-Valor-A-Combinar: pedido sem valor (o card de valor acima não sai) — chip azul
+              para o profissional e para o dono. Fechado o valor, volta o card "VALOR COMBINADO". */}
+          {!topoCompacto && ehValorACombinar(obra) && !(Number(obra.valor || obra.valor_estimado || 0) > 0) && <ChipValorACombinar curto estilo={{ marginBottom: 12 }} />}
           {!topoCompacto && <Text style={estilos.titulo}>{obra.titulo}</Text>}
           {/* Sem card de valor (obra sem valor) a linha de avisados sai avulsa, abaixo do título. */}
-          {estadoAvisados === 'linha' && !(obra.valor || obra.valor_estimado) && (
+          {estadoAvisados === 'linha' && !(Number(obra.valor || obra.valor_estimado || 0) > 0) && (
             <LinhaAvisados avisados={obra.profissionais_avisados} solta />
           )}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
@@ -2415,7 +2433,7 @@ export default function DetalheObraScreen({ route, navigation }) {
               {/* Ao lado do aumento de prazo, e só quando o detalhe diz que pode: a
                   elegibilidade (pode_aumentar_valor) e o piso (valor_minimo_aumento) vêm
                   do servidor, e a tela não os adivinha. */}
-              {aumentoValor.pode === true && (
+              {aumentoValor.pode === true && !ehValorACombinar(obra) && (
                 <TouchableOpacity
                   style={[{ backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#E8833A', borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 12 }, aumentando && { opacity: 0.5 }]}
                   onPress={() => setModalAumentar(true)}
@@ -2526,7 +2544,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   modo={estadoAvisados}
                   avisados={obra.profissionais_avisados}
                   onAumentarValor={() => setModalAumentar(true)}
-                  podeAumentarValor={aumentoValor.pode === true && !aumentando}
+                  podeAumentarValor={aumentoValor.pode === true && !ehValorACombinar(obra) && !aumentando}
                   onAumentarTempo={() => setModalEstender(true)}
                   podeAumentarTempo={!obra.expirada && !emEsperaEstender}
                   onManter={manterDicaAvisados}
@@ -2979,7 +2997,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                 ) : mostrarForm ? (
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
-                    <Text style={estilos.formSubtitulo}>Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.</Text>
+                    <Text style={estilos.formSubtitulo}>{ehValorACombinar(obra) ? 'O cliente não definiu o valor. Diga quanto você cobra por este serviço:' : 'Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.'}</Text>
                     {Number(obra.valor || obra.valor_estimado || 0) > 0 && !valorProposto && (
                       <TouchableOpacity
                         style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
@@ -2996,7 +3014,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                     )}
                     {!valorAceito && (
                       <View style={estilos.perguntaWrap}>
-                        <Text style={estilos.perguntaLabel}>FAZER UMA CONTRAPROPOSTA (opcional) – R$</Text>
+                        <Text style={estilos.perguntaLabel}>{ehValorACombinar(obra) ? 'QUANTO VOCÊ COBRA – R$' : 'FAZER UMA CONTRAPROPOSTA (opcional) – R$'}</Text>
                         <TextInput
                           style={estilos.input}
                           placeholder="Ex: 2.500,00"
@@ -3005,9 +3023,13 @@ export default function DetalheObraScreen({ route, navigation }) {
                           value={valorProposto}
                           onChangeText={v => setValorProposto(mascararValor(v))}
                         />
+                        {ehValorACombinar(obra) ? (
+                          <Text style={{ color: cores.info, fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>Obrigatório neste pedido</Text>
+                        ) : (
                         <Text style={{ color: '#f44336', fontWeight: '700', fontSize: 12, marginTop: 6, lineHeight: 18 }}>
                           ⚠️ Se você propuser outro valor, a obra ainda ficará disponível para outros profissionais até que o solicitante aceite. Pense bem!
                         </Text>
+                        )}
                       </View>
                     )}
                     <PerguntaOpcoes label="⏱ Há quanto tempo realiza esse tipo de serviço?" opcoes={['Menos de 1 ano', '1 a 3 anos', '3 a 5 anos', 'Mais de 5 anos']} valor={tempoExperiencia} onChange={setTempoExperiencia} />
