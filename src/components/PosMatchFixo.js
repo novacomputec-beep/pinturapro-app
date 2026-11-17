@@ -764,7 +764,9 @@ const EstadoACaminho = ({ demanda, souDono, outro, telefone, onWhatsApp, chegada
 
 // EM ANDAMENTO — caixa verde (ou "concluído pelo profissional" para o dono), WhatsApp e o
 // botão de concluir/confirmar.
-const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rotuloBotao, onConcluir, desabilitado, enviando, encerramentoOutro }) => {
+// onTrocarOuCancelar (só dono): a linha "Algo deu errado? Trocar profissional ou cancelar" sob o
+// botão — texto com link, sem botão — que abre a folha "O que você quer fazer?" da tela.
+const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rotuloBotao, onConcluir, desabilitado, enviando, encerramentoOutro, onTrocarOuCancelar }) => {
   const hora = horaDe(demanda?.chegada_confirmada_em)
   const enc = souDono && encerramentoOutro?.solicitadoEm ? encerramentoOutro : null
   const terminouEm = enc ? quandoTexto(enc.solicitadoEm) : null
@@ -792,6 +794,12 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
       {!enc ? <BotaoWhatsApp telefone={telefone} onPress={onWhatsApp} souDono={souDono} /> : null}
       <BotaoPrincipal rotulo={rotuloBotao} rotuloCarregando="Encerrando…" onPress={onConcluir} desabilitado={desabilitado} carregando={enviando} verde estilo={enc && telefone ? { marginBottom: 8 } : undefined} />
       {enc ? <BotaoWhatsApp telefone={telefone} onPress={onWhatsApp} souDono={souDono} vazado /> : null}
+      {souDono && onTrocarOuCancelar ? (
+        <T linhas={2} style={estilos.algoErrado}>
+          Algo deu errado?{' '}
+          <Text style={estilos.algoErradoLink} onPress={onTrocarOuCancelar} accessibilityRole="link" suppressHighlighting>Trocar profissional ou cancelar</Text>
+        </T>
+      ) : null}
     </View>
   )
 }
@@ -813,7 +821,8 @@ const EstadoEmAndamento = ({ demanda, frente, souDono, telefone, onWhatsApp, rot
 // aCaminho: { telefone, onWhatsApp, chegada: { naoDeclarada, aguardaConfirmacao,
 //   declaradaPorOutro, declaradaTexto, onChegada, declarando, onContestar }, atraso: { onPedir,
 //   onResponder, respondendo }, onNaoChegou }.
-// emAndamento: { telefone, onWhatsApp, rotuloBotao, onConcluir, desabilitado, enviando, encerramentoOutro }.
+// emAndamento: { telefone, onWhatsApp, rotuloBotao, onConcluir, desabilitado, enviando, encerramentoOutro,
+//   onTrocarOuCancelar (dono) }.
 // cancelamento: { pedido, paraMim, nomeOutro, respondendo, onResponder, onAbrir, desabilitado } | null.
 // desfazer (dono, fase aguardando): { liberadoEm, onAbrir, desabilitado } | null — Arte-Desfazer-Escolha.
 // links: { onReferencia, onDetalhes, onContrato, onDenunciar }.
@@ -1115,6 +1124,9 @@ const estilos = StyleSheet.create({
   links: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 2, rowGap: 4 },
   link: { fontSize: 12, fontWeight: '600', color: '#8888cc' },
   linkPerigo: { fontSize: 12, fontWeight: '600', color: cores.perigo },
+  // "Algo deu errado? Trocar profissional ou cancelar" (dono, em andamento): linha pequena centrada.
+  algoErrado: { fontSize: 12, color: cores.textoMedio, textAlign: 'center', lineHeight: 18, marginTop: 10 },
+  algoErradoLink: { color: cores.perigo, fontWeight: '600', textDecorationLine: 'underline' },
 
   // 6. Cancelar (~44dp)
   btnCancelar: { borderWidth: 1.5, borderColor: cores.perigo, borderRadius: raios.medio, paddingVertical: 11, alignItems: 'center' },

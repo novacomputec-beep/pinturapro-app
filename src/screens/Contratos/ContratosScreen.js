@@ -12,6 +12,7 @@ import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { textoFasePosMatch } from '../../components/Agendamento'
 import { matchDaPessoa } from '../../utils/profissional'
+import { rotuloEncerradoPeloCliente, PilulaEncerradoPeloCliente, LinhaSemFalta, LinkFaleComProTudo } from '../../components/EncerradoPeloCliente'
 
 const formatarData = (data) =>
   data ? new Date(data).toLocaleDateString('pt-BR') : '—'
@@ -72,6 +73,11 @@ export function CardCandidatura({ item, usuario, navigation, etiqueta }) {
   // fica como sempre foi. Espelha MeusInteressesScreen.
   const souDoMatch = temContrato && demandaAberta && matchMeu
   const faseTexto = souDoMatch ? textoFasePosMatch(item, false) : null
+  // O cliente trocou de profissional ou cancelou com o atendimento em andamento
+  // (encerrado_pelo_cliente_em_andamento): pílula cinza no lugar do badge (a candidatura fica
+  // 'cancelado', que o BadgeStatus não conhece), sem a tarja de prazo, a linha verde e o link
+  // ao suporte. Espelha o CardInteresse.
+  const encCliente = rotuloEncerradoPeloCliente(item)
 
   const abrirDetalhe = () => navigation?.navigate('DetalheObra', {
     obra: {
@@ -88,7 +94,7 @@ export function CardCandidatura({ item, usuario, navigation, etiqueta }) {
     <TouchableOpacity activeOpacity={0.85} onPress={abrirDetalhe}>
       <Card estilo={estilos.card}>
         <View style={estilos.cardTopo}>
-          {semResposta ? (
+          {encCliente ? <PilulaEncerradoPeloCliente item={item} /> : semResposta ? (
             <View style={estilos.badgeSemResposta}>
               <View style={estilos.badgeSemRespostaDot} />
               <Text style={estilos.badgeSemRespostaTexto}>Sem resposta</Text>
@@ -122,7 +128,8 @@ export function CardCandidatura({ item, usuario, navigation, etiqueta }) {
             a linha de uma obra fechada é indistinguível de uma em disputa. Mesma tarja de
             MeusInteressesScreen.js:197 — o componente Tag não serve porque o estilo dele
             não tem alignSelf e a tarja esticaria na largura do card. */}
-        {!demandaAberta && (
+        <LinhaSemFalta item={item} style={{ marginBottom: 14 }} />
+        {!encCliente && !demandaAberta && (
           <View style={[estilos.tagObra, expirada && estilos.tagExpirada]}>
             <Text style={[estilos.tagObraTexto, expirada && estilos.tagExpiradaTexto]}>
               {eEncerrada ? '🔒 Obra encerrada' : '⏰ Prazo expirado'}
@@ -165,7 +172,7 @@ export function CardCandidatura({ item, usuario, navigation, etiqueta }) {
                 "Pintura Interna"), mas o rótulo aqui já vem escrito como deve aparecer, e
                 a regra por PALAVRA o deformava — "Sem Resposta", "Em Análise". */}
             <Text style={[estilos.infoValor, { textTransform: 'none' }]}>
-              {semResposta ? 'Sem resposta' : (STATUS_BADGE[item.status]?.texto || item.status)}
+              {encCliente || (semResposta ? 'Sem resposta' : (STATUS_BADGE[item.status]?.texto || item.status))}
             </Text>
           </View>
         </View>
@@ -204,6 +211,7 @@ export function CardCandidatura({ item, usuario, navigation, etiqueta }) {
             <Text style={estilos.recusadoAvisoTexto}>Candidatura não selecionada.</Text>
           </View>
         )}
+        <LinkFaleComProTudo item={item} tipo="obra" usuario={usuario} />
       </Card>
     </TouchableOpacity>
   )

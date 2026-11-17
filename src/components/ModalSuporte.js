@@ -19,7 +19,11 @@ import api from '../services/api'
 // porque este POST cria um pedido e repetir abriria dois chamados.
 const MAX_MENSAGEM = 1000
 
-export default function ModalSuporte({ visivel, telefoneInicial, onFechar }) {
+// contexto (opcional): uma linha que identifica o pedido de onde o modal foi aberto (detalhe em
+// andamento, card do histórico). Vai na frente da mensagem, no MESMO campo `mensagem` — a API
+// só guarda whatsapp e mensagem —, e o limite do campo encolhe para as duas caberem.
+export default function ModalSuporte({ visivel, telefoneInicial, onFechar, contexto }) {
+  const ctx = String(contexto || '').trim().slice(0, 300)
   const [whatsapp, setWhatsapp] = useState('')
   const [mensagem, setMensagem] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -53,7 +57,7 @@ export default function ModalSuporte({ visivel, telefoneInicial, onFechar }) {
     try {
       await comRetry(() => api.post('/suporte/pedido', {
         whatsapp: digitos,
-        mensagem: mensagem.trim() || null,
+        mensagem: [ctx, mensagem.trim()].filter(Boolean).join('\n').slice(0, MAX_MENSAGEM) || null,
       }))
       setEnviado(true)
     } catch (err) {
@@ -105,7 +109,7 @@ export default function ModalSuporte({ visivel, telefoneInicial, onFechar }) {
                 placeholderTextColor={cores.placeholderCampo}
                 multiline
                 numberOfLines={4}
-                maxLength={MAX_MENSAGEM}
+                maxLength={MAX_MENSAGEM - (ctx ? ctx.length + 1 : 0)}
                 editable={!enviando}
                 textAlignVertical="top"
               />

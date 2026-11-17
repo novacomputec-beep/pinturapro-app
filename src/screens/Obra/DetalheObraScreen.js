@@ -1844,6 +1844,30 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
+  // Arte "Algo deu errado?" (dono, EM ANDAMENTO — chegada confirmada): espelha DetalheReparo.
+  // "Trocar" é POST /obras/:id/cancelar-match sem manter_aberta: false e com motivo ≠
+  // nao_preciso (a API lê como TROCA — pinturapro-api 78fb167); "Cancelar o pedido inteiro"
+  // segue pela SheetCancelamento (handleCancelarMatch, manter_aberta: false).
+  const emAndamentoDono = isDono && fasePosMatch === 'em_andamento'
+  const handleTrocarEmAndamento = async () => {
+    if (desfazendo) return
+    setDesfazendo(true)
+    try {
+      await cancelarMatch('obra', obra.id, { motivo: 'outro' })
+      if (mountedRef.current) setFolhaTrocar(false)
+      await buscar()
+      Alert.alert('Obra reaberta', 'O profissional foi avisado. Escolha o novo profissional quando quiser.')
+    } catch (err) {
+      console.log('[DetalheObra] falha ao trocar em andamento | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      if (mountedRef.current) setFolhaTrocar(false)
+      if (await recarregarSeFalhaDeRede(err, recarregarObra)) return
+      Alert.alert(err.status === 409 ? 'Não foi possível trocar' : 'Erro', err.mensagem || 'Não foi possível trocar de profissional.')
+      if (err.status != null) recarregarObra().catch(e => console.log('[DetalheObra] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setDesfazendo(false)
+    }
+  }
+
   // "Escolher outro profissional" (dono, pode_escolher_outro = true no GET — o profissional não
   // respondeu a 2 avisos): confirma num Alert, POST /obras/dono/:id/escolher-outro e o buscar()
   // traz a obra sem escolhido — o corpo rolável volta com a lista de candidatos (a tela de
@@ -2035,7 +2059,10 @@ export default function DetalheObraScreen({ route, navigation }) {
         nome={primeiroNome(pintorMatch?.nome)}
         enviando={desfazendo}
         onFechar={() => setFolhaTrocar(false)}
-        onTrocar={() => handleDesfazerEscolha(true)}
+        /* Em andamento (arte "Algo deu errado?"): subtítulo e nota próprios; Trocar → cancelar-match. */
+        subtitulo={emAndamentoDono ? `Você confirmou que ${primeiroNome(pintorMatch?.nome) || 'o profissional'} chegou${horaDe(obra.chegada_confirmada_em) ? ` às ${horaDe(obra.chegada_confirmada_em)}` : ''}.` : undefined}
+        nota={emAndamentoDono ? `Como a chegada foi confirmada por você, ${primeiroNome(pintorMatch?.nome) || 'o profissional'} não leva falta. Se houve má-fé, use 🚩 Denunciar.` : undefined}
+        onTrocar={() => (emAndamentoDono ? handleTrocarEmAndamento() : handleDesfazerEscolha(true))}
         onCancelarInteiro={() => { setFolhaTrocar(false); abrirCancelar() }}
       />
 
@@ -2138,6 +2165,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                 solicitadoEm: obra.encerramento_solicitado_em,
                 automaticoEm: obra.encerramento_automatico_em,
               } : null,
+              // Dono: "Algo deu errado? Trocar profissional ou cancelar" → a folha de sempre.
+              onTrocarOuCancelar: isDono ? () => setFolhaTrocar(true) : undefined,
             }}
             /* Cancelamento do match (até o "Estou a caminho"): botão por último; pedido de comum
                acordo pendente no lugar do bloco de estado (quem responde) ou como linha (quem pediu). */
@@ -2196,6 +2225,7 @@ export default function DetalheObraScreen({ route, navigation }) {
           <ModalSuporte
             visivel={suporteAberto}
             telefoneInicial={usuario?.telefone}
+            contexto={`[Obra "${String(obra.titulo || '').slice(0, 80)}" · ${obra.codigo_publico || obra.id} · em andamento]`}
             onFechar={() => setSuporteAberto(false)}
           />
           {/* Descrição e fotos saem da tela e vão para a folha, para os dois lados. */}

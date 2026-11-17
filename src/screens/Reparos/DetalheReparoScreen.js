@@ -1987,6 +1987,32 @@ export default function DetalheReparoScreen({ route, navigation }) {
     }
   }
 
+  // Arte "Algo deu errado?" (dono, EM ANDAMENTO — chegada confirmada): a mesma folha "O que você
+  // quer fazer?". "Trocar" NÃO é o desfazer-match (a API o recusa nesta fase): é POST
+  // /reparos/:id/cancelar-match sem manter_aberta: false e com motivo ≠ nao_preciso, que a API
+  // lê como TROCA (pinturapro-api 78fb167: pedido volta ao feed, profissional sem falta). A
+  // confirmação "Trocar <nome>?" não pergunta motivo, daí o 'outro'. "Cancelar o pedido
+  // inteiro" segue pela SheetCancelamento (handleCancelarMatch, manter_aberta: false).
+  const emAndamentoDono = isDono && fasePosMatch === 'em_andamento'
+  const handleTrocarEmAndamento = async () => {
+    if (desfazendo) return
+    setDesfazendo(true)
+    try {
+      await cancelarMatch('servico', reparo.id, { motivo: 'outro' })
+      if (mountedRef.current) setFolhaTrocar(false)
+      await buscar()
+      Alert.alert('Pedido reaberto', 'O profissional foi avisado. Escolha o novo profissional quando quiser.')
+    } catch (err) {
+      console.log('[DetalheReparo] falha ao trocar em andamento | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      if (mountedRef.current) setFolhaTrocar(false)
+      if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
+      Alert.alert(err.status === 409 ? 'Não foi possível trocar' : 'Erro', err.mensagem || 'Não foi possível trocar de profissional.')
+      if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
+    } finally {
+      if (mountedRef.current) setDesfazendo(false)
+    }
+  }
+
   // "Escolher outro profissional" (dono, pode_escolher_outro = true no GET — o profissional não
   // respondeu a 2 avisos): confirma num Alert, POST /reparos/dono/:id/escolher-outro e o
   // buscar() traz o pedido sem escolhido — o corpo rolável volta com a lista de interessados (a
@@ -2179,7 +2205,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
         nome={primeiroNome(prestadorMatch?.nome)}
         enviando={desfazendo}
         onFechar={() => setFolhaTrocar(false)}
-        onTrocar={() => handleDesfazerEscolha(true)}
+        /* Em andamento (arte "Algo deu errado?"): subtítulo e nota próprios; Trocar → cancelar-match. */
+        subtitulo={emAndamentoDono ? `Você confirmou que ${primeiroNome(prestadorMatch?.nome) || 'o profissional'} chegou${horaDe(reparo.chegada_confirmada_em) ? ` às ${horaDe(reparo.chegada_confirmada_em)}` : ''}.` : undefined}
+        nota={emAndamentoDono ? `Como a chegada foi confirmada por você, ${primeiroNome(prestadorMatch?.nome) || 'o profissional'} não leva falta. Se houve má-fé, use 🚩 Denunciar.` : undefined}
+        onTrocar={() => (emAndamentoDono ? handleTrocarEmAndamento() : handleDesfazerEscolha(true))}
         onCancelarInteiro={() => { setFolhaTrocar(false); abrirCancelar() }}
       />
 
@@ -2282,6 +2311,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                 solicitadoEm: reparo.encerramento_solicitado_em,
                 automaticoEm: reparo.encerramento_automatico_em,
               } : null,
+              // Dono: "Algo deu errado? Trocar profissional ou cancelar" → a folha de sempre.
+              onTrocarOuCancelar: isDono ? () => setFolhaTrocar(true) : undefined,
             }}
             /* Cancelamento do match (até o "Estou a caminho"): botão por último; pedido de comum
                acordo pendente no lugar do bloco de estado (quem responde) ou como linha (quem pediu). */
@@ -2340,6 +2371,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
           <ModalSuporte
             visivel={suporteAberto}
             telefoneInicial={usuario?.telefone}
+            contexto={`[Serviço "${String(reparo.titulo || '').slice(0, 80)}" · ${reparo.codigo_publico || reparo.id} · em andamento]`}
             onFechar={() => setSuporteAberto(false)}
           />
           {/* Descrição e fotos saem da tela e vão para a folha, para os dois lados. */}

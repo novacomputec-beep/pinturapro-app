@@ -14,6 +14,7 @@ import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../util
 import { rotuloCategorias } from '../../utils/categorias'
 import { textoFasePosMatch } from '../../components/Agendamento'
 import { matchDaPessoa } from '../../utils/profissional'
+import { rotuloEncerradoPeloCliente, PilulaEncerradoPeloCliente, LinhaSemFalta, LinkFaleComProTudo } from '../../components/EncerradoPeloCliente'
 
 // O fallback deste mapa é `pendente` ("Aguardando resposta"), então uma chave que falta
 // não some da tela: ela MENTE. As duas grafias do endpoint legado ('aprovada'/'recusada',
@@ -148,6 +149,11 @@ export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
   // fica como sempre foi.
   const souDoMatch = GRUPO_STATUS.aprovada.includes(item.status) && demandaAberta && matchMeu
   const faseTexto = souDoMatch ? textoFasePosMatch(item, false) : null
+  // O cliente trocou de profissional ou cancelou com o atendimento em andamento
+  // (encerrado_pelo_cliente_em_andamento): pílula cinza no lugar do status — a proposta fica
+  // 'cancelado', que o mapa leria como "Aguardando resposta" —, sem a tarja de prazo expirado
+  // (o pedido cancelado pelo cliente não venceu), a linha verde e o link ao suporte.
+  const encCliente = rotuloEncerradoPeloCliente(item)
 
   return (
     <View style={estilos.card}>
@@ -160,11 +166,14 @@ export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
         ) : (
           <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
         )}
-        <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || expirado) && estilos.statusBadgeInativo]}>
-          <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
-        </View>
+        {encCliente ? <PilulaEncerradoPeloCliente item={item} /> : (
+          <View style={[estilos.statusBadge, { backgroundColor: s.bg }, (eEncerrado || expirado) && estilos.statusBadgeInativo]}>
+            <Text style={[estilos.statusTexto, { color: s.cor }]}>{s.texto}</Text>
+          </View>
+        )}
       </View>
-      {(eEncerrado || expirado) && (
+      <LinhaSemFalta item={item} />
+      {!encCliente && (eEncerrado || expirado) && (
         <View style={[estilos.tagReparo, expirado && estilos.tagExpirado]}>
           <Text style={[estilos.tagReparoTexto, expirado && estilos.tagExpiradoTexto]}>
             {eEncerrado ? '🔒 Serviço encerrado' : '⏰ Prazo expirado'}
@@ -216,6 +225,7 @@ export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
       >
         <Text style={estilos.btnVerTexto}>Ver detalhes →</Text>
       </TouchableOpacity>
+      <LinkFaleComProTudo item={item} tipo="reparo" usuario={usuario} />
     </View>
   )
 }
