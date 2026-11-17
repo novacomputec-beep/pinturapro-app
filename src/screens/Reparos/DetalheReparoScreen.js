@@ -1993,20 +1993,25 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // lê como TROCA (pinturapro-api 78fb167: pedido volta ao feed, profissional sem falta). A
   // confirmação "Trocar <nome>?" não pergunta motivo, daí o 'outro'. "Cancelar o pedido
   // inteiro" segue pela SheetCancelamento (handleCancelarMatch, manter_aberta: false).
+  // Arte v2 — "🚫 <nome> não veio" (naoVeio = true): o MESMO POST com motivo 'nao_veio' — o
+  // profissional leva falta e o pedido reabre por 24 horas (regras na API).
   const emAndamentoDono = isDono && fasePosMatch === 'em_andamento'
-  const handleTrocarEmAndamento = async () => {
+  const handleTrocarEmAndamento = async (naoVeio = false) => {
     if (desfazendo) return
     setDesfazendo(true)
+    const nome = primeiroNome(prestadorMatch?.nome) || 'o profissional'
     try {
-      await cancelarMatch('servico', reparo.id, { motivo: 'outro' })
+      await cancelarMatch('servico', reparo.id, { motivo: naoVeio ? 'nao_veio' : 'outro' })
       if (mountedRef.current) setFolhaTrocar(false)
       await buscar()
-      Alert.alert('Pedido reaberto', 'O profissional foi avisado. Escolha o novo profissional quando quiser.')
+      Alert.alert('Pedido reaberto', naoVeio
+        ? `Registramos que ${nome} não veio. O pedido voltou a ficar aberto por 24 horas — escolha outro profissional.`
+        : 'O profissional foi avisado. Escolha o novo profissional quando quiser.')
     } catch (err) {
-      console.log('[DetalheReparo] falha ao trocar em andamento | status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
+      console.log('[DetalheReparo] falha ao trocar em andamento | naoVeio:', naoVeio, '| status:', err.status, '| code:', err.code, '| codigo:', err.codigo, '| msg:', err.mensagem)
       if (mountedRef.current) setFolhaTrocar(false)
       if (await recarregarSeFalhaDeRede(err, recarregarReparo)) return
-      Alert.alert(err.status === 409 ? 'Não foi possível trocar' : 'Erro', err.mensagem || 'Não foi possível trocar de profissional.')
+      Alert.alert(err.status === 409 ? 'Não foi possível concluir' : 'Erro', err.mensagem || (naoVeio ? 'Não foi possível registrar que o profissional não veio.' : 'Não foi possível trocar de profissional.'))
       if (err.status != null) recarregarReparo().catch(e => console.log('[DetalheReparo] recarga pós-erro falhou | code:', e?.code))
     } finally {
       if (mountedRef.current) setDesfazendo(false)
@@ -2205,9 +2210,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
         nome={primeiroNome(prestadorMatch?.nome)}
         enviando={desfazendo}
         onFechar={() => setFolhaTrocar(false)}
-        /* Em andamento (arte "Algo deu errado?"): subtítulo e nota próprios; Trocar → cancelar-match. */
+        /* Em andamento (arte "Algo deu errado?" v2): subtítulo próprio, "não veio" e Trocar → cancelar-match. */
+        onNaoVeio={emAndamentoDono ? () => handleTrocarEmAndamento(true) : undefined}
         subtitulo={emAndamentoDono ? `Você confirmou que ${primeiroNome(prestadorMatch?.nome) || 'o profissional'} chegou${horaDe(reparo.chegada_confirmada_em) ? ` às ${horaDe(reparo.chegada_confirmada_em)}` : ''}.` : undefined}
-        nota={emAndamentoDono ? `Como a chegada foi confirmada por você, ${primeiroNome(prestadorMatch?.nome) || 'o profissional'} não leva falta. Se houve má-fé, use 🚩 Denunciar.` : undefined}
         onTrocar={() => (emAndamentoDono ? handleTrocarEmAndamento() : handleDesfazerEscolha(true))}
         onCancelarInteiro={() => { setFolhaTrocar(false); abrirCancelar() }}
       />

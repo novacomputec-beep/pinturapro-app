@@ -67,12 +67,15 @@ const Motivos = ({ opcoes, valor, texto, onValor, onTexto, desabilitado, semTitu
 // cancelar-match); vermelho "Cancelar o pedido inteiro" → onCancelarInteiro (a tela fecha
 // esta folha e abre a SheetCancelamento, que é o único caminho do dono até o cancelar-match).
 // nome: primeiro nome do escolhido. enviando: o desfazer-match em voo (trava a folha).
-// Arte "Algo deu errado?" (dono, EM ANDAMENTO): a tela passa `subtitulo` ("Você confirmou que
-// <nome> chegou às <hora>.", no lugar do "Profissional escolhido") e `nota` (linha cinza acima
-// do "Voltar"); onTrocar vira o cancelar-match da fase e o resto da folha é o mesmo.
-export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTrocar, onCancelarInteiro, subtitulo, nota }) => {
+// Arte "Algo deu errado?" v2 (dono, EM ANDAMENTO): a tela passa `subtitulo` ("Você confirmou que
+// <nome> chegou às <hora>.", no lugar do "Profissional escolhido") e `onNaoVeio`. Com onNaoVeio
+// a folha ganha a PRIMEIRA opção, âmbar, "🚫 <nome> não veio" → confirmação "Confirmar que
+// <nome> não veio?" → onNaoVeio (o profissional leva falta e o pedido reabre), e as outras
+// duas dizem "Sem falta para <nome>". onTrocar vira o cancelar-match da fase.
+export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTrocar, onCancelarInteiro, subtitulo, onNaoVeio }) => {
   const insets = useSafeAreaInsets()
-  const [etapa, setEtapa] = useState('escolha')
+  const [etapa, setEtapa] = useState('escolha') // 'escolha' | 'trocar' | 'naoVeio'
+  const emAndamento = !!onNaoVeio
   useEffect(() => { if (visivel) setEtapa('escolha') }, [visivel])
   const fechar = () => { if (!enviando) onFechar() }
   const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(enviando ? null : fechar, !!visivel)
@@ -80,7 +83,7 @@ export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTro
   const Quem = quem.charAt(0).toUpperCase() + quem.slice(1)
 
   return (
-    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => { if (etapa === 'trocar' && !enviando) setEtapa('escolha'); else fechar() }}>
+    <Modal visible={visivel} transparent animationType="slide" statusBarTranslucent onRequestClose={() => { if (etapa !== 'escolha' && !enviando) setEtapa('escolha'); else fechar() }}>
       <RaizGestosFolha>
       <View style={estilos.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={fechar} />
@@ -88,22 +91,37 @@ export const SheetTrocarOuCancelar = ({ visivel, nome, enviando, onFechar, onTro
           <ZonaArraste gesto={gesto} style={estilos.zonaAlca}>
             <View style={estilos.alca} />
             <LinhaCabecalhoFolha onFechar={fechar} desabilitado={!!enviando}>
-              <Text style={estilos.tituloCompacto}>{etapa === 'trocar' ? `Trocar ${quem}?` : 'O que você quer fazer?'}</Text>
+              <Text style={estilos.tituloCompacto}>{etapa === 'trocar' ? `Trocar ${quem}?` : etapa === 'naoVeio' ? `Confirmar que ${quem} não veio?` : 'O que você quer fazer?'}</Text>
             </LinhaCabecalhoFolha>
           </ZonaArraste>
           {etapa === 'escolha' ? (
             <>
               <Text style={estilos.subtituloCompacto}>{subtitulo || `Profissional escolhido: ${Quem}`}</Text>
+              {emAndamento ? (
+                <TouchableOpacity style={[estilos.opcao, estilos.opcaoAmbar]} onPress={() => setEtapa('naoVeio')} activeOpacity={0.85} accessibilityRole="button">
+                  <Text style={[estilos.opcaoTitulo, estilos.opcaoTituloAmbar]}>🚫 {Quem} não veio</Text>
+                  <Text style={estilos.opcaoSub}>{Quem} leva falta. O pedido reabre para você escolher outro.</Text>
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity style={[estilos.opcao, estilos.opcaoVerde]} onPress={() => setEtapa('trocar')} activeOpacity={0.85} accessibilityRole="button">
                 <Text style={estilos.opcaoTitulo}>🔄 Trocar de profissional</Text>
-                <Text style={estilos.opcaoSub}>O pedido continua aberto; você escolhe outro.</Text>
+                <Text style={estilos.opcaoSub}>{emAndamento ? `Mudei de ideia. Sem falta para ${quem}.` : 'O pedido continua aberto; você escolhe outro.'}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[estilos.opcao, estilos.opcaoVermelha]} onPress={onCancelarInteiro} activeOpacity={0.85} accessibilityRole="button">
                 <Text style={estilos.opcaoTitulo}>✕ Cancelar o pedido inteiro</Text>
-                <Text style={estilos.opcaoSub}>O pedido sai do app.</Text>
+                <Text style={estilos.opcaoSub}>{emAndamento ? `O pedido sai do app. Sem falta para ${quem}.` : 'O pedido sai do app.'}</Text>
               </TouchableOpacity>
-              {nota ? <Text style={estilos.notaFolha}>{nota}</Text> : null}
               <TouchableOpacity style={estilos.linkVoltar} onPress={fechar} activeOpacity={0.7} accessibilityRole="button">
+                <Text style={estilos.linkVoltarTexto}>Voltar</Text>
+              </TouchableOpacity>
+            </>
+          ) : etapa === 'naoVeio' ? (
+            <>
+              <Text style={estilos.subtituloCompacto}>{Quem} vai levar uma falta e o pedido volta a ficar aberto por 24 horas.</Text>
+              <TouchableOpacity style={[estilos.btnCompacto, estilos.btnCompactoLaranja, enviando && { opacity: 0.6 }]} onPress={onNaoVeio} disabled={!!enviando} activeOpacity={0.85} accessibilityRole="button">
+                <Text style={[estilos.btnCompactoTexto, { color: '#0A0A0A' }]}>{enviando ? 'Enviando…' : `Sim, ${quem} não veio`}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.linkVoltar} onPress={() => setEtapa('escolha')} disabled={!!enviando} activeOpacity={0.7} accessibilityRole="button">
                 <Text style={estilos.linkVoltarTexto}>Voltar</Text>
               </TouchableOpacity>
             </>
@@ -383,7 +401,9 @@ const estilos = StyleSheet.create({
   opcaoVermelha:     { backgroundColor: cores.perigoSuave, borderColor: cores.perigo },
   opcaoTitulo:       { fontSize: 15, fontWeight: '700', color: cores.textoForte },
   opcaoSub:          { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginTop: 2 },
-  notaFolha:         { fontSize: 12, color: cores.textoMedio, lineHeight: 17, textAlign: 'center', marginTop: 2, marginBottom: 2 },
+  // "🚫 <nome> não veio" (arte v2, em andamento): âmbar da arte.
+  opcaoAmbar:        { backgroundColor: '#2a2414', borderColor: '#b8862f' },
+  opcaoTituloAmbar:  { color: '#ffcf7a' },
   linkVoltar:        { paddingVertical: 10, alignItems: 'center' },
   linkVoltarTexto:   { fontSize: 13, color: cores.textoFraco, textAlign: 'center' },
   porQue:            { fontSize: 14, fontWeight: '700', color: cores.textoForte, marginBottom: 2 },

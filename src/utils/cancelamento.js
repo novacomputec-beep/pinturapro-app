@@ -14,6 +14,9 @@ import { comRetry } from './rede'
 //   POST /:id/cancelamento-acordo        → { motivo, detalhe? } — só PEDE; o outro lado responde em 2 h
 //   POST /:id/cancelamento-acordo/responder → { aceitar: true|false }
 // motivo ∈ imprevisto | nao_preciso | nao_consigo_horario | outro; detalhe até 200 caracteres.
+// Dono com o atendimento EM ANDAMENTO (chegada confirmada): o mesmo POST /cancelar-match troca
+// (motivo ≠ nao_preciso, sem manter_aberta: false), cancela (manter_aberta: false) ou registra
+// que o profissional não veio (motivo 'nao_veio', só nessa fase — falta + pedido reaberto).
 // O pedido pendente chega em GET /:id como `pedido_cancelamento` (ao lado da linha):
 //   { por: 'dono'|'profissional', meu: bool, motivo, detalhe, criado_em, expira_em } ou null.
 // Pushes: match_cancelado, pedido_cancelamento, pedido_cancelamento_recusado,
