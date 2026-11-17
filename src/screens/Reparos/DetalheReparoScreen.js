@@ -2336,6 +2336,12 @@ export default function DetalheReparoScreen({ route, navigation }) {
               onFechar={() => setModalCompareceu(false)}
             />
           )}
+          {/* "🚩 Denunciar" (em andamento): pedido ao suporte, POST /suporte/pedido. */}
+          <ModalSuporte
+            visivel={suporteAberto}
+            telefoneInicial={usuario?.telefone}
+            onFechar={() => setSuporteAberto(false)}
+          />
           {/* Descrição e fotos saem da tela e vão para a folha, para os dois lados. */}
           <ModalDetalhesDemanda
             visivel={detalhesAbertos}
