@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ActivityIndicator, AppState
@@ -52,11 +53,69 @@ const xhrUpload = (url, form) => new Promise((resolve, reject) => {
   attempt(0)
 })
 
+// Experiência e equipe (só profissional): faixas dos dois contadores − / +.
+const ANOS_MIN = 0, ANOS_MAX = 60, EQUIPE_MIN = 1, EQUIPE_MAX = 50
+const naFaixa = (v, min, max) => Math.min(max, Math.max(min, parseInt(v, 10) || min))
+
+// Linha "rótulo + contador − / +", na mesma caixa dos campos de texto (Input).
+const LinhaContador = ({ rotulo, valor, min, max, onMudar }) => (
+  <View style={estilos.contadorCaixa}>
+    <Text style={estilos.contadorRotulo}>{rotulo}</Text>
+    <TouchableOpacity
+      style={[estilos.contadorBotao, valor <= min && estilos.contadorBotaoOff]}
+      onPress={() => onMudar(Math.max(min, valor - 1))}
+      disabled={valor <= min}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel={`Diminuir ${rotulo}`}
+    >
+      <Text style={estilos.contadorSinal}>−</Text>
+    </TouchableOpacity>
+    <Text style={estilos.contadorValor} accessibilityLabel={`${rotulo}: ${valor}`}>{valor}</Text>
+    <TouchableOpacity
+      style={[estilos.contadorBotao, valor >= max && estilos.contadorBotaoOff]}
+      onPress={() => onMudar(Math.min(max, valor + 1))}
+      disabled={valor >= max}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      accessibilityRole="button"
+      accessibilityLabel={`Aumentar ${rotulo}`}
+    >
+      <Text style={estilos.contadorSinal}>+</Text>
+    </TouchableOpacity>
+  </View>
+)
+
 export default function EditarPerfilScreen({ navigation }) {
   const { usuario, setUsuario } = useAuth()
   const [nome, setNome] = useState(usuario?.nome || '')
   const [telefone, setTelefone] = useState(mascararTelefone(usuario?.telefone || ''))
   const [cidade, setCidade] = useState(usuario?.cidade || '')
+  // Mesmo critério de "profissional" da PerfilScreen (o card que mostra Experiência e Equipe).
+  const ehPrestador = usuario?.role === 'prestador' || usuario?.role === 'assinante'
+  const [anosExp, setAnosExp] = useState(naFaixa(usuario?.anos_experiencia, ANOS_MIN, ANOS_MAX))
+  const [equipe, setEquipe] = useState(naFaixa(usuario?.tamanho_equipe, EQUIPE_MIN, EQUIPE_MAX))
+  // Já mexeu num contador? Então a pré-carga do GET /auth/perfil não passa por cima.
+  const mexeuContadorRef = useRef(false)
+  const mudarAnos = (v) => { mexeuContadorRef.current = true; setAnosExp(v) }
+  const mudarEquipe = (v) => { mexeuContadorRef.current = true; setEquipe(v) }
+
+  // Pré-carga dos dois contadores pelo GET /auth/perfil: o `usuario` do contexto pode vir
+  // do login, sem anos_experiencia/tamanho_equipe. Falha é silenciosa — ficam os valores
+  // do contexto e o salvar continua funcionando.
+  useEffect(() => {
+    if (!ehPrestador) return
+    let vivo = true
+    comRetry(() => authService.perfil(), { timeout: true }).then((resposta) => {
+      const u = resposta?.usuario
+      if (!vivo || !u || mexeuContadorRef.current) return
+      setAnosExp(naFaixa(u.anos_experiencia, ANOS_MIN, ANOS_MAX))
+      setEquipe(naFaixa(u.tamanho_equipe, EQUIPE_MIN, EQUIPE_MAX))
+    }).catch((err) => {
+      console.log('[EditarPerfil] falha ao pré-carregar experiência/equipe | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+    })
+    return () => { vivo = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [carregando, setCarregando] = useState(false)
   const [uploadandoFoto, setUploadandoFoto] = useState(false)
   const [fotoUrl, setFotoUrl] = useState(usuario?.foto_url || null)
@@ -74,6 +133,9 @@ export default function EditarPerfilScreen({ navigation }) {
     setNome(u.nome || '')
     setTelefone(mascararTelefone(u.telefone || ''))
     setCidade(u.cidade || '')
+    setAnosExp(naFaixa(u.anos_experiencia, ANOS_MIN, ANOS_MAX))
+    setEquipe(naFaixa(u.tamanho_equipe, EQUIPE_MIN, EQUIPE_MAX))
+    mexeuContadorRef.current = false
     setFotoUrl(u.foto_url || null)
     setUsuario(prev => ({ ...prev, ...u }))
   }
@@ -183,9 +245,17 @@ export default function EditarPerfilScreen({ navigation }) {
       const atualizado = await comRetry(() => authService.atualizarPerfil({
         nome: nome.trim(),
         telefone: telefone.trim(),
-        cidade: cidade.trim()
+        cidade: cidade.trim(),
+        // Só o profissional tem experiência e equipe; para o cliente as chaves nem vão.
+        ...(ehPrestador ? { anos_experiencia: anosExp, tamanho_equipe: equipe } : {})
       }), { timeout: true, servidor: true })
-      setUsuario(prev => ({ ...prev, nome: atualizado.nome, telefone: telefone.trim(), cidade: atualizado.cidade }))
+      // Experiência e equipe entram no contexto SÓ com o que o servidor devolveu: uma API
+      // que ainda não grava esses campos não pode fazer o card do Perfil mostrar um valor
+      // que não foi salvo. O card relê o GET /auth/perfil ao ganhar foco de qualquer modo.
+      const profissional = {}
+      if (ehPrestador && atualizado?.anos_experiencia != null) profissional.anos_experiencia = atualizado.anos_experiencia
+      if (ehPrestador && atualizado?.tamanho_equipe != null) profissional.tamanho_equipe = atualizado.tamanho_equipe
+      setUsuario(prev => ({ ...prev, nome: atualizado.nome, telefone: telefone.trim(), cidade: atualizado.cidade, ...profissional }))
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!', [
         { text: 'OK', onPress: () => navigation.goBack() }
       ])
@@ -206,9 +276,7 @@ export default function EditarPerfilScreen({ navigation }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
 
           <Text style={estilos.titulo}>Editar{'\n'}perfil</Text>
           <Text style={estilos.subtitulo}>Atualize suas informações pessoais</Text>
@@ -238,6 +306,20 @@ export default function EditarPerfilScreen({ navigation }) {
           <Input label="NOME COMPLETO" placeholder="Seu nome" value={nome} onChangeText={setNome} />
           <Input label="WHATSAPP" placeholder="(34) 99999-9999" value={telefone} onChangeText={(t) => setTelefone(mascararTelefone(t))} keyboardType="phone-pad" />
           <Input label="CIDADE" placeholder="Ex: Uberlândia" value={cidade} onChangeText={setCidade} />
+
+          {ehPrestador && (
+            <>
+              <View style={estilos.contadorWrap}>
+                <Text style={estilos.contadorLabel}>Experiência</Text>
+                <LinhaContador rotulo="Anos de experiência" valor={anosExp} min={ANOS_MIN} max={ANOS_MAX} onMudar={mudarAnos} />
+              </View>
+              <View style={estilos.contadorWrap}>
+                <Text style={estilos.contadorLabel}>Equipe</Text>
+                <LinhaContador rotulo="Profissionais na equipe" valor={equipe} min={EQUIPE_MIN} max={EQUIPE_MAX} onMudar={mudarEquipe} />
+                <Text style={estilos.contadorDica}>Conte você também. Se trabalha sozinho, deixe 1.</Text>
+              </View>
+            </>
+          )}
 
           <View style={estilos.infoBox}>
             <Text style={estilos.infoTexto}>📧 {usuario?.email}</Text>
@@ -270,6 +352,17 @@ const estilos = StyleSheet.create({
   avatarBotaoFoto: { position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderRadius: 14, backgroundColor: cores.primaria, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: cores.fundo },
   avatarCameraIcone: { fontSize: 13 },
   avatarDica: { fontSize: 11, color: cores.textoFraco, textAlign: 'center', marginBottom: 24 },
+  // Contadores de experiência/equipe: mesmas medidas do Input (components/index.js) —
+  // rótulo em caixa alta de 11, caixa fundoCampo com borda bordaCampo de 1.5.
+  contadorWrap: { marginBottom: espacos.md },
+  contadorLabel: { fontSize: 11, color: cores.textoForte, letterSpacing: 0.5, marginBottom: 7, textTransform: 'uppercase' },
+  contadorCaixa: { flexDirection: 'row', alignItems: 'center', backgroundColor: cores.fundoCampo, borderWidth: 1.5, borderColor: cores.bordaCampo, borderRadius: raios.medio, paddingHorizontal: espacos.lg, paddingVertical: 8 },
+  contadorRotulo: { flex: 1, fontSize: 14, color: cores.textoForte },
+  contadorBotao: { width: 34, height: 34, borderRadius: 10, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, alignItems: 'center', justifyContent: 'center' },
+  contadorBotaoOff: { opacity: 0.35 },
+  contadorSinal: { fontSize: 20, fontWeight: '700', color: cores.textoForte, lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
+  contadorValor: { minWidth: 40, textAlign: 'center', fontSize: 16, fontWeight: '700', color: cores.textoForte },
+  contadorDica: { fontSize: 11, color: cores.textoFraco, marginTop: 6 },
   infoBox: { backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, padding: 14, marginBottom: 16 },
   infoTexto: { fontSize: 14, color: cores.textoMedio, marginBottom: 4 },
   infoSub: { fontSize: 11, color: cores.textoMutado },

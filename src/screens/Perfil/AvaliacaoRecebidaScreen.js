@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, TouchableOpacity, Animated, Easing, Dimensions, Share, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../contexts/AuthContext'
@@ -220,11 +221,9 @@ export default function AvaliacaoRecebidaScreen({ navigation, route }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.tela}>
       <View style={estilos.topbar}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Text style={estilos.btnVoltarTexto}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <T style={estilos.topbarTitulo}>Avaliação recebida</T>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 84 }} />
       </View>
       <View style={[estilos.wrapper, larguraMaxima]}>
         {dados ? <CelebracaoAvaliacaoConteudo dados={dados} onVerServicos={verServicos} /> : null}

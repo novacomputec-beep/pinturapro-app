@@ -1,4 +1,5 @@
 import React from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, espacos, larguraMaxima } from '../../utils/tema'
@@ -48,11 +49,9 @@ export default function PrivacidadeScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={estilos.container}>
       <View style={estilos.topbar}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <Text style={estilos.topbarTitulo}>Política de Privacidade</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 84 }} />
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>

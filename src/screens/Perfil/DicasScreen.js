@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
@@ -95,9 +96,7 @@ export default function DicasScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={() => { setAtualizando(true); buscar() }} tintColor={cores.primaria} />}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Text style={estilos.voltarIcone}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <DicasConteudo
           temas={temas || []}
           vistas={vistas}

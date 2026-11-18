@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, useWindowDimensions
 } from 'react-native'
@@ -70,9 +71,7 @@ export default function ComoFuncionaScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={estilos.btnVoltarTexto}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <Text style={estilos.titulo}>Como funciona o ProTudo</Text>
 
         {video === null ? (

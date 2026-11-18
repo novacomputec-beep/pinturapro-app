@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
@@ -126,9 +127,7 @@ export default function MeusPerfisScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} disabled={!!trocando}>
-          <Text style={estilos.voltarIcone}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} disabled={!!trocando} />
         <MeusPerfisConteudo
           perfis={perfis}
           trocando={trocando}

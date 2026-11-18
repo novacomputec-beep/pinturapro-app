@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator,
   KeyboardAvoidingView, Platform,
@@ -166,9 +167,7 @@ export default function MinhasReferenciasScreen({ navigation }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Voltar">
-            <Text style={estilos.btnVoltarTexto}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
 
           <Text style={estilos.titulo}>Minhas{'\n'}referências</Text>
           <Text style={estilos.subtitulo}>Indicadas na sua verificação de identidade.</Text>

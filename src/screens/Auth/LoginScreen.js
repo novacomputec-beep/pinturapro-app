@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet,
   TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, Image
@@ -110,9 +111,7 @@ export default function LoginScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <TouchableOpacity style={estilos.voltarBtn} onPress={() => navigation.goBack()}>
-            <Text style={estilos.voltarIcone}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.voltarBtn} onPress={() => navigation.goBack()} />
 
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />

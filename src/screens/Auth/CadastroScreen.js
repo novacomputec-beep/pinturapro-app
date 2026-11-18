@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
   TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator, AppState, BackHandler
@@ -732,9 +733,7 @@ export default function CadastroScreen({ navigation, route }) {
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={voltar}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.btnVoltar} onPress={voltar} />
           <View style={estilos.logoWrap}>
             <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
             <Text style={estilos.logoNome}>

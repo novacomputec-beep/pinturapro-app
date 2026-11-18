@@ -1,6 +1,7 @@
 import React from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
 import { Feather } from '@expo/vector-icons'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { LinearGradient } from 'expo-linear-gradient'
 import { cores, espacos, raios, larguraMaxima } from '../../utils/tema'
 
@@ -97,11 +98,9 @@ export const Wordmark = ({ tamanho }) => (
   </Text>
 )
 
-export const BotaoVoltar = ({ onPress, estilo, disabled }) => (
-  <TouchableOpacity style={[s.btnVoltar, estilo]} onPress={onPress} disabled={disabled} accessibilityRole="button" accessibilityLabel="Voltar" hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-    <Feather name="arrow-left" size={20} color={cores.textoForte} />
-  </TouchableOpacity>
-)
+// O botão de voltar é o compartilhado do app (components/BotaoVoltar). Reexportado daqui
+// porque o "Entrar como:" (EntrarComoScreen) o importa junto das outras peças desta tela.
+export { BotaoVoltar }
 
 // Fundo da tela: dois halos nos cantos (cores do mockup), atrás do conteúdo e sem toque.
 // Tamanho fixo em px e não em % — a tela rola, e o halo tem que ficar preso ao canto.

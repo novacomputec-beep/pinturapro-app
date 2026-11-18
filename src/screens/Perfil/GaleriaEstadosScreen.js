@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, TouchableOpacity, KeyboardAvoidingView, Platform, PanResponder, StyleSheet, Image, ScrollView } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import TelaPosMatch from '../../components/PosMatchFixo'
@@ -991,9 +992,7 @@ export default function GaleriaEstadosScreen({ navigation }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       {/* Mesma altura da topbar das telas de detalhe (36 + 12 + 12). */}
       <View style={estilos.topbar}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Text style={estilos.btnVoltarTexto}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 8 }}>
           <Text style={estilos.rotulo} numberOfLines={1}>{rotulo}</Text>
           <Text style={estilos.rotuloSub} numberOfLines={1}>{NOMES_FASE[caso.fase]} · dados locais, sem API</Text>

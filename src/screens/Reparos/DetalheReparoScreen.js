@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal, AppState
@@ -1014,8 +1015,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
     setAvaliarVisivel(false)
     // Pedido de avaliação NA LOJA, só se a nota alta o armou. Daqui, e não do envio da
     // nota: todo caminho que fecha o Alert "Bloquear para futuros serviços?" (qualquer
-    // botão) passa por aqui, então o diálogo nativo nunca sobe com o Alert aberto. O
-    // Alert não é cancelável, logo não há saída por fora dele. 1,5 s depois, já na tela
+    // botão, e o onDismiss do toque fora / voltar) passa por aqui, então o diálogo nativo
+    // nunca sobe com o Alert aberto. Nota 3 a 5 nem abre o Alert. 1,5 s depois, já na tela
     // anterior; a função nunca lança nem mexe nesta tela, então sobrevive ao goBack.
     if (pedirLojaRef.current) {
       pedirLojaRef.current = false
@@ -1032,7 +1033,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       'Bloquear para futuros serviços?',
       'Você pode impedir que este profissional seja pareado com você novamente. É opcional.',
       [
-        { text: 'Não, fiquei satisfeito(a)', style: 'cancel', onPress: finalizarPosEncerrar },
+        { text: 'Agora não', style: 'cancel', onPress: finalizarPosEncerrar },
         { text: 'Bloquear', style: 'destructive', onPress: async () => {
           // { timeout: true }: bloquear é IDEMPOTENTE (grava um estado, não cria
           // recurso). Um socket ocioso morto também se manifesta como timeout de
@@ -1053,14 +1054,18 @@ export default function DetalheReparoScreen({ route, navigation }) {
           finalizarPosEncerrar()
         } },
       ],
+      // Cancelável (toque fora / voltar no Android): fecha sem bloquear, igual ao "Agora não".
+      { cancelable: true, onDismiss: finalizarPosEncerrar },
     )
   }
 
   // (estrelas, etiquetas): a nota vai como `nota` e as etiquetas do nível (ModalAvaliacao);
   // a API ainda aceita `estrelas` sozinho, então o payload antigo continuaria válido.
   const enviarAvaliacaoEncerrar = async (estrelas, etiquetas = []) => {
+    let enviada = false
     try {
       await comRetry(() => api.post('/avaliacoes', { contrato_tipo: 'reparo', contrato_id: reparo.id, nota: estrelas, etiquetas }))
+      enviada = true
       // Nota alta enviada pelo dono = o melhor momento para pedir a avaliação NA LOJA. Só
       // ARMA aqui: o pedido em si sai de finalizarPosEncerrar, 1,5 s depois de o Alert de
       // bloqueio ser respondido, para nunca cair em cima dele.
@@ -1068,12 +1073,14 @@ export default function DetalheReparoScreen({ route, navigation }) {
     } catch (err) {
       console.log('[DetalheReparo] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // SEM recarregarSeFalhaDeRede, mesma razão do bloqueio logo acima: a avaliação não
-      // é exibida nesta tela e o fluxo segue para oferecerBloqueioEncerrar(), então a
+      // é exibida nesta tela e o fluxo segue para finalizarPosEncerrar(), então a
       // recarga não diria nada sobre a nota enviada — só apagaria o aviso.
       Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
     }
-    // Avaliação enviada (ou falha tratada) → oferece bloqueio e conclui. Opcional em ambos.
-    oferecerBloqueioEncerrar()
+    // O bloqueio só é oferecido para nota 1 ou 2 que o servidor ACEITOU. Nota 3 a 5, ou
+    // envio que falhou, conclui direto — sem a pergunta.
+    if (enviada && estrelas <= 2) oferecerBloqueioEncerrar()
+    else finalizarPosEncerrar()
   }
 
   // Encerramento pelo PRESTADOR (reparador). Separado do handleEncerrar do dono para não
@@ -2069,9 +2076,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     return (
       <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
         <View style={estilos.topbar}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: cores.textoFraco }}>Serviço não encontrado</Text>
@@ -2119,11 +2124,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <View style={estilos.topbar}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <Text style={estilos.topbarTitulo}>{isDono ? 'Meu serviço' : 'Detalhe do serviço'}</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 84 }} />
       </View>
 
       {/* Acima do conteúdo SEMEADO, que continua na tela: a recarga é que falhou. */}

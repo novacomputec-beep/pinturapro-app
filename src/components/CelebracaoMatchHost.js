@@ -654,7 +654,7 @@ export default function CelebracaoMatchHost() {
       'Bloquear para futuros serviços?',
       'Você pode impedir que este profissional seja pareado com você novamente. É opcional.',
       [
-        { text: 'Não, fiquei satisfeito(a)', style: 'cancel', onPress: finalizarAvaliacao },
+        { text: 'Agora não', style: 'cancel', onPress: finalizarAvaliacao },
         { text: 'Bloquear', style: 'destructive', onPress: async () => {
           try { await comRetry(() => api.post('/usuarios/bloquear-prestador', { prestador_id: prestadorId }), { timeout: true, persistir: true }) }
           catch (err) {
@@ -664,18 +664,25 @@ export default function CelebracaoMatchHost() {
           finalizarAvaliacao()
         } },
       ],
+      // Cancelável (toque fora / voltar no Android): fecha sem bloquear, igual ao "Agora não".
+      { cancelable: true, onDismiss: finalizarAvaliacao },
     )
   }
   const enviarAvaliacao = async (estrelas, etiquetas = []) => {
     const a = avaliar
+    let enviada = false
     try {
       await comRetry(() => api.post('/avaliacoes', { contrato_tipo: a.ehObra ? 'obra' : 'reparo', contrato_id: a.id, nota: estrelas, etiquetas }))
+      enviada = true
       if (estrelas >= 4) pedirLojaRef.current = true
     } catch (err) {
       console.log('[Celebracao] falha ao enviar avaliação | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar a avaliação. Tente novamente.')
     }
-    oferecerBloqueio(a)
+    // O bloqueio só é oferecido para nota 1 ou 2 que o servidor ACEITOU. Nota 3 a 5, ou
+    // envio que falhou, conclui direto — sem a pergunta.
+    if (enviada && estrelas <= 2) oferecerBloqueio(a)
+    else finalizarAvaliacao()
   }
 
   // O CTA dos eventos `encerrar`: a mesma confirmação, o mesmo POST /encerrar e os mesmos

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, KeyboardAvoidingView, Platform
@@ -55,9 +56,7 @@ export default function SugestoesScreen({ navigation }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-            <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
 
           <Text style={estilos.titulo}>Sugestões</Text>
           <Text style={estilos.subtitulo}>Conte o que você mudaria no app — lemos todas</Text>

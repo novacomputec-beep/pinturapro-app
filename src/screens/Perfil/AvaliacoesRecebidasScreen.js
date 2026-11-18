@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, RefreshControl, ActivityIndicator,
@@ -97,9 +98,7 @@ export default function AvaliacoesRecebidasScreen({ navigation }) {
 
   const Cabecalho = () => (
     <>
-      <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-        <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-      </TouchableOpacity>
+      <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
       <View style={estilos.header}>
         <Text style={estilos.titulo}>Avaliações recebidas</Text>
         {/* Resumo só quando há avaliações; o vazio é coberto pelo bloco dedicado abaixo. */}

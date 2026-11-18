@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../../contexts/AuthContext'
@@ -100,9 +101,7 @@ export default function DicasTemaScreen({ navigation, route }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <ScrollView contentContainerStyle={[estilos.lista, larguraMaxima]} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Voltar">
-          <Text style={estilos.voltarIcone}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <DicasTemaConteudo tema={tema} onAcao={executar} acaoDisponivel={acaoDisponivel} />
       </ScrollView>
     </SafeAreaView>

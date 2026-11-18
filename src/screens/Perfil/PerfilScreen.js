@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { useFocusEffect } from '@react-navigation/native'
 import {
   View, Text, StyleSheet, ScrollView,
@@ -624,9 +625,7 @@ export default function PerfilScreen({ navigation, route }) {
 
         <View style={estilos.header}>
           {mostrarVoltarDono && (
-            <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.navigate('Meus pedidos')}>
-              <Text style={estilos.btnVoltarTexto}>←</Text>
-            </TouchableOpacity>
+            <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.navigate('Meus pedidos')} />
           )}
           <Text style={estilos.headerTitulo}>Meu perfil</Text>
         </View>

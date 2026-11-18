@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { BotaoPrimario } from '../../components'
@@ -252,9 +253,7 @@ export default function AdicionarPerfilScreen({ navigation, route }) {
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <TouchableOpacity style={estilos.btnVoltar} onPress={voltar} disabled={carregando}>
-            <Text style={estilos.voltarIcone}>←</Text>
-          </TouchableOpacity>
+          <BotaoVoltar estilo={estilos.btnVoltar} onPress={voltar} disabled={carregando} />
           {perfil ? (
             <>
               {precisaEsp && (

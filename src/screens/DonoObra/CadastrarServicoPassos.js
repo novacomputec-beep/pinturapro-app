@@ -1,4 +1,5 @@
 import React from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -58,9 +59,7 @@ export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulo
       <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={estilos.cabecalhoLinha}>
           {mostrarVoltar ? (
-            <TouchableOpacity style={estilos.btnVoltar} onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar">
-              <Text style={estilos.btnVoltarTexto}>←</Text>
-            </TouchableOpacity>
+            <BotaoVoltar estilo={estilos.btnVoltar} onPress={onVoltar} />
           ) : null}
           <Text style={estilos.tituloTela} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{tituloTela}</Text>
         </View>

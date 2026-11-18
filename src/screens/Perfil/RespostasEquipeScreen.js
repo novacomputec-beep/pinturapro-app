@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Linking, Alert
@@ -152,9 +153,7 @@ export default function RespostasEquipeScreen({ navigation }) {
 
   const Cabecalho = (
     <View style={estilos.header}>
-      <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-        <Text style={estilos.btnVoltarTexto}>←</Text>
-      </TouchableOpacity>
+      <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
       <Text style={estilos.titulo}>Respostas da equipe</Text>
       <Text style={estilos.subtitulo}>O que a equipe ProTudo respondeu às suas mensagens</Text>
       <BannerErroCarregamento mensagem={erro} onRetry={buscar} />

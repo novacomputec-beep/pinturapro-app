@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import BotaoVoltar from '../../components/BotaoVoltar'
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
 } from 'react-native'
@@ -84,9 +85,7 @@ export default function ConvidarColegaScreen({ navigation }) {
         refreshControl={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity style={estilos.btnVoltar} onPress={() => navigation.goBack()}>
-          <Text style={{ color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false }}>←</Text>
-        </TouchableOpacity>
+        <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
 
         <ConvidarColegaConteudo
           dados={dados}
