@@ -141,7 +141,7 @@ export function ConvidarColegaConteudo({ dados, carregando, erro, onRetry, lanca
               <View style={estilos.beneficio}>
                 <Text style={estilos.beneficioIcone}>📅</Text>
                 <Text style={estilos.beneficioTexto}>
-                  <Text style={estilos.beneficioForte}>+1 mês grátis</Text> por colega aprovado, depois do seu ano gratuito (até 12 meses).
+                  <Text style={estilos.beneficioForte}>+1 mês gratuito</Text> por colega aprovado, depois do seu ano gratuito (até 12 meses).
                 </Text>
               </View>
               <View style={[estilos.beneficio, { marginBottom: 0 }]}>

@@ -682,11 +682,9 @@ export default function PerfilScreen({ navigation, route }) {
             <View style={estilos.assinaturaItem}>
               <Text style={estilos.assinaturaLabel}>Valor</Text>
               <Text style={[estilos.assinaturaValor, { color: cores.sucesso }]}>
-                {isDono ? 'Gratuito' : assinatura?.tipo === 'gratuito' ? 'grátis' : (usuario?.tipo_prestador === 'pintor'
-                  ? (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês')
-                  : usuario?.role === 'prestador'
-                    ? (assinatura?.plano === 'anual' ? 'R$ 41,58/mês' : 'R$ 49,90/mês')
-                    : (assinatura?.plano === 'anual' ? 'R$ 83,25/mês' : 'R$ 99,90/mês'))}
+                {/* Preço único do profissional, igual para todo tipo de conta. */}
+                {isDono ? 'Gratuito' : assinatura?.tipo === 'gratuito' ? 'gratuito'
+                  : (assinatura?.plano === 'anual' ? 'R$ 41,58/mês' : 'R$ 49,90/mês')}
               </Text>
             </View>
             )}

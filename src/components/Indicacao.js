@@ -110,7 +110,7 @@ export const BannerConvideColega = ({ navigation }) => {
         onPress={abrir}
         activeOpacity={0.88}
         accessibilityRole="button"
-        accessibilityLabel="Gostou? Convide um colega e ganhe um mês grátis"
+        accessibilityLabel="Gostou? Convide um colega e ganhe um mês gratuito"
       >
         <LinearGradient
           colors={['#ff8a3d', '#f05a28', '#c2410c']}
@@ -123,7 +123,7 @@ export const BannerConvideColega = ({ navigation }) => {
           </View>
           <View style={estilos.textos}>
             <Text style={estilos.sobretitulo} maxFontSizeMultiplier={1.3}>GOSTOU DO PROTUDO?</Text>
-            <Text style={estilos.titulo} maxFontSizeMultiplier={1.3}>Convide um colega e ganhe +1 mês grátis</Text>
+            <Text style={estilos.titulo} maxFontSizeMultiplier={1.3}>Convide um colega e ganhe +1 mês gratuito</Text>
             <View style={estilos.chip}>
               <Text style={estilos.chipTexto} maxFontSizeMultiplier={1.3}>🤝 Convidar agora →</Text>
             </View>

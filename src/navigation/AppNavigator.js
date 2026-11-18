@@ -624,7 +624,7 @@ function PagamentoPendenteScreen() {
 
   const valorMensal = assinatura?.valor_mensal
     ? `R$ ${Number(assinatura.valor_mensal).toFixed(2).replace('.', ',')}`
-    : usuario?.role === 'prestador' ? 'R$ 49,90' : 'R$ 99,90'
+    : 'R$ 49,90'
 
   return (
     <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: cores.fundo }}>

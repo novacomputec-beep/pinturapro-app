@@ -138,13 +138,13 @@ export const CamposProfissional = ({
   </>
 )
 
-export const valoresPlano = (tipoConta) => (tipoConta === 'prestador' || tipoConta === 'reparador'
-  ? { mensal: 'R$ 49,90', anual: 'R$ 41,58', anualTotal: 'R$ 499/ano' }
-  : { mensal: 'R$ 99,90', anual: 'R$ 83,25', anualTotal: 'R$ 999/ano' })
+// Preço ÚNICO do profissional, igual para todo tipo de conta (reparador, pintor, qualquer
+// outro): mensal, o equivalente mensal do plano anual e o total do anual.
+export const valoresPlano = () => ({ mensal: 'R$ 49,90', anual: 'R$ 41,58', anualTotal: 'R$ 499/ano' })
 
 // Passo "Escolha seu plano": dois cards (mensal / anual) + caixa do PagBank (some no iOS).
 export const SeletorPlano = ({ tipoConta, planoSelecionado, setPlanoSelecionado, mostrarCobranca }) => {
-  const valores = valoresPlano(tipoConta)
+  const valores = valoresPlano()
   const ehServicos = tipoConta === 'prestador' || tipoConta === 'reparador'
   return (
     <View>

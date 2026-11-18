@@ -28,7 +28,7 @@ export const linkDeIndicacao = (codigo) => `${LINK_BASE}${encodeURIComponent(cod
 
 // Mensagem do convite, texto aprovado. <CODIGO> e <link> são os dois únicos vazios.
 export const mensagemConvite = (codigo, link) =>
-  `Estou usando o ProTudo para receber pedidos de clientes aqui da região. É grátis! Baixe pelo link e use meu código ${codigo} no cadastro: ${link}`
+  `Estou usando o ProTudo para receber pedidos de clientes aqui da região. É gratuito! Baixe pelo link e use meu código ${codigo} no cadastro: ${link}`
 
 // Arte-Indicar: o profissional vendo um pedido ABERTO e sem match indica o ProTudo a um
 // colega que faz aquele serviço. Texto aprovado; só título, valor e bairro/cidade do pedido
