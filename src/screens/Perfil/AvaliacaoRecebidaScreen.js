@@ -223,7 +223,7 @@ export default function AvaliacaoRecebidaScreen({ navigation, route }) {
       <View style={estilos.topbar}>
         <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <T style={estilos.topbarTitulo}>Avaliação recebida</T>
-        <View style={{ width: 84 }} />
+        <View style={{ width: 74 }} />
       </View>
       <View style={[estilos.wrapper, larguraMaxima]}>
         {dados ? <CelebracaoAvaliacaoConteudo dados={dados} onVerServicos={verServicos} /> : null}

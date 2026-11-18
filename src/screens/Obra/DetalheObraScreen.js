@@ -1981,7 +1981,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       <View style={estilos.topbar}>
         <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <Text style={estilos.topbarTitulo}>{isDono ? 'Minha obra' : 'Detalhe da obra'}</Text>
-        <View style={{ width: 84 }} />
+        <View style={{ width: 74 }} />
       </View>
 
       {/* Acima do conteúdo SEMEADO, que continua na tela: a recarga é que falhou. */}

@@ -112,7 +112,7 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
           {/* Voltar SOBRE o canto esquerdo do bloco do logo (como na escolha de perfil), e não
-              numa linha própria: é a altura que o logo de 200 precisa para a tela caber sem
+              numa linha própria: é a altura que o logo de 170 precisa para a tela caber sem
               rolar. O logo circular já traz o nome "ProTudo": sem wordmark nem régua. */}
           <View style={estilos.topo}>
             <BotaoVoltar estilo={estilos.voltarBtn} onPress={() => navigation.goBack()} />
@@ -188,7 +188,7 @@ export default function LoginScreen({ navigation }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   // Os respiros desta tela (rodapé 24, subtítulo 16, "esqueci" 12, divisor 12, crédito 16)
-  // são os curtos de propósito: com o logo circular de 200 a tela só cabe sem rolar num
+  // são os curtos de propósito: com o logo circular de 170 a tela só cabe sem rolar num
   // celular de 6,1" se o resto não gastar altura. O ScrollView segue como rede (teclado,
   // fonte grande do sistema, barra de 3 botões).
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 24 },
@@ -199,9 +199,9 @@ const estilos = StyleSheet.create({
   voltarBtn: { position: 'absolute', left: 0, top: 0, zIndex: 1 },
   logoWrap: { alignItems: 'center', marginTop: 8, marginBottom: 10 },
   // Logo circular (assets/logo-3d.png), que já traz o nome.
-  logo: { width: 200, height: 200 },
+  logo: { width: 170, height: 170 },
   // Uma linha só (era "Bem-vindo / de volta" em duas): a segunda linha é altura que o logo
-  // de 200 passou a ocupar.
+  // de 170 passou a ocupar.
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 26 },
   subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16 },
   form: {},

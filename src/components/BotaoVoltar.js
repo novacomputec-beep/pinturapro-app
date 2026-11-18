@@ -3,7 +3,7 @@ import { TouchableOpacity, StyleSheet } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { cores } from '../utils/tema'
 
-// O ÚNICO botão de voltar do app. Retângulo arredondado de 84×48 com a seta vetorial
+// O ÚNICO botão de voltar do app. Retângulo arredondado de 74×42 com a seta vetorial
 // (nunca o caractere "←", que cada fonte de sistema desenha e alinha de um jeito).
 //
 // `estilo` serve só para POSICIONAR (margens, position): tamanho, raio, fundo, borda e
@@ -13,7 +13,7 @@ import { cores } from '../utils/tema'
 // Feather (traço) e não outra família: é a que o app já carrega nas abas, então a seta não
 // pisca em branco esperando fonte. A caixa do ícone tem largura, altura e lineHeight iguais
 // ao tamanho, sem padding de fonte, para o glifo ficar no centro exato nos dois eixos.
-const TAMANHO_SETA = 26
+const TAMANHO_SETA = 23
 
 export default function BotaoVoltar({ onPress, estilo, disabled }) {
   return (
@@ -33,9 +33,9 @@ export default function BotaoVoltar({ onPress, estilo, disabled }) {
 
 const estilos = StyleSheet.create({
   botao: {
-    width: 84,
-    height: 48,
-    borderRadius: 14,
+    width: 74,
+    height: 42,
+    borderRadius: 12,
     backgroundColor: cores.fundoElevado,
     borderWidth: 0.5,
     borderColor: cores.borda,

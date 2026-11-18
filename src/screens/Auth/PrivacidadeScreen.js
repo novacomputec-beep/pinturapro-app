@@ -51,7 +51,7 @@ export default function PrivacidadeScreen({ navigation }) {
       <View style={estilos.topbar}>
         <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <Text style={estilos.topbarTitulo}>Política de Privacidade</Text>
-        <View style={{ width: 84 }} />
+        <View style={{ width: 74 }} />
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>

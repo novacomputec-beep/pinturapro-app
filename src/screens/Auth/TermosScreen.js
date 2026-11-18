@@ -57,7 +57,7 @@ export default function TermosScreen({ navigation }) {
       <View style={estilos.topbar}>
         <BotaoVoltar estilo={estilos.btnVoltar} onPress={() => navigation.goBack()} />
         <Text style={estilos.topbarTitulo}>Termos de Uso</Text>
-        <View style={{ width: 84 }} />
+        <View style={{ width: 74 }} />
       </View>
 
       <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} showsVerticalScrollIndicator={false}>

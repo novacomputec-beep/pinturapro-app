@@ -734,7 +734,7 @@ export default function CadastroScreen({ navigation, route }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Mesmo cabeçalho das telas 2/3 da escolha de perfil: voltar à esquerda (absoluto)
-              e o logo circular de 140 centrado na mesma linha. O logo já traz o nome
+              e o logo circular de 119 centrado na mesma linha. O logo já traz o nome
               "ProTudo": sem wordmark nem régua em texto. */}
           <View style={estilos.cabecalho}>
             <BotaoVoltar estilo={estilos.btnVoltar} onPress={voltar} />
@@ -854,7 +854,7 @@ const estilos = StyleSheet.create({
   // cabecalho / btnVoltarCabecalho / logo), para o passo 0 e os seguintes baterem.
   cabecalho: { minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: 4, marginBottom: 12 },
   btnVoltar: { position: 'absolute', left: 0, zIndex: 1 },
-  logo: { width: 140, height: 140 },
+  logo: { width: 119, height: 119 },
   // Mesmos 20/26 do titulo da LoginScreen, pelo mesmo motivo: em 28 a saudação empatava
   // com o wordmark (mesmo corpo, mesmo peso) e, nos passos que quebram em duas linhas
   // ("Criar\nsua conta"), pesava mais que a marca. O passo 0 tem títulos próprios

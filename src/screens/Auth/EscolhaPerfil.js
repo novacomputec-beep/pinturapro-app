@@ -53,13 +53,12 @@ const FOTO = {
   trabalharServicos: require('../../../assets/cards/card-trabalhar-servicos.jpg'),
   contratarServicos: require('../../../assets/cards/card-contratar-servicos.jpg'),
 }
-// Medidas do bloco da foto NA ARTE aprovada, cuja tela tem 610 px de largura: 220x170, raio
-// 18. O app desenha na mesma PROPORÇÃO da largura da janela (220/610 dela): num celular de
-// 360 dp isso dá ~130x100 e sobra a coluna do rótulo + título e a seta na mesma linha, como
-// na arte. Em 220 dp literais a foto ocuparia o card quase inteiro (o miolo tem ~289 dp) e o
-// título não caberia ao lado. De 610 dp de largura para cima vale o 220x170 cheio.
+// Medidas do bloco da foto NA ARTE aprovada, cuja tela tem 610 px de largura: retângulo
+// deitado de 200x118, raio 18. O app desenha na mesma PROPORÇÃO da largura da janela
+// (200/610 dela): num celular de 360 dp isso dá ~118x70 e sobra a coluna do rótulo + título
+// e a seta na mesma linha, como na arte. De 610 dp de largura para cima vale o 200x118 cheio.
 const ARTE_LARGURA = 610
-const FOTO_ARTE = { largura: 220, altura: 170, raio: 18 }
+const FOTO_ARTE = { largura: 200, altura: 118, raio: 18 }
 
 // Card ÚNICO do lado contratante (Fase 1, Arte-Fase1-Contratar): quem contrata vê um lado só
 // — serviços e obras são pedidos da mesma conta. Rótulo, título e ilustração são os mesmos no
@@ -137,9 +136,10 @@ const ImagemComBrilho = ({ imagem, icone, tamanho, cor }) => (
 
 // Foto do card: cantos arredondados com recorte (overflow hidden, cover) e uma sombra leve.
 // A sombra fica na View de FORA — a de dentro recorta, e sombra recortada não aparece no iOS.
-// flexShrink + aspectRatio: em tela estreita a foto encolhe mantendo a proporção, em vez de
-// empurrar a seta para fora do card.
-const FotoCard = ({ fonte }) => {
+// `selo` (opcional) é a pílula verde DENTRO da foto, no canto inferior esquerdo:
+// { texto: 'Gratuito', precoRiscado?: 'R$ 49,90' } — o preço riscado vem antes do texto, na
+// mesma pílula. Ela nunca passa da largura da foto: o texto encolhe até caber numa linha.
+const FotoCard = ({ fonte, selo }) => {
   const { width } = useWindowDimensions()
   const escala = Math.min(width, ARTE_LARGURA) / ARTE_LARGURA
   const largura = Math.round(FOTO_ARTE.largura * escala)
@@ -149,6 +149,14 @@ const FotoCard = ({ fonte }) => {
     <View style={[s.fotoSombra, { width: largura, height: altura, borderRadius: raio }]}>
       <View style={{ flex: 1, borderRadius: raio, overflow: 'hidden' }}>
         <Image source={fonte} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        {!!selo && (
+          <View style={s.fotoSelo}>
+            <Text style={s.fotoSeloTexto} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1.2}>
+              {!!selo.precoRiscado && <Text style={s.fotoSeloRiscado}>{selo.precoRiscado}</Text>}
+              {selo.precoRiscado ? '  ' : ''}{selo.texto}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   )
@@ -174,7 +182,7 @@ const FotoCard = ({ fonte }) => {
 export const CartaoEscolha = ({
   cor, corBorda, imagem, icone, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18,
   tamanhoRotulo = 11, etiqueta, etiquetaAbaixo, disabled, carregando, iconeSeta = 'arrow-right', corSeta, accessibilityLabel,
-  foto,
+  foto, selo,
 }) => {
   const comFoto = !!foto
   const titulos = (
@@ -218,7 +226,7 @@ export const CartaoEscolha = ({
     >
     <View style={[s.cardTopo, semMiolo && { marginBottom: 0 }]}>
       {foto
-        ? <FotoCard fonte={foto} />
+        ? <FotoCard fonte={foto} selo={selo} />
         : <ImagemComBrilho imagem={imagem} icone={icone} tamanho={tamanhoImagem} cor={cor} />}
       <View style={s.cardTitulos}>{titulos}</View>
       {seta}
@@ -235,18 +243,16 @@ export const CartaoEscolha = ({
   )
 }
 
-// Rodapé dos cards de prestador: preço de assinatura, nunca no iOS (3.1.1), nem riscado;
-// na janela de lançamento, riscado + "Gratuito".
-const RodapePreco = ({ preco, mostrarCobranca, lancamentoGratis }) => {
-  if (!mostrarCobranca) return null
-  if (!lancamentoGratis) return <Text style={s.preco} maxFontSizeMultiplier={1.6}>{preco}</Text>
-  return (
-    <View style={s.rodapeLinha}>
-      <Text style={s.precoRiscado} maxFontSizeMultiplier={1.6}>{preco}</Text>
-      <Chip texto="Gratuito" verde />
-    </View>
-  )
-}
+// Preço do card de prestador. Nunca no iOS (3.1.1). Na janela de lançamento ele vai RISCADO
+// dentro da pílula da foto, antes do "Gratuito" (seloPreco) e o card não tem linha de preço;
+// fora da janela a assinatura é cobrada de verdade, e o preço cheio segue numa linha própria
+// no rodapé (RodapePreco), sem pílula.
+const seloPreco = ({ preco, mostrarCobranca, lancamentoGratis }) => (
+  mostrarCobranca && lancamentoGratis ? { texto: 'Gratuito', precoRiscado: preco.replace('/mês', '') } : null
+)
+const RodapePreco = ({ preco, mostrarCobranca, lancamentoGratis }) => (
+  mostrarCobranca && !lancamentoGratis ? <Text style={s.preco} maxFontSizeMultiplier={1.6}>{preco}</Text> : null
+)
 
 // Caixa tracejada do rodapé (ícone azul num círculo, título e texto). Exportada: o
 // "Entrar como:" usa a mesma para "Dá para trocar depois".
@@ -264,7 +270,7 @@ export const CaixaAviso = ({ icone, titulo, children, estilo }) => (
 
 export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, paddingTop, mostrarCobranca, lancamentoGratis }) {
   if (!lado) {
-    // Tela 1: logo circular de 140 centrado (já traz o nome "ProTudo" — sem wordmark em
+    // Tela 1: logo circular de 119 centrado (já traz o nome "ProTudo" — sem wordmark em
     // texto), título numa linha só e os cards. Para caber sem rolar num celular comum
     // (~360x780dp) o botão de voltar fica SOBRE o bloco do logo, à esquerda, em vez de
     // ocupar uma linha própria e os respiros entre blocos são curtos; cada card traz a foto
@@ -295,7 +301,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           desc="Receba pedidos de clientes perto de você, direto no celular."
           chips={['Serviços', 'Obras', 'Na sua região']}
           // Mesma condição do "Gratuito" dos preços: nunca no iOS (3.1.1), só na janela de lançamento.
-          rodape={mostrarCobranca && lancamentoGratis ? <View style={s.rodapeLinha}><Chip texto="Gratuito" verde /></View> : null}
+          selo={mostrarCobranca && lancamentoGratis ? { texto: 'Gratuito' } : null}
           onPress={() => setLado('trabalhar')}
         />
 
@@ -307,7 +313,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           titulo="Quero contratar"
           desc="Publique o que precisa e receba propostas de profissionais da região."
           chips={['Serviços', 'Obras', 'Reformas']}
-          rodape={<View style={s.rodapeLinha}><Chip texto="Sempre gratuito" verde /></View>}
+          selo={{ texto: 'Sempre gratuito' }}
           onPress={() => setLado('contratar')}
         />
 
@@ -366,9 +372,10 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           titulo={op.titulo}
           desc={op.desc}
           chips={op.chips}
-          rodape={op.preco
-            ? <RodapePreco preco={op.preco} mostrarCobranca={mostrarCobranca} lancamentoGratis={lancamentoGratis} />
-            : <View style={s.rodapeLinha}><Chip texto="Gratuito" verde /></View>}
+          selo={op.preco
+            ? seloPreco({ preco: op.preco, mostrarCobranca, lancamentoGratis })
+            : { texto: 'Gratuito' }}
+          rodape={op.preco ? RodapePreco({ preco: op.preco, mostrarCobranca, lancamentoGratis }) : null}
           onPress={() => onEscolher(op.tipo)}
         />
       ))}
@@ -389,17 +396,17 @@ export const estilosEscolha = StyleSheet.create({
   // do `scroll` garante a altura mínima da tela; passando dela, rola como sempre).
   scrollTela1: { paddingBottom: 12, justifyContent: 'center' },
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 10 },
-  // Tela 1: o voltar (84 de largura) fica sobre o canto esquerdo do bloco do logo. O logo
+  // Tela 1: o voltar (74 de largura) fica sobre o canto esquerdo do bloco do logo. O logo
   // tem 140, centrado: numa tela de 360 dp o disco começa depois do botão.
   topo: { marginTop: 0 },
   btnVoltarTopo: { position: 'absolute', left: 0, top: 0, marginTop: 0, marginBottom: 0, zIndex: 1 },
   // Logo circular (assets/logo-3d.png, já com o nome), centrado. 140 no cadastro — o
   // "Entrar como:" usa estes estilos de topo com o próprio tamanho (165).
   logoWrap: { alignItems: 'center', marginBottom: 4 },
-  logo: { width: 140, height: 140 },
+  logo: { width: 119, height: 119 },
   tituloCentro: { fontSize: 24, lineHeight: 30, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, textAlign: 'center', marginBottom: 2 },
   subtituloCentro: { fontSize: 13, lineHeight: 18, color: TEXTO_SUB, textAlign: 'center', marginBottom: 12 },
-  // Telas 2/3: voltar à esquerda e o logo de 140 centrado na mesma linha — a linha tem a
+  // Telas 2/3: voltar à esquerda e o logo de 119 centrado na mesma linha — a linha tem a
   // altura do logo e o conteúdo desce. O botão fica absoluto (centrado na vertical) para o
   // logo centrar na tela, e não no espaço que sobra.
   cabecalho: { minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: 4, marginBottom: 12 },
@@ -427,9 +434,12 @@ export const estilosEscolha = StyleSheet.create({
   chipTexto: { fontSize: 12, fontWeight: '600', color: TEXTO_DESC },
   chipVerde: { backgroundColor: cores.sucesso + '33', borderColor: cores.sucesso + '99' },
   chipTextoVerde: { color: cores.sucesso, fontWeight: '700' },
-  rodapeLinha: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 10 },
   preco: { fontSize: 12, fontWeight: '600', color: cores.primaria, marginTop: 10 },
-  precoRiscado: { fontSize: 12, fontWeight: '600', color: TEXTO_SUB, textDecorationLine: 'line-through' },
+  // Pílula dentro da foto, canto inferior esquerdo: fundo verde-escuro translúcido, borda e
+  // texto verdes. maxWidth é o teto — o texto encolhe antes de a pílula sair da foto.
+  fotoSelo: { position: 'absolute', left: 6, bottom: 6, maxWidth: '92%', backgroundColor: 'rgba(8,38,20,0.82)', borderWidth: 1, borderColor: cores.sucesso, borderRadius: raios.pill, paddingHorizontal: 7, paddingVertical: 2 },
+  fotoSeloTexto: { fontSize: 10, fontWeight: '700', color: cores.sucesso },
+  fotoSeloRiscado: { fontWeight: '600', color: '#C9D1D9', textDecorationLine: 'line-through' },
   avisoCadastros: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#141417', borderWidth: 1, borderColor: '#2E2E34', borderStyle: 'dashed', borderRadius: raios.grande, padding: 14, marginTop: 0 },
   avisoIcone: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: COR_CONTRATAR + '99', backgroundColor: COR_CONTRATAR + '22', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   avisoTitulo: { fontSize: 14, fontWeight: '700', color: cores.branco, marginBottom: 2 },

@@ -39,11 +39,11 @@ let resumeCadastroVerificado = false
 
 // Abaixo desta altura de janela (dp) a tela entra no modo compacto: botões de 44, vãos
 // mínimos menores, mock sem a terceira linha. Era 700; subiu para 900 quando o logo passou
-// a ser o circular de 190 (era 64 + wordmark): os ~65 dp a mais do bloco do logo saem do
+// a ser o circular (hoje 127; era 64 + wordmark): a altura a mais do bloco do logo saem do
 // resto da tela, senão um celular de 6,1" (janela de 780 a 850 dp) passaria a rolar. Em
 // tela mais alta que isso os três espaçadores absorvem a folga como sempre.
 const ALTURA_COMPACTA = 900
-// Abaixo desta, nem o logo de 190 cabe: ele encolhe (aparelho de 640 dp, área útil ~560).
+// Abaixo desta, nem o logo de 127 cabe: ele encolhe (aparelho de 640 dp, área útil ~560).
 const ALTURA_BAIXA = 700
 
 export default function SplashScreen({ navigation }) {
@@ -302,13 +302,13 @@ const estilos = StyleSheet.create({
     paddingTop: 4,
   },
   logoAreaCompacta: { paddingTop: 0 },
-  // Logo circular (assets/logo-3d.png, já com o nome): 190 de lado; 150 só em janela baixa.
+  // Logo circular (assets/logo-3d.png, já com o nome): 127 de lado; 100 só em janela baixa.
   logoIcone: {
-    width: 190,
-    height: 190,
+    width: 127,
+    height: 127,
     marginBottom: 6,
   },
-  logoIconeBaixo: { width: 150, height: 150, marginBottom: 4 },
+  logoIconeBaixo: { width: 100, height: 100, marginBottom: 4 },
   logoTagline: {
     fontSize: 13,
     color: cores.textoForte,

@@ -116,8 +116,8 @@ export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, e
 }
 
 const estilos = StyleSheet.create({
-  // Logo circular de 165: o voltar (84 de largura, sobre o canto esquerdo) não toca o disco.
-  logo: { width: 165, height: 165 },
+  // Logo circular de 140: o voltar (74 de largura, sobre o canto esquerdo) não toca o disco.
+  logo: { width: 140, height: 140 },
   // Cabeçalho de cada lado, na cor do lado.
   secao: { fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
 })
