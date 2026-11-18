@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator, useWindowDimensions } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import BotaoVoltar from '../../components/BotaoVoltar'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -44,6 +44,23 @@ export const IMG = {
   contratarObra:     require('../../../assets/escolha/contratar-obra.png'),
 }
 
+// FOTOS dos 4 cards do cadastro (660x510, 3x de 220x170), no lugar da ilustração: as duas da
+// 1ª tela ("Quero trabalhar" / "Quero contratar") e as duas das abas. O "Entrar como:" e o
+// "Meus perfis" seguem com a ilustração (IMG acima) — os cards deles são menores.
+const FOTO = {
+  queroTrabalhar:    require('../../../assets/cards/card-quero-trabalhar.jpg'),
+  queroContratar:    require('../../../assets/cards/card-quero-contratar.jpg'),
+  trabalharServicos: require('../../../assets/cards/card-trabalhar-servicos.jpg'),
+  contratarServicos: require('../../../assets/cards/card-contratar-servicos.jpg'),
+}
+// Medidas do bloco da foto NA ARTE aprovada, cuja tela tem 610 px de largura: 220x170, raio
+// 18. O app desenha na mesma PROPORÇÃO da largura da janela (220/610 dela): num celular de
+// 360 dp isso dá ~130x100 e sobra a coluna do rótulo + título e a seta na mesma linha, como
+// na arte. Em 220 dp literais a foto ocuparia o card quase inteiro (o miolo tem ~289 dp) e o
+// título não caberia ao lado. De 610 dp de largura para cima vale o 220x170 cheio.
+const ARTE_LARGURA = 610
+const FOTO_ARTE = { largura: 220, altura: 170, raio: 18 }
+
 // Card ÚNICO do lado contratante (Fase 1, Arte-Fase1-Contratar): quem contrata vê um lado só
 // — serviços e obras são pedidos da mesma conta. Rótulo, título e ilustração são os mesmos no
 // cadastro, no "Entrar como:" e no "Meus perfis".
@@ -60,10 +77,10 @@ const TRABALHAR = { rotulo: 'TRABALHAR', titulo: 'Serviços e obras', imagem: IM
 // Sem `preco` = dono (Gratuito).
 const OPCOES = {
   trabalhar: [
-    { tipo: 'prestador', ...TRABALHAR, desc: 'Do conserto à obra: você marca o que faz e recebe só os pedidos da sua área.', chips: ['Elétrica', 'Faxina', 'Manicure', 'Pedreiro', 'Pintor', '+50'], preco: 'R$ 49,90/mês' },
+    { tipo: 'prestador', ...TRABALHAR, foto: FOTO.trabalharServicos, desc: 'Do conserto à obra: você marca o que faz e recebe só os pedidos da sua área.', chips: ['Elétrica', 'Faxina', 'Manicure', 'Pedreiro', 'Pintor', '+50'], preco: 'R$ 49,90/mês' },
   ],
   contratar: [
-    { tipo: 'dono_reparo', ...CONTRATAR, desc: 'Do conserto à reforma: publique o pedido e receba propostas para comparar.', chips: ['Encanador', 'Faxina', 'Manicure', 'Pintura', 'Reforma'] },
+    { tipo: 'dono_reparo', ...CONTRATAR, foto: FOTO.contratarServicos, desc: 'Do conserto à reforma: publique o pedido e receba propostas para comparar.', chips: ['Encanador', 'Faxina', 'Manicure', 'Pintura', 'Reforma'] },
   ],
 }
 
@@ -118,6 +135,29 @@ const ImagemComBrilho = ({ imagem, icone, tamanho, cor }) => (
   </View>
 )
 
+// Foto do card: cantos arredondados com recorte (overflow hidden, cover) e uma sombra leve.
+// A sombra fica na View de FORA — a de dentro recorta, e sombra recortada não aparece no iOS.
+// flexShrink + aspectRatio: em tela estreita a foto encolhe mantendo a proporção, em vez de
+// empurrar a seta para fora do card.
+const FotoCard = ({ fonte }) => {
+  const { width } = useWindowDimensions()
+  const escala = Math.min(width, ARTE_LARGURA) / ARTE_LARGURA
+  const largura = Math.round(FOTO_ARTE.largura * escala)
+  const altura = Math.round(FOTO_ARTE.altura * escala)
+  const raio = Math.round(FOTO_ARTE.raio * escala)
+  return (
+    <View style={[s.fotoSombra, { width: largura, height: altura, borderRadius: raio }]}>
+      <View style={{ flex: 1, borderRadius: raio, overflow: 'hidden' }}>
+        <Image source={fonte} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+      </View>
+    </View>
+  )
+}
+
+// `foto` (opcional) troca a ilustração pela foto, NO MESMO LUGAR (à esquerda da linha):
+// rótulo + título seguem à direita dela e a seta no fim da linha. Como a foto é mais larga
+// que a ilustração, a coluna dos títulos estreita: o rótulo encolhe até caber em uma linha e
+// o título em até duas.
 // Card de escolha: imagem à esquerda, rótulo pequeno + título, seta à direita; abaixo,
 // descrição, chips e o rodapé (preço/gratuito). Tudo quebra linha — nada de altura fixa,
 // para fonte grande do sistema e tela estreita não cortarem texto.
@@ -134,7 +174,33 @@ const ImagemComBrilho = ({ imagem, icone, tamanho, cor }) => (
 export const CartaoEscolha = ({
   cor, corBorda, imagem, icone, tamanhoImagem = 80, rotulo, titulo, desc, chips, rodape, onPress, tamanhoTitulo = 18,
   tamanhoRotulo = 11, etiqueta, etiquetaAbaixo, disabled, carregando, iconeSeta = 'arrow-right', corSeta, accessibilityLabel,
-}) => (
+  foto,
+}) => {
+  const comFoto = !!foto
+  const titulos = (
+    <>
+      <View style={s.cardRotuloLinha}>
+        <Text
+          style={[s.cardRotulo, { color: cor, fontSize: tamanhoRotulo }, comFoto && { flexShrink: 1 }]}
+          maxFontSizeMultiplier={1.5}
+          {...(comFoto ? { numberOfLines: 1, adjustsFontSizeToFit: true, minimumFontScale: 0.75 } : {})}
+        >{rotulo}</Text>
+        {!!etiqueta && <Chip texto={etiqueta} verde />}
+      </View>
+      <Text
+        style={[s.cardTitulo, { fontSize: tamanhoTitulo, lineHeight: Math.round(tamanhoTitulo * 1.2) }]}
+        {...(comFoto ? { numberOfLines: 2, adjustsFontSizeToFit: true, minimumFontScale: 0.75 } : {})}
+      >{titulo}</Text>
+      {!!etiquetaAbaixo && <View style={s.cardEtiquetaAbaixo}><Chip texto={etiquetaAbaixo} verde /></View>}
+    </>
+  )
+  const seta = (
+    <View style={[s.seta, { borderColor: (corSeta || cor) + 'AA', backgroundColor: (corSeta || cor) + '22' }]}>
+      {carregando ? <ActivityIndicator color={corSeta || cor} /> : <Feather name={iconeSeta} size={18} color={corSeta || cor} />}
+    </View>
+  )
+  const semMiolo = !desc && !chips?.length && !rodape
+  return (
   <TouchableOpacity
     style={[s.card, { borderColor: (corBorda || cor) + '99' }]}
     onPress={onPress}
@@ -150,19 +216,12 @@ export const CartaoEscolha = ({
       end={{ x: 1, y: 1 }}
       style={s.cardMiolo}
     >
-    <View style={[s.cardTopo, !desc && !chips?.length && !rodape && { marginBottom: 0 }]}>
-      <ImagemComBrilho imagem={imagem} icone={icone} tamanho={tamanhoImagem} cor={cor} />
-      <View style={s.cardTitulos}>
-        <View style={s.cardRotuloLinha}>
-          <Text style={[s.cardRotulo, { color: cor, fontSize: tamanhoRotulo }]} maxFontSizeMultiplier={1.5}>{rotulo}</Text>
-          {!!etiqueta && <Chip texto={etiqueta} verde />}
-        </View>
-        <Text style={[s.cardTitulo, { fontSize: tamanhoTitulo, lineHeight: Math.round(tamanhoTitulo * 1.2) }]}>{titulo}</Text>
-        {!!etiquetaAbaixo && <View style={s.cardEtiquetaAbaixo}><Chip texto={etiquetaAbaixo} verde /></View>}
-      </View>
-      <View style={[s.seta, { borderColor: (corSeta || cor) + 'AA', backgroundColor: (corSeta || cor) + '22' }]}>
-        {carregando ? <ActivityIndicator color={corSeta || cor} /> : <Feather name={iconeSeta} size={18} color={corSeta || cor} />}
-      </View>
+    <View style={[s.cardTopo, semMiolo && { marginBottom: 0 }]}>
+      {foto
+        ? <FotoCard fonte={foto} />
+        : <ImagemComBrilho imagem={imagem} icone={icone} tamanho={tamanhoImagem} cor={cor} />}
+      <View style={s.cardTitulos}>{titulos}</View>
+      {seta}
     </View>
     {!!desc && <Text style={s.cardDesc}>{desc}</Text>}
     {!!chips?.length && (
@@ -173,7 +232,8 @@ export const CartaoEscolha = ({
     {rodape}
     </LinearGradient>
   </TouchableOpacity>
-)
+  )
+}
 
 // Rodapé dos cards de prestador: preço de assinatura, nunca no iOS (3.1.1), nem riscado;
 // na janela de lançamento, riscado + "Gratuito".
@@ -207,8 +267,8 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
     // Tela 1: logo circular de 140 centrado (já traz o nome "ProTudo" — sem wordmark em
     // texto), título numa linha só e os cards. Para caber sem rolar num celular comum
     // (~360x780dp) o botão de voltar fica SOBRE o bloco do logo, à esquerda, em vez de
-    // ocupar uma linha própria, os respiros entre blocos são curtos e a ilustração dos
-    // cards tem 72 (era 88: os 16 de cada card pagam a altura a mais do logo); o conteúdo
+    // ocupar uma linha própria e os respiros entre blocos são curtos; cada card traz a foto
+    // à esquerda (FotoCard, na proporção da arte); o conteúdo
     // centra na vertical quando sobra espaço. O ScrollView fica só como rede para tela muito
     // pequena, barra de navegação de 3 botões ou fonte grande do sistema — aí rola,
     // nunca corta.
@@ -228,8 +288,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
 
         <CartaoEscolha
           cor={COR_TRABALHAR}
-          imagem={IMG.escolhaTrabalhar}
-          tamanhoImagem={72}
+          foto={FOTO.queroTrabalhar}
           tamanhoTitulo={20}
           rotulo="SOU PROFISSIONAL"
           titulo="Quero trabalhar"
@@ -242,8 +301,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
 
         <CartaoEscolha
           cor={COR_CONTRATAR}
-          imagem={IMG.escolhaContratar}
-          tamanhoImagem={72}
+          foto={FOTO.queroContratar}
           tamanhoTitulo={20}
           rotulo="PRECISO DE ALGUÉM"
           titulo="Quero contratar"
@@ -303,6 +361,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
           key={op.tipo}
           cor={atual.cor}
           imagem={op.imagem}
+          foto={op.foto}
           rotulo={op.rotulo}
           titulo={op.titulo}
           desc={op.desc}
@@ -355,6 +414,8 @@ export const estilosEscolha = StyleSheet.create({
   cardMiolo: { padding: 14 },
   cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   cardTitulos: { flex: 1 },
+  // Sombra leve da foto. O fundo é obrigatório para a elevation do Android desenhar.
+  fotoSombra: { flexShrink: 0, backgroundColor: '#0E0E11', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
   cardRotuloLinha: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 2 },
   cardRotulo: { fontWeight: '800', letterSpacing: 1.2 },
   cardTitulo: { fontWeight: '700', color: cores.textoForte, letterSpacing: -0.3 },
