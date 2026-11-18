@@ -111,17 +111,17 @@ export default function LoginScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <BotaoVoltar estilo={estilos.voltarBtn} onPress={() => navigation.goBack()} />
-
-          <View style={estilos.logoWrap}>
-            <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
-            <Text style={estilos.logoNome}>
-              <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
-            </Text>
-            <View style={estilos.logoRegua} />
+          {/* Voltar SOBRE o canto esquerdo do bloco do logo (como na escolha de perfil), e não
+              numa linha própria: é a altura que o logo de 200 precisa para a tela caber sem
+              rolar. O logo circular já traz o nome "ProTudo": sem wordmark nem régua. */}
+          <View style={estilos.topo}>
+            <BotaoVoltar estilo={estilos.voltarBtn} onPress={() => navigation.goBack()} />
+            <View style={estilos.logoWrap}>
+              <Image source={require('../../../assets/logo-3d.png')} style={estilos.logo} resizeMode="contain" accessibilityLabel="ProTudo" />
+            </View>
           </View>
 
-          <Text style={estilos.titulo}>Bem-vindo{'\n'}de volta</Text>
+          <Text style={estilos.titulo}>Bem-vindo de volta</Text>
           <Text style={estilos.subtitulo}>Acesse sua conta</Text>
 
           <View style={estilos.form}>
@@ -187,40 +187,30 @@ export default function LoginScreen({ navigation }) {
 
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 40 },
-  // Mesmo espaçamento do btnVoltar da CadastroScreen (8/10): é o elemento imediatamente
-  // acima do bloco do logo, então 14/20 aqui deslocava a marca para baixo em relação à
-  // outra tela mesmo com o bloco já idêntico.
-  voltarBtn: { marginTop: 8, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  voltarIcone: { color: cores.textoForte, fontSize: 20, fontWeight: '700', lineHeight: 24, textAlignVertical: 'center', includeFontPadding: false },
-  // 22 aqui + os 10 do logoRegua = 32 de respiro entre a régua e o título — o mesmo 32 que
-  // o subtitulo usa para separar o bloco do formulário, e ~0,9 da lineHeight do título de
-  // 28px. Fica NESTE estilo, e não no marginBottom do logoRegua, porque aquele se declara
-  // idêntico ao das outras duas telas: mexer lá tornaria o comentário mentira.
-  logoWrap: { alignItems: 'center', marginBottom: 22 },
-  // Mesmos valores do logo da CadastroScreen, sem margem própria. O -6 que morava aqui
-  // encostava a palavra na imagem só NESTA tela, e era exatamente o que impedia o bloco das
-  // três telas de bater: a folga que a linha de 28px reserva acima da maiúscula existe nas
-  // outras duas do mesmo jeito, e lá ela nunca foi compensada.
-  logo: { width: 170, height: 64 },
-  // Mesmos valores do rótulo da CadastroScreen (logoNome), para as duas telas baterem.
-  logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
-  // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
-  logoRegua: { width: 88, height: 2, borderRadius: 1, backgroundColor: cores.primaria, marginTop: 0, marginBottom: 10 },
-  // 20, e não 28: no 28 a saudação empatava com o wordmark (mesmo corpo, mesmo peso) e,
-  // quebrando em duas linhas, pesava MAIS que a marca. 20 é o degrau em negrito que a
-  // própria tela já usa (voltarIcone), então a marca lidera em 1,4x e o título ainda
-  // lidera o subtítulo de 13 em 1,54x. lineHeight acompanha na mesma proporção de antes
-  // (36/28 = 1,286 → 20 x 1,286 ≈ 26), senão as duas linhas se afastariam.
+  // Os respiros desta tela (rodapé 24, subtítulo 16, "esqueci" 12, divisor 12, crédito 16)
+  // são os curtos de propósito: com o logo circular de 200 a tela só cabe sem rolar num
+  // celular de 6,1" se o resto não gastar altura. O ScrollView segue como rede (teclado,
+  // fonte grande do sistema, barra de 3 botões).
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: espacos.tela, paddingBottom: 24 },
+  // Bloco do topo: o voltar fica ABSOLUTO no canto esquerdo e o logo centra na tela. Eles
+  // não se tocam: o disco do logo começa 8 abaixo do botão e, na altura da base do botão,
+  // a borda esquerda do círculo já passou da borda direita dele (tela de 360 dp ou mais).
+  topo: { marginTop: 8 },
+  voltarBtn: { position: 'absolute', left: 0, top: 0, zIndex: 1 },
+  logoWrap: { alignItems: 'center', marginTop: 8, marginBottom: 10 },
+  // Logo circular (assets/logo-3d.png), que já traz o nome.
+  logo: { width: 200, height: 200 },
+  // Uma linha só (era "Bem-vindo / de volta" em duas): a segunda linha é altura que o logo
+  // de 200 passou a ocupar.
   titulo: { fontSize: 20, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 6, lineHeight: 26 },
-  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 32 },
+  subtitulo: { fontSize: 13, color: cores.textoFraco, marginBottom: 16 },
   form: {},
   olhoBtn: { position: 'absolute', right: 14, bottom: 27 },
   olhoTexto: { fontSize: 12, color: cores.textoFraco },
-  esqueciBtn: { alignSelf: 'flex-end', marginBottom: 20, marginTop: -4 },
+  esqueciBtn: { alignSelf: 'flex-end', marginBottom: 12, marginTop: -4 },
   esqueciTexto: { fontSize: 12, color: cores.primaria },
-  ouDivisor: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 20 },
+  ouDivisor: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 12 },
   ouLinha: { flex: 1, height: 0.5, backgroundColor: cores.bordaFraca },
   ouTexto: { fontSize: 11, color: cores.textoMutado },
-  creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 32 },
+  creditoTexto: { textAlign: 'center', fontSize: 11, color: cores.textoMutado, marginTop: 16 },
 })

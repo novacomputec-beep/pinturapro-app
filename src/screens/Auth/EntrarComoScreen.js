@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { cores, larguraMaxima } from '../../utils/tema'
 import { contaContratar, ehTipoContratar, lerUltimoTipoContratar, contaTrabalhar, ehTipoTrabalhar, lerUltimoTipoTrabalhar } from '../../utils/contas'
 import {
-  COR_TRABALHAR, COR_CONTRATAR, CARTOES_TIPO, ROTULO_LADO, FundoBrilhos, CartaoEscolha, CaixaAviso, BotaoVoltar, Wordmark,
+  COR_TRABALHAR, COR_CONTRATAR, CARTOES_TIPO, ROTULO_LADO, FundoBrilhos, CartaoEscolha, CaixaAviso, BotaoVoltar,
   estilosEscolha as s,
 } from './EscolhaPerfil'
 
@@ -105,8 +105,8 @@ export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, e
         <View style={s.topo}>
           <BotaoVoltar onPress={onVoltar} estilo={s.btnVoltarTopo} disabled={!!tipoCarregando} />
           <View style={s.logoWrap}>
-            <Image source={require('../../../assets/logo.png')} style={s.logo} resizeMode="contain" />
-            <Wordmark tamanho={26} />
+            {/* Logo circular, que já traz o nome "ProTudo": sem wordmark em texto. */}
+            <Image source={require('../../../assets/logo-3d.png')} style={estilos.logo} resizeMode="contain" accessibilityLabel="ProTudo" />
           </View>
         </View>
         <EntrarComoConteudo contas={contas} tipoCarregando={tipoCarregando} ultimoTipo={ultimoTipo} ultimoContratar={ultimoContratar} ultimoTrabalhar={ultimoTrabalhar} onEscolher={onEscolher} />
@@ -116,6 +116,8 @@ export default function EntrarComoScreen({ contas, tipoCarregando, ultimoTipo, e
 }
 
 const estilos = StyleSheet.create({
-  // Cabeçalho de cada lado, na cor do lado — único estilo próprio desta tela.
+  // Logo circular de 165: o voltar (84 de largura, sobre o canto esquerdo) não toca o disco.
+  logo: { width: 165, height: 165 },
+  // Cabeçalho de cada lado, na cor do lado.
   secao: { fontSize: 13, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10, marginTop: 4 },
 })

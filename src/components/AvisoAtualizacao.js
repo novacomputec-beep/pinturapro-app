@@ -150,7 +150,7 @@ export default function AvisoAtualizacao() {
     <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={fechar}>
       <View style={estilos.backdrop}>
         <View style={estilos.card}>
-          <Image source={require('../../assets/logo.png')} style={estilos.icone} resizeMode="contain" />
+          <Image source={require('../../assets/logo-3d.png')} style={estilos.icone} resizeMode="contain" accessibilityLabel="ProTudo" />
           <Text style={estilos.titulo}>{TEXTOS[tipo].titulo}</Text>
           <Text style={estilos.texto}>{TEXTOS[tipo].texto}</Text>
 
@@ -172,7 +172,8 @@ export default function AvisoAtualizacao() {
 const estilos = StyleSheet.create({
   backdrop:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 28 },
   card:        { width: '100%', maxWidth: 380, backgroundColor: '#1A1A1D', borderRadius: 24, borderWidth: 1, borderColor: cores.primariaBorda, padding: 28, alignItems: 'center' },
-  icone:       { width: 72, height: 72, marginBottom: 18 },
+  // 96 (era 72): o logo circular traz o nome dentro, e em 72 ele não se lê.
+  icone:       { width: 96, height: 96, marginBottom: 16 },
   titulo:      { fontSize: 22, fontWeight: '800', color: cores.textoForte, textAlign: 'center', marginBottom: 12, letterSpacing: -0.3 },
   texto:       { fontSize: 14, color: cores.textoMedio, textAlign: 'center', lineHeight: 21 },
   cta:         { backgroundColor: cores.primaria, borderRadius: raios.grande, paddingVertical: 16, paddingHorizontal: 28, width: '100%', alignItems: 'center', marginTop: 24 },

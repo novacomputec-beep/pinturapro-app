@@ -92,12 +92,6 @@ export const Chip = ({ texto, verde }) => (
   </View>
 )
 
-export const Wordmark = ({ tamanho }) => (
-  <Text style={[s.wordmark, { fontSize: tamanho }]} maxFontSizeMultiplier={1.3}>
-    <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
-  </Text>
-)
-
 // O botão de voltar é o compartilhado do app (components/BotaoVoltar). Reexportado daqui
 // porque o "Entrar como:" (EntrarComoScreen) o importa junto das outras peças desta tela.
 export { BotaoVoltar }
@@ -182,14 +176,14 @@ export const CartaoEscolha = ({
 )
 
 // Rodapé dos cards de prestador: preço de assinatura, nunca no iOS (3.1.1), nem riscado;
-// na janela de lançamento, riscado + "Grátis".
+// na janela de lançamento, riscado + "Gratuito".
 const RodapePreco = ({ preco, mostrarCobranca, lancamentoGratis }) => {
   if (!mostrarCobranca) return null
   if (!lancamentoGratis) return <Text style={s.preco} maxFontSizeMultiplier={1.6}>{preco}</Text>
   return (
     <View style={s.rodapeLinha}>
       <Text style={s.precoRiscado} maxFontSizeMultiplier={1.6}>{preco}</Text>
-      <Chip texto="Grátis" verde />
+      <Chip texto="Gratuito" verde />
     </View>
   )
 }
@@ -210,11 +204,12 @@ export const CaixaAviso = ({ icone, titulo, children, estilo }) => (
 
 export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, paddingTop, mostrarCobranca, lancamentoGratis }) {
   if (!lado) {
-    // Tela 1: logo grande centrado (como nas outras telas de autenticação), título numa
-    // linha só e os cards no tamanho do mockup. Para caber sem rolar num celular comum
+    // Tela 1: logo circular de 140 centrado (já traz o nome "ProTudo" — sem wordmark em
+    // texto), título numa linha só e os cards. Para caber sem rolar num celular comum
     // (~360x780dp) o botão de voltar fica SOBRE o bloco do logo, à esquerda, em vez de
-    // ocupar uma linha própria, e os respiros entre blocos são curtos; o conteúdo centra
-    // na vertical quando sobra espaço. O ScrollView fica só como rede para tela muito
+    // ocupar uma linha própria, os respiros entre blocos são curtos e a ilustração dos
+    // cards tem 72 (era 88: os 16 de cada card pagam a altura a mais do logo); o conteúdo
+    // centra na vertical quando sobra espaço. O ScrollView fica só como rede para tela muito
     // pequena, barra de navegação de 3 botões ou fonte grande do sistema — aí rola,
     // nunca corta.
     return (
@@ -224,8 +219,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
         <View style={s.topo}>
           <BotaoVoltar onPress={onVoltar} estilo={s.btnVoltarTopo} />
           <View style={s.logoWrap}>
-            <Image source={require('../../../assets/logo.png')} style={s.logo} resizeMode="contain" />
-            <Wordmark tamanho={26} />
+            <Image source={require('../../../assets/logo-3d.png')} style={s.logo} resizeMode="contain" accessibilityLabel="ProTudo" />
           </View>
         </View>
 
@@ -235,13 +229,13 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
         <CartaoEscolha
           cor={COR_TRABALHAR}
           imagem={IMG.escolhaTrabalhar}
-          tamanhoImagem={88}
+          tamanhoImagem={72}
           tamanhoTitulo={20}
           rotulo="SOU PROFISSIONAL"
           titulo="Quero trabalhar"
           desc="Receba pedidos de clientes perto de você, direto no celular."
           chips={['Serviços', 'Obras', 'Na sua região']}
-          // Mesma condição do "Grátis" dos preços: nunca no iOS (3.1.1), só na janela de lançamento.
+          // Mesma condição do "Gratuito" dos preços: nunca no iOS (3.1.1), só na janela de lançamento.
           rodape={mostrarCobranca && lancamentoGratis ? <View style={s.rodapeLinha}><Chip texto="Gratuito" verde /></View> : null}
           onPress={() => setLado('trabalhar')}
         />
@@ -249,7 +243,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
         <CartaoEscolha
           cor={COR_CONTRATAR}
           imagem={IMG.escolhaContratar}
-          tamanhoImagem={88}
+          tamanhoImagem={72}
           tamanhoTitulo={20}
           rotulo="PRECISO DE ALGUÉM"
           titulo="Quero contratar"
@@ -277,10 +271,7 @@ export default function EscolhaPerfil({ lado, setLado, onEscolher, onVoltar, pad
     <ScrollView contentContainerStyle={[s.scroll, larguraMaxima, { paddingTop }]} showsVerticalScrollIndicator={false}>
       <View style={s.cabecalho}>
         <BotaoVoltar onPress={onVoltar} estilo={s.btnVoltarCabecalho} />
-        <View style={s.cabecalhoMarca}>
-          <Image source={require('../../../assets/logo.png')} style={s.logoPequeno} resizeMode="contain" />
-          <Wordmark tamanho={20} />
-        </View>
+        <Image source={require('../../../assets/logo-3d.png')} style={s.logo} resizeMode="contain" accessibilityLabel="ProTudo" />
       </View>
 
       <View style={s.toggle} accessibilityRole="tablist">
@@ -339,22 +330,21 @@ export const estilosEscolha = StyleSheet.create({
   // do `scroll` garante a altura mínima da tela; passando dela, rola como sempre).
   scrollTela1: { paddingBottom: 12, justifyContent: 'center' },
   btnVoltar: { width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 8, marginBottom: 10 },
-  // Tela 1: o voltar fica sobre o canto esquerdo do bloco do logo (o logo tem 64 de
-  // largura, centrado — não se tocam em nenhuma largura de celular).
-  topo: { marginTop: 8 },
+  // Tela 1: o voltar (84 de largura) fica sobre o canto esquerdo do bloco do logo. O logo
+  // tem 140, centrado: numa tela de 360 dp o disco começa depois do botão.
+  topo: { marginTop: 0 },
   btnVoltarTopo: { position: 'absolute', left: 0, top: 0, marginTop: 0, marginBottom: 0, zIndex: 1 },
-  // Logo grande centrado, como nas outras telas de autenticação.
-  logoWrap: { alignItems: 'center', marginBottom: 6 },
-  logo: { width: 170, height: 64 },
-  wordmark: { fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5 },
+  // Logo circular (assets/logo-3d.png, já com o nome), centrado. 140 no cadastro — o
+  // "Entrar como:" usa estes estilos de topo com o próprio tamanho (165).
+  logoWrap: { alignItems: 'center', marginBottom: 4 },
+  logo: { width: 140, height: 140 },
   tituloCentro: { fontSize: 24, lineHeight: 30, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, textAlign: 'center', marginBottom: 2 },
   subtituloCentro: { fontSize: 13, lineHeight: 18, color: TEXTO_SUB, textAlign: 'center', marginBottom: 12 },
-  // Telas 2/3: voltar à esquerda e marca pequena centrada na mesma linha. O botão fica
-  // absoluto para a marca centrar na tela, e não no espaço que sobra.
-  cabecalho: { minHeight: 44, justifyContent: 'center', alignItems: 'center', marginTop: 8, marginBottom: 14 },
-  btnVoltarCabecalho: { position: 'absolute', left: 0, marginTop: 0, marginBottom: 0 },
-  cabecalhoMarca: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 44 },
-  logoPequeno: { width: 36, height: 36 },
+  // Telas 2/3: voltar à esquerda e o logo de 140 centrado na mesma linha — a linha tem a
+  // altura do logo e o conteúdo desce. O botão fica absoluto (centrado na vertical) para o
+  // logo centrar na tela, e não no espaço que sobra.
+  cabecalho: { minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: 4, marginBottom: 12 },
+  btnVoltarCabecalho: { position: 'absolute', left: 0, marginTop: 0, marginBottom: 0, zIndex: 1 },
   toggle: { flexDirection: 'row', backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: 999, padding: 4, marginBottom: 18 },
   toggleSeg: { flex: 1, borderRadius: 999, paddingVertical: 9, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
   toggleTexto: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5, color: TEXTO_SUB, textAlign: 'center' },

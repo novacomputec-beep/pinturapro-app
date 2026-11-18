@@ -733,13 +733,12 @@ export default function CadastroScreen({ navigation, route }) {
     <SafeAreaView style={estilos.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'android' && Platform.Version < 35 ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima, { paddingTop: insets.top + 8 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <BotaoVoltar estilo={estilos.btnVoltar} onPress={voltar} />
-          <View style={estilos.logoWrap}>
-            <Image source={require('../../../assets/logo.png')} style={estilos.logo} resizeMode="contain" />
-            <Text style={estilos.logoNome}>
-              <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
-            </Text>
-            <View style={estilos.logoRegua} />
+          {/* Mesmo cabeçalho das telas 2/3 da escolha de perfil: voltar à esquerda (absoluto)
+              e o logo circular de 140 centrado na mesma linha. O logo já traz o nome
+              "ProTudo": sem wordmark nem régua em texto. */}
+          <View style={estilos.cabecalho}>
+            <BotaoVoltar estilo={estilos.btnVoltar} onPress={voltar} />
+            <Image source={require('../../../assets/logo-3d.png')} style={estilos.logo} resizeMode="contain" accessibilityLabel="ProTudo" />
           </View>
           <Text style={estilos.titulo}>
             {passo === 1 ? 'Criar\nsua conta'
@@ -851,13 +850,11 @@ export default function CadastroScreen({ navigation, route }) {
 const estilos = StyleSheet.create({
   container: { flex: 1, backgroundColor: cores.fundo },
   scroll: { flexGrow: 1, paddingHorizontal: espacos.tela, paddingBottom: 40, paddingTop: 8 },
-  logoWrap: { alignItems: 'center', marginBottom: 4 },
-  logo: { width: 170, height: 64 },
-  // Mesmos valores do rótulo da SplashScreen (logoNome), para as duas telas baterem.
-  logoNome: { fontSize: 28, fontWeight: '700', color: cores.textoForte, letterSpacing: -0.5, marginBottom: 2 },
-  // Mesmos valores da régua da SplashScreen (logoRegua), para as três telas baterem.
-  logoRegua: { width: 88, height: 2, borderRadius: 1, backgroundColor: cores.primaria, marginTop: 0, marginBottom: 10 },
-  btnVoltar: { marginTop: 8, width: 36, height: 36, backgroundColor: cores.fundoElevado, borderWidth: 0.5, borderColor: cores.borda, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  // Mesmos valores do cabeçalho das telas 2/3 da escolha de perfil (EscolhaPerfil.js:
+  // cabecalho / btnVoltarCabecalho / logo), para o passo 0 e os seguintes baterem.
+  cabecalho: { minHeight: 48, justifyContent: 'center', alignItems: 'center', marginTop: 4, marginBottom: 12 },
+  btnVoltar: { position: 'absolute', left: 0, zIndex: 1 },
+  logo: { width: 140, height: 140 },
   // Mesmos 20/26 do titulo da LoginScreen, pelo mesmo motivo: em 28 a saudação empatava
   // com o wordmark (mesmo corpo, mesmo peso) e, nos passos que quebram em duas linhas
   // ("Criar\nsua conta"), pesava mais que a marca. O passo 0 tem títulos próprios

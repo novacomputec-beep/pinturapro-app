@@ -37,15 +37,20 @@ const emLinhasDeTres = (itens) => {
 // cold-start porque o módulo é recarregado junto com o processo.
 let resumeCadastroVerificado = false
 
-// Abaixo desta altura de janela (dp) a tela entra no modo compacto: logo menor, botões de
-// 44, vãos mínimos menores. É o que faz um aparelho de 640 dp (área útil ~560) caber sem
-// rolar; em tela alta os três espaçadores absorvem a folga como sempre.
-const ALTURA_COMPACTA = 700
+// Abaixo desta altura de janela (dp) a tela entra no modo compacto: botões de 44, vãos
+// mínimos menores, mock sem a terceira linha. Era 700; subiu para 900 quando o logo passou
+// a ser o circular de 190 (era 64 + wordmark): os ~65 dp a mais do bloco do logo saem do
+// resto da tela, senão um celular de 6,1" (janela de 780 a 850 dp) passaria a rolar. Em
+// tela mais alta que isso os três espaçadores absorvem a folga como sempre.
+const ALTURA_COMPACTA = 900
+// Abaixo desta, nem o logo de 190 cabe: ele encolhe (aparelho de 640 dp, área útil ~560).
+const ALTURA_BAIXA = 700
 
 export default function SplashScreen({ navigation }) {
   const [stats, setStats] = useState({ total_valor_obras: null, total_obras_ativas: null })
   const { height: alturaJanela } = useWindowDimensions()
   const compacto = alturaJanela < ALTURA_COMPACTA
+  const baixo = alturaJanela < ALTURA_BAIXA
   // Escala de fonte do SISTEMA (acessibilidade), lida a cada render. Na escala normal (1.0)
   // a tagline cabe em duas linhas encolhendo só onde precisa; acima disso a pessoa PEDIU
   // texto maior, e encolher + cortar em duas linhas contradiria o pedido e comeria o fim
@@ -147,15 +152,13 @@ export default function SplashScreen({ navigation }) {
 
         {/* Logo */}
         <View style={[estilos.logoArea, compacto && estilos.logoAreaCompacta]}>
+          {/* O logo circular já traz o nome "ProTudo": sem wordmark nem régua em texto. */}
           <Image
-            source={require('../../../assets/logo.png')}
-            style={[estilos.logoIcone, compacto && estilos.logoIconeCompacto]}
+            source={require('../../../assets/logo-3d.png')}
+            style={[estilos.logoIcone, baixo && estilos.logoIconeBaixo]}
             resizeMode="contain"
+            accessibilityLabel="ProTudo"
           />
-          <Text style={[estilos.logoNome, compacto && estilos.logoNomeCompacto]}>
-            <Text style={{ color: cores.marcaAzul }}>P</Text>ro<Text style={{ color: cores.primaria }}>T</Text>udo
-          </Text>
-          <View style={estilos.logoRegua} />
           {/* Duas linhas de propósito (quebra explícita, não por largura): a promessa e a
               garantia são frases distintas, e centradas uma sob a outra. O ✓ vai em
               cores.sucesso — a cor semântica de "aprovado", não um verde novo. */}
@@ -292,38 +295,20 @@ const estilos = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
   },
-  // 24 de respiro no topo (eram 60): a arte sem rolagem não tem altura para gastar.
+  // Respiro curto no topo: o png do logo já tem ~3% de margem transparente em volta do
+  // disco, e a arte sem rolagem não tem altura para gastar.
   logoArea: {
     alignItems: 'center',
-    paddingTop: 24,
+    paddingTop: 4,
   },
-  logoAreaCompacta: { paddingTop: 8 },
-  // Mesma caixa do logo da CadastroScreen e da LoginScreen (170x64), para as três telas
-  // desenharem a MESMA marca; no modo compacto encolhe proporcionalmente.
+  logoAreaCompacta: { paddingTop: 0 },
+  // Logo circular (assets/logo-3d.png, já com o nome): 190 de lado; 150 só em janela baixa.
   logoIcone: {
-    width: 170,
-    height: 64,
-    marginBottom: 0,
+    width: 190,
+    height: 190,
+    marginBottom: 6,
   },
-  logoIconeCompacto: { width: 144, height: 54 },
-  logoNome: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: cores.textoForte,
-    letterSpacing: -0.5,
-    marginBottom: 2,
-  },
-  logoNomeCompacto: { fontSize: 24 },
-  // Régua sob o wordmark, como na arte do logo: curta, laranja, 2px. Mesmos valores nas
-  // três telas que desenham o wordmark.
-  logoRegua: {
-    width: 88,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: cores.primaria,
-    marginTop: 0,
-    marginBottom: 8,
-  },
+  logoIconeBaixo: { width: 150, height: 150, marginBottom: 4 },
   logoTagline: {
     fontSize: 13,
     color: cores.textoForte,
