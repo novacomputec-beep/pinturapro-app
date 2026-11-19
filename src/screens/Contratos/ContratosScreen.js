@@ -12,6 +12,7 @@ import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { textoFasePosMatch } from '../../components/Agendamento'
 import { matchDaPessoa } from '../../utils/profissional'
+import { ehValorACombinar, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { rotuloEncerradoPeloCliente, PilulaEncerradoPeloCliente, LinhaSemFalta, LinkFaleComProTudo } from '../../components/EncerradoPeloCliente'
 
 const formatarData = (data) =>
@@ -149,7 +150,7 @@ export function CardCandidatura({ item, usuario, navigation, etiqueta }) {
           <View style={estilos.infoItem}>
             <Text style={estilos.infoLabel}>Valor obra</Text>
             <Text style={[estilos.infoValor, { color: cores.sucesso }]}>
-              {formatarValor(item.obra_valor || item.valor)}
+              {ehValorACombinar({ valor_a_combinar: item.valor_a_combinar, valor: item.obra_valor || item.valor }) ? ROTULO_ACEITA_PROPOSTAS : formatarValor(item.obra_valor || item.valor)}
             </Text>
           </View>
           <View style={estilos.infoItem}>

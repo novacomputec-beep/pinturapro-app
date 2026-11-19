@@ -15,6 +15,7 @@ import { BotaoPrimario, BotaoSecundario, AvisoContatoOculto } from '../../compon
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ChipValorACombinar, { ehValorACombinar } from '../../components/ChipValorACombinar'
+import { valorRealDoPedido, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import ModalAumentarValor from '../../components/ModalAumentarValor'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import ModalAvaliacao from '../../components/ModalAvaliacao'
@@ -658,8 +659,8 @@ export default function DetalheObraScreen({ route, navigation }) {
         `🎨 Possui materiais e equipamentos: ${possuiFerramentas}`,
         mensagemAdicional ? `💬 Observação: ${mensagemAdicional}` : '',
       ].filter(Boolean).join('\n')
-      const valorNumerico = valorAceito
-        ? parseFloat(String(obra.valor || obra.valor_estimado))
+      const valorNumerico = valorAceito && valorRealDoPedido(obra) != null
+        ? valorRealDoPedido(obra)
         : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
       await comRetry(() => api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico }))
       setMinhaCandidatura({ status: 'pendente' })
@@ -1608,8 +1609,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Valor combinado visto pelo pintor: a própria candidatura (contraproposta, proposto ou a
   // oferta legada), senão o valor da obra.
   const valorCombinadoPro = minhaCandidatura
-    ? (minhaCandidatura.valor_contraproposta ?? minhaCandidatura.valor_proposto ?? minhaCandidatura.valor_oferta ?? obra?.valor ?? obra?.valor_estimado)
-    : (obra?.valor ?? obra?.valor_estimado)
+    ? (minhaCandidatura.valor_contraproposta ?? minhaCandidatura.valor_proposto ?? minhaCandidatura.valor_oferta ?? valorRealDoPedido(obra))
+    : valorRealDoPedido(obra)
   // Horário ACEITO mas ainda sem "Estou a caminho": o mesmo bloco mostra o card INÍCIO AGENDADO
   // com o botão; a seção legada do pintor só volta depois de a_caminho_em.
   const proAgendadoSemACaminho = !!souPintorDoMatch && !encerrada && horarioAceito && !aCaminho
@@ -2109,7 +2110,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             demanda={obra}
             frente="obra"
             souDono={isDono}
-            valor={isDono ? (obra.valor || obra.valor_estimado) : valorCombinadoPro}
+            valor={isDono ? valorRealDoPedido(obra) : valorCombinadoPro}
             endereco={obra.endereco_obra || [obra.cidade, obra.bairro].filter(Boolean).join(', ')}
             pontoReferencia={obra.ponto_referencia}
             /* Arte-Endereco-Apos-Horario: só usada quando a API manda endereco_liberado: false. */
@@ -2305,13 +2306,13 @@ export default function DetalheObraScreen({ route, navigation }) {
           {/* Fases pós-match (aguardando horário, proposta, agendado, a caminho, em andamento)
               vivem na tela fixa acima (TelaPosMatch); este corpo rolável nunca as desenha. */}
 
-          {!topoCompacto && Number(obra.valor || obra.valor_estimado || 0) > 0 && (
+          {!topoCompacto && valorRealDoPedido(obra) != null && (
             <View style={[estilos.valorDestaque, { flexDirection: 'column', alignItems: 'stretch' }]}>
               <View style={estilos.valorDestaqueLinha}>
                 <View>
                   <Text style={estilos.valorDestaqueLabel}>💰 {temMatch ? 'VALOR COMBINADO' : 'VALOR PROPOSTO'}</Text>
                   <Text style={estilos.valorDestaqueValor}>
-                    R$ {Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {Number(valorRealDoPedido(obra)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Text>
                 </View>
                 <View style={estilos.categoriaPill}>
@@ -2327,10 +2328,10 @@ export default function DetalheObraScreen({ route, navigation }) {
 
           {/* Arte-Valor-A-Combinar: pedido sem valor (o card de valor acima não sai) — chip azul
               para o profissional e para o dono. Fechado o valor, volta o card "VALOR COMBINADO". */}
-          {!topoCompacto && ehValorACombinar(obra) && !(Number(obra.valor || obra.valor_estimado || 0) > 0) && <ChipValorACombinar curto estilo={{ marginBottom: 12 }} />}
+          {!topoCompacto && ehValorACombinar(obra) && <ChipValorACombinar curto rotulo={`💬 ${ROTULO_ACEITA_PROPOSTAS}`} estilo={{ marginBottom: 12 }} />}
           {!topoCompacto && <Text style={estilos.titulo}>{obra.titulo}</Text>}
           {/* Sem card de valor (obra sem valor) a linha de avisados sai avulsa, abaixo do título. */}
-          {estadoAvisados === 'linha' && !(Number(obra.valor || obra.valor_estimado || 0) > 0) && (
+          {estadoAvisados === 'linha' && valorRealDoPedido(obra) == null && (
             <LinhaAvisados avisados={obra.profissionais_avisados} solta />
           )}
           {/* Endereço do serviço em destaque para o profissional, acima da linha de
@@ -2689,7 +2690,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   // (valor_proposto e valor_contraproposta nulos) é o profissional que se
                   // candidatou sem mexer no valor — aceitou o pedido como está. Mesmo rótulo
                   // e mesma linha, com o valor pedido no lugar do proposto que não existe.
-                  const valorPedidoObra = Number(obra.valor || obra.valor_estimado || 0)
+                  const valorPedidoObra = Number(valorRealDoPedido(obra) || 0)
                   const semValorNenhum = item.valor_proposto == null && item.valor_contraproposta == null
                   const aceitouValorPedido = !propostoEhCombinado && valorPedidoObra > 0 &&
                     (Number(item.valor_proposto) === valorPedidoObra || semValorNenhum)
@@ -3074,7 +3075,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>{ehValorACombinar(obra) ? 'O cliente não definiu o valor. Diga quanto você cobra por este serviço:' : 'Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.'}</Text>
-                    {Number(obra.valor || obra.valor_estimado || 0) > 0 && !valorProposto && (
+                    {valorRealDoPedido(obra) != null && !valorProposto && (
                       <TouchableOpacity
                         style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
                         onPress={() => setValorAceito(v => !v)}
@@ -3082,8 +3083,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                       >
                         <Text style={valorAceito ? estilos.btnValorAceitoTexto : estilos.btnAceitarValorPropostoTexto}>
                           {valorAceito
-                            ? `✅ Valor aceito (R$ ${Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
-                            : `Aceitar o valor proposto (R$ ${Number((obra.valor || obra.valor_estimado)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+                            ? `✅ Valor aceito (R$ ${Number(valorRealDoPedido(obra)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+                            : `Aceitar o valor proposto (R$ ${Number(valorRealDoPedido(obra)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
                           }
                         </Text>
                       </TouchableOpacity>

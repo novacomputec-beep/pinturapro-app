@@ -14,6 +14,7 @@ import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { rotuloCategorias } from '../../utils/categorias'
 import EtiquetaTipo from '../../components/EtiquetaTipo'
+import { ehValorACombinar, ehValorSimbolico, valorReal, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
@@ -213,7 +214,10 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
 
   const renderItem = ({ item }) => {
     const ehObra = ehObraDe(item)
-    const valorBase = ehObra ? item.valor : item.valor_estimado
+    // Acordado primeiro; sem ele, o valor do pedido — nunca o 0,01 simbólico de "a combinar".
+    const valorBase = valorReal(ehObra ? item.valor : item.valor_estimado)
+    const valorMostrado = valorReal(item.valor_acordado) ?? (item.valor_a_combinar === true ? null : valorBase)
+    const aCombinar = valorMostrado == null && (ehValorACombinar(item) || ehValorSimbolico(item.valor_acordado))
     return (
       <View style={estilos.card}>
         <View style={estilos.cardHeader}>
@@ -232,7 +236,7 @@ export default function ContratosFinalizadosScreen({ navigation, route }) {
           <View>
             <Text style={estilos.valorLabel}>Valor acordado</Text>
             <Text style={[estilos.valorTexto, { color: cores.primaria }]}>
-              {formatarValor(item.valor_acordado != null ? item.valor_acordado : valorBase)}
+              {aCombinar ? ROTULO_ACEITA_PROPOSTAS : formatarValor(valorMostrado)}
             </Text>
           </View>
           <View>

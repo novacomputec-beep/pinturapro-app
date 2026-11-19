@@ -10,6 +10,7 @@ import { avatar } from '../utils/imagemOtimizada'
 import { rotuloMotivo } from '../utils/cancelamento'
 import { acaoEhMinha } from '../utils/identidadeDemanda'
 import ChipsCategoria from './ChipsCategoria'
+import { ehValorACombinar, ehValorSimbolico, valorReal, ROTULO_ACEITA_PROPOSTAS } from '../utils/valorACombinar'
 import { formatarAgendado, PickerAgendamento, RODADAS_MAX_AGENDAMENTO } from './Agendamento'
 import ConversaProntas, { temConversa } from './MensagensProntas'
 
@@ -159,7 +160,9 @@ export const enderecoResumido = (demanda, distanciaKm) => {
 // 1. Card do topo. `faixa`: { rotulo, valor, destaque } — a metade direita da faixa.
 // bloqueado/distanciaKm: a variante do endereço travado (acima).
 const CardTopo = ({ demanda, endereco, pontoReferencia, valor, faixa, bloqueado, distanciaKm }) => {
-  const temValor = valor != null && Number(valor) > 0
+  // Valor simbólico (0,01 da API em pedido "a combinar") nunca vira preço: sai o rótulo.
+  const temValor = valorReal(valor) != null
+  const aCombinar = !temValor && (ehValorACombinar(demanda) || ehValorSimbolico(valor))
   const resumo = bloqueado ? enderecoResumido(demanda, distanciaKm) : ''
   return (
     <View style={estilos.topo}>
@@ -176,7 +179,7 @@ const CardTopo = ({ demanda, endereco, pontoReferencia, valor, faixa, bloqueado,
       <View style={estilos.faixa}>
         <View style={[estilos.faixaMetade, estilos.faixaValor, !temValor && { opacity: 0.5 }]}>
           <T style={[estilos.faixaRotulo, { color: cores.sucesso }]}>VALOR COMBINADO</T>
-          <T style={[estilos.faixaNumero, { color: cores.sucesso }]}>{temValor ? formatarValor(valor) : '—'}</T>
+          <T style={[estilos.faixaNumero, { color: cores.sucesso }, aCombinar && { fontSize: 14 }]}>{temValor ? formatarValor(valor) : aCombinar ? ROTULO_ACEITA_PROPOSTAS : '—'}</T>
         </View>
         <View style={[estilos.faixaMetade, faixa?.destaque && estilos.faixaDestaque]}>
           <T style={[estilos.faixaRotulo, faixa?.destaque && { color: cores.primaria }]}>{faixa?.rotulo || ' '}</T>

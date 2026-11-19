@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../contexts/AuthContext'
 import { espacos, larguraMaxima, cores, raios } from '../utils/tema'
+import { ehValorACombinar, valorRealDoPedido } from '../utils/valorACombinar'
 import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch, mensagemIndicarPedido, meuCodigoIndicacao, convidarPeloWhatsApp, lancamentoGratisAtivo } from '../utils/indicacao'
 
 // Peças da indicação de colegas que aparecem FORA da tela própria (ConvidarColegaScreen):
@@ -29,7 +30,8 @@ export const useMeuCodigoIndicacao = (ativo) => {
 export const CaixaIndicar = ({ demanda, codigo }) => {
   const indicar = () => convidarPeloWhatsApp(mensagemIndicarPedido({
     titulo: demanda?.titulo,
-    valor: demanda?.valor ?? demanda?.valor_estimado,
+    valor: valorRealDoPedido(demanda),
+    aCombinar: ehValorACombinar(demanda),
     bairro: demanda?.bairro,
     cidade: demanda?.cidade,
     codigo,

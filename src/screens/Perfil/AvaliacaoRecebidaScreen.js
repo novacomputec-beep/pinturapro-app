@@ -7,6 +7,7 @@ import api from '../../services/api'
 import { rotuloNivel } from '../../services/etiquetasAvaliacao'
 import { rotulosEspecialidades } from '../../utils/categorias'
 import { ChipBemAvaliado } from '../../components/SeloBemAvaliado'
+import { ehValorACombinar, valorReal, valorRealDoPedido, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { cores, raios, espacos, larguraMaxima } from '../../utils/tema'
 
 // Tela FIXA (sem ScrollView) de comemoração do PROFISSIONAL ao receber uma avaliação.
@@ -150,7 +151,7 @@ export function CelebracaoAvaliacaoConteudo({ dados, onVerServicos, compartilhar
       <View style={estilos.faixa}>
         <View style={[estilos.faixaMetade, estilos.faixaValor]}>
           <T style={[estilos.faixaRotulo, { color: cores.sucesso }]}>VALOR COMBINADO</T>
-          <T style={[estilos.faixaNumero, { color: cores.sucesso }]} adjustsFontSizeToFit minimumFontScale={0.8}>{dados?.valor != null && Number(dados.valor) > 0 ? formatarValor(dados.valor) : '—'}</T>
+          <T style={[estilos.faixaNumero, { color: cores.sucesso }]} adjustsFontSizeToFit minimumFontScale={0.8}>{dados?.valor != null && Number(dados.valor) > 0 ? formatarValor(dados.valor) : dados?.aCombinar ? ROTULO_ACEITA_PROPOSTAS : '—'}</T>
         </View>
         <View style={estilos.faixaMetade}>
           <T style={estilos.faixaRotulo}>SUA MÉDIA</T>
@@ -206,7 +207,9 @@ export default function AvaliacaoRecebidaScreen({ navigation, route }) {
         nota: Number(notaParam) || Number(recebida?.nota) || 0,
         etiquetas: doContrato || agregadas,
         etiquetasDoContrato: !!doContrato,
-        valor: contrato ? (contrato.valor_acordado ?? contrato.valor ?? contrato.valor_estimado) : null,
+        // Acordado primeiro; o valor do pedido só entra se for real (nunca o 0,01 de "a combinar").
+        valor: contrato ? (valorReal(contrato.valor_acordado) ?? valorRealDoPedido(contrato)) : null,
+        aCombinar: !!contrato && valorReal(contrato.valor_acordado) == null && ehValorACombinar(contrato),
         media: Number(resumo?.media) || 0,
         total: Number(resumo?.total) || 0,
         selo: resumo?.selo_bem_avaliado === true,

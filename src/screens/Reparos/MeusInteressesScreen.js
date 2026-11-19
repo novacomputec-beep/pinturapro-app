@@ -9,7 +9,7 @@ import api from '../../services/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
-import { ehValorACombinar } from '../../components/ChipValorACombinar'
+import { ehValorACombinar, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
 import { rotuloCategorias } from '../../utils/categorias'
 import { textoFasePosMatch } from '../../components/Agendamento'
@@ -38,7 +38,7 @@ const STATUS_INFO = {
 
 const formatarValor = (v) =>
   (v == null || isNaN(Number(v)))
-    ? 'A combinar'
+    ? ROTULO_ACEITA_PROPOSTAS
     : `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
 
 // Ciclos do REPARO que já não voltam atrás. 'cancelada' é o que a moderação grava ao
@@ -194,7 +194,7 @@ export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
       <View style={estilos.valoresRow}>
         <View>
           <Text style={estilos.valorLabel}>Valor do serviço</Text>
-          <Text style={[estilos.valorTexto, ehValorACombinar(item) && { color: cores.info }]}>{ehValorACombinar(item) ? 'A combinar' : formatarValor(item.valor_estimado)}</Text>
+          <Text style={[estilos.valorTexto, ehValorACombinar(item) && { color: cores.info }]}>{ehValorACombinar(item) ? ROTULO_ACEITA_PROPOSTAS :formatarValor(item.valor_estimado)}</Text>
         </View>
         {item.valor_proposto != null && (
           <View>

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
 import api from '../services/api'
 import { comRetry } from './rede'
+import { ehValorSimbolico } from './valorACombinar'
 import { leInteresses, leCandidaturas } from './profissional'
 
 // Indicação de colegas (profissional → profissional). Aqui mora o que NÃO é tela: o
@@ -36,11 +37,13 @@ export const mensagemConvite = (codigo, link) =>
 // vai a cidade ("em Campinas", não "no Campinas"); sem os dois, sai só o título. O link é o /baixar público, com ?c=CODIGO
 // quando o profissional tem código de indicação (o mesmo do ConvidarColegaScreen).
 const LINK_BAIXAR = 'protudo.app.br/baixar'
-export const mensagemIndicarPedido = ({ titulo, valor, bairro, cidade, codigo }) => {
+export const mensagemIndicarPedido = ({ titulo, valor, aCombinar, bairro, cidade, codigo }) => {
   const t = String(titulo ?? '').trim() || 'serviço'
   const v = Number(valor)
   const partes = [`Oi! Tem um pedido de ${t} aberto no ProTudo`]
-  if (Number.isFinite(v) && v > 0) partes.push(`valor de R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
+  // Pedido "a combinar" (flag ou o 0,01 simbólico da API): nunca um preço — utils/valorACombinar.
+  if (aCombinar || ehValorSimbolico(valor)) partes.push('valor a combinar')
+  else if (Number.isFinite(v) && v > 0) partes.push(`valor de R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
   const b = String(bairro ?? '').trim()
   const c2 = String(cidade ?? '').trim()
   if (b) partes.push(`no ${b}`)

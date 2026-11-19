@@ -15,6 +15,7 @@ import { BotaoPrimario, BotaoSecundario, AvisoContatoOculto } from '../../compon
 import { celebracaoRef } from '../../components/CelebracaoMatchHost'
 import ModalEstenderPrazo from '../../components/ModalEstenderPrazo'
 import ChipValorACombinar, { ehValorACombinar } from '../../components/ChipValorACombinar'
+import { valorRealDoPedido, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import ModalAumentarValor from '../../components/ModalAumentarValor'
 import EditarCategoriasSheet, { listarRotulos } from '../../components/EditarCategoriasSheet'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
@@ -673,8 +674,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
         `🔧 Possui ferramentas: ${possuiFerramentas}`,
         mensagemAdicional ? `💬 Observação: ${mensagemAdicional}` : '',
       ].filter(Boolean).join('\n')
-      const valorNumerico = valorAceito
-        ? parseFloat(String(reparo.valor_estimado))
+      const valorNumerico = valorAceito && valorRealDoPedido(reparo) != null
+        ? valorRealDoPedido(reparo)
         : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
       await comRetry(() => api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico }))
       setMeuInteresse({ status: 'pendente' })
@@ -1694,7 +1695,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const valorAcordadoDono = interesseAceitoDono
     ? (interesseAceitoDono.valor_contraproposta != null ? interesseAceitoDono.valor_contraproposta : interesseAceitoDono.valor_proposto)
     : null
-  const valorPrincipal = valorAcordadoDono != null ? valorAcordadoDono : reparo?.valor_estimado
+  const valorPrincipal = valorAcordadoDono != null ? valorAcordadoDono : valorRealDoPedido(reparo)
   const valorEstaCombinado = valorAcordadoDono != null || temMatch
 
   // B72-04: depois que o dono aceita um interesse, o prestador ainda precisa tocar
@@ -1742,8 +1743,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // Valor combinado visto pelo profissional: a linha do próprio interesse (COALESCE de
   // contraproposta e proposto, como em Contratos Finalizados), senão o pedido.
   const valorCombinadoPro = meuInteresse
-    ? (meuInteresse.valor_contraproposta ?? meuInteresse.valor_proposto ?? reparo?.valor_estimado)
-    : reparo?.valor_estimado
+    ? (meuInteresse.valor_contraproposta ?? meuInteresse.valor_proposto ?? valorRealDoPedido(reparo))
+    : valorRealDoPedido(reparo)
   // Horário ACEITO mas ainda sem "Estou a caminho": o mesmo bloco mostra o card AGENDADO com o
   // botão; a seção legada do profissional só volta depois de a_caminho_em.
   const proAgendadoSemACaminho = !!souPrestadorDoMatch && !encerrada && horarioAceito && !aCaminho
@@ -2478,7 +2479,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
 
           {/* Arte-Valor-A-Combinar: pedido sem valor (o card de valor acima não sai) — chip azul
               para o profissional e para o dono. Fechado o valor, volta o card "VALOR COMBINADO". */}
-          {!topoCompacto && ehValorACombinar(reparo) && !(valorPrincipal != null && Number(valorPrincipal) > 0) && <ChipValorACombinar curto estilo={{ marginBottom: 12 }} />}
+          {!topoCompacto && ehValorACombinar(reparo) && !(valorPrincipal != null && Number(valorPrincipal) > 0) && <ChipValorACombinar curto rotulo={`💬 ${ROTULO_ACEITA_PROPOSTAS}`} estilo={{ marginBottom: 12 }} />}
           {!topoCompacto && <Text style={estilos.titulo}>{reparo.titulo}</Text>}
           {/* Sem card de valor (pedido sem valor) os chips do dono + "✏️ Editar" saem avulsos,
               abaixo do título — senão o dono não teria onde tocar. */}
@@ -2867,7 +2868,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   // (valor_proposto e valor_contraproposta nulos) é o profissional que mandou
                   // o interesse sem mexer no valor — aceitou o pedido como está. Mesmo rótulo
                   // e mesma linha, com o valor pedido no lugar do proposto que não existe.
-                  const valorPedidoReparo = Number(reparo?.valor_estimado || 0)
+                  const valorPedidoReparo = Number(valorRealDoPedido(reparo) || 0)
                   const semValorNenhum = item.valor_proposto == null && item.valor_contraproposta == null
                   const aceitouValorPedido = !propostoEhCombinado && valorPedidoReparo > 0 &&
                     (Number(item.valor_proposto) === valorPedidoReparo || semValorNenhum)
@@ -3252,7 +3253,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>{ehValorACombinar(reparo) ? 'O cliente não definiu o valor. Diga quanto você cobra por este serviço:' : 'Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.'}</Text>
-                    {Number(reparo.valor_estimado) > 0 && !valorProposto && (
+                    {valorRealDoPedido(reparo) != null && !valorProposto && (
                       <TouchableOpacity
                         style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
                         onPress={() => setValorAceito(v => !v)}

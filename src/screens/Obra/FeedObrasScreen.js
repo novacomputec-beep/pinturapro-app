@@ -14,6 +14,7 @@ import api from '../../services/api'
 import { comRetry } from '../../utils/rede'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import ChipValorACombinar, { ehValorACombinar } from '../../components/ChipValorACombinar'
+import { ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { distanciaItemKm, useCoordsUsuario } from '../../utils/distancia'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
 import { aoPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
@@ -43,7 +44,7 @@ const DISTANCIAS = [
 const CATEGORIAS = paraFiltro(CATEGORIAS_OBRA)
 
 const formatarValor = (v) =>
-  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
+  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ROTULO_ACEITA_PROPOSTAS
 
 const ContadorExpiracao = ({ expiraEm, onExpirar }) => {
   const [restante, setRestante] = useState(null)

@@ -15,6 +15,7 @@ import { comRetry } from '../../utils/rede'
 import { registrarVisualizacao } from '../../services/feedVisualizacoesService'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import ChipValorACombinar, { ehValorACombinar } from '../../components/ChipValorACombinar'
+import { ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { distanciaItemKm, useCoordsUsuario } from '../../utils/distancia'
 import PillLocalAtendimento from '../../components/PillLocalAtendimento'
 import { thumbnailDeCapa } from '../../utils/thumbnail'
@@ -46,7 +47,7 @@ const DISTANCIAS = [
 const CATEGORIAS = paraFiltro(CATEGORIAS_SERVICO)
 
 const formatarValor = (v) =>
-  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : 'A combinar'
+  v ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ROTULO_ACEITA_PROPOSTAS
 
 // Defined outside FeedReparosScreen so the component reference is stable across renders
 const ContadorExpiracao = ({ expiraEm, onExpirar }) => {

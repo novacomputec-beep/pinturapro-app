@@ -1,19 +1,23 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { cores, raios } from '../utils/tema'
+import { ROTULO_ACEITA_PROPOSTAS } from '../utils/valorACombinar'
 
 // Arte-Valor-A-Combinar: o dono publicou o pedido sem valor ("Não sei o valor — quero receber
 // propostas", valor_a_combinar = true na linha do serviço/obra). No lugar da linha de valor
 // (cards do feed e detalhe, profissional e dono) entra este chip azul; no feed ele também
 // chama a proposta, no detalhe (curto) só nomeia.
-export const ehValorACombinar = (demanda) => demanda?.valor_a_combinar === true
+// A regra mora em utils/valorACombinar (flag primeiro; valor <= 0,01 também conta).
+export { ehValorACombinar } from '../utils/valorACombinar'
 
-export const ROTULO_VALOR_A_COMBINAR = '💬 Valor a combinar'
+// Texto único do app para esses pedidos: ROTULO_ACEITA_PROPOSTAS (feed, detalhe, listas).
+export const ROTULO_VALOR_A_COMBINAR = `💬 ${ROTULO_ACEITA_PROPOSTAS}`
 
-export default function ChipValorACombinar({ curto = false, estilo }) {
+// `rotulo` troca o texto do chip curto (o detalhe usa "Aceita propostas").
+export default function ChipValorACombinar({ curto = false, rotulo, estilo }) {
   return (
     <View style={[estilos.chip, estilo]}>
-      <Text style={estilos.texto}>{curto ? ROTULO_VALOR_A_COMBINAR : `${ROTULO_VALOR_A_COMBINAR} · envie sua proposta`}</Text>
+      <Text style={estilos.texto}>{rotulo || ROTULO_VALOR_A_COMBINAR}</Text>
     </View>
   )
 }
