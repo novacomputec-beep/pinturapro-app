@@ -1,6 +1,6 @@
-import React from 'react'
+import React, { useState } from 'react'
 import BotaoVoltar from '../../components/BotaoVoltar'
-import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated, Alert } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated, Keyboard } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
@@ -52,10 +52,13 @@ export const TILE_OBRAS = { emoji: '🏗️', titulo: 'Obras de Construção Civ
 // lado do ←; a pergunta do passo (titulos[passo]) vem menor, abaixo da barra de progresso.
 // titulos: mapa passo → { titulo, subtitulo } (TITULOS_PASSO por padrão; a obra passa o seu).
 // progresso=false: sem "Passo N de 4" nem barra (telas de um passo só, como as especialidades).
-// onCancelar: desenha o link "✕ Cancelar pedido" no rodapé, abaixo do botão (cadastro de
-// serviço e de obra, só com algo preenchido); a tela confirma e limpa (confirmarCancelarPedido).
+// onCancelar: desenha o botão em contorno "✕ Cancelar pedido" no rodapé, logo abaixo do
+// Continuar/Publicar (cadastro de serviço e de obra, só com algo preenchido e fora do envio).
+// O toque abre a confirmação daqui mesmo; onCancelar só roda no "Sim, cancelar" — a tela limpa
+// o formulário e as mídias e volta à tela inicial do dono.
 export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulos = TITULOS_PASSO, onVoltar, mostrarVoltar, children, rodape, scrollRef, reservaInferior = 0, acimaDoTitulo, progresso = true, onCancelar }) {
   const t = titulos[passo] || titulos[1]
+  const [confirmando, setConfirmando] = useState(false)
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
       <ScrollView ref={scrollRef} contentContainerStyle={[estilos.scroll, larguraMaxima]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -79,23 +82,29 @@ export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulo
       <View style={[estilos.rodape, larguraMaxima, { paddingBottom: 12 + reservaInferior }]}>
         {rodape}
         {onCancelar ? (
-          <TouchableOpacity style={estilos.cancelarPedido} onPress={onCancelar} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 12, right: 12 }} accessibilityRole="button" accessibilityLabel="Cancelar pedido">
+          <TouchableOpacity style={estilos.cancelarPedido} onPress={() => { Keyboard.dismiss(); setConfirmando(true) }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Cancelar pedido">
             <Text style={estilos.cancelarPedidoTexto} maxFontSizeMultiplier={1.3}>✕ Cancelar pedido</Text>
           </TouchableOpacity>
         ) : null}
       </View>
+      {/* Confirmação do "✕ Cancelar pedido" (pedido AINDA NÃO publicado: nada vai ao servidor).
+          Modal próprio e não Alert: no Android o Alert não pinta o botão de vermelho. */}
+      <Modal visible={confirmando && !!onCancelar} transparent animationType="fade" onRequestClose={() => setConfirmando(false)}>
+        <View style={estilos.confirmaOverlay}>
+          <View style={[estilos.confirmaCaixa, larguraMaxima]}>
+            <Text style={estilos.confirmaTitulo}>Cancelar este pedido?</Text>
+            <Text style={estilos.confirmaCorpo}>O que você preencheu até agora será apagado.</Text>
+            <TouchableOpacity style={estilos.confirmaContinuar} onPress={() => setConfirmando(false)} activeOpacity={0.85} accessibilityRole="button">
+              <Text style={estilos.confirmaContinuarTexto}>Continuar preenchendo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={estilos.confirmaSim} onPress={() => { setConfirmando(false); onCancelar?.() }} activeOpacity={0.85} accessibilityRole="button">
+              <Text style={estilos.confirmaSimTexto}>Sim, cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   )
-}
-
-// Confirmação do "✕ Cancelar pedido" do formulário (pedido AINDA NÃO publicado: nada vai ao
-// servidor). "Continuar preenchendo" fecha; "Sim, cancelar" chama aoConfirmar, que limpa o
-// formulário e as mídias e volta à tela inicial do dono.
-export const confirmarCancelarPedido = (aoConfirmar) => {
-  Alert.alert('Cancelar este pedido?', 'Tudo o que você preencheu será apagado, incluindo fotos e vídeos.', [
-    { text: 'Continuar preenchendo', style: 'cancel' },
-    { text: 'Sim, cancelar', style: 'destructive', onPress: aoConfirmar },
-  ])
 }
 
 export const BarraProgresso = ({ passo }) => (
@@ -626,8 +635,18 @@ const estilos = StyleSheet.create({
   // Rodapé fixo: linha fina em cima, mesmo fundo da tela.
   rodape: { paddingHorizontal: espacos.tela, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: cores.borda, backgroundColor: cores.fundo },
   rodapeBotao: { marginTop: 0 },
-  cancelarPedido: { alignSelf: 'center', paddingVertical: 8, marginTop: 4 },
-  cancelarPedidoTexto: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, textDecorationLine: 'underline' },
+  // Mesma altura e raio do BotaoPrimario (paddingVertical 16 = 15 + 1 de borda; texto 15/700).
+  cancelarPedido: { marginTop: 8, borderWidth: 1, borderColor: '#444', borderRadius: raios.grande, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
+  cancelarPedidoTexto: { fontSize: 15, fontWeight: '700', letterSpacing: 0.3, color: '#aaa' },
+  // Confirmação: a mesma caixa do "Cancelar pedido" do detalhe (components/CancelarPedido).
+  confirmaOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', paddingHorizontal: espacos.tela },
+  confirmaCaixa: { backgroundColor: cores.fundoCard, borderRadius: raios.grande, padding: 20 },
+  confirmaTitulo: { fontSize: 18, fontWeight: '800', color: cores.textoForte, marginBottom: 8 },
+  confirmaCorpo: { fontSize: 14, color: cores.textoMedio, lineHeight: 20, marginBottom: 20 },
+  confirmaContinuar: { backgroundColor: cores.primaria, borderRadius: raios.medio, padding: 14, alignItems: 'center', marginBottom: 10 },
+  confirmaContinuarTexto: { fontSize: 14, fontWeight: '700', color: '#0A0A0A' },
+  confirmaSim: { borderWidth: 1.5, borderColor: cores.perigo, borderRadius: raios.medio, padding: 13, alignItems: 'center' },
+  confirmaSimTexto: { fontSize: 14, fontWeight: '700', color: cores.perigo },
   // Mesmas medidas do BotaoPrimario (components: raio grande, padding 16, texto 15/700); a
   // borda de 1px sai do padding (15) para a altura ficar idêntica.
   rodapeApagado: { backgroundColor: '#1c1d21', borderWidth: 1, borderColor: '#2c2f36', borderRadius: raios.grande, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },

@@ -20,7 +20,6 @@ import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento
 import {
   MolduraWizard, RodapeWizard, GradeTiposObra, PassoDetalhes, PassoPrazoValorObra, PassoEndereco,
   CaixaAvisosObra, TITULOS_PASSO_OBRA, PASSO_DO_CAMPO_OBRA, TOTAL_PASSOS,
-  confirmarCancelarPedido,
 } from './CadastrarServicoPassos'
 
 // Cadastro de obra do dono em 4 passos (Arte-Cadastrar-Obra), na MESMA moldura do cadastro de
@@ -593,17 +592,17 @@ export default function CadastrarObraScreen({ navigation }) {
   const naRaiz = (navigation.getState()?.index ?? 0) === 0
   const mostrarVoltar = passo > 1 || !naRaiz
 
-  // "✕ Cancelar pedido": confirma, limpa o formulário e as mídias e volta à tela inicial do
+  // "✕ Cancelar pedido" (já confirmado na MolduraWizard): limpa o formulário e as mídias e volta à tela inicial do
   // dono — os grupos do "Cadastrar pedido", por baixo desta (como raiz de pilha, fica no passo 1).
   // Chave de idempotência nova: um POST que falhou por timeout não pode casar com o próximo pedido.
-  const cancelarPedido = () => confirmarCancelarPedido(() => {
+  const cancelarPedido = () => {
     Keyboard.dismiss()
     limparFormulario()
     setDicaFoto(false)
     setPickerMidia(null)
     clientRequestIdRef.current = gerarRequestId()
     if (!naRaiz) navigation.goBack()
-  })
+  }
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>

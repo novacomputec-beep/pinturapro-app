@@ -22,7 +22,6 @@ import {
   MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupo,
   PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, PASSO_DO_CAMPO, TOTAL_PASSOS,
   CaixaLocalAtendimento,
-  confirmarCancelarPedido,
 } from './CadastrarServicoPassos'
 
 // Cadastro de serviço do dono em 4 passos (Arte-Cadastrar-Servico): grupos → detalhes →
@@ -536,17 +535,17 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const naRaiz = (navigation.getState()?.index ?? 0) === 0
   const mostrarVoltar = passo > 1 || !naRaiz
 
-  // "✕ Cancelar pedido": confirma, limpa o formulário e as mídias (limparFormulario volta ao
+  // "✕ Cancelar pedido" (já confirmado na MolduraWizard): limpa o formulário e as mídias (limparFormulario volta ao
   // passo 1) e fica na tela inicial do dono — esta, na raiz da aba; empilhada (legado), volta.
   // Chave de idempotência nova: um POST que falhou por timeout não pode casar com o próximo pedido.
-  const cancelarPedido = () => confirmarCancelarPedido(() => {
+  const cancelarPedido = () => {
     Keyboard.dismiss()
     limparFormulario()
     setDicaFoto(false)
     setPickerMidia(null)
     clientRequestIdRef.current = gerarRequestId()
     if (!naRaiz) navigation.goBack()
-  })
+  }
   const deNovoPedido = route?.name === ROTA_NOVO_PEDIDO
 
   return (
