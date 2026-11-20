@@ -1,6 +1,6 @@
 import React from 'react'
 import BotaoVoltar from '../../components/BotaoVoltar'
-import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated, Alert } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
@@ -52,7 +52,9 @@ export const TILE_OBRAS = { emoji: '🏗️', titulo: 'Obras de Construção Civ
 // lado do ←; a pergunta do passo (titulos[passo]) vem menor, abaixo da barra de progresso.
 // titulos: mapa passo → { titulo, subtitulo } (TITULOS_PASSO por padrão; a obra passa o seu).
 // progresso=false: sem "Passo N de 4" nem barra (telas de um passo só, como as especialidades).
-export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulos = TITULOS_PASSO, onVoltar, mostrarVoltar, children, rodape, scrollRef, reservaInferior = 0, acimaDoTitulo, progresso = true }) {
+// onCancelar: desenha o link "✕ Cancelar pedido" no rodapé, abaixo do botão (cadastro de
+// serviço e de obra, só com algo preenchido); a tela confirma e limpa (confirmarCancelarPedido).
+export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulos = TITULOS_PASSO, onVoltar, mostrarVoltar, children, rodape, scrollRef, reservaInferior = 0, acimaDoTitulo, progresso = true, onCancelar }) {
   const t = titulos[passo] || titulos[1]
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -76,9 +78,24 @@ export function MolduraWizard({ passo, tituloTela = 'Cadastrar serviço', titulo
       </ScrollView>
       <View style={[estilos.rodape, larguraMaxima, { paddingBottom: 12 + reservaInferior }]}>
         {rodape}
+        {onCancelar ? (
+          <TouchableOpacity style={estilos.cancelarPedido} onPress={onCancelar} activeOpacity={0.7} hitSlop={{ top: 6, bottom: 6, left: 12, right: 12 }} accessibilityRole="button" accessibilityLabel="Cancelar pedido">
+            <Text style={estilos.cancelarPedidoTexto} maxFontSizeMultiplier={1.3}>✕ Cancelar pedido</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </KeyboardAvoidingView>
   )
+}
+
+// Confirmação do "✕ Cancelar pedido" do formulário (pedido AINDA NÃO publicado: nada vai ao
+// servidor). "Continuar preenchendo" fecha; "Sim, cancelar" chama aoConfirmar, que limpa o
+// formulário e as mídias e volta à tela inicial do dono.
+export const confirmarCancelarPedido = (aoConfirmar) => {
+  Alert.alert('Cancelar este pedido?', 'Tudo o que você preencheu será apagado, incluindo fotos e vídeos.', [
+    { text: 'Continuar preenchendo', style: 'cancel' },
+    { text: 'Sim, cancelar', style: 'destructive', onPress: aoConfirmar },
+  ])
 }
 
 export const BarraProgresso = ({ passo }) => (
@@ -609,6 +626,8 @@ const estilos = StyleSheet.create({
   // Rodapé fixo: linha fina em cima, mesmo fundo da tela.
   rodape: { paddingHorizontal: espacos.tela, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: cores.borda, backgroundColor: cores.fundo },
   rodapeBotao: { marginTop: 0 },
+  cancelarPedido: { alignSelf: 'center', paddingVertical: 8, marginTop: 4 },
+  cancelarPedidoTexto: { fontSize: 13, fontWeight: '600', color: cores.textoMedio, textDecorationLine: 'underline' },
   // Mesmas medidas do BotaoPrimario (components: raio grande, padding 16, texto 15/700); a
   // borda de 1px sai do padding (15) para a altura ficar idêntica.
   rodapeApagado: { backgroundColor: '#1c1d21', borderWidth: 1, borderColor: '#2c2f36', borderRadius: raios.grande, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
