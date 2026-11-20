@@ -7,7 +7,7 @@ import { cores, raios } from '../utils/tema'
 // desenha para 'casa_cliente' e 'local_profissional' — 'tanto_faz', null ou ausente = nada.
 const TEXTOS = {
   casa_cliente: '🏠 Atendimento na casa do cliente',
-  local_profissional: '💈 Cliente vai até o seu espaço',
+  local_profissional: '📍 Cliente vai até o seu espaço',
 }
 
 export default function PillLocalAtendimento({ demanda, estilo }) {
