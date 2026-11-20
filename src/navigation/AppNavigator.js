@@ -454,8 +454,11 @@ const navegarParaNotificacao = (data) => {
       // ao PROFISSIONAL que perguntou, antes do match — então a demanda ainda vive no feed
       // de disponíveis, como em 'reparo_proximo'/'obra_proxima'. Quem escolhe a aba é o
       // papel, como no 'link_demanda' logo abaixo.
+      // 'midia_adicionada' ("o cliente adicionou fotos ou vídeos") chega ao PROFISSIONAL que
+      // perguntou, também antes do match: mesmo destino do 'pergunta_respondida'.
       case 'nova_pergunta':
       case 'pergunta_respondida':
+      case 'midia_adicionada':
         if (data.reparo_id) ir(ehPrestador ? 'Reparos' : abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) ir(ehPrestador ? 'Obras' : abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })
         else navegar(tabEmAndamento)
