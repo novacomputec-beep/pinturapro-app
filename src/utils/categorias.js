@@ -237,11 +237,17 @@ export const rotulosEspecialidades = (esp) => {
 // Categorias em que o serviço pode ser na casa do cliente OU no espaço do profissional
 // (arte "Onde vai ser o atendimento?"). Manicure/pedicure, cabelo, barbeiro, maquiagem,
 // sobrancelha, depilação, massagem, podólogo, pet. Tatuagem fica de fora: é sempre no estúdio.
+// Ampliada em 20/11/2026 além de beleza (o nome CATEGORIAS_CUIDADO ficou por compatibilidade):
+// mecânica, borracheiro, lava-jato, informática, eletrônica, estofamento, costura, chaveiro,
+// filmagem/fotografia, confeiteiro, salgadeiro, artesanato e aluguel para festas. Mesmas chaves
+// de CATEGORIAS_LOCAL_ATENDIMENTO da API (utils/localAtendimento.js) — as duas listas andam juntas.
 export const CATEGORIAS_CUIDADO = new Set([
   'manicure', 'cabelo', 'barbeiro', 'maquiagem', 'design_sobrancelhas',
   'depilacao', 'massagem', 'podologo', 'pet',
+  'mecanica', 'borracheiro', 'lavajato', 'informatica', 'eletronica', 'estofamento', 'costura',
+  'chaveiro', 'filmagem_fotografia', 'confeiteiro', 'salgadeiro', 'artesanato', 'aluguel_festas',
 ])
-// true se ALGUM slug da lista (array ou CSV) é de beleza/cuidados.
+// true se ALGUM slug da lista (array ou CSV) pede a pergunta "onde vai ser o atendimento?".
 export const temCategoriaCuidado = (lista) => {
   const arr = Array.isArray(lista) ? lista : (typeof lista === 'string' ? lista.split(',') : [])
   return arr.some((s) => CATEGORIAS_CUIDADO.has(String(s).trim()))
@@ -249,8 +255,8 @@ export const temCategoriaCuidado = (lista) => {
 
 // Valores de reparos.local_atendimento (contrato com a API).
 export const LOCAIS_ATENDIMENTO = [
-  { id: 'casa_cliente',       emoji: '🏠', titulo: 'Na minha casa',            subtitulo: 'A profissional vem até você' },
-  { id: 'local_profissional', emoji: '💈', titulo: 'No local da profissional', subtitulo: 'Você vai até o salão ou espaço dela' },
+  { id: 'casa_cliente',       emoji: '🏠', titulo: 'Na minha casa',            subtitulo: 'O profissional vem até você' },
+  { id: 'local_profissional', emoji: '📍', titulo: 'No local do profissional', subtitulo: 'Você vai até o profissional' },
   { id: 'tanto_faz',          emoji: '🤝', titulo: 'Tanto faz',                subtitulo: null },
 ]
 

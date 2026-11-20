@@ -741,7 +741,7 @@ export default function PerfilScreen({ navigation, route }) {
             <Separador estilo={{ marginBottom: 12 }} />
             {[
               { campo: 'atende_casa_cliente', emoji: '🏠', titulo: 'Atendo na casa do cliente' },
-              { campo: 'atende_local_proprio', emoji: '💈', titulo: 'Atendo no meu espaço' },
+              { campo: 'atende_local_proprio', emoji: '📍', titulo: 'Atendo no meu espaço' },
             ].map((o) => {
               const marcado = atendeValor(o.campo)
               return (
