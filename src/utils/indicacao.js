@@ -5,6 +5,7 @@ import api from '../services/api'
 import { comRetry } from './rede'
 import { ehValorSimbolico } from './valorACombinar'
 import { leInteresses, leCandidaturas } from './profissional'
+import { lugarDaIndicacao } from './cidadesGrandes'
 
 // Indicação de colegas (profissional → profissional). Aqui mora o que NÃO é tela: o
 // contrato com a API, a mensagem do convite, a leitura do código vindo da loja e a marca
@@ -32,22 +33,23 @@ export const mensagemConvite = (codigo, link) =>
   `Estou usando o ProTudo para receber pedidos de clientes aqui da região. É gratuito! Baixe pelo link e use meu código ${codigo} no cadastro: ${link}`
 
 // Arte-Indicar: o profissional vendo um pedido ABERTO e sem match indica o ProTudo a um
-// colega que faz aquele serviço. Texto aprovado; só título, valor e CIDADE do pedido — NUNCA
-// endereço, nome ou telefone do dono. Sem valor, a parte do valor sai. O lugar é sempre
-// "em <cidade>" do pedido (na falta, a cidade do profissional; sem as duas, sai só o título).
-// O BAIRRO não entra: há bairros com nome de país/cidade — "Brasil", em Patos de Minas, virava
-// "aberto no ProTudo, …, no Brasil". O link é o /baixar público, com ?c=CODIGO
+// colega que faz aquele serviço. Texto aprovado; só título, valor e lugar do pedido — NUNCA
+// endereço, nome ou telefone do dono. Sem valor, a parte do valor sai. O lugar vem de
+// lugarDaIndicacao (utils/cidadesGrandes): "em <cidade>" do pedido (na falta, a cidade do
+// profissional; sem as duas, sai só o título) e, SÓ em município com mais de 500 mil
+// habitantes, "no bairro <bairro>, em <cidade>". O bairro nunca vai sozinho: "Brasil", bairro
+// de Patos de Minas, virava "aberto no ProTudo, …, no Brasil". O link é o /baixar público, com ?c=CODIGO
 // quando o profissional tem código de indicação (o mesmo do ConvidarColegaScreen).
 const LINK_BAIXAR = 'protudo.app.br/baixar'
-export const mensagemIndicarPedido = ({ titulo, valor, aCombinar, cidade, cidadeUsuario, codigo }) => {
+export const mensagemIndicarPedido = ({ titulo, valor, aCombinar, bairro, cidade, uf, cidadeUsuario, codigo }) => {
   const t = String(titulo ?? '').trim() || 'serviço'
   const v = Number(valor)
   const partes = [`Oi! Tem um pedido de ${t} aberto no ProTudo`]
   // Pedido "a combinar" (flag ou o 0,01 simbólico da API): nunca um preço — utils/valorACombinar.
   if (aCombinar || ehValorSimbolico(valor)) partes.push('valor a combinar')
   else if (Number.isFinite(v) && v > 0) partes.push(`valor de R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-  const c2 = String(cidade ?? '').trim() || String(cidadeUsuario ?? '').trim()
-  if (c2) partes.push(`em ${c2}`)
+  const lugar = lugarDaIndicacao({ bairro, cidade, uf, cidadeUsuario })
+  if (lugar) partes.push(lugar)
   const c = String(codigo ?? '').trim()
   const link = c ? `${LINK_BAIXAR}?c=${encodeURIComponent(c)}` : LINK_BAIXAR
   return `${partes.join(', ')}.\n\nBaixe o app gratuito, cadastre-se e mande sua proposta:\n${link}`
