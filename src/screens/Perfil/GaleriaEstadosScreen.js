@@ -232,13 +232,13 @@ function DemoAvisados({ modo, avisados }) {
 }
 
 // Arte-Indicar (components/Indicacao), no detalhe do PROFISSIONAL de pedido aberto sem match:
-// a caixa verde acima do "Tenho interesse". Variantes da mensagem: com valor e bairro, sem
-// valor, sem bairro (cai na cidade). O botão abre o WhatsApp de verdade com a mensagem
+// a caixa verde acima do "Tenho interesse". Variantes da mensagem: com valor e cidade, sem
+// valor, sem cidade no pedido (cai na do profissional). O botão abre o WhatsApp de verdade com a mensagem
 // montada dos dados locais — nada sai da tela sem o toque.
 const CASOS_INDICAR = [
-  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · serviço com valor e bairro (com código)', frente: 'servico', codigo: 'AB12CD' },
+  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · serviço com valor e cidade (com código)', frente: 'servico', codigo: 'AB12CD' },
   { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · obra sem valor (sem código)', frente: 'obra', demanda: { valor: null }, codigo: '' },
-  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · serviço sem bairro (usa a cidade)', frente: 'servico', demanda: { bairro: null }, codigo: 'AB12CD' },
+  { lado: 'pro', fase: 'indicar', rotulo: 'Indicar · serviço sem cidade (usa a do profissional)', frente: 'servico', demanda: { cidade: null }, codigo: 'AB12CD' },
 ]
 const propsIndicar = (caso) => ({ demanda: { ...base(caso.frente), ...(caso.demanda || {}) }, codigo: caso.codigo, ehObra: caso.frente === 'obra' })
 
