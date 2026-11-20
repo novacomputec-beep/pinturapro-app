@@ -299,7 +299,9 @@ const gerarIdMidia = () =>
 //     progresso:0..1, secureUrl?, publicId?, erro? }
 // `adicionar` é passado como `setMidias` ao useSelecaoMidia (que só ANEXA:
 // prev => [...prev, ...assets]); aceita tanto o updater quanto um array cru.
-export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
+// avisarProntas (default true): false no "adicionar mídia" de um pedido JÁ publicado
+// (components/AdicionarMidiaDemanda) — ali não há push de pedido novo esperando por mídia.
+export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix, avisarProntas = true }) {
   const config = CONFIG_MIDIA[vertical]
   const [itens, setItens] = useState([])
   // Aviso "mídias prontas" dispara UMA vez por demanda: o servidor segura o push da nova
@@ -401,19 +403,21 @@ export function useUploadMidiaDemanda({ vertical, montadoRef, logPrefix }) {
         apagarArquivoTemp(item.localUri, logPrefix)
       } catch (err) {
         console.log(`${logPrefix} falha no upload/registro de mídia | ordem: ${ordem} | code: ${err.code} | msg: ${err.message}`)
-        falhas.push({ ...item, ordem })
+        // erroStatus/erroMensagem: a recusa do REGISTRO (ex.: 409 da API), para quem quiser
+        // mostrá-la; as telas de cadastro seguem lendo só tipo/ordem.
+        falhas.push({ ...item, ordem, erroStatus: err.status, erroMensagem: err.mensagem })
       }
     }
     // Último arquivo já processado (sucesso ou falha): avisa o servidor, uma vez. Fire-and-
     // forget — NÃO bloqueia a UI e o erro é engolido (a rede de segurança de 10min do
     // servidor cobre). Pula se a tela foi abandonada (montadoRef falso) e se já avisou.
-    if (!prontasAvisadasRef.current && montadoRef.current) {
+    if (avisarProntas && !prontasAvisadasRef.current && montadoRef.current) {
       prontasAvisadasRef.current = true
       comRetry(() => api.post(config.prontasPath(demandaId), {}), { timeout: true, servidor: true })
         .catch(err => console.log(`${logPrefix} midias-prontas falhou (rede de segurança de 10min do servidor cobre) | code: ${err.code} | msg: ${err.message}`))
     }
     return falhas
-  }, [itens, config, logPrefix, montadoRef])
+  }, [itens, config, logPrefix, montadoRef, avisarProntas])
 
   return { itens, adicionar, importar, remover, reenviar, resetar, algumEnviando, publicarMidias }
 }

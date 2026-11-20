@@ -49,6 +49,7 @@ import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderP
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
 import { alertouPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
+import { useAdicionarMidiaDemanda, CardDicaAdicionarMidia, TileAdicionarMidia } from '../../components/AdicionarMidiaDemanda'
 import { mostrarAviso } from '../../utils/deepLink'
 
 // Tile da tira "Fotos e vídeos". Componente próprio, e fora da tela (mesmo motivo do
@@ -626,6 +627,12 @@ export default function DetalheObraScreen({ route, navigation }) {
   // Engole a falha de propósito — um refetch que não deu certo não deve virar alerta —,
   // e é justamente por engolir que ela NÃO serve para recarregarSeFalhaDeRede. Todos os
   // chamadores antigos continuam usando esta, com o mesmo comportamento de sempre.
+  // Adicionar foto/vídeo ao pedido já publicado (dono, pedido aberto ou em análise): mesmo
+  // picker e upload do cadastro; terminou, relê o detalhe.
+  const adicionarMidia = useAdicionarMidiaDemanda({
+    vertical: 'obra', demandaId: obraInicial?.id, midias, aoConcluir: () => buscar(), logPrefix: '[DetalheObra]',
+  })
+
   const buscar = async () => {
     try {
       await recarregarObra()
@@ -1472,6 +1479,10 @@ export default function DetalheObraScreen({ route, navigation }) {
   // da conclusão. Este flag é o gate único de todas as ações; os botões de Encerrar já testam
   // o status por conta própria e ficam como estão.
   const encerrada = obra?.status === 'encerrada'
+  // Dono pode adicionar foto/vídeo só enquanto o pedido está aberto (sem profissional
+  // escolhido) ou aguardando aprovação; fora disso a API recusa (409).
+  const podeAdicionarMidia = isDono && !temMatch && !encerrada && !obra?.match_usuario_id &&
+    (obra?.status === 'aberta' || obra?.status_aprovacao === 'pendente')
   // Arte-Profissional-Desistiu: vale enquanto NÃO há profissional escolhido (nem match, nem
   // candidatura aceita — nas duas grafias, ver STATUS_GRUPO em ContratosScreen.js) e a obra
   // segue aberta. As candidaturas que constam em `desistencias` (mesmo id) saem da lista
@@ -2033,6 +2044,8 @@ export default function DetalheObraScreen({ route, navigation }) {
         </KeyboardAvoidingView>
       </Modal>
 
+      {adicionarMidia.folha}
+
       <ModalPerguntar
         visivel={modalPergunta}
         enviando={enviandoPergunta}
@@ -2417,8 +2430,14 @@ export default function DetalheObraScreen({ route, navigation }) {
                     onPress={() => midia.tipo === 'video' ? setVideoFullscreen(midia.url) : setFotoFullscreen(midia.url)}
                   />
                 ))}
+                {podeAdicionarMidia && (
+                  <TileAdicionarMidia estilo={estilos.midiaItem} onPress={adicionarMidia.abrir} enviando={adicionarMidia.enviando} rotuloEnvio={adicionarMidia.rotuloEnvio} />
+                )}
               </ScrollView>
             </>
+          ) : podeAdicionarMidia && perguntas.length > 0 ? (
+            // Sem mídia e já com pergunta de profissional: a dica azul.
+            <CardDicaAdicionarMidia onAdicionar={adicionarMidia.abrir} enviando={adicionarMidia.enviando} rotuloEnvio={adicionarMidia.rotuloEnvio} />
           ) : obra?.status === 'encerrada' ? (
             <View style={estilos.avisoMidiaRemovida}>
               <Text style={estilos.avisoMidiaRemovidaIcone}>📷</Text>
