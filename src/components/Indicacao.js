@@ -26,14 +26,15 @@ export const useMeuCodigoIndicacao = (ativo) => {
 // Arte-Indicar: caixa verde no detalhe do PROFISSIONAL (nunca do dono), em pedido aberto e
 // sem match, logo acima do "Tenho interesse". O botão abre o WhatsApp com a mensagem de
 // utils/indicacao (fallback: folha de compartilhar do sistema). `demanda` é o reparo ou a
-// obra: só título, valor e bairro/cidade entram na mensagem.
+// obra: só título, valor e cidade entram na mensagem (sem cidade no pedido, a do profissional).
 export const CaixaIndicar = ({ demanda, codigo }) => {
+  const { usuario } = useAuth()
   const indicar = () => convidarPeloWhatsApp(mensagemIndicarPedido({
     titulo: demanda?.titulo,
     valor: valorRealDoPedido(demanda),
     aCombinar: ehValorACombinar(demanda),
-    bairro: demanda?.bairro,
     cidade: demanda?.cidade,
+    cidadeUsuario: usuario?.cidade,
     codigo,
   }))
   return (
