@@ -10,11 +10,12 @@ import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../../hooks
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
-import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA, temCategoriaCuidado } from '../../utils/categorias'
+import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA, temCategoriaCuidado, temCategoriaPedeFoto } from '../../utils/categorias'
 import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/PedidosBloqueados'
+import FolhaDicaFoto from '../../components/FolhaDicaFoto'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -105,6 +106,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // Picker de mídia: null = fechado; 'video' / 'foto' (vindo dos dois botões grandes, cada
   // um oferece câmera OU galeria) / 'todas' (as três opções de sempre).
   const [pickerMidia, setPickerMidia] = useState(null)
+  // Folha "Pedidos com fotos ou vídeos recebem mais propostas" (components/FolhaDicaFoto):
+  // aberta pelo "Publicar" quando o pedido sairia sem mídia. Nunca bloqueia.
+  const [dicaFoto, setDicaFoto] = useState(false)
   // Folha do grupo aberto no passo 1 (objeto de gruposComCategorias) ou null.
   const [grupoAberto, setGrupoAberto] = useState(null)
   // 409 PEDIDOS_BLOQUEADOS do POST: { liberado_em } abre a tela cheia (components/PedidosBloqueados).
@@ -210,12 +214,12 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // anterior sem perder nada. No passo 1 segue o comportamento de sempre (sai da tela).
   useFocusEffect(useCallback(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (grupoAberto || pickerMidia) return false
+      if (grupoAberto || pickerMidia || dicaFoto) return false
       if (passo > 1) { setPasso(p => p - 1); return true }
       return false
     })
     return () => sub.remove()
-  }, [passo, grupoAberto, pickerMidia]))
+  }, [passo, grupoAberto, pickerMidia, dicaFoto]))
 
   // Handlers de captura/seleção de mídia + recuperação de resultados perdidos na
   // destruição da MainActivity (Android). Implementação única em utils/midia.
@@ -440,12 +444,16 @@ export default function CadastrarReparoScreen({ navigation, route }) {
     }
   }
 
-  const handleCadastrar = async () => {
+  const handleCadastrar = async (semDica) => {
     if (enviandoRef.current) return
     if (midia.algumEnviando) { Alert.alert('Aguarde o envio das mídias', 'Suas fotos/vídeos ainda estão sendo enviados. Aguarde a conclusão para publicar.'); return }
     // Validação COMPLETA roda ANTES de qualquer chamada de API ou navegação.
     const novosErros = validar()
     if (Object.keys(novosErros).length > 0) { apontarErro(novosErros); return }
+    // Sem nenhuma foto/vídeo numa categoria que pede foto: antes de publicar, a folha da dica. Ela não
+    // bloqueia — "Publicar sem foto ou vídeo" chama de novo com semDica === true (o onPress do
+    // rodapé manda o evento, por isso a comparação estrita).
+    if (semDica !== true && midia.itens.length === 0 && temCategoriaPedeFoto(categorias)) { Keyboard.dismiss(); setDicaFoto(true); return }
     enviandoRef.current = true
     setCarregando(true)
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -509,6 +517,15 @@ export default function CadastrarReparoScreen({ navigation, route }) {
 
   // Picker: fecha, solta o teclado e abre a câmera/galeria com a mesma folga de sempre.
   const abrirMidia = (fn) => { Keyboard.dismiss(); setPickerMidia(null); setTimeout(() => fn(), 500) }
+
+  // "Adicionar foto ou vídeo" da folha da dica: fecha a folha, volta ao passo das mídias
+  // (Detalhes) e abre o picker de sempre com as três opções. A folga é a mesma razão do
+  // abrirMidia: um Modal não abre enquanto o outro ainda está fechando (iOS).
+  const adicionarPelaDica = () => {
+    setDicaFoto(false)
+    setPasso(2)
+    setTimeout(() => { if (montadoRef.current) setPickerMidia('todas') }, 500)
+  }
 
   // Esta tela é a RAIZ da aba "Novo pedido" do dono: a stack da aba começa nesta rota
   // (index 0) e não existe "voltar" no passo 1 — a seta nem é renderizada. Se um dia for
@@ -646,6 +663,12 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         </RaizGestosFolha>
       </Modal>
       {/* 409 PEDIDOS_BLOQUEADOS: "Novos pedidos liberados em dd/mm" + "Falar com o suporte". */}
+      <FolhaDicaFoto
+        visivel={dicaFoto}
+        onAdicionar={adicionarPelaDica}
+        onPublicar={() => { setDicaFoto(false); handleCadastrar(true) }}
+        onFechar={() => setDicaFoto(false)}
+      />
       <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>
   )

@@ -253,6 +253,19 @@ export const temCategoriaCuidado = (lista) => {
   return arr.some((s) => CATEGORIAS_CUIDADO.has(String(s).trim()))
 }
 
+// ── Dica de foto: categorias em que foto/vídeo ajuda o profissional a dar o preço ───────
+// Mesmas chaves de CATEGORIAS_PEDE_FOTO da API (utils/dicaFoto.js) — as duas listas andam
+// juntas. Obra não entra aqui: toda obra pede foto (quem decide é a tela de obra).
+export const CATEGORIAS_PEDE_FOTO = new Set([
+  'hidraulica', 'eletrica', 'alvenaria', 'marcenaria', 'montagem_moveis', 'estofamento', 'vidraceiro',
+  'serralheria', 'gesseiro', 'climatizacao', 'eletronica', 'informatica', 'mecanica', 'jardineiro',
+])
+// true se ALGUM slug da lista (array ou CSV) está em CATEGORIAS_PEDE_FOTO.
+export const temCategoriaPedeFoto = (lista) => {
+  const arr = Array.isArray(lista) ? lista : (typeof lista === 'string' ? lista.split(',') : [])
+  return arr.some((s) => CATEGORIAS_PEDE_FOTO.has(String(s).trim()))
+}
+
 // Valores de reparos.local_atendimento (contrato com a API).
 export const LOCAIS_ATENDIMENTO = [
   { id: 'casa_cliente',       emoji: '🏠', titulo: 'Na minha casa',            subtitulo: 'O profissional vem até você' },
