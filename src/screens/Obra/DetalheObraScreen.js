@@ -1481,7 +1481,11 @@ export default function DetalheObraScreen({ route, navigation }) {
   const encerrada = obra?.status === 'encerrada'
   // Dono pode adicionar foto/vídeo só enquanto o pedido está aberto (sem profissional
   // escolhido) ou aguardando aprovação; fora disso a API recusa (409).
-  const podeAdicionarMidia = isDono && !temMatch && !encerrada && !obra?.match_usuario_id &&
+  // "Sem profissional escolhido" é a regra da API (utils/profissionalEscolhido): sem match E sem
+  // proposta 'aceito' — um match desfeito pelo suporte deixa a proposta aceita sozinha, e o
+  // pedido continua tendo alguém.
+  const temPropostaAceita = candidatos.some(p => p?.status === 'aceito')
+  const podeAdicionarMidia = isDono && !temMatch && !encerrada && !obra?.match_usuario_id && !temPropostaAceita &&
     (obra?.status === 'aberta' || obra?.status_aprovacao === 'pendente')
   // Arte-Profissional-Desistiu: vale enquanto NÃO há profissional escolhido (nem match, nem
   // candidatura aceita — nas duas grafias, ver STATUS_GRUPO em ContratosScreen.js) e a obra

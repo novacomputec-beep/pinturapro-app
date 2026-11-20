@@ -1575,7 +1575,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const encerrada = reparo?.status === 'encerrada'
   // Dono pode adicionar foto/vídeo só enquanto o pedido está aberto (sem profissional
   // escolhido) ou aguardando aprovação; fora disso a API recusa (409).
-  const podeAdicionarMidia = isDono && !temMatch && !encerrada && !reparo?.match_usuario_id &&
+  // "Sem profissional escolhido" é a regra da API (utils/profissionalEscolhido): sem match E sem
+  // proposta 'aceito' — um match desfeito pelo suporte deixa a proposta aceita sozinha, e o
+  // pedido continua tendo alguém.
+  const temPropostaAceita = interessados.some(p => p?.status === 'aceito')
+  const podeAdicionarMidia = isDono && !temMatch && !encerrada && !reparo?.match_usuario_id && !temPropostaAceita &&
     (reparo?.status === 'aberta' || reparo?.status_aprovacao === 'pendente')
   // Encerramento em duas etapas: quando uma parte pede, o servidor devolve
   // encerramento 'pendente' e o reparo NÃO fecha — fecha só quando a outra confirma.
