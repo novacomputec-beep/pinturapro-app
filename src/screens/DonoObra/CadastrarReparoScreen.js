@@ -22,6 +22,7 @@ import {
   MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, Sugestoes, FolhaGrupo,
   PassoDetalhes, PassoPrazoValor, PassoEndereco, AvisosPublicar, PASSO_DO_CAMPO, TOTAL_PASSOS,
   CaixaLocalAtendimento,
+  confirmarCancelarPedido,
 } from './CadastrarServicoPassos'
 
 // Cadastro de serviço do dono em 4 passos (Arte-Cadastrar-Servico): grupos → detalhes →
@@ -534,6 +535,18 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // 2–4 a seta volta um passo.
   const naRaiz = (navigation.getState()?.index ?? 0) === 0
   const mostrarVoltar = passo > 1 || !naRaiz
+
+  // "✕ Cancelar pedido": confirma, limpa o formulário e as mídias (limparFormulario volta ao
+  // passo 1) e fica na tela inicial do dono — esta, na raiz da aba; empilhada (legado), volta.
+  // Chave de idempotência nova: um POST que falhou por timeout não pode casar com o próximo pedido.
+  const cancelarPedido = () => confirmarCancelarPedido(() => {
+    Keyboard.dismiss()
+    limparFormulario()
+    setDicaFoto(false)
+    setPickerMidia(null)
+    clientRequestIdRef.current = gerarRequestId()
+    if (!naRaiz) navigation.goBack()
+  })
   const deNovoPedido = route?.name === ROTA_NOVO_PEDIDO
 
   return (
@@ -547,6 +560,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         mostrarVoltar={mostrarVoltar}
         scrollRef={scrollRef}
         reservaInferior={reservaInferior}
+        onCancelar={temConteudo && !carregando ? cancelarPedido : undefined}
         // Só na raiz da aba "Novo pedido" e no 1º passo: é a tela inicial do dono.
         acimaDoTitulo={passo === 1 && deNovoPedido ? <BannerComoFunciona navigation={navigation} semRecuo /> : null}
         rodape={passo < TOTAL_PASSOS
