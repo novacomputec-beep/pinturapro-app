@@ -25,7 +25,7 @@ export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
 // daqui. "Casa e reparos" virou "Consertos da casa" (id 'casa' mantido: é o GRUPO_FALLBACK) +
 // "Limpeza e jardim"; "Divulgação e publicidade" é novo. Slugs em ordem alfabética.
 export const GRUPOS_SERVICO = [
-  { id: 'casa',       titulo: 'Consertos da casa',        emoji: '🔧', slugs: ['alvenaria', 'chaveiro', 'climatizacao', 'eletrica', 'eletronica', 'estofamento', 'gesseiro', 'hidraulica', 'marcenaria', 'montagem_moveis', 'seguranca_eletronica', 'serralheria', 'vidraceiro'] },
+  { id: 'casa',       titulo: 'Consertos da casa',        emoji: '🔧', slugs: ['alvenaria', 'chaveiro', 'climatizacao', 'conserto_celular', 'eletrica', 'eletronica', 'estofamento', 'gesseiro', 'hidraulica', 'marcenaria', 'montagem_moveis', 'seguranca_eletronica', 'serralheria', 'vidraceiro'] },
   { id: 'limpeza',    titulo: 'Limpeza e jardim',         emoji: '🧹', slugs: ['dedetizacao', 'faxina', 'jardineiro'] },
   { id: 'festas',     titulo: 'Festas e eventos',         emoji: '🎉', slugs: ['aluguel_festas', 'churrasqueiro', 'confeiteiro', 'cozinheiro', 'decoracao_festas', 'dj', 'filmagem_fotografia', 'garcom', 'musico', 'recreacao_infantil', 'salgadeiro'] },
   { id: 'beleza',     titulo: 'Beleza e bem-estar',       emoji: '💇', slugs: ['barbeiro', 'cabelo', 'depilacao', 'design_sobrancelhas', 'manicure', 'maquiagem', 'massagem', 'personal_trainer', 'podologo', 'tatuagem'] },

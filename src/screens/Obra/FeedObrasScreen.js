@@ -29,6 +29,7 @@ import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import { LinhaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import { textoInteressados, LinhaLocal } from '../../components/CardFeed'
+import { PillPedidoOficial, LinhaDonoOficial, ehDonoOficial, estiloCardOficial } from '../../components/SeloOficial'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -123,7 +124,7 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
   const faixa = urgenciaObra(item.horas_para_expirar, item.total_extensao_horas)
 
   return (
-  <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
+  <TouchableOpacity style={[estilos.card, ehDonoOficial(item) && estiloCardOficial]} onPress={onPress} activeOpacity={0.85}>
     <View style={estilos.acentoEsq} />
 
     {/* Faixa de prazo — espelha a urgenciaBanner do reparo (mesma altura, tipografia e
@@ -135,6 +136,8 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
     )}
 
     <View style={estilos.cardCorpo}>
+      {/* Obra da conta oficial (dono_oficial): pill no topo do card. */}
+      {ehDonoOficial(item) && <PillPedidoOficial estilo={{ marginBottom: 10 }} />}
       {/* Categoria à esquerda, prazo à direita, em flex row: por não serem mais
           absolutos, não há como se sobreporem, qualquer que seja o tamanho do texto. */}
       <View style={estilos.topoRow}>
@@ -183,6 +186,7 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
           ) : (
             <Text style={estilos.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
           )}
+          {ehDonoOficial(item) && <LinhaDonoOficial estilo={{ marginTop: 3 }} />}
           {/* Linha azul: especialidades inferidas (ou a categoria da obra). */}
           <Text style={estilos.linhaEspecialidades} numberOfLines={1}>{linhaEspecialidades}</Text>
           <LinhaLocal item={item} dist={dist} estiloTexto={estilos.cardLocal} estiloDistancia={estilos.cardDistancia} />

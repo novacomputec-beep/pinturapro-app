@@ -32,6 +32,7 @@ import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import { LinhaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import { textoInteressados, LinhaLocal } from '../../components/CardFeed'
+import { PillPedidoOficial, LinhaDonoOficial, ehDonoOficial, estiloCardOficial } from '../../components/SeloOficial'
 
 const DISTANCIAS = [
   { id: 'cidade', label: 'Cidade'   },
@@ -128,7 +129,7 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
     : (formatarPrazoAtendimento(item.prazo_atendimento_horas, { maxUnidades: 2 }) ?? `${item.prazo_atendimento_horas}h`)
 
   return (
-    <TouchableOpacity style={estilos.card} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[estilos.card, ehDonoOficial(item) && estiloCardOficial]} onPress={onPress} activeOpacity={0.85}>
       {/* Orange left accent strip */}
       <View style={estilos.acentoEsq} />
 
@@ -141,6 +142,8 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
       )}
 
       <View style={estilos.cardCorpo}>
+        {/* Pedido da conta oficial (dono_oficial): pill no topo do card. */}
+        {ehDonoOficial(item) && <PillPedidoOficial estilo={{ marginBottom: 10 }} />}
         {/* Categoria à esquerda, prazo à direita, em flex row: por não serem mais
             absolutos, não há como se sobreporem, qualquer que seja o tamanho do texto. */}
         <View style={estilos.topoRow}>
@@ -188,6 +191,7 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
             ) : (
               <Text style={estilos.cardTitulo} numberOfLines={1}>{item.titulo}</Text>
             )}
+            {ehDonoOficial(item) && <LinhaDonoOficial estilo={{ marginTop: 3 }} />}
             <LinhaLocal item={item} dist={dist} estiloTexto={estilos.cardLocal} estiloDistancia={estilos.cardDistancia} />
             {/* Beleza/cuidados: onde é o atendimento (nada para tanto_faz/sem valor). */}
             <PillLocalAtendimento demanda={item} />

@@ -32,6 +32,7 @@ import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import TelaPosMatch, { ROTULO_CANCELAR_DONO } from '../../components/PosMatchFixo'
 import { useMensagensProntas } from '../../components/MensagensProntas'
+import { LinhaDonoOficial, ehDonoOficial } from '../../components/SeloOficial'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
@@ -2132,7 +2133,7 @@ export default function DetalheObraScreen({ route, navigation }) {
             pontoReferencia={obra.ponto_referencia}
             /* Arte-Endereco-Apos-Horario: só usada quando a API manda endereco_liberado: false. */
             distanciaKm={isDono ? null : distancia}
-            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url, cliente_nao_respondeu_90d: obra.cliente_nao_respondeu_90d }}
+            outro={isDono ? pintorMatch : { nome: obra.dono_nome, foto_url: obra.dono_foto_url, cliente_nao_respondeu_90d: obra.cliente_nao_respondeu_90d, oficial: ehDonoOficial(obra) }}
             usuarioId={meuId}
             onExpirar={obra.chegada_prevista_em ? undefined : handleExpirarMatch}
             /* Negociação do horário: POST /chegada-prevista (pintor) e /responder. */
@@ -2347,6 +2348,8 @@ export default function DetalheObraScreen({ route, navigation }) {
               para o profissional e para o dono. Fechado o valor, volta o card "VALOR COMBINADO". */}
           {!topoCompacto && ehValorACombinar(obra) && <ChipValorACombinar curto rotulo={`💬 ${ROTULO_ACEITA_PROPOSTAS}`} estilo={{ marginBottom: 12 }} />}
           {!topoCompacto && <Text style={estilos.titulo}>{obra.titulo}</Text>}
+          {/* Obra da conta oficial: nome do dono + selo de verificado. */}
+          {!topoCompacto && ehDonoOficial(obra) && <LinhaDonoOficial grande estilo={{ marginBottom: 10 }} />}
           {/* Sem card de valor (obra sem valor) a linha de avisados sai avulsa, abaixo do título. */}
           {estadoAvisados === 'linha' && valorRealDoPedido(obra) == null && (
             <LinhaAvisados avisados={obra.profissionais_avisados} solta />

@@ -10,6 +10,7 @@ import { avatar } from '../utils/imagemOtimizada'
 import { rotuloMotivo } from '../utils/cancelamento'
 import { acaoEhMinha } from '../utils/identidadeDemanda'
 import ChipsCategoria from './ChipsCategoria'
+import SeloOficial from './SeloOficial'
 import { ehValorACombinar, ehValorSimbolico, valorReal, ROTULO_ACEITA_PROPOSTAS } from '../utils/valorACombinar'
 import { formatarAgendado, PickerAgendamento, RODADAS_MAX_AGENDAMENTO } from './Agendamento'
 import ConversaProntas, { temConversa } from './MensagensProntas'
@@ -218,7 +219,11 @@ export const MiniPessoa = ({ souDono, outro, linha2 }) => {
           </View>
         )}
         <View style={{ flex: 1, minWidth: 0 }}>
-          <T style={estilos.miniNome}>{outro?.nome || (souDono ? 'Profissional' : 'Cliente')}</T>
+          {/* Cliente = conta oficial do ProTudo (outro.oficial): selo de verificado ao lado do nome. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <T style={[estilos.miniNome, { flexShrink: 1 }]}>{outro?.nome || (souDono ? 'Profissional' : 'Cliente')}</T>
+            {!souDono && outro?.oficial === true ? <SeloOficial size={14} /> : null}
+          </View>
           <T style={estilos.miniNota}>{nota}</T>
           {especialidades ? <T style={estilos.miniMeta}>🛠 {especialidades}</T> : null}
         </View>
