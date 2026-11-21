@@ -34,6 +34,7 @@ import { urgenciaReparo, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
 import TelaPosMatch, { ROTULO_CANCELAR_DONO } from '../../components/PosMatchFixo'
 import { useMensagensProntas } from '../../components/MensagensProntas'
+import { LinhaDonoOficial, ehDonoOficial } from '../../components/SeloOficial'
 import { CardPerguntasProfissional, BotaoPerguntar, ModalPerguntar, CardPerguntasDono, CaixaPerguntaInteressado, ModalResponderPergunta, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { ChipEmbaixador, CaixaIndicar, useMeuCodigoIndicacao } from '../../components/Indicacao'
 import { ChipBemAvaliado, temSeloBemAvaliado } from '../../components/SeloBemAvaliado'
@@ -2277,7 +2278,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             pontoReferencia={reparo.ponto_referencia}
             /* Arte-Endereco-Apos-Horario: só usada quando a API manda endereco_liberado: false. */
             distanciaKm={isDono ? null : distancia}
-            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url, cliente_nao_respondeu_90d: reparo.cliente_nao_respondeu_90d }}
+            outro={isDono ? prestadorMatch : { nome: reparo.dono_nome, foto_url: reparo.dono_foto_url, cliente_nao_respondeu_90d: reparo.cliente_nao_respondeu_90d, oficial: ehDonoOficial(reparo) }}
             usuarioId={meuId}
             onExpirar={reparo.chegada_prevista_em ? undefined : handleExpirarMatch}
             /* Negociação do horário: POST /chegada-prevista (profissional) e /responder. */
@@ -2498,6 +2499,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
               para o profissional e para o dono. Fechado o valor, volta o card "VALOR COMBINADO". */}
           {!topoCompacto && ehValorACombinar(reparo) && !(valorPrincipal != null && Number(valorPrincipal) > 0) && <ChipValorACombinar curto rotulo={`💬 ${ROTULO_ACEITA_PROPOSTAS}`} estilo={{ marginBottom: 12 }} />}
           {!topoCompacto && <Text style={estilos.titulo}>{reparo.titulo}</Text>}
+          {/* Pedido da conta oficial: nome do dono + selo de verificado. */}
+          {!topoCompacto && ehDonoOficial(reparo) && <LinhaDonoOficial grande estilo={{ marginBottom: 10 }} />}
           {/* Sem card de valor (pedido sem valor) os chips do dono + "✏️ Editar" saem avulsos,
               abaixo do título — senão o dono não teria onde tocar. */}
           {linhaCategoriasDono && !(valorPrincipal != null && Number(valorPrincipal) > 0) && (
