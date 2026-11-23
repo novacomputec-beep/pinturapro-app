@@ -15,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { marcarTemObras } from '../../utils/temObras'
 import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/PedidosBloqueados'
 import FolhaDicaFoto from '../../components/FolhaDicaFoto'
+import AcordoEtico from '../../components/AcordoEtico'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -114,7 +115,12 @@ const fusoDoAparelho = () => {
 }
 
 export default function CadastrarObraScreen({ navigation }) {
-  const { usuario } = useAuth()
+  const { usuario, setUsuario } = useAuth()
+  // Arte "🤝 Antes de publicar" (components/AcordoEtico): aberta pelo "Publicar" enquanto a
+  // sessão traz precisa_acordo_etico. O ref guarda o "Li e concordo" desta composição: um POST
+  // que falha não pede o acordo de novo, e o acordo_etico: true segue no reenvio.
+  const [acordo, setAcordo] = useState(false)
+  const acordoAceitoRef = useRef(false)
   const [passo, setPasso] = useState(1)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -496,6 +502,14 @@ export default function CadastrarObraScreen({ navigation }) {
     // bloqueia — "Publicar sem foto ou vídeo" chama de novo com semDica === true (o onPress do
     // rodapé manda o evento, por isso a comparação estrita).
     if (semDica !== true && midia.itens.length === 0) { Keyboard.dismiss(); setDicaFoto(true); return }
+    // Acordo ético: depois da dica e antes do envio. Vindo da folha da dica (semDica === true)
+    // ela ainda está fechando, e um Modal não abre por cima de outro que fecha (iOS): mesma folga.
+    if (usuario?.precisa_acordo_etico && !acordoAceitoRef.current) {
+      Keyboard.dismiss()
+      if (semDica === true) setTimeout(() => { if (montadoRef.current) setAcordo(true) }, 500)
+      else setAcordo(true)
+      return
+    }
     enviandoRef.current = true
     setCarregando(true)
     const enderecoCompleto = [logradouro, numero, complemento, bairro, cidade, uf].filter(Boolean).join(', ')
@@ -536,10 +550,18 @@ export default function CadastrarObraScreen({ navigation }) {
         // quando /obras/:id/midias-prontas chega. True SÓ se o dono escolheu ao menos uma mídia
         // (midia.itens.length), senão false = push imediato, comportamento de sempre.
         tera_midias: midia.itens.length > 0,
+        // Só quando o "Li e concordo" foi marcado agora: sem ele o payload é o de sempre.
+        ...(acordoAceitoRef.current ? { acordo_etico: true } : {}),
         client_request_id: clientRequestIdRef.current,
       }))
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
+      // Acordo registrado junto com a criação: a sessão local deixa de pedi-lo (o servidor
+      // confirma no próximo GET /auth/perfil).
+      if (acordoAceitoRef.current) {
+        acordoAceitoRef.current = false
+        setUsuario(prev => (prev ? { ...prev, precisa_acordo_etico: false } : prev))
+      }
       // A obra existe: daqui em diante o retorno a esta aba é um recomeço, e só agora o
       // reset por foco fica armado. Vale para os dois desfechos abaixo (com e sem mídia),
       // inclusive quando alguma mídia falha — a obra já foi criada de qualquer forma.
@@ -708,6 +730,11 @@ export default function CadastrarObraScreen({ navigation }) {
         onAdicionar={adicionarPelaDica}
         onPublicar={() => { setDicaFoto(false); handleCadastrar(true) }}
         onFechar={() => setDicaFoto(false)}
+      />
+      <AcordoEtico
+        visivel={acordo}
+        onPublicar={() => { acordoAceitoRef.current = true; setAcordo(false); handleCadastrar(true) }}
+        onVoltar={() => setAcordo(false)}
       />
       <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>

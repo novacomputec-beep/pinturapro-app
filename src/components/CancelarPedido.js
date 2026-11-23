@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert, ActivityIndicat
 import { cores, espacos, raios, larguraMaxima } from '../utils/tema'
 import { mensagemErroRede } from '../utils/rede'
 import { excluirPedido, ehMatchAtivo } from '../utils/excluirPedido'
+import FolhaMotivoCancelamento from './FolhaMotivoCancelamento'
 
 // Arte "Cancelar pedido": no detalhe do DONO (DetalheReparo / DetalheObra), SÓ enquanto não há
 // profissional escolhido, um link discreto no fim do conteúdo, "🗑️ Cancelar pedido" (cinza,
@@ -21,17 +22,21 @@ export const textoConfirmacaoCancelar = (n) =>
     ? `Ele já foi publicado e ${n} ${n === 1 ? 'profissional se interessou' : 'profissionais se interessaram'}. Ao cancelar, o pedido sai do app e eles são avisados.`
     : 'Ao cancelar, o pedido sai do app.'
 
-export default function CancelarPedido({ tipo, id, interessados = 0, onCancelado }) {
+//
+// `publicado` (utils/excluirPedido: ehPublicado): pedido já visível aos profissionais. Aí o
+// toque abre, no lugar da confirmação, a folha "Por que vai cancelar?"
+// (FolhaMotivoCancelamento), e o motivo escolhido vai junto na exclusão.
+export default function CancelarPedido({ tipo, id, interessados = 0, publicado = false, onCancelado }) {
   const [aberto, setAberto] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const montadoRef = useRef(true)
   useEffect(() => () => { montadoRef.current = false }, [])
 
-  const confirmar = async () => {
+  const confirmar = async (motivo) => {
     if (enviando) return
     setEnviando(true)
     try {
-      await excluirPedido(tipo, id)
+      await excluirPedido(tipo, id, typeof motivo === 'string' ? motivo : undefined)
       if (!montadoRef.current) return
       setAberto(false)
       onCancelado?.()
@@ -54,7 +59,9 @@ export default function CancelarPedido({ tipo, id, interessados = 0, onCancelado
         </TouchableOpacity>
       </View>
 
-      <Modal visible={aberto} transparent animationType="fade" onRequestClose={() => !enviando && setAberto(false)}>
+      <FolhaMotivoCancelamento visivel={aberto && publicado} enviando={enviando} onConfirmar={confirmar} onFechar={() => setAberto(false)} />
+
+      <Modal visible={aberto && !publicado} transparent animationType="fade" onRequestClose={() => !enviando && setAberto(false)}>
         <View style={estilos.overlay}>
           <View style={estilos.caixa}>
             <Text style={estilos.titulo}>Cancelar este pedido?</Text>

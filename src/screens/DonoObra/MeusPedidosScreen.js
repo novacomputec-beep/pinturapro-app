@@ -8,7 +8,8 @@ import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
-import { excluirPedido, ehMatchAtivo } from '../../utils/excluirPedido'
+import { excluirPedido, ehMatchAtivo, ehPublicado } from '../../utils/excluirPedido'
+import FolhaMotivoCancelamento from '../../components/FolhaMotivoCancelamento'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { ehValorACombinar, valorRealDoPedido, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -212,6 +213,9 @@ export function MeusPedidosConteudo({ abertos, historico, secao, onSecao, carreg
 export default function MeusPedidosScreen({ navigation }) {
   const { usuario } = useAuth()
 
+  // Folha "Por que vai cancelar?" (lixeira de um pedido já publicado): { item, tipo } ou null.
+  const [motivoAlvo, setMotivoAlvo] = useState(null)
+  const [cancelandoComMotivo, setCancelandoComMotivo] = useState(false)
   const [obras,           setObras]           = useState([])
   const [reparos,         setReparos]         = useState([])
   const [obrasHistorico,  setObrasHistorico]  = useState([])
@@ -299,40 +303,63 @@ export default function MeusPedidosScreen({ navigation }) {
 
   const onRefresh = () => { setAtualizando(true); buscarDados() }
 
-  const deletarItem = async (item, tipo) => {
-    const jaPublicado = item.status === 'aberta' || item.status_aprovacao === 'aprovada'
-    const aviso = jaPublicado
-      ? `⚠️ ATENÇÃO: ${tipo === 'obra' ? 'Esta obra' : 'Este serviço'} já foi publicado e profissionais podem estar interessados.\n\nAo excluir, eles perderão o acesso e poderá haver insatisfação.\n\nTem certeza que deseja excluir?`
-      : `Deseja excluir "${item.titulo}"?`
+  const tirarDaLista = (item, tipo) => {
+    if (tipo === 'obra') {
+      setObras(prev => prev.filter(o => o.id !== item.id))
+      setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
+    } else {
+      setReparos(prev => prev.filter(r => r.id !== item.id))
+      setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
+    }
+  }
 
-    Alert.alert('Excluir', aviso, [
+  const executarExclusao = async (item, tipo) => {
+    try {
+      // Chamada única (utils/excluirPedido): a mesma do "🗑️ Cancelar pedido" do detalhe.
+      await excluirPedido(tipo, item.id)
+      tirarDaLista(item, tipo)
+    } catch (err) {
+      console.log('[MeusPedidos] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // 409 MATCH_ATIVO: há profissional escolhido — a mensagem do servidor diz o caminho
+      // ("Cancelar serviço" na tela do pedido). Mesmo alerta de erro, com o texto dele.
+      if (ehMatchAtivo(err)) { Alert.alert('Erro', err.mensagem || 'Já existe um profissional escolhido.'); return }
+      // Rede pura → recarrega em vez de alertar. A lista É o resultado da ação: se
+      // o DELETE não chegou, o item reaparece; se chegou e só a resposta se perdeu,
+      // ele some. Nos dois casos a tela responde sozinha se a exclusão valeu.
+      if (await recarregarSeFalhaDeRede(err, recarregarDados)) return
+      Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
+    }
+  }
+
+  const deletarItem = (item, tipo) => {
+    // Já publicado: a folha "Por que vai cancelar?" no lugar do alerta (o motivo é obrigatório).
+    if (ehPublicado(item)) { setMotivoAlvo({ item, tipo }); return }
+    Alert.alert('Excluir', `Deseja excluir "${item.titulo}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Excluir', style: 'destructive', onPress: async () => {
-          try {
-            // Chamada única (utils/excluirPedido): a mesma do "🗑️ Cancelar pedido" do detalhe.
-            await excluirPedido(tipo, item.id)
-            if (tipo === 'obra') {
-              setObras(prev => prev.filter(o => o.id !== item.id))
-              setObrasHistorico(prev => prev.filter(o => o.id !== item.id))
-            } else {
-              setReparos(prev => prev.filter(r => r.id !== item.id))
-              setReparosHistorico(prev => prev.filter(r => r.id !== item.id))
-            }
-          } catch (err) {
-            console.log('[MeusPedidos] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
-            // 409 MATCH_ATIVO: há profissional escolhido — a mensagem do servidor diz o caminho
-            // ("Cancelar serviço" na tela do pedido). Mesmo alerta de erro, com o texto dele.
-            if (ehMatchAtivo(err)) { Alert.alert('Erro', err.mensagem || 'Já existe um profissional escolhido.'); return }
-            // Rede pura → recarrega em vez de alertar. A lista É o resultado da ação: se
-            // o DELETE não chegou, o item reaparece; se chegou e só a resposta se perdeu,
-            // ele some. Nos dois casos a tela responde sozinha se a exclusão valeu.
-            if (await recarregarSeFalhaDeRede(err, recarregarDados)) return
-            Alert.alert('Erro', err.mensagem || 'Não foi possível excluir.')
-          }
-        }
-      }
+      { text: 'Excluir', style: 'destructive', onPress: () => executarExclusao(item, tipo) },
     ])
+  }
+
+  // "Cancelar pedido" da folha: ela fica aberta, com o botão girando, até o desfecho; só
+  // então fecha (um Alert de erro não abre por cima de um Modal ainda visível no iOS).
+  const confirmarMotivo = async (motivo) => {
+    if (!motivoAlvo || cancelandoComMotivo) return
+    const { item, tipo } = motivoAlvo
+    setCancelandoComMotivo(true)
+    const fechar = () => { setCancelandoComMotivo(false); setMotivoAlvo(null) }
+    try {
+      await excluirPedido(tipo, item.id, motivo)
+    } catch (err) {
+      fechar()
+      // Mesmo tratamento de erro da exclusão sem motivo, sem repetir o DELETE que já falhou.
+      console.log('[MeusPedidos] falha ao cancelar com motivo | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (ehMatchAtivo(err)) { setTimeout(() => Alert.alert('Erro', err.mensagem || 'Já existe um profissional escolhido.'), 400); return }
+      if (await recarregarSeFalhaDeRede(err, recarregarDados)) return
+      setTimeout(() => Alert.alert('Erro', err.mensagem || 'Não foi possível cancelar o pedido.'), 400)
+      return
+    }
+    fechar()
+    tirarDaLista(item, tipo)
   }
 
   const abrir = (tipo, item) => {
@@ -342,6 +369,12 @@ export default function MeusPedidosScreen({ navigation }) {
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
+      <FolhaMotivoCancelamento
+        visivel={!!motivoAlvo}
+        enviando={cancelandoComMotivo}
+        onConfirmar={confirmarMotivo}
+        onFechar={() => setMotivoAlvo(null)}
+      />
       {/* Arte-Profissional-Desistiu: a mesma folha do detalhe, na home do dono. */}
       <SheetProfissionalDesistiu
         visivel={!!desistenciaHome}
