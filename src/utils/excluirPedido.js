@@ -14,10 +14,20 @@ import { comRetry } from './rede'
 //
 // 409 MATCH_ATIVO (profissional já escolhido) chega como erro com err.codigo === 'MATCH_ATIVO'
 // e err.mensagem do servidor ("Use 'Cancelar serviço' na tela do pedido"); quem chama mostra.
-export const excluirPedido = (tipo, id) =>
+//
+// `motivo` (arte "Por que vai cancelar?", components/FolhaMotivoCancelamento): só nos pedidos
+// já publicados; vai no corpo do DELETE como motivo_cancelamento. Sem motivo, a chamada é a de sempre.
+export const excluirPedido = (tipo, id, motivo) =>
   comRetry(
-    () => api.delete(tipo === 'obra' ? `/obras/dono/${id}` : `/reparos/dono/${id}`),
+    () => api.delete(
+      tipo === 'obra' ? `/obras/dono/${id}` : `/reparos/dono/${id}`,
+      motivo ? { data: { motivo_cancelamento: motivo } } : undefined,
+    ),
     { timeout: true, persistir: true },
   )
+
+// Pedido já publicado (visível aos profissionais): a mesma regra do aviso da lixeira de
+// MeusPedidosScreen. Obra ainda em análise não entra — cancelar ali não pede motivo.
+export const ehPublicado = (item) => item?.status === 'aberta' || item?.status_aprovacao === 'aprovada'
 
 export const ehMatchAtivo = (err) => err?.codigo === 'MATCH_ATIVO'

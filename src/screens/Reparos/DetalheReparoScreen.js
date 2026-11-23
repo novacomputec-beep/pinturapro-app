@@ -49,6 +49,7 @@ import { CaixaAvisados, LinhaAvisados, modoAvisados, useDicaAvisadosMantida } fr
 import { SheetProfissionalDesistiu, CardDesistiu, SecaoQuemDesistiu, desistenciaMaisRecente, useDesistenciaNaoVista, desistenciaDoPush } from '../../components/ProfissionalDesistiu'
 import { interessadosVisiveis, ehRecusado } from '../../utils/listaInteressados'
 import CancelarPedido from '../../components/CancelarPedido'
+import { ehPublicado } from '../../utils/excluirPedido'
 import { simularCancelamento, cancelarMatch, pedirCancelamentoAcordo, responderPedidoCancelamento, liberarWhatsApp, pedidoCancelamentoDe, pedidoEhMeu } from '../../utils/cancelamento'
 import { aoPushRecebido } from '../../utils/eventosPush'
 import { CAMPOS_IDENTIDADE, comIdentidade, contaNaDemanda, acaoEhMinha, souDonoDaDemanda, souEscolhidoNaDemanda } from '../../utils/identidadeDemanda'
@@ -3349,6 +3350,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
             tipo="reparo"
             id={reparo.id}
             interessados={interessadosNaDisputa.filter(i => !ehRecusado(i)).length}
+            publicado={ehPublicado(reparo)}
             onCancelado={() => navigation.navigate('Meus pedidos', { screen: 'ListaPedidos' })}
           />
         ) : null}
