@@ -17,7 +17,15 @@ export const MOTIVOS_CANCELAMENTO = [
   { valor: 'desisti',           rotulo: '🙅 Desisti do serviço' },
 ]
 
-export default function FolhaMotivoCancelamento({ visivel, enviando, onConfirmar, onFechar }) {
+// Texto da confirmação de cancelar (components/CancelarPedido) e, com n > 0, o aviso desta folha.
+export const textoConfirmacaoCancelar = (n) =>
+  n > 0
+    ? `Ele já foi publicado e ${n} ${n === 1 ? 'profissional se interessou' : 'profissionais se interessaram'}. Ao cancelar, o pedido sai do app e eles são avisados.`
+    : 'Ao cancelar, o pedido sai do app.'
+
+// `interessados`: com ao menos um, o aviso acima aparece sobre as opções; 0 não mostra nada.
+export default function FolhaMotivoCancelamento({ visivel, enviando, interessados = 0, onConfirmar, onFechar }) {
+  const nInteressados = Number(interessados) || 0
   const insets = useSafeAreaInsets()
   const [motivo, setMotivo] = useState(null)
   useEffect(() => { if (visivel) setMotivo(null) }, [visivel])
@@ -38,6 +46,7 @@ export default function FolhaMotivoCancelamento({ visivel, enviando, onConfirmar
               <Text style={estilos.titulo}>Por que vai cancelar?</Text>
             </LinhaCabecalhoFolha>
           </ZonaArraste>
+          {nInteressados > 0 ? <Text style={estilos.aviso}>{textoConfirmacaoCancelar(nInteressados)}</Text> : null}
           {MOTIVOS_CANCELAMENTO.map((m) => {
             const marcado = motivo === m.valor
             return (
@@ -84,7 +93,8 @@ const estilos = StyleSheet.create({
   sheet:           { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, alignItems: 'center', ...larguraMaxima },
   alca:            { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo, marginBottom: 18 },
   titulo:          { fontSize: 20, fontWeight: '800', color: cores.textoForte, textAlign: 'center', letterSpacing: -0.3, marginBottom: 14 },
-  opcao:           { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoElevado, borderWidth: 1.5, borderColor: cores.borda, borderRadius: raios.grande, paddingVertical: 14, paddingHorizontal: 16, width: '100%', marginBottom: 8 },
+  aviso:           { alignSelf: 'stretch', fontSize: 14, color: cores.textoMedio, lineHeight: 20, textAlign: 'center', marginBottom: 14 },
+  opcao:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: cores.fundoElevado, borderWidth: 1.5, borderColor: cores.borda, borderRadius: raios.grande, paddingVertical: 14, paddingHorizontal: 16, width: '100%', marginBottom: 8 },
   opcaoMarcada:    { borderColor: cores.primaria },
   opcaoTexto:      { flex: 1, color: cores.textoForte, fontSize: 15, fontWeight: '600', marginRight: 10 },
   bolinha:         { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: cores.bordaCampo, alignItems: 'center', justifyContent: 'center' },

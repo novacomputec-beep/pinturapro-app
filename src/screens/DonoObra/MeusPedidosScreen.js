@@ -372,6 +372,8 @@ export default function MeusPedidosScreen({ navigation }) {
       <FolhaMotivoCancelamento
         visivel={!!motivoAlvo}
         enviando={cancelandoComMotivo}
+        // A lista só traz os PENDENTES da linha (os mesmos da folha "profissional desistiu").
+        interessados={motivoAlvo?.tipo === 'obra' ? motivoAlvo?.item?.candidaturas_pendentes : motivoAlvo?.item?.interesses_pendentes}
         onConfirmar={confirmarMotivo}
         onFechar={() => setMotivoAlvo(null)}
       />

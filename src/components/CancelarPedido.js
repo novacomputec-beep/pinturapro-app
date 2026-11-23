@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert, ActivityIndicat
 import { cores, espacos, raios, larguraMaxima } from '../utils/tema'
 import { mensagemErroRede } from '../utils/rede'
 import { excluirPedido, ehMatchAtivo } from '../utils/excluirPedido'
-import FolhaMotivoCancelamento from './FolhaMotivoCancelamento'
+import FolhaMotivoCancelamento, { textoConfirmacaoCancelar } from './FolhaMotivoCancelamento'
 
 // Arte "Cancelar pedido": no detalhe do DONO (DetalheReparo / DetalheObra), SÓ enquanto não há
 // profissional escolhido, um link discreto no fim do conteúdo, "🗑️ Cancelar pedido" (cinza,
@@ -17,10 +17,8 @@ import FolhaMotivoCancelamento from './FolhaMotivoCancelamento'
 //
 // `interessados`: quantos profissionais REALMENTE se interessaram (a lista do dono sem
 // cancelados/expirados/bloqueados e sem recusados); 0 tira a frase deles do texto.
-export const textoConfirmacaoCancelar = (n) =>
-  n > 0
-    ? `Ele já foi publicado e ${n} ${n === 1 ? 'profissional se interessou' : 'profissionais se interessaram'}. Ao cancelar, o pedido sai do app e eles são avisados.`
-    : 'Ao cancelar, o pedido sai do app.'
+// O texto mora em FolhaMotivoCancelamento (textoConfirmacaoCancelar), que mostra o mesmo aviso.
+export { textoConfirmacaoCancelar }
 
 //
 // `publicado` (utils/excluirPedido: ehPublicado): pedido já visível aos profissionais. Aí o
@@ -59,7 +57,7 @@ export default function CancelarPedido({ tipo, id, interessados = 0, publicado =
         </TouchableOpacity>
       </View>
 
-      <FolhaMotivoCancelamento visivel={aberto && publicado} enviando={enviando} onConfirmar={confirmar} onFechar={() => setAberto(false)} />
+      <FolhaMotivoCancelamento visivel={aberto && publicado} enviando={enviando} interessados={interessados} onConfirmar={confirmar} onFechar={() => setAberto(false)} />
 
       <Modal visible={aberto && !publicado} transparent animationType="fade" onRequestClose={() => !enviando && setAberto(false)}>
         <View style={estilos.overlay}>
