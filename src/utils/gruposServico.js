@@ -17,7 +17,10 @@ export const SLUG_OUTROS = 'outros'
 
 // Categorias recém-chegadas: ganham a etiqueta verde "NOVO" na folha do grupo. Lista para
 // esvaziar quando deixarem de ser novidade.
-export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro', 'seguranca_eletronica', 'locucao', 'jingles_vinhetas', 'marketing_publicidade']
+export const NOVAS_SERVICO = ['informatica', 'gesseiro', 'placas_fachadas', 'borracheiro', 'seguranca_eletronica', 'locucao', 'jingles_vinhetas', 'marketing_publicidade',
+  // As 12 de 24/11/2026.
+  'arquiteto', 'decoracao_interiores', 'paisagismo', 'azulejista', 'telhados', 'impermeabilizacao',
+  'eletrodomesticos', 'desentupimento', 'piscineiro', 'lavanderia', 'higienizacao', 'cortinas']
 export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
 
 // Arte "Grupos 10" (13/11/2026): 10 tiles, 5 linhas de 2, NESTA ordem — a mesma no "Do que
@@ -101,6 +104,18 @@ export const EXEMPLOS_SERVICO = {
   locucao:                  'Carro de som, porta de loja, rádio indoor',
   jingles_vinhetas:         'Jingles, vinhetas, spots',
   marketing_publicidade:    'Campanhas, divulgação, propaganda',
+  arquiteto:                'Projeto, planta, regularização',
+  decoracao_interiores:     'Ambientes, planejados, iluminação',
+  paisagismo:               'Jardim, gramado, irrigação',
+  azulejista:               'Porcelanato, revestimento, rejunte',
+  telhados:                 'Telhado, goteira, calha, rufo',
+  impermeabilizacao:        "Laje, infiltração, caixa d'água",
+  eletrodomesticos:         'Máquina de lavar, geladeira, fogão',
+  desentupimento:           'Pia, vaso, esgoto, caixa de gordura',
+  piscineiro:               'Limpeza, tratamento da água',
+  lavanderia:               'Lavar, passar, roupa de cama',
+  higienizacao:             'Sofá, colchão, tapete',
+  cortinas:                 'Instalação, lavagem, conserto',
   outros:                   'Não achou? Descreva no próximo passo.',
 }
 
