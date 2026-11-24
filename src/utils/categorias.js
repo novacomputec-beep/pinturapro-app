@@ -109,7 +109,7 @@ export const CATEGORIAS_SERVICO = ordenar([
   // pinturapro-api a5f9b0e). As 6 primeiras são SERVIÇO (reparos.categoria) mostrado no grupo
   // "Obras de Construção Civil", junto dos quatro papéis de obra (utils/gruposServico:
   // SLUGS_SERVICO_DE_OBRA); depois 3 de "Consertos da casa" e 3 de "Limpeza e jardim".
-  { slug: 'arquiteto',            rotulo: 'Arquiteto',               emoji: '🏛️' },
+  { slug: 'arquiteto',            rotulo: 'Arquiteto',               emoji: '📏' },
   { slug: 'decoracao_interiores', rotulo: 'Decoração de interiores', emoji: '🖼️' },
   { slug: 'paisagismo',           rotulo: 'Paisagismo',              emoji: '🏞️' },
   { slug: 'azulejista',           rotulo: 'Azulejista e pisos',      emoji: '🔲' },
