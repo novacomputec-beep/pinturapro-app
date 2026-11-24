@@ -119,7 +119,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const [acordo, setAcordo] = useState(false)
   const acordoAceitoRef = useRef(false)
   // Folha "📢 Isto parece um anúncio" (components/FolhaPareceAnuncio): a API recusou a criação com
-  // suspeita_anuncio. { link } = link do perfil que veio na recusa (ou null). O ref guarda o "É um
+  // 409 SUSPEITA_ANUNCIO. { link } = link do perfil, se a recusa trouxer um (hoje não traz: null). O ref guarda o "É um
   // pedido de verdade, publicar" desta composição: o reenvio leva confirmar_pedido_real: true.
   const [anuncio, setAnuncio] = useState(null)
   const confirmarRealRef = useRef(false)
@@ -514,8 +514,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         tera_midias: midia.itens.length > 0,
         // Só quando o "Li e concordo" foi marcado agora: sem ele o payload é o de sempre.
         ...(acordoAceitoRef.current ? { acordo_etico: true } : {}),
-        // Só depois do "É um pedido de verdade, publicar": sem ele o payload é o de sempre.
-        ...(confirmarRealRef.current ? { confirmar_pedido_real: true } : {}),
+        // SEMPRE no corpo: false na 1ª tentativa (a API responde 409 SUSPEITA_ANUNCIO, nada gravado,
+        // quando o texto parece anúncio) e true depois do "É um pedido de verdade, publicar".
+        confirmar_pedido_real: confirmarRealRef.current === true,
         client_request_id: clientRequestIdRef.current,
       }))
       // Recusa por suspeita de anúncio vinda num 200 (sem id): mesmo caminho do erro, no catch.
