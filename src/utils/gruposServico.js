@@ -25,8 +25,8 @@ export const ehNovaServico = (slug) => NOVAS_SERVICO.includes(slug)
 // daqui. "Casa e reparos" virou "Consertos da casa" (id 'casa' mantido: é o GRUPO_FALLBACK) +
 // "Limpeza e jardim"; "Divulgação e publicidade" é novo. Slugs em ordem alfabética.
 export const GRUPOS_SERVICO = [
-  { id: 'casa',       titulo: 'Consertos da casa',        emoji: '🔧', slugs: ['alvenaria', 'chaveiro', 'climatizacao', 'conserto_celular', 'eletrica', 'eletronica', 'estofamento', 'gesseiro', 'hidraulica', 'marcenaria', 'montagem_moveis', 'seguranca_eletronica', 'serralheria', 'vidraceiro'] },
-  { id: 'limpeza',    titulo: 'Limpeza e jardim',         emoji: '🧹', slugs: ['dedetizacao', 'faxina', 'jardineiro'] },
+  { id: 'casa',       titulo: 'Consertos da casa',        emoji: '🔧', slugs: ['alvenaria', 'chaveiro', 'climatizacao', 'conserto_celular', 'desentupimento', 'eletrica', 'eletrodomesticos', 'eletronica', 'estofamento', 'gesseiro', 'hidraulica', 'marcenaria', 'montagem_moveis', 'piscineiro', 'seguranca_eletronica', 'serralheria', 'vidraceiro'] },
+  { id: 'limpeza',    titulo: 'Limpeza e jardim',         emoji: '🧹', slugs: ['cortinas', 'dedetizacao', 'faxina', 'higienizacao', 'jardineiro', 'lavanderia'] },
   { id: 'festas',     titulo: 'Festas e eventos',         emoji: '🎉', slugs: ['aluguel_festas', 'churrasqueiro', 'confeiteiro', 'cozinheiro', 'decoracao_festas', 'dj', 'filmagem_fotografia', 'garcom', 'musico', 'recreacao_infantil', 'salgadeiro'] },
   { id: 'beleza',     titulo: 'Beleza e bem-estar',       emoji: '💇', slugs: ['barbeiro', 'cabelo', 'depilacao', 'design_sobrancelhas', 'manicure', 'maquiagem', 'massagem', 'personal_trainer', 'podologo', 'tatuagem'] },
   { id: 'cuidar',     titulo: 'Cuidar de alguém',         emoji: '🤝', slugs: ['baba', 'cuidador', 'pet'] },
@@ -115,7 +115,9 @@ const porSlug = new Map(CATEGORIAS_SERVICO.map((c) => [c.slug, c]))
 // junto). 'outros' fica de fora.
 const alfabetica = (a, b) => a.rotulo.localeCompare(b.rotulo, 'pt-BR')
 export const gruposComCategorias = () => {
-  const usados = new Set()
+  // Os serviços de obra têm grupo próprio (o bloco "Obras de Construção Civil", fora desta
+  // lista): entram como usados para não caírem no fallback.
+  const usados = new Set(SLUGS_SERVICO_DE_OBRA)
   const grupos = GRUPOS_SERVICO.map((g) => ({
     ...g,
     categorias: g.slugs.map((s) => porSlug.get(s)).filter(Boolean).map((c) => { usados.add(c.slug); return comExemplos(c) }),
@@ -145,18 +147,38 @@ export const EXEMPLOS_CONSTRUCAO = {
   pintor:            'Pintura interna, externa, textura',
 }
 const SLUGS_OBRA = new Set(CATEGORIAS_CONSTRUCAO.map((c) => c.slug))
+// SÓ os quatro papéis: é o que dá ao profissional o feed/candidatura de OBRAS (DetalheObra).
 export const ehEspecialidadeDeObra = (slug) => SLUGS_OBRA.has(slug)
 
+// SERVIÇOS ligados a obra (24/11/2026): slugs de CATEGORIAS_SERVICO (são reparos.categoria, como
+// o gesseiro) que a tela mostra DENTRO do bloco "Obras de Construção Civil", junto dos quatro
+// papéis — um grupo só, de 10. A API devolve os dois pedaços separados em GET
+// /config/grupos-categorias: estes 6 em `grupos`, os 4 papéis em `grupo_obras`.
+export const SLUGS_SERVICO_DE_OBRA = ['arquiteto', 'azulejista', 'decoracao_interiores', 'impermeabilizacao', 'paisagismo', 'telhados']
+const SERVICOS_DE_OBRA = new Set(SLUGS_SERVICO_DE_OBRA)
+// Qualquer um dos 10 do bloco (papel de obra OU serviço de obra): contador do tile.
+export const ehDoGrupoObras = (slug) => SLUGS_OBRA.has(slug) || SERVICOS_DE_OBRA.has(slug)
+
 // O bloco no formato de um grupo ({ id, titulo, emoji, categorias }), para abrir na MESMA
-// folha dos grupos de serviço; os quatro tipos em ordem alfabética, com exemplos.
+// folha dos grupos de serviço: os 10 em ordem alfabética (os papéis com exemplos).
 export const grupoObrasEspecialidades = () => ({
   id: GRUPO_OBRAS,
   titulo: 'Obras de Construção Civil',
   emoji: '🏗️',
-  categorias: CATEGORIAS_CONSTRUCAO
-    .map((c) => ({ slug: c.slug, rotulo: c.rotulo, emoji: c.emoji, exemplos: EXEMPLOS_CONSTRUCAO[c.slug] || '', nova: false }))
-    .sort(alfabetica),
+  categorias: [
+    ...CATEGORIAS_CONSTRUCAO.map((c) => ({ slug: c.slug, rotulo: c.rotulo, emoji: c.emoji, exemplos: EXEMPLOS_CONSTRUCAO[c.slug] || '', nova: false })),
+    ...CATEGORIAS_SERVICO.filter((c) => SERVICOS_DE_OBRA.has(c.slug)).map(comExemplos),
+  ].sort(alfabetica),
 })
+
+// O mesmo bloco de 10 no "Cadastrar pedido" do DONO. Os 6 serviços marcam como qualquer
+// categoria; os quatro papéis NÃO são categoria de serviço (a API recusa reparo de categoria
+// 'pintor'), então saem com `abre: true` — a linha, em vez de marcar, abre o cadastro de obra,
+// que é para onde o tile inteiro levava antes.
+export const grupoObrasPedido = () => {
+  const g = grupoObrasEspecialidades()
+  return { ...g, categorias: g.categorias.map((c) => (SLUGS_OBRA.has(c.slug) ? { ...c, abre: true } : c)) }
+}
 
 // Tile largo do bloco: `desc` é o fim da linha "N marcada(s) · Pedreiro, pintor, construtor".
 export const TILE_OBRAS_ESPECIALIDADES = { emoji: '🏗️', titulo: 'Obras de Construção Civil', desc: 'Pedreiro, pintor, construtor' }
@@ -165,7 +187,7 @@ export const TILE_OBRAS_ESPECIALIDADES = { emoji: '🏗️', titulo: 'Obras de C
 // bloco GRUPO_OBRAS — sem isto ela contaria em "Casa e reparos" pelo fallback.
 export const grupoDoSlug = (slug) => {
   if (!slug || slug === SLUG_OUTROS) return null
-  if (SLUGS_OBRA.has(slug)) return GRUPO_OBRAS
+  if (ehDoGrupoObras(slug)) return GRUPO_OBRAS
   const g = GRUPOS_SERVICO.find((x) => x.slugs.includes(slug))
   return g ? g.id : GRUPO_FALLBACK
 }

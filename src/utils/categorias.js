@@ -105,7 +105,23 @@ export const CATEGORIAS_SERVICO = ordenar([
   // Mesmo slug da API (utils/especialidades.js + categoriasApp.js, pinturapro-api 430eda1); junto
   // da Eletrônica em "Consertos da casa" (utils/gruposServico).
   { slug: 'conserto_celular', rotulo: 'Conserto de celular e tablet', emoji: '📲' },
-  { slug: 'outros',          rotulo: 'Outros',            emoji: '➕' },
+  // 12 novas (24/11/2026), mesmos slugs da API (utils/especialidades.js + categoriasApp.js,
+  // pinturapro-api a5f9b0e). As 6 primeiras são SERVIÇO (reparos.categoria) mostrado no grupo
+  // "Obras de Construção Civil", junto dos quatro papéis de obra (utils/gruposServico:
+  // SLUGS_SERVICO_DE_OBRA); depois 3 de "Consertos da casa" e 3 de "Limpeza e jardim".
+  { slug: 'arquiteto',            rotulo: 'Arquiteto',               emoji: '🏛️' },
+  { slug: 'decoracao_interiores', rotulo: 'Decoração de interiores', emoji: '🖼️' },
+  { slug: 'paisagismo',           rotulo: 'Paisagismo',              emoji: '🏞️' },
+  { slug: 'azulejista',           rotulo: 'Azulejista e pisos',      emoji: '🔲' },
+  { slug: 'telhados',             rotulo: 'Telhados e calhas',       emoji: '🛖' },
+  { slug: 'impermeabilizacao',    rotulo: 'Impermeabilização',       emoji: '💧' },
+  { slug: 'eletrodomesticos',     rotulo: 'Conserto de eletrodomésticos', emoji: '🔌' },
+  { slug: 'desentupimento',       rotulo: 'Desentupimento',          emoji: '🚽' },
+  { slug: 'piscineiro',           rotulo: 'Piscineiro',              emoji: '🏊' },
+  { slug: 'lavanderia',           rotulo: 'Lavanderia e passadeira', emoji: '🧺' },
+  { slug: 'higienizacao',         rotulo: 'Higienização de estofados e tapetes', emoji: '🫧' },
+  { slug: 'cortinas',             rotulo: 'Cortinas e persianas',    emoji: '🎐' },
+  { slug: 'outros',         rotulo: 'Outros',            emoji: '➕' },
 ])
 
 // Lado CONSTRUÇÃO — os quatro slugs que a API aceita para pintor/construtor. Lista à
@@ -249,7 +265,7 @@ export const CATEGORIAS_CUIDADO = new Set([
   'depilacao', 'massagem', 'podologo', 'pet',
   'mecanica', 'borracheiro', 'lavajato', 'informatica', 'eletronica', 'estofamento', 'costura',
   'chaveiro', 'filmagem_fotografia', 'confeiteiro', 'salgadeiro', 'artesanato', 'aluguel_festas',
-  'conserto_celular',
+  'conserto_celular', 'eletrodomesticos', 'lavanderia',
 ])
 // true se ALGUM slug da lista (array ou CSV) pede a pergunta "onde vai ser o atendimento?".
 export const temCategoriaCuidado = (lista) => {
@@ -264,6 +280,8 @@ export const CATEGORIAS_PEDE_FOTO = new Set([
   'hidraulica', 'eletrica', 'alvenaria', 'marcenaria', 'montagem_moveis', 'estofamento', 'vidraceiro',
   'serralheria', 'gesseiro', 'climatizacao', 'eletronica', 'informatica', 'mecanica', 'jardineiro',
   'conserto_celular',
+  'arquiteto', 'decoracao_interiores', 'paisagismo', 'azulejista', 'telhados', 'impermeabilizacao',
+  'eletrodomesticos', 'desentupimento', 'piscineiro',
 ])
 // true se ALGUM slug da lista (array ou CSV) está em CATEGORIAS_PEDE_FOTO.
 export const temCategoriaPedeFoto = (lista) => {

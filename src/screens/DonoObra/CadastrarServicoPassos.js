@@ -139,8 +139,9 @@ export const RodapeWizard = ({ rotulo, onPress, carregando, desabilitado, nota, 
 // passam "Outros serviços"). legendas: linha "N marcada(s)" / "Toque para ver" em cada tile.
 // onObras: desenha o tile largo em destaque (borda e gradiente laranja) ENTRE os grupos e o
 // tile "Outros"; o toque chama onObras. Dois usos:
-//   - "Cadastrar pedido" do dono (Arte-Fase1-Contratar): TILE_OBRAS, abre o cadastro de obra.
-//     Não é categoria: não marca, não conta no limite e segue ativo com o limite atingido.
+//   - "Cadastrar pedido" do dono (Arte-Fase1-Contratar): TILE_OBRAS, abre a folha do bloco de
+//     obras (grupoObrasPedido: 6 serviços que marcam + os quatro papéis, que abrem o cadastro
+//     de obra). obrasMarcadas só vem com alguma marcada: o tile segue ativo no limite.
 //   - Especialidades do profissional (Arte-Fase2-Trabalhar): tileObras próprio e
 //     obrasMarcadas = quantas das especialidades de obra estão marcadas — a linha de baixo
 //     vira "N marcada(s) · <desc>" e, sem nenhuma marcada e no limite, o tile apaga como os
@@ -275,7 +276,10 @@ const Caixa = ({ marcada, apagada }) => (
 // na ZonaArraste (alça, título e subtítulo), nunca na lista, que continua rolando.
 // onFechar: a pílula "✕ Fechar" à direita do título (BotaoFecharFolha) — o mesmo fechamento do
 // toque fora (onPronto na folha real; a Galeria passa o seu).
-export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso, arraste, onFechar }) {
+// onAbrirLinha: categoria com `abre: true` (os quatro papéis de obra no "Cadastrar pedido",
+// utils/gruposServico: grupoObrasPedido) não marca — a linha vira botão com "→" e chama
+// onAbrirLinha(slug); não conta no limite nem apaga com ele. Sem o handler, a linha é a de sempre.
+export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, limite = MAX_CATEGORIAS_DEMANDA, subtitulo, aviso, arraste, onFechar, onAbrirLinha }) {
   const total = selecionadas.length
   const noLimite = total >= limite
   return (
@@ -290,6 +294,18 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, 
       </ZonaArraste>
       <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
         {grupo.categorias.map((c) => {
+          if (c.abre && onAbrirLinha) {
+            return (
+              <TouchableOpacity key={c.slug} style={estilos.linha} onPress={() => onAbrirLinha(c.slug)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={c.rotulo}>
+                <Text style={estilos.linhaEmoji}>{c.emoji}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={estilos.linhaNome}>{c.rotulo}</Text>
+                  {c.exemplos ? <Text style={estilos.linhaExemplos} numberOfLines={2}>{c.exemplos}</Text> : null}
+                </View>
+                <Text style={estilos.tileObrasSeta}>→</Text>
+              </TouchableOpacity>
+            )
+          }
           const marcada = selecionadas.includes(c.slug)
           const apagada = !marcada && noLimite
           return (
@@ -325,7 +341,7 @@ export function FolhaGrupoConteudo({ grupo, selecionadas, onAlternar, onPronto, 
 // A folha como Modal de verdade (a tela). O toque fora, o voltar do Android e o arraste para
 // baixo (alça/cabeçalho) fecham como o "Pronto": o que está marcado fica — não há escolha
 // obrigatória aqui.
-export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto, limite, subtitulo, aviso }) {
+export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto, limite, subtitulo, aviso, onAbrirLinha }) {
   const insets = useSafeAreaInsets()
   const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(onPronto, !!visivel)
   return (
@@ -334,7 +350,7 @@ export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto,
       <View style={estilos.overlay}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onPronto} accessibilityRole="button" accessibilityLabel="Fechar" />
         <Animated.View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
-          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} arraste={gesto} onFechar={onPronto} /> : null}
+          {grupo ? <FolhaGrupoConteudo grupo={grupo} selecionadas={selecionadas} onAlternar={onAlternar} onPronto={onPronto} limite={limite} subtitulo={subtitulo} aviso={aviso} arraste={gesto} onFechar={onPronto} onAbrirLinha={onAbrirLinha} /> : null}
         </Animated.View>
       </View>
       </RaizGestosFolha>
