@@ -29,6 +29,7 @@ import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import { LinhaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import { textoInteressados, LinhaLocal } from '../../components/CardFeed'
+import CoracaoSalvar from '../../components/CoracaoSalvar'
 import { PillPedidoOficial, LinhaDonoOficial, ehDonoOficial, estiloCardOficial } from '../../components/SeloOficial'
 
 const DISTANCIAS = [
@@ -191,7 +192,9 @@ export const CardObra = ({ item, onPress, onExpirar, coords, etiqueta }) => {
           <Text style={estilos.linhaEspecialidades} numberOfLines={1}>{linhaEspecialidades}</Text>
           <LinhaLocal item={item} dist={dist} estiloTexto={estilos.cardLocal} estiloDistancia={estilos.cardDistancia} />
           <View style={estilos.cardRodape}>
-            <Text style={[estilos.interessados, nInteressados <= 0 && estilos.interessadosPrimeiro, { flexShrink: 1 }]} numberOfLines={1}>
+            {/* Coração de salvar, antes dos interessados (components/CoracaoSalvar). */}
+            <CoracaoSalvar tipo="obra" item={item} />
+            <Text style={[estilos.interessados, nInteressados <= 0 && estilos.interessadosPrimeiro, { flex: 1 }]} numberOfLines={1}>
               {textoInteressados(nInteressados)}
             </Text>
             <View style={estilos.btnVer}>

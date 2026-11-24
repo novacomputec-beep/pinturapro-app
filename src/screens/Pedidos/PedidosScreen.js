@@ -26,6 +26,12 @@ import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import EtiquetaTipo from '../../components/EtiquetaTipo'
 import { CardReparo } from '../Reparos/FeedReparosScreen'
 import { CardObra } from '../Obra/FeedObrasScreen'
+import { estaSalvo, useVersaoSalvos } from '../../utils/salvos'
+
+// Chip "❤️ Salvos (n)" (arte salvar-e-anuncio-previa-v2): filtra, NA TELA, os pedidos carregados
+// que o profissional salvou (coração do card). Não é categoria: não vai à API.
+const CHIP_SALVOS = 'salvos'
+const VAZIO_SALVOS = { icone: '❤️', titulo: 'Nenhum pedido salvo', sub: 'Toque no coração de um pedido para guardá-lo aqui.' }
 
 // "Pedidos para você" (Arte-Fase2-Trabalhar): o feed ÚNICO do profissional — os serviços,
 // para quem pode serviços (usuario.pode_servicos), e as obras, para quem pode obras
@@ -139,6 +145,8 @@ export default function PedidosScreen({ navigation }) {
   const [atualizando, setAtualizando] = useState(false)
   const [segmento, setSegmento] = useState('todos')
   const [categoria, setCategoria] = useState('todas')
+  const [soSalvos, setSoSalvos] = useState(false)
+  const versaoSalvos = useVersaoSalvos()
   const [distancia, setDistancia] = useState('cidade')
   const [erro, setErro] = useState(null)
   const [coords, setCoords] = useCoordsUsuario()
@@ -191,7 +199,13 @@ export default function PedidosScreen({ navigation }) {
   // Atualização otimista: a seleção (highlight) muda na hora; a busca é disparada pelo
   // useEffect abaixo. O filtro de distância NÃO é persistido: o feed sempre abre em 'cidade'.
   const mudarDistancia = (val) => { setDistancia(val) }
-  const mudarCategoria = (cat) => { setCategoria(cat) }
+  // O chip "Salvos" é uma das opções da fileira: escolher uma categoria (ou "Todas") o desliga;
+  // ligá-lo volta a categoria para "Todas", para filtrar sobre a lista inteira. Tocar de novo desliga.
+  const mudarCategoria = (cat) => { setSoSalvos(false); setCategoria(cat) }
+  const alternarSoSalvos = () => {
+    setSoSalvos((v) => !v)
+    if (categoria !== 'todas') setCategoria('todas')
+  }
   // Trocar de segmento limpa a categoria (as listas de categoria são de tipos diferentes).
   // Sem categoria ativa as duas listas já estão em mãos e a troca é só de exibição.
   const mudarSegmento = (s) => {
@@ -423,14 +437,22 @@ export default function PedidosScreen({ navigation }) {
   const onRefresh = () => { setAtualizando(true); buscarPedidos(categoria, distancia, { refresh: true }) }
 
   // O que vai para a lista: um tipo só (conta de um tipo, ou segmento) ou os dois intercalados.
-  const lista = useMemo(() => {
+  const todos = useMemo(() => {
     const soReparos = !comObras || (doisTipos && segmento === 'servicos')
     const soObras = !comServicos || (doisTipos && segmento === 'obras')
     return intercalarPedidos(soObras ? [] : reparos, soReparos ? [] : obras)
   }, [reparos, obras, segmento, doisTipos, comServicos, comObras])
+  // Os salvos entre os carregados (o `n` do chip) e a lista que vai para a tela.
+  const salvos = useMemo(() => todos.filter((p) => estaSalvo(usuario?.id, p.tipo, p.item)), [todos, versaoSalvos, usuario?.id])
+  const lista = soSalvos ? salvos : todos
 
-  const chips = tipoCategoria ? CATEGORIAS_POR_TIPO[tipoCategoria] : null
-  const vazio = VAZIO[doisTipos ? segmento : (comObras ? 'obras' : 'servicos')] || VAZIO.todos
+  // Fileira de chips: "Todas", "❤️ Salvos (n)" e as categorias do tipo na tela. Em "Todos"
+  // (dois tipos, sem chips de categoria) a fileira é só o chip de salvos.
+  const chipSalvos = { id: CHIP_SALVOS, label: `❤️ Salvos (${salvos.length})` }
+  const categoriasDoTipo = tipoCategoria ? CATEGORIAS_POR_TIPO[tipoCategoria] : null
+  const chips = categoriasDoTipo ? [categoriasDoTipo[0], chipSalvos, ...categoriasDoTipo.slice(1)] : [chipSalvos]
+  const chipAtivo = (id) => (id === CHIP_SALVOS ? soSalvos : !soSalvos && categoria === id)
+  const vazio = soSalvos ? VAZIO_SALVOS : (VAZIO[doisTipos ? segmento : (comObras ? 'obras' : 'servicos')] || VAZIO.todos)
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
@@ -477,10 +499,12 @@ export default function PedidosScreen({ navigation }) {
                 style={estilos.filtros}
                 renderItem={({ item }) => (
                   <TouchableOpacity
-                    style={[estilos.filtroPill, categoria === item.id && estilos.filtroPillAtivo]}
-                    onPress={() => mudarCategoria(item.id)}
+                    style={[estilos.filtroPill, chipAtivo(item.id) && estilos.filtroPillAtivo]}
+                    onPress={() => (item.id === CHIP_SALVOS ? alternarSoSalvos() : mudarCategoria(item.id))}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: chipAtivo(item.id) }}
                   >
-                    <Text style={[estilos.filtroTexto, categoria === item.id && estilos.filtroTextoAtivo]}>
+                    <Text style={[estilos.filtroTexto, chipAtivo(item.id) && estilos.filtroTextoAtivo]}>
                       {item.label}
                     </Text>
                   </TouchableOpacity>
@@ -488,7 +512,7 @@ export default function PedidosScreen({ navigation }) {
               />
             )}
             <TouchableOpacity
-              style={[estilos.btnCidadeBusca, !chips && { marginTop: 4 }]}
+              style={estilos.btnCidadeBusca}
               onPress={() => { setUfSelecionada(''); setCidadeSelecionada(''); setBuscaCidade(''); setModalCidadeVisivel(true); buscarEstados() }}
             >
               <Text style={estilos.txtCidadeBusca}>
@@ -581,7 +605,7 @@ export default function PedidosScreen({ navigation }) {
             {/* Recarga sobre uma lista já preenchida: o ActivityIndicator do
                 ListEmptyComponent só aparece com a lista vazia, então sem isto trocar de
                 filtro não dava sinal nenhum de que algo estava acontecendo. */}
-            {carregando && lista.length > 0 && (
+            {carregando && todos.length > 0 && (
               <View style={estilos.carregandoInline}>
                 <ActivityIndicator color={cores.primaria} size="small" />
                 <Text style={estilos.carregandoInlineTexto}>Atualizando…</Text>
@@ -590,7 +614,7 @@ export default function PedidosScreen({ navigation }) {
           </>
         }
         ListEmptyComponent={
-          carregando ? (
+          carregando && todos.length === 0 ? (
             <ActivityIndicator color={cores.primaria} size="large" style={{ marginTop: 60 }} />
           ) : (
             <View style={estilos.vazio}>
