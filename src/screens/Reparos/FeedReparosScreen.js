@@ -32,6 +32,7 @@ import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import { LinhaClienteNaoRespondeu } from '../../components/MarcasCompromisso'
 import { textoInteressados, LinhaLocal } from '../../components/CardFeed'
+import CoracaoSalvar from '../../components/CoracaoSalvar'
 import { PillPedidoOficial, LinhaDonoOficial, ehDonoOficial, estiloCardOficial } from '../../components/SeloOficial'
 
 const DISTANCIAS = [
@@ -196,7 +197,9 @@ export const CardReparo = ({ item, onPress, onExpirar, coords, etiqueta }) => {
             {/* Beleza/cuidados: onde é o atendimento (nada para tanto_faz/sem valor). */}
             <PillLocalAtendimento demanda={item} />
             <View style={estilos.cardRodape}>
-              <Text style={[estilos.interessados, (Number(item.total_interessados) || 0) <= 0 && estilos.interessadosPrimeiro, { flexShrink: 1 }]} numberOfLines={1}>
+              {/* Coração de salvar, antes dos interessados (components/CoracaoSalvar). */}
+              <CoracaoSalvar tipo="reparo" item={item} />
+              <Text style={[estilos.interessados, (Number(item.total_interessados) || 0) <= 0 && estilos.interessadosPrimeiro, { flex: 1 }]} numberOfLines={1}>
                 {textoInteressados(Number(item.total_interessados) || 0)}
               </Text>
               <View style={estilos.btnVer}>

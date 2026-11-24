@@ -10,6 +10,7 @@ import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
 import { excluirPedido, ehMatchAtivo, ehPublicado } from '../../utils/excluirPedido'
 import FolhaMotivoCancelamento from '../../components/FolhaMotivoCancelamento'
+import { textoSalvaram } from '../../utils/salvos'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { ehValorACombinar, valorRealDoPedido, ROTULO_ACEITA_PROPOSTAS } from '../../utils/valorACombinar'
 import { distanciaItemKm, formatarDistancia, useCoordsUsuario } from '../../utils/distancia'
@@ -68,6 +69,7 @@ function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
   const temMatch   = item.match_feito_em && item.match_usuario_id
   const dist       = distanciaItemKm(coords, item)
   const emoji      = ehObra ? '🏗️' : emojiReparo(categoriasDe(item)[0] || item.categoria)
+  const nSalvos    = Number(item.salvos_count) || 0
 
   return (
     <TouchableOpacity style={estilos.card} onPress={() => onAbrir(tipo, item)} activeOpacity={0.85}>
@@ -115,6 +117,17 @@ function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
             🤝 Valor acordado: R$ {Number(item.valor_acordado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </Text>
         </View>
+      )}
+
+      {/* Arte salvar-e-anuncio-previa-v2: profissionais salvaram o pedido (salvos_count da linha).
+          Só enquanto ele espera propostas: aberto, sem profissional escolhido. */}
+      {nSalvos >= 1 && !eEncerrado && !eExpirado && !temMatch && item.status !== 'cancelada' && (
+        <>
+          <View style={estilos.salvosCaixa}>
+            <Text style={estilos.salvosTexto}>❤️ {textoSalvaram(nSalvos)}</Text>
+          </View>
+          <Text style={estilos.salvosLinha}>Eles estão de olho, as propostas costumam chegar em seguida.</Text>
+        </>
       )}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -440,4 +453,7 @@ const estilos = StyleSheet.create({
   statusTexto:          { fontSize: 11, fontWeight: '500' },
   btnLixeira:           { padding: 6, borderRadius: 8, backgroundColor: '#3a1a1a' },
   interessados:         { fontSize: 11, color: cores.textoMutado, marginTop: 6 },
+  salvosCaixa:          { backgroundColor: cores.perigoSuave, borderWidth: 1, borderColor: cores.perigo, borderRadius: raios.medio, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 6 },
+  salvosTexto:          { fontSize: 13, fontWeight: '700', color: cores.perigo },
+  salvosLinha:          { fontSize: 12, color: cores.textoMedio, lineHeight: 17, marginBottom: 10 },
 })

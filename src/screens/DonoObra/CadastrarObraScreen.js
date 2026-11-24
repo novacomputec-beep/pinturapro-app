@@ -16,6 +16,7 @@ import { marcarTemObras } from '../../utils/temObras'
 import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/PedidosBloqueados'
 import FolhaDicaFoto from '../../components/FolhaDicaFoto'
 import AcordoEtico from '../../components/AcordoEtico'
+import FolhaPareceAnuncio, { ehSuspeitaAnuncio, linkPerfilDe } from '../../components/FolhaPareceAnuncio'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -121,6 +122,11 @@ export default function CadastrarObraScreen({ navigation }) {
   // que falha não pede o acordo de novo, e o acordo_etico: true segue no reenvio.
   const [acordo, setAcordo] = useState(false)
   const acordoAceitoRef = useRef(false)
+  // Folha "📢 Isto parece um anúncio" (components/FolhaPareceAnuncio): a API recusou a criação com
+  // suspeita_anuncio. { link } = link do perfil que veio na recusa (ou null). O ref guarda o "É um
+  // pedido de verdade, publicar" desta composição: o reenvio leva confirmar_pedido_real: true.
+  const [anuncio, setAnuncio] = useState(null)
+  const confirmarRealRef = useRef(false)
   const [passo, setPasso] = useState(1)
   const [carregando, setCarregando] = useState(false)
   const [erros, setErros] = useState({})
@@ -552,8 +558,13 @@ export default function CadastrarObraScreen({ navigation }) {
         tera_midias: midia.itens.length > 0,
         // Só quando o "Li e concordo" foi marcado agora: sem ele o payload é o de sempre.
         ...(acordoAceitoRef.current ? { acordo_etico: true } : {}),
+        // Só depois do "É um pedido de verdade, publicar": sem ele o payload é o de sempre.
+        ...(confirmarRealRef.current ? { confirmar_pedido_real: true } : {}),
         client_request_id: clientRequestIdRef.current,
       }))
+      // Recusa por suspeita de anúncio vinda num 200 (sem id): mesmo caminho do erro, no catch.
+      if (!obra?.id && ehSuspeitaAnuncio(obra)) throw { suspeita_anuncio: true, link_perfil: linkPerfilDe(obra) }
+      confirmarRealRef.current = false
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
       // Acordo registrado junto com a criação: a sessão local deixa de pedi-lo (o servidor
@@ -575,6 +586,9 @@ export default function CadastrarObraScreen({ navigation }) {
       setCarregando(false)
       // Pessoa com pedidos novos bloqueados (2 propostas de horário vencidas sem resposta em
       // 90 dias): tela cheia no lugar do Alert; o formulário fica como está.
+      // Texto com cara de anúncio: nada foi criado; a folha oferece compartilhar o perfil,
+      // publicar mesmo assim ou cancelar. O formulário fica como está.
+      if (ehSuspeitaAnuncio(e)) { Keyboard.dismiss(); setAnuncio({ link: linkPerfilDe(e) }); return }
       if (ehPedidosBloqueados(e)) { setBloqueio({ liberado_em: e.dados?.liberado_em || null }); return }
       const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
       Alert.alert('Erro', msg)
@@ -622,6 +636,8 @@ export default function CadastrarObraScreen({ navigation }) {
     limparFormulario()
     setDicaFoto(false)
     setPickerMidia(null)
+    setAnuncio(null)
+    confirmarRealRef.current = false
     clientRequestIdRef.current = gerarRequestId()
     if (!naRaiz) navigation.goBack()
   }
@@ -735,6 +751,13 @@ export default function CadastrarObraScreen({ navigation }) {
         visivel={acordo}
         onPublicar={() => { acordoAceitoRef.current = true; setAcordo(false); handleCadastrar(true) }}
         onVoltar={() => setAcordo(false)}
+      />
+      {/* "É um pedido de verdade": chave de idempotência nova (a recusada não pode casar com o reenvio). */}
+      <FolhaPareceAnuncio
+        visivel={!!anuncio}
+        linkPerfil={anuncio?.link}
+        onPublicar={() => { confirmarRealRef.current = true; clientRequestIdRef.current = gerarRequestId(); setAnuncio(null); handleCadastrar(true) }}
+        onFechar={() => setAnuncio(null)}
       />
       <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>
