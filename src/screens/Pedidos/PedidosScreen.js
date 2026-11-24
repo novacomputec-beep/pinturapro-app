@@ -26,10 +26,11 @@ import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import EtiquetaTipo from '../../components/EtiquetaTipo'
 import { CardReparo } from '../Reparos/FeedReparosScreen'
 import { CardObra } from '../Obra/FeedObrasScreen'
-import { estaSalvo, useVersaoSalvos } from '../../utils/salvos'
+import { estaSalvo, useVersaoSalvos, listaSalvos, carregarSalvos } from '../../utils/salvos'
 
-// Chip "❤️ Salvos (n)" (arte salvar-e-anuncio-previa-v2): filtra, NA TELA, os pedidos carregados
-// que o profissional salvou (coração do card). Não é categoria: não vai à API.
+// Chip "❤️ Salvos (n)" (arte salvar-e-anuncio-previa-v2): mostra os pedidos que o profissional
+// salvou (coração do card), lidos de GET /salvos — valem os de qualquer cidade/raio, não só os
+// do feed carregado. Não é categoria: não entra nos parâmetros de GET /reparos e GET /obras.
 const CHIP_SALVOS = 'salvos'
 const VAZIO_SALVOS = { icone: '❤️', titulo: 'Nenhum pedido salvo', sub: 'Toque no coração de um pedido para guardá-lo aqui.' }
 
@@ -434,7 +435,10 @@ export default function PedidosScreen({ navigation }) {
     softAskRef.mostrar?.(podeServicos(u) && podeObras(u) ? 'profissional' : podeObras(u) ? 'pintor' : 'reparador')
   }, []))
 
-  const onRefresh = () => { setAtualizando(true); buscarPedidos(categoria, distancia, { refresh: true }) }
+  // Salvos: relidos a cada foco (inclusive o primeiro) e no puxar-para-atualizar.
+  useFocusEffect(useCallback(() => { carregarSalvos(usuarioRef.current?.id) }, []))
+
+  const onRefresh = () => { setAtualizando(true); carregarSalvos(usuario?.id); buscarPedidos(categoria, distancia, { refresh: true }) }
 
   // O que vai para a lista: um tipo só (conta de um tipo, ou segmento) ou os dois intercalados.
   const todos = useMemo(() => {
@@ -442,8 +446,19 @@ export default function PedidosScreen({ navigation }) {
     const soObras = !comServicos || (doisTipos && segmento === 'obras')
     return intercalarPedidos(soObras ? [] : reparos, soReparos ? [] : obras)
   }, [reparos, obras, segmento, doisTipos, comServicos, comObras])
-  // Os salvos entre os carregados (o `n` do chip) e a lista que vai para a tela.
-  const salvos = useMemo(() => todos.filter((p) => estaSalvo(usuario?.id, p.tipo, p.item)), [todos, versaoSalvos, usuario?.id])
+  // Os salvos (GET /salvos, utils/salvos) dos tipos que estão na tela: é o `n` do chip e, com o
+  // chip ligado, a lista. Só os ainda ABERTOS (`aberta` da API) e que seguem salvos nesta
+  // sessão. A linha de /salvos é resumida; quando o mesmo pedido está no feed carregado, vai a
+  // linha do feed (com interessados, prazo, distância).
+  const salvos = useMemo(() => {
+    const doFeed = new Map(todos.map((p) => [p.chave, p]))
+    const soReparos = !comObras || (doisTipos && segmento === 'servicos')
+    const soObras = !comServicos || (doisTipos && segmento === 'obras')
+    return listaSalvos(usuario?.id)
+      .filter((l) => l.aberta !== false && !(soReparos && l.tipo === 'obra') && !(soObras && l.tipo === 'reparo'))
+      .filter((l) => (l.tipo === 'obra' ? comObras : comServicos) && estaSalvo(usuario?.id, l.tipo, l))
+      .map((l) => doFeed.get(`${l.tipo}:${l.id}`) || { tipo: l.tipo, item: l, chave: `${l.tipo}:${l.id}` })
+  }, [todos, versaoSalvos, usuario?.id, segmento, doisTipos, comServicos, comObras])
   const lista = soSalvos ? salvos : todos
 
   // Fileira de chips: "Todas", "❤️ Salvos (n)" e as categorias do tipo na tela. Em "Todos"
