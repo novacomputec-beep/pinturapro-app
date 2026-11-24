@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MAX_ESPECIALIDADES, normalizarEspecialidades } from '../../utils/categorias'
-import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS, grupoObrasEspecialidades, ehEspecialidadeDeObra, TILE_OBRAS_ESPECIALIDADES } from '../../utils/gruposServico'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS, grupoObrasEspecialidades, ehDoGrupoObras, TILE_OBRAS_ESPECIALIDADES } from '../../utils/gruposServico'
 import { MolduraWizard, RodapeWizard, GradeGrupos, ChipsEscolhidos, FolhaGrupo } from '../DonoObra/CadastrarServicoPassos'
 import { cores } from '../../utils/tema'
 
@@ -83,8 +83,8 @@ export default function EspecialidadesScreen({ navigation, route }) {
 
   // ─── Grade de grupos + folha ──────────────────────────────────────────────────────────
   const grupos = useMemo(() => gruposComCategorias(), [])
-  // Bloco "Obras de Construção Civil" (Arte-Fase2-Trabalhar): os quatro papéis de obra, que
-  // qualquer conta profissional pode marcar. Abre na MESMA folha dos grupos (grupoAberto recebe
+  // Bloco "Obras de Construção Civil" (Arte-Fase2-Trabalhar): os quatro papéis de obra e os 6
+  // serviços de obra (10, em ordem alfabética), que qualquer conta profissional pode marcar. Abre na MESMA folha dos grupos (grupoAberto recebe
   // este objeto) e conta no mesmo teto de 5.
   const grupoObras = useMemo(() => grupoObrasEspecialidades(), [])
   // Voltar do Android com a folha aberta fecha a folha (o Modal cuida); sem folha, sai SEM
@@ -114,7 +114,7 @@ export default function EspecialidadesScreen({ navigation, route }) {
           onAbrir={setGrupoAberto}
           onOutros={() => alternar(SLUG_OUTROS)}
           tileObras={TILE_OBRAS_ESPECIALIDADES}
-          obrasMarcadas={selecionadas.filter(ehEspecialidadeDeObra).length}
+          obrasMarcadas={selecionadas.filter(ehDoGrupoObras).length}
           onObras={() => setGrupoAberto(grupoObras)}
         />
         <ChipsEscolhidos

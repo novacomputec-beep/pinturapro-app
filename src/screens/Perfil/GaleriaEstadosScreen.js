@@ -22,7 +22,7 @@ import { DicasConteudo } from './DicasScreen'
 import { DicasTemaConteudo } from './DicasTemaScreen'
 import { CardPerguntasDono, CaixaPerguntaInteressado, perguntaDoAutor, perguntasTemAutor } from '../../components/PerguntasDemanda'
 import { MAX_CATEGORIAS_DEMANDA } from '../../utils/categorias'
-import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS, grupoObrasEspecialidades, ehEspecialidadeDeObra, TILE_OBRAS_ESPECIALIDADES } from '../../utils/gruposServico'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS, grupoObrasEspecialidades, ehDoGrupoObras, TILE_OBRAS_ESPECIALIDADES } from '../../utils/gruposServico'
 import { CabecalhoPedidos, SegmentoPedidos, intercalarPedidos } from '../Pedidos/PedidosScreen'
 import { MeusTrabalhosConteudo, juntarTrabalhos } from '../Pedidos/MeusTrabalhosScreen'
 import { CardReparo } from '../Reparos/FeedReparosScreen'
@@ -755,7 +755,7 @@ function DemoEspecialidades({ origem, selecionadasIniciais }) {
       <MolduraWizard passo={1} progresso={false} tituloTela={t.tituloTela} titulos={{ 1: { titulo: t.titulo, subtitulo: t.subtitulo } }} mostrarVoltar onVoltar={noop}
         rodape={<RodapeWizard rotulo="Confirmar →" onPress={noop} desabilitado={!selecionadas.length} nota={!selecionadas.length ? avisoEspecialidades(selecionadas) : null} />}>
         <GradeGrupos grupos={GRUPOS_DEMO} contagem={contagemPorGrupo(selecionadas)} outrosMarcado={selecionadas.includes(SLUG_OUTROS)} bloqueado={cheio} legendas tileOutros={TILE_OUTROS_ESPECIALIDADES} onAbrir={setGrupoAberto} onOutros={() => alternar(SLUG_OUTROS)}
-          tileObras={TILE_OBRAS_ESPECIALIDADES} obrasMarcadas={selecionadas.filter(ehEspecialidadeDeObra).length} onObras={() => setGrupoAberto(GRUPO_OBRAS_DEMO)} />
+          tileObras={TILE_OBRAS_ESPECIALIDADES} obrasMarcadas={selecionadas.filter(ehDoGrupoObras).length} onObras={() => setGrupoAberto(GRUPO_OBRAS_DEMO)} />
         <ChipsEscolhidos categorias={selecionadas} onRemover={alternar} rotulo="VOCÊ FAZ" limite={MAX_ESPECIALIDADES} textoLimite={AVISO_TETO} vazio="Toque num grupo acima e marque o que você faz." />
       </MolduraWizard>
       {grupoAberto ? (

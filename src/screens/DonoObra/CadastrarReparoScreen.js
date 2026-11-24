@@ -11,7 +11,7 @@ import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import { avisarPedidoRef } from '../../components/AvisarPedidoSheet'
 import { CATEGORIAS_SERVICO, MAX_CATEGORIAS_DEMANDA, temCategoriaCuidado, temCategoriaPedeFoto } from '../../utils/categorias'
-import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS } from '../../utils/gruposServico'
+import { gruposComCategorias, contagemPorGrupo, SLUG_OUTROS, grupoObrasPedido, ehDoGrupoObras } from '../../utils/gruposServico'
 import { carregarGruposCategorias, sugerirRelacionadas } from '../../services/gruposCategorias'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
 import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/PedidosBloqueados'
@@ -141,6 +141,10 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   }
 
   const grupos = useMemo(() => gruposComCategorias(), [])
+  // Bloco "Obras de Construção Civil": os 6 serviços de obra (marcam) + os quatro papéis de
+  // obra (abrem o cadastro de obra). Abre na mesma folha dos grupos, pelo tile em destaque.
+  const grupoObras = useMemo(() => grupoObrasPedido(), [])
+  const obrasMarcadas = categorias.filter(ehDoGrupoObras).length
   // A barra "Agendado" flutua sobre o rodapé da aba: enquanto ela existe, o rodapé fixo sobe.
   const reservaInferior = useBarraServicoVisivel() ? alturas.barraServico : 0
 
@@ -607,7 +611,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
               bloqueado={noLimite}
               onAbrir={(g) => { Keyboard.dismiss(); setGrupoAberto(g) }}
               onOutros={() => selecionarCategoria(SLUG_OUTROS)}
-              onObras={deNovoPedido ? abrirObra : undefined}
+              onObras={deNovoPedido ? () => { Keyboard.dismiss(); setGrupoAberto(grupoObras) } : undefined}
+              // Só com alguma marcada: sem número o tile não apaga no limite (a porta da obra fica aberta).
+              obrasMarcadas={obrasMarcadas > 0 ? obrasMarcadas : undefined}
             />
             <ChipsEscolhidos categorias={categorias} onRemover={selecionarCategoria} />
             {pedeLocal && (
@@ -666,6 +672,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         selecionadas={categorias}
         onAlternar={selecionarCategoria}
         onPronto={() => setGrupoAberto(null)}
+        // Papel de obra (pintor, pedreiro...): não é categoria de serviço, abre o cadastro de obra.
+        onAbrirLinha={() => { setGrupoAberto(null); abrirObra() }}
       />
 
       {/* Picker de mídia: as opções de sempre, filtradas pelo botão que abriu ('video' =
