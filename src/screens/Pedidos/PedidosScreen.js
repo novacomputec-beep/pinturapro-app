@@ -87,11 +87,11 @@ export const intercalarPedidos = (reparos, obras) => {
   return [...saida, ...rs.slice(i), ...os.slice(j)]
 }
 
-// Título laranja + "Das suas especialidades · Cidade". Exportado para a Galeria.
+// Título laranja + a cidade (sem cidade, só o título). Exportado para a Galeria.
 export const CabecalhoPedidos = ({ cidade }) => (
   <View style={estilos.header}>
     <Text style={estilos.titulo}>Pedidos para você</Text>
-    <Text style={estilos.subtitulo} numberOfLines={1}>Das suas especialidades{cidade ? ` · ${cidade}` : ''}</Text>
+    {cidade ? <Text style={estilos.subtitulo} numberOfLines={1}>{cidade}</Text> : null}
   </View>
 )
 
