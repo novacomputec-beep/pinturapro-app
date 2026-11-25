@@ -113,7 +113,7 @@ export const SegmentoPedidos = ({ valor, onMudar }) => (
 )
 
 const VAZIO = {
-  todos:    { icone: '📋', titulo: 'Nenhum pedido disponível',  sub: 'Novos pedidos das suas especialidades aparecem aqui quando forem publicados.' },
+  todos:    { icone: '📋', titulo: 'Nenhum pedido disponível',  sub: 'Novos pedidos da sua região aparecem aqui quando forem publicados.' },
   servicos: { icone: '🔧', titulo: 'Nenhum serviço disponível', sub: 'Novos serviços aparecem aqui quando forem publicados.' },
   obras:    { icone: '🏠', titulo: 'Nenhuma obra disponível',   sub: 'Novas obras aparecem aqui quando forem publicadas.' },
 }
