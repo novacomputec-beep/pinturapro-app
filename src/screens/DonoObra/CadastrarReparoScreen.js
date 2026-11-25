@@ -18,6 +18,7 @@ import TelaPedidosBloqueados, { ehPedidosBloqueados } from '../../components/Ped
 import FolhaDicaFoto from '../../components/FolhaDicaFoto'
 import AcordoEtico from '../../components/AcordoEtico'
 import FolhaPareceAnuncio, { ehSuspeitaAnuncio, linkPerfilDe } from '../../components/FolhaPareceAnuncio'
+import { useWhatsappDono } from '../../components/CartaoWhatsappDono'
 import { useAuth } from '../../contexts/AuthContext'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
@@ -116,6 +117,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // sessão traz precisa_acordo_etico. O ref guarda o "Li e concordo" desta composição: um POST
   // que falha não pede o acordo de novo, e o acordo_etico: true segue no reenvio.
   const { usuario, setUsuario } = useAuth()
+  // Cartão "📱 Seu WhatsApp" (components/CartaoWhatsappDono): só para o dono sem telefone.
+  const whatsapp = useWhatsappDono(usuario, setUsuario)
   const [acordo, setAcordo] = useState(false)
   const acordoAceitoRef = useRef(false)
   // Folha "📢 Isto parece um anúncio" (components/FolhaPareceAnuncio): a API recusou a criação com
@@ -517,6 +520,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         // SEMPRE no corpo: false na 1ª tentativa (a API responde 409 SUSPEITA_ANUNCIO, nada gravado,
         // quando o texto parece anúncio) e true depois do "É um pedido de verdade, publicar".
         confirmar_pedido_real: confirmarRealRef.current === true,
+        // Só quando o dono sem telefone preencheu o cartão do WhatsApp; inválido → 400 com a mensagem da API.
+        ...whatsapp.campoTelefone(),
         client_request_id: clientRequestIdRef.current,
       }))
       // Recusa por suspeita de anúncio vinda num 200 (sem id): mesmo caminho do erro, no catch.
@@ -524,6 +529,8 @@ export default function CadastrarReparoScreen({ navigation, route }) {
       confirmarRealRef.current = false
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
+      // Telefone gravado junto com a criação: a sessão local passa a tê-lo e o cartão some.
+      whatsapp.aoPublicar()
       // Acordo registrado junto com a criação: a sessão local deixa de pedi-lo (o servidor
       // confirma no próximo GET /auth/perfil).
       if (acordoAceitoRef.current) {
@@ -584,6 +591,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   const cancelarPedido = () => {
     Keyboard.dismiss()
     limparFormulario()
+    whatsapp.limpar()
     setDicaFoto(false)
     setPickerMidia(null)
     setAnuncio(null)
@@ -677,7 +685,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
             bairro={bairro} onBairro={setBairro}
             uf={uf} cidade={cidade} onLocalidade={({ uf: u, cidade: c }) => { setUf(u); setCidade(c || '') }}
             erros={erros} registrarY={registrarY}
-            rodapeTexto={<AvisosPublicar />}
+            rodapeTexto={<><AvisosPublicar />{whatsapp.cartao}</>}
           />
         )}
       </MolduraWizard>
