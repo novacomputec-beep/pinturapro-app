@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import BotaoVoltar from '../../components/BotaoVoltar'
 import {
-  View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Platform,
+  View, Text, StyleSheet, ScrollView, KeyboardAvoidingView, Keyboard, Platform,
   TouchableOpacity, ActivityIndicator, Alert, TextInput, Linking, Modal, AppState
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Image } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
 import api from '../../services/api'
+import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
 import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
@@ -1228,6 +1229,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
   // bloqueio/desbloqueio. String vazia é o jeito documentado de LIMPAR — por isso não há
   // guarda de "não envie vazio". O estado local vem do ECO do servidor, então a linha
   // muda sem refetch; se o eco vier sem o campo, cai no que foi enviado.
+  // 409 CONTATO_NO_TEXTO ao editar: a folha abre POR CIMA do modal (filha dele), que segue
+  // aberto com o texto digitado.
+  const [contatoNoTexto, setContatoNoTexto] = useState(null)
   const salvarReferencia = async () => {
     if (salvandoReferencia) return
     setSalvandoReferencia(true)
@@ -1242,6 +1246,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setModalReferencia(false)
     } catch (err) {
       console.log('[DetalheReparo] falha ao salvar ponto de referência | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      if (ehContatoNoTexto(err)) { Keyboard.dismiss(); setContatoNoTexto({ trecho: trechoContatoDe(err) }); return }
       if (await recarregarSeFalhaDeRede(err, recarregarReparo)) { setModalReferencia(false); return }
       Alert.alert('Erro', err.mensagem || 'Não foi possível salvar o ponto de referência.')
     } finally {
@@ -2157,6 +2162,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       {/* KeyboardAvoidingView: o campo abre com o teclado (autoFocus) e, num iPhone pequeno, o
           teclado cobria Cancelar/Salvar do card centralizado. */}
       <Modal visible={modalReferencia} transparent animationType="fade" onRequestClose={() => setModalReferencia(false)}>
+        <FolhaContatoNoTexto visivel={!!contatoNoTexto} trecho={contatoNoTexto?.trecho} onFechar={() => setContatoNoTexto(null)} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <View style={{ backgroundColor: cores.fundoCard, borderRadius: 16, padding: 24, width: '100%' }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: cores.textoForte, marginBottom: 8 }}>🔎 Ponto de referência</Text>
