@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient'
 import { BotaoPrimario, Input, SeletorLocalidade, PainelMidiaDemanda } from '../../components'
 import { LinhaCabecalhoFolha } from '../../components/BotaoFecharFolha'
+import { DicaOrcamentoCliente } from '../../components/Orcamento'
 import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../../hooks/useArrastarParaFechar'
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO, MAX_CATEGORIAS_DEMANDA, LOCAIS_ATENDIMENTO } from '../../utils/categorias'
@@ -412,6 +413,7 @@ function CampoValor({ valor, onValor, aCombinar, onACombinar, erro, rotuloAcessi
             <Caixa marcada={!!aCombinar} />
           </TouchableOpacity>
           <Text style={estilos.valorNota}>É como pedir orçamento a vários de uma vez.</Text>
+          {aCombinar ? <DicaOrcamentoCliente /> : null}
         </>
       ) : (
         <Text style={estilos.valorNota}>Os profissionais podem aceitar o seu valor ou sugerir outro. Você escolhe.</Text>

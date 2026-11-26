@@ -27,7 +27,7 @@ const formatarValor = (v) =>
 // Os grupos abaixo normalizam ambos para filtros e renderização. 'contraproposta_dono'
 // (negociação em aberto) entra em Pendentes.
 const STATUS_GRUPO = {
-  pendente: ['pendente', 'contraproposta_dono'],
+  pendente: ['pendente', 'contraproposta_dono', 'visita_aceita', 'orcamento_enviado'],
   aprovada: ['aceito', 'aprovada'],
   recusada: ['recusado', 'recusada'],
 }

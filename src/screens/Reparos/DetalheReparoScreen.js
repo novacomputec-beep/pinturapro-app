@@ -9,6 +9,7 @@ import { Image } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
 import api from '../../services/api'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
+import { usePropostaVisita, DicaValorMinimo, BlocoVisitaDono, AcoesVisitaDono, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
 import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
@@ -377,6 +378,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [mensagemAdicional, setMensagemAdicional] = useState('')
   const [valorProposto, setValorProposto] = useState('')
   const [valorAceito, setValorAceito] = useState(false)
+  // "TIPO DE PROPOSTA" (components/Orcamento): valor fechado ou visita para orçamento.
+  const proposta = usePropostaVisita()
   const [fotoFullscreen, setFotoFullscreen] = useState(null)
   const [videoFullscreen, setVideoFullscreen] = useState(null)
   const [contrapropostaInteresseId, setContrapropostaInteresseId] = useState(null)
@@ -669,7 +672,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     // Identidade só é pedida aqui, na primeira proposta: quem ainda não enviou
     // documentos abre a sheet; quem está em análise recebe o aviso.
     // Arte-Valor-A-Combinar: o cliente não definiu valor, então a proposta TEM de trazer um.
-    if (ehValorACombinar(reparo) && !(parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) > 0)) {
+    if (!proposta.ehVisita && ehValorACombinar(reparo) && !(parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) > 0)) {
       Alert.alert('Informe o seu valor', 'O cliente não definiu o valor deste pedido. Diga quanto você cobra para enviar sua proposta.')
       return
     }
@@ -687,12 +690,15 @@ export default function DetalheReparoScreen({ route, navigation }) {
       const valorNumerico = valorAceito && valorRealDoPedido(reparo) != null
         ? valorRealDoPedido(reparo)
         : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
-      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse`, { mensagem, valor_proposto: valorNumerico }))
+      await comRetry(() => api.post(`/reparos/${reparo.id}/interesse`, { mensagem, ...proposta.corpo(valorNumerico) }))
       setMeuInteresse({ status: 'pendente' })
       setMostrarForm(false)
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       console.log('[DetalheReparo] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Proposta recusada na validação (valor mínimo de R$ 20, dia/hora ou valor da visita): nada
+      // foi gravado; a mensagem é a da API e o formulário fica aberto.
+      if (CODIGOS_ERRO_PROPOSTA.includes(err.codigo)) { Alert.alert('Atenção', err.mensagem || 'Confira os dados da proposta.'); return }
       // Suspenso: sai antes da reconsulta — não há interesse novo a descobrir, e o
       // motivo real precisa aparecer no lugar do "não foi possível registrar".
       if (alertouSuspensao(err)) return
@@ -1428,7 +1434,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       setContrapropostaInteresseId(null)
       setValorContraproposta('')
       await buscar()
-      const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!' }
+      const msgs = { aceitar: '✅ Proposta aceita!', recusar: 'Proposta recusada.', contraproposta: '💬 Contraproposta enviada!', aceitar_visita: '📋 Visita aceita! O profissional foi avisado e já vê o endereço. O pedido continua aberto para outras propostas.' }
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
       console.log('[DetalheReparo] falha ao responder interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -2908,8 +2914,11 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   const propostoFmt = item.valor_proposto != null
                     ? Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                     : aceitouValorPedido ? valorPedidoReparo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''
+                  // Proposta de valor ainda em decisão: a pílula verde "Valor fechado" no lugar da linha.
+                  const pilulaValorFechado = !visitaEmAberto(item) && item.status === 'pendente' && item.valor_proposto != null &&
+                    !aceitouValorPedido && !propostoEhCombinado && !temMatch && !encerrada
                   return (
-                  <View key={item.id} style={estilos.interessadoCard}>
+                  <View key={item.id} style={[estilos.interessadoCard, ehOrcamentoEnviado(item) && estiloCardOrcamento]}>
                     <View style={estilos.candidatoTopo}>
                       {item.foto_url ? (
                         <Image source={{ uri: avatar(item.foto_url) }} style={estilos.candidatoAvatar} />
@@ -2954,7 +2963,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         📋 Valor cadastrado: R$ {valorPedidoReparo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
-                    {(item.valor_proposto != null || aceitouValorPedido) && (
+                    {/* Visita para orçamento em aberto: pílula + dia/hora, ou o orçamento recebido. */}
+                    <BlocoVisitaDono item={item} />
+                    {pilulaValorFechado && <PilulaValorFechado valorFmt={propostoFmt} />}
+                    {!visitaEmAberto(item) && !pilulaValorFechado && (item.valor_proposto != null || aceitouValorPedido) && (
                       <Text style={{ fontSize: encerrada ? 13 : 18, fontWeight: encerrada ? '400' : '700', color: cores.textoMedio, marginBottom: 4 }}>
                         {aceitouValorPedido
                           ? `💰 Seu valor proposto (R$ ${propostoFmt}) foi aceito`
@@ -2966,9 +2978,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         🤝 {ehMatch ? 'Valor combinado' : 'Minha contraproposta'}: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
-                    {item.mensagem && (
+                    {!!mensagemDoProfissional(item) && (
                       <View style={estilos.mensagemBox}>
-                        <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
+                        <Text style={estilos.mensagemTexto}>{mensagemDoProfissional(item)}</Text>
                       </View>
                     )}
                     {/* Arte-Quem-Perguntou: a pergunta DESTE profissional e a sua resposta (ou
@@ -2979,7 +2991,10 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       podeResponder={!temMatch && !encerrada}
                       onResponder={setPerguntaResponder}
                     />
-                    {item.status === 'pendente' && !temMatch && !encerrada && (
+                    {visitaEmAberto(item) && !temMatch && !encerrada && (
+                      <AcoesVisitaDono item={item} enviando={enviandoResposta} onResponder={(action) => handleResponderInteresse(item.id, action)} />
+                    )}
+                    {item.status === 'pendente' && !visitaEmAberto(item) && !temMatch && !encerrada && (
                       <View style={{ marginTop: 10 }}>
                         {contrapropostaInteresseId === item.id ? (
                           <View>
@@ -3176,10 +3191,20 @@ export default function DetalheReparoScreen({ route, navigation }) {
               {!temMatch && !encerrada && (
                 meuInteresse ? (
                   <View style={estilos.interesseFeito}>
+                    {/* Visita para orçamento: visita aceita (endereço liberado + "Enviar orçamento") ou
+                        orçamento à espera do cliente. */}
+                    {meuInteresse.status !== 'pendente' && (
+                      <PainelVisitaProfissional
+                        proposta={meuInteresse}
+                        enviar={(corpo) => comRetry(() => api.post(`/reparos/${reparo.id}/interesse/${meuInteresse.id}/orcamento`, corpo))}
+                        onEnviado={buscar}
+                      />
+                    )}
                     {meuInteresse.status === 'pendente' && (
                       <>
                         <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>⏳ Aguardando resposta</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Suas informações foram enviadas. Aguarde a resposta do solicitante!</Text>
+                        <PainelVisitaProfissional proposta={meuInteresse} />
                       </>
                     )}
                     {meuInteresse.status === 'contraproposta_dono' && (
@@ -3286,7 +3311,8 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>{ehValorACombinar(reparo) ? 'O cliente não definiu o valor. Diga quanto você cobra por este serviço:' : 'Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.'}</Text>
-                    {valorRealDoPedido(reparo) != null && !valorProposto && (
+                    {proposta.campos}
+                    {!proposta.ehVisita && valorRealDoPedido(reparo) != null && !valorProposto && (
                       <TouchableOpacity
                         style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
                         onPress={() => setValorAceito(v => !v)}
@@ -3300,7 +3326,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                         </Text>
                       </TouchableOpacity>
                     )}
-                    {!valorAceito && (
+                    {!proposta.ehVisita && !valorAceito && (
                       <View style={estilos.perguntaWrap}>
                         <Text style={estilos.perguntaLabel}>{ehValorACombinar(reparo) ? 'QUANTO VOCÊ COBRA – R$' : 'FAZER UMA CONTRAPROPOSTA (opcional) – R$'}</Text>
                         <TextInput
@@ -3335,6 +3361,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       <AvisoContatoOculto />
                     </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
+                    <DicaValorMinimo />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
                       <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
                     </TouchableOpacity>
