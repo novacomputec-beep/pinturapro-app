@@ -141,6 +141,8 @@ const navegarParaNotificacao = (data) => {
   try {
     // Alertas de expiração (obra/reparo): cobrem por prefixo TODOS os marcos
     // (…_6h/_60/_30/_15) e o legado …_sem_interessados — deep-link direto ao detalhe.
+    // Também os do prazo curto (pinturapro-api 2a57324, services/prazoCurtoService):
+    // reparo_/obra_expirando_prazo_acabando e reparo_/obra_expirando_auto_estendido.
     // Só navega com o id presente; sem id, cai no switch (que não trata estes tipos)
     // e não faz nada, em vez de abrir o detalhe com id indefinido.
     if (data.tipo.startsWith('obra_expirando') && data.obra_id) {
