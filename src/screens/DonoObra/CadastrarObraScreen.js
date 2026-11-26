@@ -19,6 +19,7 @@ import AcordoEtico from '../../components/AcordoEtico'
 import FolhaPareceAnuncio, { ehSuspeitaAnuncio, linkPerfilDe } from '../../components/FolhaPareceAnuncio'
 import { useWhatsappDono } from '../../components/CartaoWhatsappDono'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
+import { FolhaPedidoUrgente, FolhaConfiraPrazo, ehPrazoCurto, rotuloHoras, ehPrazoIncoerente, dadosPrazoIncoerente } from '../../components/FolhaPrazo'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
 import {
@@ -133,6 +134,12 @@ export default function CadastrarObraScreen({ navigation }) {
   // Folha "📵 Tire o contato do texto" (components/FolhaContatoNoTexto): 409 CONTATO_NO_TEXTO,
   // nada gravado; o formulário fica como foi digitado.
   const [contatoNoTexto, setContatoNoTexto] = useState(null)
+  // Prazo curto (components/FolhaPrazo): a folha "⚡ Pedido urgente" ao escolher 4 h ou menos
+  // ({ rotulo }), e a "📅 Confira o prazo" do 409 PRAZO_INCOERENTE ({ trecho, rotulo }). O ref
+  // guarda o "Manter" desta composição: o reenvio leva confirmar_prazo: true.
+  const [urgente, setUrgente] = useState(null)
+  const [prazoIncoerente, setPrazoIncoerente] = useState(null)
+  const confirmarPrazoRef = useRef(false)
   const confirmarRealRef = useRef(false)
   const [passo, setPasso] = useState(1)
   const [carregando, setCarregando] = useState(false)
@@ -571,6 +578,9 @@ export default function CadastrarObraScreen({ navigation }) {
         // Este app sabe mostrar a folha "Tire o contato do texto": com contato no texto a API
         // responde 409 CONTATO_NO_TEXTO (nada gravado) em vez de publicar e marcar para o painel.
         suporta_contato_no_texto: true,
+        // Checagem de prazo curto x texto: 409 PRAZO_INCOERENTE (nada gravado) até o "Manter".
+        suporta_prazo_check: true,
+        ...(confirmarPrazoRef.current ? { confirmar_prazo: true } : {}),
         // Só quando o dono sem telefone preencheu o cartão do WhatsApp; inválido → 400 com a mensagem da API.
         ...whatsapp.campoTelefone(),
         client_request_id: clientRequestIdRef.current,
@@ -578,6 +588,7 @@ export default function CadastrarObraScreen({ navigation }) {
       // Recusa por suspeita de anúncio vinda num 200 (sem id): mesmo caminho do erro, no catch.
       if (!obra?.id && ehSuspeitaAnuncio(obra)) throw { suspeita_anuncio: true, link_perfil: linkPerfilDe(obra) }
       confirmarRealRef.current = false
+      confirmarPrazoRef.current = false
       // Criação confirmada — rotaciona a chave para a próxima composição (retries de falha reusam a mesma)
       clientRequestIdRef.current = gerarRequestId()
       // Telefone gravado junto com a criação: a sessão local passa a tê-lo e o cartão some.
@@ -604,6 +615,7 @@ export default function CadastrarObraScreen({ navigation }) {
       // Texto com cara de anúncio: nada foi criado; a folha oferece compartilhar o perfil,
       // publicar mesmo assim ou cancelar. O formulário fica como está.
       if (ehContatoNoTexto(e)) { Keyboard.dismiss(); setContatoNoTexto({ trecho: trechoContatoDe(e) }); return }
+      if (ehPrazoIncoerente(e)) { Keyboard.dismiss(); setPrazoIncoerente(dadosPrazoIncoerente(e, null)); return }
       if (ehSuspeitaAnuncio(e)) { Keyboard.dismiss(); setAnuncio({ link: linkPerfilDe(e) }); return }
       if (ehPedidosBloqueados(e)) { setBloqueio({ liberado_em: e.dados?.liberado_em || null }); return }
       const msg = e.mensagem || 'Não foi possível cadastrar a obra. Tente novamente.'
@@ -651,6 +663,9 @@ export default function CadastrarObraScreen({ navigation }) {
     Keyboard.dismiss()
     limparFormulario()
     whatsapp.limpar()
+    setUrgente(null)
+    setPrazoIncoerente(null)
+    confirmarPrazoRef.current = false
     setDicaFoto(false)
     setPickerMidia(null)
     setAnuncio(null)
@@ -703,8 +718,16 @@ export default function CadastrarObraScreen({ navigation }) {
         )}
         {passo === 3 && (
           <PassoPrazoValorObra
-            prazos={PRAZOS} prazo={prazo} onPrazo={setPrazo}
-            dataInicial={dataInicial} onDataInicial={(t) => setDataInicial(mascararData(t))}
+            prazos={PRAZOS} prazo={prazo} onPrazo={(id) => { setPrazo(id); confirmarPrazoRef.current = false }}
+            // Na obra só a DATA pode dar 4 horas ou menos ("Hoje" fica de fora): com a data completa e
+            // o fim do dia a 4 h ou menos, a folha "⚡ Pedido urgente" confirma a pressa.
+            dataInicial={dataInicial} onDataInicial={(t) => {
+              const v = mascararData(t)
+              setDataInicial(v)
+              confirmarPrazoRef.current = false
+              const h = v.length === 10 && v !== dataInicial ? horasAteData(v) : null
+              if (ehPrazoCurto(h)) { Keyboard.dismiss(); setUrgente({ rotulo: rotuloHoras(h) }) }
+            }}
             valor={valorEstimado} onValor={(t) => setValorEstimado(mascararValor(t))}
             aCombinar={valorACombinar} onACombinar={(v) => { setValorACombinar(v); setErros(e => ({ ...e, valorEstimado: undefined })) }}
             erros={erros} registrarY={registrarY}
@@ -777,6 +800,21 @@ export default function CadastrarObraScreen({ navigation }) {
         onFechar={() => setAnuncio(null)}
       />
       <FolhaContatoNoTexto visivel={!!contatoNoTexto} trecho={contatoNoTexto?.trecho} onFechar={() => setContatoNoTexto(null)} />
+      <FolhaPedidoUrgente
+        visivel={!!urgente}
+        prazo={urgente?.rotulo}
+        onManter={() => setUrgente(null)}
+        onMaisTempo={() => { setPrazo(null); setDataInicial(''); setUrgente(null) }}
+      />
+      {/* "Ajustar": volta ao passo do prazo, formulário intacto. "Manter": reenvia com confirmar_prazo. */}
+      <FolhaConfiraPrazo
+        visivel={!!prazoIncoerente}
+        trecho={prazoIncoerente?.trecho}
+        rotulo={prazoIncoerente?.rotulo}
+        onAjustar={() => { confirmarPrazoRef.current = false; setPrazoIncoerente(null); setPasso(3) }}
+        onManter={() => { confirmarPrazoRef.current = true; clientRequestIdRef.current = gerarRequestId(); setPrazoIncoerente(null); handleCadastrar(true) }}
+        onFechar={() => setPrazoIncoerente(null)}
+      />
       <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>
   )
