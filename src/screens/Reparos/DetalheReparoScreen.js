@@ -379,7 +379,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
   const [valorProposto, setValorProposto] = useState('')
   const [valorAceito, setValorAceito] = useState(false)
   // "TIPO DE PROPOSTA" (components/Orcamento): valor fechado ou visita para orçamento.
-  const proposta = usePropostaVisita()
+  const proposta = usePropostaVisita(reparo?.permite_visita === true)
   const [fotoFullscreen, setFotoFullscreen] = useState(null)
   const [videoFullscreen, setVideoFullscreen] = useState(null)
   const [contrapropostaInteresseId, setContrapropostaInteresseId] = useState(null)

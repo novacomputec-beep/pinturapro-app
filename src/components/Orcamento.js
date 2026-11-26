@@ -22,7 +22,7 @@ import { PickerAgendamento } from './Agendamento'
 
 export const STATUS_VISITA_ACEITA = 'visita_aceita'
 export const STATUS_ORCAMENTO_ENVIADO = 'orcamento_enviado'
-export const CODIGOS_ERRO_PROPOSTA = ['VALOR_MINIMO', 'VISITA_QUANDO_OBRIGATORIA', 'VISITA_NO_PASSADO', 'VISITA_VALOR_OBRIGATORIO', 'TIPO_PROPOSTA_INVALIDO']
+export const CODIGOS_ERRO_PROPOSTA = ['VALOR_MINIMO', 'VISITA_QUANDO_OBRIGATORIA', 'VISITA_NO_PASSADO', 'VISITA_VALOR_OBRIGATORIO', 'VISITA_NAO_PERMITIDA', 'TIPO_PROPOSTA_INVALIDO']
 
 const p2 = (n) => String(n).padStart(2, '0')
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
@@ -81,18 +81,20 @@ const maiuscula = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 //   ehVisita — esconde o bloco de valor do formulário de sempre;
 //   campos   — o seletor e, na visita, Grátis/Cobrada + valor + "Quando posso ir ao local";
 //   corpo(valorNumerico) — os campos da proposta para o POST (suporta_orcamento incluso).
-export function usePropostaVisita() {
+// permiteVisita: `permite_visita === true` do pedido (GET /obras/:id, /reparos/:id). Sem ele só
+// existe "Valor fechado", já marcado; uma visita enviada assim mesmo leva 400 VISITA_NAO_PERMITIDA.
+export function usePropostaVisita(permiteVisita) {
   const [tipo, setTipo] = useState('valor')
   const [gratis, setGratis] = useState(true)
   const [valorVisita, setValorVisita] = useState('')
   const [quando, setQuando] = useState(null)
-  const visita = tipo === 'visita'
+  const visita = !!permiteVisita && tipo === 'visita'
   const corpo = (valorNumerico) => (visita
     ? { suporta_orcamento: true, tipo_proposta: 'visita', visita_gratis: gratis, ...(gratis ? {} : { visita_valor: numeroDe(valorVisita) }), visita_quando: quando }
     : { suporta_orcamento: true, tipo_proposta: 'valor', valor_proposto: valorNumerico })
   const campos = (
     <CamposTipoProposta
-      tipo={tipo} onTipo={setTipo}
+      tipo={visita ? 'visita' : 'valor'} onTipo={setTipo} permiteVisita={!!permiteVisita}
       gratis={gratis} onGratis={setGratis}
       valorVisita={valorVisita} onValorVisita={(t) => setValorVisita(mascararValor(t))}
       quando={quando} onQuando={setQuando}
@@ -114,7 +116,7 @@ const OpcaoTipo = ({ marcada, titulo, sub, onPress }) => (
   </TouchableOpacity>
 )
 
-function CamposTipoProposta({ tipo, onTipo, gratis, onGratis, valorVisita, onValorVisita, quando, onQuando }) {
+function CamposTipoProposta({ tipo, onTipo, permiteVisita, gratis, onGratis, valorVisita, onValorVisita, quando, onQuando }) {
   const [escolhendo, setEscolhendo] = useState(false)
   const visita = tipo === 'visita'
   const texto = quandoVisita(quando)
@@ -124,7 +126,7 @@ function CamposTipoProposta({ tipo, onTipo, gratis, onGratis, valorVisita, onVal
     <View style={{ marginBottom: 16 }}>
       <Text style={estilos.rotulo}>TIPO DE PROPOSTA</Text>
       <OpcaoTipo marcada={!visita} titulo="💰 Valor fechado" sub="Já sei quanto cobro pelo serviço" onPress={() => onTipo('valor')} />
-      <OpcaoTipo marcada={visita} titulo="📋 Visita para orçamento" sub="Preciso ver o local antes de passar o valor" onPress={() => { Keyboard.dismiss(); onTipo('visita') }} />
+      {permiteVisita && <OpcaoTipo marcada={visita} titulo="📋 Visita para orçamento" sub="Preciso ver o local antes de passar o valor" onPress={() => { Keyboard.dismiss(); onTipo('visita') }} />}
       {visita && (
         <>
           <Text style={[estilos.rotulo, { marginTop: 8 }]}>A VISITA É</Text>
