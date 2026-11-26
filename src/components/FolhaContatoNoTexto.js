@@ -12,24 +12,18 @@ import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 // Mesmo molde visual da FolhaPareceAnuncio. Perguntas e respostas não passam por aqui: a API
 // já devolve o contato trocado por "••••" (painel B).
 //
-// Contrato lido aqui: erro com codigo 'CONTATO_NO_TEXTO' (corpo do 4xx em `dados`). O trecho
-// encontrado vem no mesmo corpo; aceita os nomes razoáveis do campo. Sem trecho, a linha
-// "Encontramos" não aparece.
+// Contrato (pinturapro-api cffd4fe, utils/contatoNoTexto): o app manda suporta_contato_no_texto:
+// true na chamada; a recusa é 409 { erro, codigo: 'CONTATO_NO_TEXTO', contato_no_texto: true,
+// tipo, trecho, trechos } (corpo do 4xx em `dados`). O trecho achado vem em `trecho`; sem ele,
+// a linha "Encontramos" não aparece.
 export const ehContatoNoTexto = (x) => x?.codigo === 'CONTATO_NO_TEXTO' || x?.dados?.codigo === 'CONTATO_NO_TEXTO'
 
-const CAMPOS_TRECHO = ['trecho', 'snippet', 'encontrado', 'encontramos', 'contato', 'contato_encontrado', 'trecho_encontrado']
 const LIMITE_TRECHO = 60
 export const trechoContatoDe = (x) => {
-  for (const fonte of [x?.dados, x]) {
-    for (const campo of CAMPOS_TRECHO) {
-      const bruto = Array.isArray(fonte?.[campo]) ? fonte[campo][0] : fonte?.[campo]
-      if (typeof bruto === 'string' && bruto.trim()) {
-        const t = bruto.trim().replace(/\s+/g, ' ')
-        return t.length > LIMITE_TRECHO ? `${t.slice(0, LIMITE_TRECHO).trimEnd()}…` : t
-      }
-    }
-  }
-  return null
+  const bruto = x?.dados?.trecho ?? x?.trecho
+  if (typeof bruto !== 'string' || !bruto.trim()) return null
+  const t = bruto.trim().replace(/\s+/g, ' ')
+  return t.length > LIMITE_TRECHO ? `${t.slice(0, LIMITE_TRECHO).trimEnd()}…` : t
 }
 
 const N = ({ children }) => <Text style={estilos.negrito}>{children}</Text>
