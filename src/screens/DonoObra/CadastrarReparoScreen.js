@@ -19,6 +19,7 @@ import FolhaDicaFoto from '../../components/FolhaDicaFoto'
 import AcordoEtico from '../../components/AcordoEtico'
 import FolhaPareceAnuncio, { ehSuspeitaAnuncio, linkPerfilDe } from '../../components/FolhaPareceAnuncio'
 import { useWhatsappDono } from '../../components/CartaoWhatsappDono'
+import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
 import { useAuth } from '../../contexts/AuthContext'
 import { cadastro } from '../../components/RetomadaMatchHost'
 import { useBarraServicoVisivel } from '../../components/BarraServicoEmAndamento'
@@ -125,6 +126,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
   // 409 SUSPEITA_ANUNCIO. { link } = link do perfil, se a recusa trouxer um (hoje não traz: null). O ref guarda o "É um
   // pedido de verdade, publicar" desta composição: o reenvio leva confirmar_pedido_real: true.
   const [anuncio, setAnuncio] = useState(null)
+  // Folha "📵 Tire o contato do texto" (components/FolhaContatoNoTexto): 409 CONTATO_NO_TEXTO,
+  // nada gravado; o formulário fica como foi digitado.
+  const [contatoNoTexto, setContatoNoTexto] = useState(null)
   const confirmarRealRef = useRef(false)
   // Folha do grupo aberto no passo 1 (objeto de gruposComCategorias) ou null.
   const [grupoAberto, setGrupoAberto] = useState(null)
@@ -549,6 +553,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
       // 90 dias): tela cheia no lugar do Alert; o formulário fica como está.
       // Texto com cara de anúncio: nada foi criado; a folha oferece compartilhar o perfil,
       // publicar mesmo assim ou cancelar. O formulário fica como está.
+      if (ehContatoNoTexto(e)) { Keyboard.dismiss(); setContatoNoTexto({ trecho: trechoContatoDe(e) }); return }
       if (ehSuspeitaAnuncio(e)) { Keyboard.dismiss(); setAnuncio({ link: linkPerfilDe(e) }); return }
       if (ehPedidosBloqueados(e)) { setBloqueio({ liberado_em: e.dados?.liberado_em || null }); return }
       const msg = e.mensagem || 'Não foi possível cadastrar o serviço. Tente novamente.'
@@ -751,6 +756,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         onPublicar={() => { confirmarRealRef.current = true; clientRequestIdRef.current = gerarRequestId(); setAnuncio(null); handleCadastrar(true) }}
         onFechar={() => setAnuncio(null)}
       />
+      <FolhaContatoNoTexto visivel={!!contatoNoTexto} trecho={contatoNoTexto?.trecho} onFechar={() => setContatoNoTexto(null)} />
       <TelaPedidosBloqueados visivel={!!bloqueio} liberadoEm={bloqueio?.liberado_em} onFechar={() => setBloqueio(null)} />
     </SafeAreaView>
   )
