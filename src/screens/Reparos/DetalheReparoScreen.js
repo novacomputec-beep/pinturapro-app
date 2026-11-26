@@ -1238,7 +1238,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
     const valor = textoReferencia.trim().slice(0, 200)
     try {
       const resp = await comRetry(
-        () => api.patch(`/reparos/dono/${reparo.id}/ponto-referencia`, { ponto_referencia: valor }),
+        () => api.patch(`/reparos/dono/${reparo.id}/ponto-referencia`, { ponto_referencia: valor, suporta_contato_no_texto: true }),
         { timeout: true },
       )
       const salvo = resp?.ponto_referencia !== undefined ? resp.ponto_referencia : valor

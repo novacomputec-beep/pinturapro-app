@@ -524,6 +524,9 @@ export default function CadastrarReparoScreen({ navigation, route }) {
         // SEMPRE no corpo: false na 1ª tentativa (a API responde 409 SUSPEITA_ANUNCIO, nada gravado,
         // quando o texto parece anúncio) e true depois do "É um pedido de verdade, publicar".
         confirmar_pedido_real: confirmarRealRef.current === true,
+        // Este app sabe mostrar a folha "Tire o contato do texto": com contato no texto a API
+        // responde 409 CONTATO_NO_TEXTO (nada gravado) em vez de publicar e marcar para o painel.
+        suporta_contato_no_texto: true,
         // Só quando o dono sem telefone preencheu o cartão do WhatsApp; inválido → 400 com a mensagem da API.
         ...whatsapp.campoTelefone(),
         client_request_id: clientRequestIdRef.current,
