@@ -225,10 +225,22 @@ export function BlocoVisitaDono({ item }) {
 export function AcoesVisitaDono({ item, enviando, onResponder }) {
   if (!visitaEmAberto(item)) return null
   if (item.status === STATUS_VISITA_ACEITA) {
+    // "Desistir da visita": o 'recusar' de sempre; o erro da API sai no alerta da tela (onResponder).
+    const desistir = () => Alert.alert('Desistir da visita?', 'O profissional será avisado e o seu pedido continua aberto para outras propostas.', [
+      { text: 'Voltar', style: 'cancel' },
+      { text: 'Sim, desistir', style: 'destructive', onPress: () => onResponder('recusar') },
+    ])
     return (
-      <View style={estilos.notaVerde}>
-        <Text style={estilos.notaVerdeTexto}>✅ Visita aceita. Aguardando o orçamento do profissional. O pedido continua aberto para outras propostas.</Text>
-      </View>
+      <>
+        <View style={estilos.notaVerde}>
+          <Text style={estilos.notaVerdeTexto}>✅ Visita aceita. Aguardando o orçamento do profissional. O pedido continua aberto para outras propostas.</Text>
+        </View>
+        <View style={estilos.acoes}>
+          <TouchableOpacity style={[estilos.btnRecusar, enviando && { opacity: 0.6 }]} onPress={desistir} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
+            <Text style={estilos.btnRecusarTexto}>Desistir da visita</Text>
+          </TouchableOpacity>
+        </View>
+      </>
     )
   }
   const orcamento = item.status === STATUS_ORCAMENTO_ENVIADO
