@@ -82,6 +82,9 @@ export const STATUS_BADGE = {
   aceito:              { cor: cores.sucesso,    fundo: cores.sucessoSuave, texto: 'Aceita'          },
   recusado:            { cor: cores.textoMedio, fundo: cores.fundoElevado, texto: 'Não selecionado' },
   contraproposta_dono: { cor: cores.primaria, fundo: cores.primariaSuave, texto: 'Contraproposta' },
+  // Visita para orçamento (components/Orcamento).
+  visita_aceita:       { cor: cores.sucesso,  fundo: cores.sucessoSuave,  texto: 'Visita aceita' },
+  orcamento_enviado:   { cor: cores.primaria, fundo: cores.primariaSuave, texto: 'Orçamento enviado' },
 }
 
 export const BadgeStatus = ({ status }) => {

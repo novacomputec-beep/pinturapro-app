@@ -28,6 +28,7 @@ import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra, rotulosEspecialidades, rotuloCategoria, normalizarEspecialidades } from '../../utils/categorias'
 import { ehEspecialidadeDeObra } from '../../utils/gruposServico'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
+import { usePropostaVisita, DicaValorMinimo, BlocoVisitaDono, AcoesVisitaDono, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
@@ -378,6 +379,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [mensagemAdicional, setMensagemAdicional] = useState('')
   const [valorProposto, setValorProposto] = useState('')
   const [valorAceito, setValorAceito] = useState(false)
+  // "TIPO DE PROPOSTA" (components/Orcamento): valor fechado ou visita para orçamento.
+  const proposta = usePropostaVisita()
   const [fotoFullscreen, setFotoFullscreen] = useState(null)
   const [videoFullscreen, setVideoFullscreen] = useState(null)
   const [contrapropostaCandidaturaId, setContrapropostaCandidaturaId] = useState(null)
@@ -654,7 +657,7 @@ export default function DetalheObraScreen({ route, navigation }) {
     // Identidade só é pedida aqui, na primeira proposta: quem ainda não enviou
     // documentos abre a sheet; quem está em análise recebe o aviso.
     // Arte-Valor-A-Combinar: o cliente não definiu valor, então a proposta TEM de trazer um.
-    if (ehValorACombinar(obra) && !(parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) > 0)) {
+    if (!proposta.ehVisita && ehValorACombinar(obra) && !(parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) > 0)) {
       Alert.alert('Informe o seu valor', 'O cliente não definiu o valor deste pedido. Diga quanto você cobra para enviar sua proposta.')
       return
     }
@@ -672,12 +675,15 @@ export default function DetalheObraScreen({ route, navigation }) {
       const valorNumerico = valorAceito && valorRealDoPedido(obra) != null
         ? valorRealDoPedido(obra)
         : (valorProposto ? parseFloat(valorProposto.replace(/\./g, '').replace(',', '.')) : null)
-      await comRetry(() => api.post(`/obras/${obra.id}/candidatura`, { mensagem, valor_proposto: valorNumerico }))
+      await comRetry(() => api.post(`/obras/${obra.id}/candidatura`, { mensagem, ...proposta.corpo(valorNumerico) }))
       setMinhaCandidatura({ status: 'pendente' })
       setMostrarForm(false)
       Alert.alert('✅ Interesse registrado!', 'O solicitante receberá suas informações e entrará em contato se tiver interesse.\n\nO pagamento do serviço é combinado e acertado diretamente com o solicitante.', [{ text: 'OK', onPress: () => navigation.goBack() }])
     } catch (err) {
       console.log('[DetalheObra] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
+      // Proposta recusada na validação (valor mínimo de R$ 20, dia/hora ou valor da visita): nada
+      // foi gravado; a mensagem é a da API e o formulário fica aberto.
+      if (CODIGOS_ERRO_PROPOSTA.includes(err.codigo)) { Alert.alert('Atenção', err.mensagem || 'Confira os dados da proposta.'); return }
       // Suspenso: sai antes da reconsulta — não há candidatura nova a descobrir, e o
       // motivo real precisa aparecer no lugar do "não foi possível registrar".
       if (alertouSuspensao(err)) return
@@ -1334,7 +1340,7 @@ export default function DetalheObraScreen({ route, navigation }) {
         return
       }
       await buscar()
-      const msgs = { aceitar: '✅ Proposta aceita!', contraproposta: '💬 Contraproposta enviada!' }
+      const msgs = { aceitar: '✅ Proposta aceita!', contraproposta: '💬 Contraproposta enviada!', aceitar_visita: '📋 Visita aceita! O profissional foi avisado e já vê o endereço. O pedido continua aberto para outras propostas.' }
       Alert.alert('Sucesso', msgs[action])
     } catch (err) {
       console.log('[DetalheObra] falha ao responder candidatura | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -2730,8 +2736,11 @@ export default function DetalheObraScreen({ route, navigation }) {
                   const propostoFmt = item.valor_proposto != null
                     ? Number(item.valor_proposto).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
                     : aceitouValorPedido ? valorPedidoObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : ''
+                  // Proposta de valor ainda em decisão: a pílula verde "Valor fechado" no lugar da linha.
+                  const pilulaValorFechado = !visitaEmAberto(item) && item.status === 'pendente' && item.valor_proposto != null &&
+                    !aceitouValorPedido && !propostoEhCombinado && !temMatch && !encerrada
                   return (
-                  <View key={item.id} style={estilos.interessadoCard}>
+                  <View key={item.id} style={[estilos.interessadoCard, ehOrcamentoEnviado(item) && estiloCardOrcamento]}>
                     <View style={estilos.candidatoTopo}>
                       {item.foto_url ? (
                         <Image source={{ uri: avatar(item.foto_url) }} style={estilos.candidatoAvatar} />
@@ -2776,7 +2785,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                         📋 Valor cadastrado: R$ {valorPedidoObra.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
-                    {(item.valor_proposto != null || aceitouValorPedido) && (
+                    {/* Visita para orçamento em aberto: pílula + dia/hora, ou o orçamento recebido. */}
+                    <BlocoVisitaDono item={item} />
+                    {pilulaValorFechado && <PilulaValorFechado valorFmt={propostoFmt} />}
+                    {!visitaEmAberto(item) && !pilulaValorFechado && (item.valor_proposto != null || aceitouValorPedido) && (
                       <Text style={{ fontSize: encerrada ? 13 : 18, fontWeight: encerrada ? '400' : '700', color: cores.textoMedio, marginBottom: 4 }}>
                         {aceitouValorPedido
                           ? `💰 Seu valor proposto (R$ ${propostoFmt}) foi aceito`
@@ -2788,9 +2800,9 @@ export default function DetalheObraScreen({ route, navigation }) {
                         🤝 {ehMatch ? 'Valor combinado' : 'Minha contraproposta'}: R$ {Number(item.valor_contraproposta).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Text>
                     )}
-                    {item.mensagem && (
+                    {!!mensagemDoProfissional(item) && (
                       <View style={estilos.mensagemBox}>
-                        <Text style={estilos.mensagemTexto}>{item.mensagem}</Text>
+                        <Text style={estilos.mensagemTexto}>{mensagemDoProfissional(item)}</Text>
                       </View>
                     )}
                     {/* Arte-Quem-Perguntou: a pergunta DESTE profissional e a sua resposta (ou
@@ -2801,7 +2813,10 @@ export default function DetalheObraScreen({ route, navigation }) {
                       podeResponder={!temMatch && !encerrada}
                       onResponder={setPerguntaResponder}
                     />
-                    {item.status === 'pendente' && !temMatch && !encerrada && (
+                    {visitaEmAberto(item) && !temMatch && !encerrada && (
+                      <AcoesVisitaDono item={item} enviando={enviandoResposta} onResponder={(action) => handleResponderCandidatura(item.id, action)} />
+                    )}
+                    {item.status === 'pendente' && !visitaEmAberto(item) && !temMatch && !encerrada && (
                       <View style={{ marginTop: 10 }}>
                         {contrapropostaCandidaturaId === item.id ? (
                           <View>
@@ -2998,10 +3013,20 @@ export default function DetalheObraScreen({ route, navigation }) {
               {!temMatch && !encerrada && (
                 minhaCandidatura ? (
                   <View style={estilos.interesseFeito}>
+                    {/* Visita para orçamento: visita aceita (endereço liberado + "Enviar orçamento") ou
+                        orçamento à espera do cliente. */}
+                    {minhaCandidatura.status !== 'pendente' && (
+                      <PainelVisitaProfissional
+                        proposta={minhaCandidatura}
+                        enviar={(corpo) => comRetry(() => api.post(`/obras/${obra.id}/candidatura/${minhaCandidatura.id}/orcamento`, corpo))}
+                        onEnviado={buscar}
+                      />
+                    )}
                     {minhaCandidatura.status === 'pendente' && (
                       <>
                         <Text style={{ color: cores.primaria, fontWeight: '600', marginBottom: 6 }}>⏳ Aguardando resposta</Text>
                         <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20 }}>Suas informações foram enviadas. Aguarde a resposta do solicitante!</Text>
+                        <PainelVisitaProfissional proposta={minhaCandidatura} />
                       </>
                     )}
                     {minhaCandidatura.status === 'contraproposta_dono' && (
@@ -3108,7 +3133,8 @@ export default function DetalheObraScreen({ route, navigation }) {
                   <View style={estilos.formInteresse}>
                     <Text style={estilos.formTitulo}>📋 Suas informações profissionais</Text>
                     <Text style={estilos.formSubtitulo}>{ehValorACombinar(obra) ? 'O cliente não definiu o valor. Diga quanto você cobra por este serviço:' : 'Estas informações serão enviadas ao solicitante para que ele possa escolher o melhor profissional.'}</Text>
-                    {valorRealDoPedido(obra) != null && !valorProposto && (
+                    {proposta.campos}
+                    {!proposta.ehVisita && valorRealDoPedido(obra) != null && !valorProposto && (
                       <TouchableOpacity
                         style={valorAceito ? estilos.btnValorAceito : estilos.btnAceitarValorProposto}
                         onPress={() => setValorAceito(v => !v)}
@@ -3122,7 +3148,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                         </Text>
                       </TouchableOpacity>
                     )}
-                    {!valorAceito && (
+                    {!proposta.ehVisita && !valorAceito && (
                       <View style={estilos.perguntaWrap}>
                         <Text style={estilos.perguntaLabel}>{ehValorACombinar(obra) ? 'QUANTO VOCÊ COBRA – R$' : 'FAZER UMA CONTRAPROPOSTA (opcional) – R$'}</Text>
                         <TextInput
@@ -3157,6 +3183,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                       <AvisoContatoOculto />
                     </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
+                    <DicaValorMinimo />
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
                       <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
                     </TouchableOpacity>

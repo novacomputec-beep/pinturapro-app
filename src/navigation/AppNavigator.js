@@ -240,6 +240,12 @@ const navegarParaNotificacao = (data) => {
         else navegar(tabEmAndamento)
         break
       // Contraproposta do dono — deep-link direto ao detalhe (reparo ou obra) p/ o prestador responder
+      // Visita para orçamento (components/Orcamento): 'visita_aceita' e 'lembrete_orcamento' chegam ao
+      // profissional (endereço liberado + "Enviar orçamento"); 'orcamento_recebido', ao dono (card do
+      // orçamento na lista de propostas). Os três abrem o detalhe do pedido, onde a proposta vive.
+      case 'visita_aceita':
+      case 'lembrete_orcamento':
+      case 'orcamento_recebido':
       case 'contraproposta_dono':
         if (data.reparo_id) ir(abaReparo,{ screen: 'DetalheReparo', params: { reparo: { id: data.reparo_id } }, initial: false })
         else if (data.obra_id) ir(abaObra,{ screen: 'DetalheObra', params: { obra: { id: data.obra_id } }, initial: false })

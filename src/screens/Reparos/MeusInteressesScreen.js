@@ -33,6 +33,9 @@ const STATUS_INFO = {
   recusado:            { texto: 'Não selecionado',     cor: cores.textoMedio, bg: cores.fundoElevado },
   recusada:            { texto: 'Não selecionado',     cor: cores.textoMedio, bg: cores.fundoElevado },
   contraproposta_dono: { texto: '💬 Contraproposta',   cor: '#FF6B35', bg: '#3a2a1a' },
+  // Visita para orçamento (components/Orcamento).
+  visita_aceita:       { texto: '📋 Visita aceita',    cor: '#4caf50', bg: '#1a3a1a' },
+  orcamento_enviado:   { texto: '💰 Orçamento enviado', cor: '#FFC107', bg: '#3a3a1a' },
   expirado:            { texto: '⏰ Expirado',         cor: '#f44336', bg: '#3a1a1a' },
 }
 
@@ -63,7 +66,7 @@ const eExpirado = (item) =>
 const GRUPO_STATUS = {
   aprovada: ['aceito', 'aprovada'],
   recusada: ['recusado', 'recusada'],
-  pendente: ['pendente', 'contraproposta_dono'],
+  pendente: ['pendente', 'contraproposta_dono', 'visita_aceita', 'orcamento_enviado'],
 }
 
 // Precedência: desfecho DECIDIDO primeiro, expiração só para quem ficou sem resposta.
@@ -128,7 +131,7 @@ export function CardInteresse({ item, coords, usuario, navigation, etiqueta }) {
   // é uma conta desta pessoa — a lista traz as propostas de TODAS as contas profissionais
   // dela, então o id da conta logada não distingue "escolheram outro" de "escolheram a mim".
   const demandaAberta    = !eEncerrado && !expirado
-  const emAnalise        = item.status === 'pendente' || item.status === 'contraproposta_dono'
+  const emAnalise        = GRUPO_STATUS.pendente.includes(item.status)
   const semMatch         = item.match_usuario_id == null
   const matchMeu         = matchDaPessoa(item, usuario)
   const outroSelecionado = !semMatch && !matchMeu
