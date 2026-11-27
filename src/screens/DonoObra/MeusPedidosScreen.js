@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
-import { comRetry, recarregarSeFalhaDeRede } from '../../utils/rede'
+import { comRetry, recarregarSeFalhaDeRede, mensagemErroRede } from '../../utils/rede'
+import { FolhaAntesCancelar, FolhaContratei, ACTION_CONTRATEI, depoisDeFecharFolha } from '../../components/Orcamento'
 import { excluirPedido, ehMatchAtivo, ehPublicado } from '../../utils/excluirPedido'
 import FolhaMotivoCancelamento from '../../components/FolhaMotivoCancelamento'
 import { textoSalvaram } from '../../utils/salvos'
@@ -56,7 +57,9 @@ export const juntarPedidos = (reparos, obras) => {
 }
 
 
-function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
+// `verificandoExclusao`: a lixeira deste card está buscando o detalhe (visitante_ativo) antes
+// de abrir o fluxo de cancelar — o ícone vira um indicador pequeno e o toque fica travado.
+function CardPedido({ tipo, item, coords, onAbrir, onExcluir, verificandoExclusao = false }) {
   const ehObra = tipo === 'obra'
   const eEncerrado = item.status === 'encerrada'
   // Expiração vem PRONTA do servidor (relógio do banco). Comparar expira_em com o
@@ -142,10 +145,14 @@ function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
           onPress={() => onExcluir(item, tipo)}
           style={estilos.btnLixeira}
           activeOpacity={0.7}
+          disabled={verificandoExclusao}
           accessibilityRole="button"
           accessibilityLabel={ehObra ? 'Excluir obra' : 'Excluir serviço'}
+          accessibilityState={{ busy: verificandoExclusao }}
         >
-          <Text style={{ fontSize: 16 }}>🗑️</Text>
+          {verificandoExclusao
+            ? <ActivityIndicator size="small" color={cores.primaria} style={{ width: 22, height: 22 }} />
+            : <Text style={{ fontSize: 16 }}>🗑️</Text>}
         </TouchableOpacity>
       </View>
 
@@ -162,7 +169,8 @@ function CardPedido({ tipo, item, coords, onAbrir, onExcluir }) {
 // ações; a Galeria passa listas locais e handlers no-op. `acimaDosSegmentos`: o banner
 // "Como funciona" da tela; `erro`: o banner de falha, irmão do vazio (lista vazia POR FALHA
 // mostra os dois); `atualizacao`: o RefreshControl da tela (a Galeria não passa).
-export function MeusPedidosConteudo({ abertos, historico, secao, onSecao, carregando, coords, onAbrir, onExcluir, acimaDosSegmentos, erro, atualizacao }) {
+// `verificandoChave`: chave (`${tipo}:${id}`) do card cuja lixeira está buscando o detalhe.
+export function MeusPedidosConteudo({ abertos, historico, secao, onSecao, carregando, coords, onAbrir, onExcluir, acimaDosSegmentos, erro, atualizacao, verificandoChave = null }) {
   const dados = secao === 'ativos' ? abertos : historico
   return (
     <>
@@ -216,7 +224,8 @@ export function MeusPedidosConteudo({ abertos, historico, secao, onSecao, carreg
           contentContainerStyle={[estilos.lista, larguraMaxima]}
           showsVerticalScrollIndicator={false}
           refreshControl={atualizacao}
-          renderItem={({ item: p }) => <CardPedido tipo={p.tipo} item={p.item} coords={coords} onAbrir={onAbrir} onExcluir={onExcluir} />}
+          extraData={verificandoChave}
+          renderItem={({ item: p }) => <CardPedido tipo={p.tipo} item={p.item} coords={coords} onAbrir={onAbrir} onExcluir={onExcluir} verificandoExclusao={verificandoChave === `${p.tipo}:${p.item.id}`} />}
         />
       )}
     </>
@@ -229,6 +238,12 @@ export default function MeusPedidosScreen({ navigation }) {
   // Folha "Por que vai cancelar?" (lixeira de um pedido já publicado): { item, tipo } ou null.
   const [motivoAlvo, setMotivoAlvo] = useState(null)
   const [cancelandoComMotivo, setCancelandoComMotivo] = useState(false)
+  // Lixeira com pós-visita (o mesmo fluxo do detalhe): chave do card buscando o detalhe; a folha
+  // "Antes de cancelar" ({ item, tipo, visitante }) e a "Registrar a contratação" ({ item, tipo, propostaId, nome }).
+  const [verificandoChave, setVerificandoChave] = useState(null)
+  const [antesAlvo, setAntesAlvo] = useState(null)
+  const [contrateiAlvo, setContrateiAlvo] = useState(null)
+  const [registrandoContratacao, setRegistrandoContratacao] = useState(false)
   const [obras,           setObras]           = useState([])
   const [reparos,         setReparos]         = useState([])
   const [obrasHistorico,  setObrasHistorico]  = useState([])
@@ -326,10 +341,12 @@ export default function MeusPedidosScreen({ navigation }) {
     }
   }
 
-  const executarExclusao = async (item, tipo) => {
+  // contratouVisitante: false quando o dono respondeu "Não, vou cancelar" no "Antes de cancelar";
+  // undefined no fluxo de sempre (não vai no corpo).
+  const executarExclusao = async (item, tipo, contratouVisitante) => {
     try {
       // Chamada única (utils/excluirPedido): a mesma do "🗑️ Cancelar pedido" do detalhe.
-      await excluirPedido(tipo, item.id)
+      await excluirPedido(tipo, item.id, undefined, contratouVisitante)
       tirarDaLista(item, tipo)
     } catch (err) {
       console.log('[MeusPedidos] falha ao excluir item | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
@@ -344,24 +361,72 @@ export default function MeusPedidosScreen({ navigation }) {
     }
   }
 
-  const deletarItem = (item, tipo) => {
+  // O fluxo de cancelar de sempre (folha de motivo ou alerta). contratouVisitante: ver executarExclusao.
+  const fluxoCancelar = (item, tipo, contratouVisitante) => {
     // Já publicado: a folha "Por que vai cancelar?" no lugar do alerta (o motivo é obrigatório).
-    if (ehPublicado(item)) { setMotivoAlvo({ item, tipo }); return }
+    if (ehPublicado(item)) { setMotivoAlvo({ item, tipo, contratouVisitante }); return }
     Alert.alert('Excluir', `Deseja excluir "${item.titulo}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => executarExclusao(item, tipo) },
+      { text: 'Excluir', style: 'destructive', onPress: () => executarExclusao(item, tipo, contratouVisitante) },
     ])
+  }
+
+  // Lixeira = o MESMO fluxo do "🗑️ Cancelar pedido" do detalhe (components/CancelarPedido): busca
+  // o detalhe e, com visitante_ativo (pós-visita), abre antes o "Antes de cancelar". Sem visitante,
+  // ou se a busca falhar, segue direto para o fluxo de sempre.
+  const deletarItem = async (item, tipo) => {
+    if (verificandoChave) return
+    const chave = `${tipo}:${item.id}`
+    setVerificandoChave(chave)
+    let visitante = null
+    try {
+      const resp = await api.get(tipo === 'obra' ? `/obras/${item.id}` : `/reparos/${item.id}`)
+      visitante = resp && typeof resp === 'object' && resp.visitante_ativo?.proposta_id ? resp.visitante_ativo : null
+    } catch (err) {
+      console.log('[MeusPedidos] detalhe antes de cancelar falhou; segue o fluxo de sempre | status:', err?.status, '| code:', err?.code)
+    } finally {
+      setVerificandoChave(null)
+    }
+    if (visitante) setAntesAlvo({ item, tipo, visitante })
+    else fluxoCancelar(item, tipo)
+  }
+
+  // "✅ Registrar a contratação" a partir do "Antes de cancelar": o mesmo 'contratei' do detalhe
+  // (POST …/responder). Sucesso: a lista recarrega (o pedido passa a ter profissional escolhido).
+  const registrarContratacao = async (valor) => {
+    if (!contrateiAlvo || registrandoContratacao) return
+    const { item, tipo, propostaId } = contrateiAlvo
+    setRegistrandoContratacao(true)
+    const fechar = () => { setRegistrandoContratacao(false); setContrateiAlvo(null) }
+    try {
+      const corpo = { action: ACTION_CONTRATEI, ...(valor != null ? { valor_combinado: valor } : {}) }
+      await comRetry(() => api.post(tipo === 'obra'
+        ? `/obras/${item.id}/candidatura/${propostaId}/responder`
+        : `/reparos/${item.id}/interesse/${propostaId}/responder`, corpo))
+    } catch (err) {
+      console.log('[MeusPedidos] falha ao registrar contratação | status:', err?.status, '| code:', err?.code, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
+      // VALOR_MINIMO: a folha fica aberta para corrigir o valor (como no detalhe).
+      if (err?.codigo === 'VALOR_MINIMO') { setRegistrandoContratacao(false); Alert.alert('Atenção', err.mensagem || 'O valor combinado precisa ser de pelo menos R$ 20.'); return }
+      fechar()
+      if (err?.codigo === 'CONTRATEI_INDISPONIVEL') { buscarDados(); setTimeout(() => Alert.alert('Atenção', err.mensagem || 'Não dá mais para registrar esta contratação.'), 400); return }
+      const msg = err?.mensagem || await mensagemErroRede('Não foi possível registrar a contratação. Tente novamente.')
+      setTimeout(() => Alert.alert('Erro', msg), 400)
+      return
+    }
+    fechar()
+    buscarDados()
+    setTimeout(() => Alert.alert('Sucesso', '✅ Contratação registrada!'), 400)
   }
 
   // "Cancelar pedido" da folha: ela fica aberta, com o botão girando, até o desfecho; só
   // então fecha (um Alert de erro não abre por cima de um Modal ainda visível no iOS).
   const confirmarMotivo = async (motivo) => {
     if (!motivoAlvo || cancelandoComMotivo) return
-    const { item, tipo } = motivoAlvo
+    const { item, tipo, contratouVisitante } = motivoAlvo
     setCancelandoComMotivo(true)
     const fechar = () => { setCancelandoComMotivo(false); setMotivoAlvo(null) }
     try {
-      await excluirPedido(tipo, item.id, motivo)
+      await excluirPedido(tipo, item.id, motivo, contratouVisitante)
     } catch (err) {
       fechar()
       // Mesmo tratamento de erro da exclusão sem motivo, sem repetir o DELETE que já falhou.
@@ -390,6 +455,30 @@ export default function MeusPedidosScreen({ navigation }) {
         onConfirmar={confirmarMotivo}
         onFechar={() => setMotivoAlvo(null)}
       />
+      {/* Pós-visita: as MESMAS folhas do detalhe (components/Orcamento). "Sim" → registrar a
+          contratação desta proposta; "Não" → o fluxo de sempre com contratou_visitante: false. */}
+      <FolhaAntesCancelar
+        visivel={!!antesAlvo}
+        nome={antesAlvo?.visitante?.nome}
+        onFechar={() => setAntesAlvo(null)}
+        onContratei={() => {
+          const alvo = antesAlvo
+          setAntesAlvo(null)
+          depoisDeFecharFolha(() => setContrateiAlvo({ item: alvo.item, tipo: alvo.tipo, propostaId: alvo.visitante.proposta_id, nome: alvo.visitante.nome }))
+        }}
+        onCancelar={() => {
+          const alvo = antesAlvo
+          setAntesAlvo(null)
+          depoisDeFecharFolha(() => fluxoCancelar(alvo.item, alvo.tipo, false))
+        }}
+      />
+      <FolhaContratei
+        visivel={!!contrateiAlvo}
+        nome={contrateiAlvo?.nome}
+        enviando={registrandoContratacao}
+        onVoltar={() => { if (!registrandoContratacao) setContrateiAlvo(null) }}
+        onRegistrar={registrarContratacao}
+      />
       {/* Arte-Profissional-Desistiu: a mesma folha do detalhe, na home do dono. */}
       <SheetProfissionalDesistiu
         visivel={!!desistenciaHome}
@@ -409,6 +498,7 @@ export default function MeusPedidosScreen({ navigation }) {
         coords={coords}
         onAbrir={abrir}
         onExcluir={deletarItem}
+        verificandoChave={verificandoChave}
         acimaDosSegmentos={<BannerComoFunciona navigation={navigation} />}
         erro={<BannerErroCarregamento mensagem={erro} onRetry={buscarDados} />}
         atualizacao={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
