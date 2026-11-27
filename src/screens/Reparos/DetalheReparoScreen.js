@@ -9,7 +9,7 @@ import { Image } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
 import api from '../../services/api'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
-import { usePropostaVisita, DicaValorMinimo, BlocoVisitaDono, AcoesVisitaDono, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
+import { usePropostaVisita, BlocoVisitaDono, AcoesVisitaDono, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
 import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
@@ -698,7 +698,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
       console.log('[DetalheReparo] falha ao registrar interesse | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // Proposta recusada na validação (valor mínimo de R$ 20, dia/hora ou valor da visita): nada
       // foi gravado; a mensagem é a da API e o formulário fica aberto.
-      if (CODIGOS_ERRO_PROPOSTA.includes(err.codigo)) { Alert.alert('Atenção', err.mensagem || 'Confira os dados da proposta.'); return }
+      if (CODIGOS_ERRO_PROPOSTA.includes(err.codigo)) { Alert.alert('Atenção', proposta.mensagemErro(err)); return }
       // Suspenso: sai antes da reconsulta — não há interesse novo a descobrir, e o
       // motivo real precisa aparecer no lugar do "não foi possível registrar".
       if (alertouSuspensao(err)) return
@@ -3361,7 +3361,7 @@ export default function DetalheReparoScreen({ route, navigation }) {
                       <AvisoContatoOculto />
                     </View>
                     <BotaoPrimario titulo="Enviar minhas informações →" onPress={handleInteresse} carregando={enviando} estilo={{ marginBottom: 10, marginTop: 8 }} />
-                    <DicaValorMinimo />
+                    {proposta.dica}
                     <TouchableOpacity onPress={() => setMostrarForm(false)} style={{ alignItems: 'center', padding: 10 }}>
                       <Text style={{ color: cores.textoFraco, fontSize: 13 }}>Cancelar</Text>
                     </TouchableOpacity>

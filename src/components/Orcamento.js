@@ -83,6 +83,10 @@ const maiuscula = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 //   corpo(valorNumerico) — os campos da proposta para o POST (suporta_orcamento incluso).
 // permiteVisita: `permite_visita === true` do pedido (GET /obras/:id, /reparos/:id). Sem ele só
 // existe "Valor fechado", já marcado; uma visita enviada assim mesmo leva 400 VISITA_NAO_PERMITIDA.
+// Sem permiteVisita o formulário fica como antes da visita existir: `campos` e `dica` são null
+// (some o "TIPO DE PROPOSTA" e o aviso amarelo) e o VALOR_MINIMO não fala da visita.
+//   dica — o aviso amarelo, abaixo do botão de enviar;
+//   mensagemErro(err) — texto do alerta para um erro de CODIGOS_ERRO_PROPOSTA.
 export function usePropostaVisita(permiteVisita) {
   const [tipo, setTipo] = useState('valor')
   const [gratis, setGratis] = useState(true)
@@ -92,7 +96,7 @@ export function usePropostaVisita(permiteVisita) {
   const corpo = (valorNumerico) => (visita
     ? { suporta_orcamento: true, tipo_proposta: 'visita', visita_gratis: gratis, ...(gratis ? {} : { visita_valor: numeroDe(valorVisita) }), visita_quando: quando }
     : { suporta_orcamento: true, tipo_proposta: 'valor', valor_proposto: valorNumerico })
-  const campos = (
+  const campos = !permiteVisita ? null : (
     <CamposTipoProposta
       tipo={visita ? 'visita' : 'valor'} onTipo={setTipo} permiteVisita={!!permiteVisita}
       gratis={gratis} onGratis={setGratis}
@@ -100,7 +104,11 @@ export function usePropostaVisita(permiteVisita) {
       quando={quando} onQuando={setQuando}
     />
   )
-  return { ehVisita: visita, campos, corpo }
+  const dica = permiteVisita ? <DicaValorMinimo /> : null
+  const mensagemErro = (err) => (!permiteVisita && err?.codigo === 'VALOR_MINIMO'
+    ? 'O valor mínimo é R$ 20.'
+    : err?.mensagem || 'Confira os dados da proposta.')
+  return { ehVisita: visita, campos, dica, mensagemErro, corpo }
 }
 
 const OpcaoTipo = ({ marcada, titulo, sub, onPress }) => (
