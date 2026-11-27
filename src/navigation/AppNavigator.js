@@ -245,6 +245,12 @@ const navegarParaNotificacao = (data) => {
       // Visita para orçamento (components/Orcamento): 'visita_aceita' e 'lembrete_orcamento' chegam ao
       // profissional (endereço liberado + "Enviar orçamento"); 'orcamento_recebido', ao dono (card do
       // orçamento na lista de propostas). Os três abrem o detalhe do pedido, onde a proposta vive.
+      // Pós-visita (pinturapro-api 4fa5221): 'hora_da_visita' ("📋 Você está na visita?") leva o
+      // profissional à mesma tela da proposta (caixa dourada + "Enviar orçamento agora");
+      // 'contratado_apos_visita' (o dono registrou a contratação) abre o mesmo detalhe, que com o
+      // match é a tela do serviço fechado — como 'candidatura_aceita' / 'interesse_aceito'.
+      case 'hora_da_visita':
+      case 'contratado_apos_visita':
       case 'visita_aceita':
       case 'lembrete_orcamento':
       case 'orcamento_recebido':

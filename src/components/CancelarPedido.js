@@ -4,6 +4,7 @@ import { cores, espacos, raios, larguraMaxima } from '../utils/tema'
 import { mensagemErroRede } from '../utils/rede'
 import { excluirPedido, ehMatchAtivo } from '../utils/excluirPedido'
 import FolhaMotivoCancelamento, { textoConfirmacaoCancelar } from './FolhaMotivoCancelamento'
+import { FolhaAntesCancelar, depoisDeFecharFolha } from './Orcamento'
 
 // Arte "Cancelar pedido": no detalhe do DONO (DetalheReparo / DetalheObra), SÓ enquanto não há
 // profissional escolhido, um link discreto no fim do conteúdo, "🗑️ Cancelar pedido" (cinza,
@@ -24,17 +25,31 @@ export { textoConfirmacaoCancelar }
 // `publicado` (utils/excluirPedido: ehPublicado): pedido já visível aos profissionais. Aí o
 // toque abre, no lugar da confirmação, a folha "Por que vai cancelar?"
 // (FolhaMotivoCancelamento), e o motivo escolhido vai junto na exclusão.
-export default function CancelarPedido({ tipo, id, interessados = 0, publicado = false, onCancelado }) {
+//
+// `visitante` (visitante_ativo do detalhe, pós-visita: { proposta_id, nome }): antes de tudo, a
+// folha "Antes de cancelar". "Sim, contratei" fecha e chama onContratei(visitante) (a tela abre
+// a FolhaContratei); "Não, vou cancelar" segue para a confirmação/motivo de sempre e o DELETE
+// leva contratou_visitante: false.
+export default function CancelarPedido({ tipo, id, interessados = 0, publicado = false, onCancelado, visitante = null, onContratei }) {
   const [aberto, setAberto] = useState(false)
+  const [antes, setAntes] = useState(false)
+  const [negouVisitante, setNegouVisitante] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const montadoRef = useRef(true)
   useEffect(() => () => { montadoRef.current = false }, [])
+  const temVisitante = !!visitante?.proposta_id
+
+  const abrir = () => {
+    setNegouVisitante(false)
+    if (temVisitante) setAntes(true)
+    else setAberto(true)
+  }
 
   const confirmar = async (motivo) => {
     if (enviando) return
     setEnviando(true)
     try {
-      await excluirPedido(tipo, id, typeof motivo === 'string' ? motivo : undefined)
+      await excluirPedido(tipo, id, typeof motivo === 'string' ? motivo : undefined, temVisitante && negouVisitante ? false : undefined)
       if (!montadoRef.current) return
       setAberto(false)
       onCancelado?.()
@@ -52,10 +67,18 @@ export default function CancelarPedido({ tipo, id, interessados = 0, publicado =
   return (
     <>
       <View style={estilos.rodape}>
-        <TouchableOpacity onPress={() => setAberto(true)} style={estilos.linkToque} accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}>
+        <TouchableOpacity onPress={abrir} style={estilos.linkToque} accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}>
           <Text style={estilos.link}>🗑️ Cancelar pedido</Text>
         </TouchableOpacity>
       </View>
+
+      <FolhaAntesCancelar
+        visivel={antes}
+        nome={visitante?.nome}
+        onFechar={() => setAntes(false)}
+        onContratei={() => { setAntes(false); depoisDeFecharFolha(() => onContratei?.(visitante)) }}
+        onCancelar={() => { setAntes(false); setNegouVisitante(true); depoisDeFecharFolha(() => { if (montadoRef.current) setAberto(true) }) }}
+      />
 
       <FolhaMotivoCancelamento visivel={aberto && publicado} enviando={enviando} interessados={interessados} onConfirmar={confirmar} onFechar={() => setAberto(false)} />
 

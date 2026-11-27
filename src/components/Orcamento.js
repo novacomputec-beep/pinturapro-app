@@ -1,7 +1,10 @@
-import React, { useState, useMemo } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Keyboard } from 'react-native'
-import { cores, raios } from '../utils/tema'
+import React, { useState, useMemo, useEffect } from 'react'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, Keyboard, Modal, Pressable, Animated, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import { PickerAgendamento } from './Agendamento'
+import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
+import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
 // VISITA PARA ORÇAMENTO (artes orcamento-previa A/B/C e orcamento-dica-cliente-previa D), para
 // obras E reparos. Tudo o que DetalheObra e DetalheReparo mostram sobre o assunto mora aqui,
@@ -231,9 +234,23 @@ export function BlocoVisitaDono({ item }) {
   )
 }
 
+// Pós-visita (arte pos-visita-previa; pinturapro-api 4fa5221): o dono que fechou com o
+// profissional da visita registra a contratação — POST …/responder { action: 'contratei',
+// valor_combinado? } (>= R$ 20, senão 400 VALOR_MINIMO; proposta fora de visita_aceita /
+// orcamento_enviado → 409 CONTRATEI_INDISPONIVEL). É o aceite de sempre no servidor.
+export const ACTION_CONTRATEI = 'contratei'
+const podeContratar = (item) => ehVisita(item) && [STATUS_VISITA_ACEITA, STATUS_ORCAMENTO_ENVIADO].includes(item?.status)
+const BotaoContratei = ({ enviando, onPress }) => (
+  <TouchableOpacity style={[estilos.btnContratei, enviando && { opacity: 0.6 }]} onPress={onPress} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
+    <Text style={estilos.btnContrateiTexto}>✅ Contratei este profissional</Text>
+  </TouchableOpacity>
+)
+
 // Botões do dono numa visita em aberto. onResponder(action): 'aceitar_visita' | 'aceitar' | 'recusar'.
-export function AcoesVisitaDono({ item, enviando, onResponder }) {
+// onContratei(): abre a FolhaContratei (a tela é dona dela — o cancelamento também a abre).
+export function AcoesVisitaDono({ item, enviando, onResponder, onContratei }) {
   if (!visitaEmAberto(item)) return null
+  const contratei = onContratei && podeContratar(item) ? <BotaoContratei enviando={enviando} onPress={onContratei} /> : null
   if (item.status === STATUS_VISITA_ACEITA) {
     // "Desistir da visita": o 'recusar' de sempre; o erro da API sai no alerta da tela (onResponder).
     const desistir = () => Alert.alert('Desistir da visita?', 'O profissional será avisado e o seu pedido continua aberto para outras propostas.', [
@@ -245,6 +262,7 @@ export function AcoesVisitaDono({ item, enviando, onResponder }) {
         <View style={estilos.notaVerde}>
           <Text style={estilos.notaVerdeTexto}>✅ Visita aceita. Aguardando o orçamento do profissional. O pedido continua aberto para outras propostas.</Text>
         </View>
+        {contratei}
         <View style={estilos.acoes}>
           <TouchableOpacity style={[estilos.btnRecusar, enviando && { opacity: 0.6 }]} onPress={desistir} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
             <Text style={estilos.btnRecusarTexto}>Desistir da visita</Text>
@@ -268,14 +286,100 @@ export function AcoesVisitaDono({ item, enviando, onResponder }) {
     { text: 'Recusar', style: 'destructive', onPress: () => onResponder('recusar') },
   ])
   return (
-    <View style={estilos.acoes}>
-      <TouchableOpacity style={[estilos.btnAceitar, enviando && { opacity: 0.6 }]} onPress={aceitar} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
-        <Text style={estilos.btnAceitarTexto}>{orcamento ? 'Aceitar orçamento' : 'Aceitar visita'}</Text>
+    <>
+      {contratei}
+      <View style={estilos.acoes}>
+        <TouchableOpacity style={[estilos.btnAceitar, enviando && { opacity: 0.6 }]} onPress={aceitar} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
+          <Text style={estilos.btnAceitarTexto}>{orcamento ? 'Aceitar orçamento' : 'Aceitar visita'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[estilos.btnRecusar, enviando && { opacity: 0.6 }]} onPress={recusar} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
+          <Text style={estilos.btnRecusarTexto}>Recusar</Text>
+        </TouchableOpacity>
+      </View>
+    </>
+  )
+}
+
+// iOS não apresenta um Modal enquanto outro ainda está saindo: a segunda folha espera a
+// animação da primeira.
+export const depoisDeFecharFolha = (fn) => setTimeout(fn, Platform.OS === 'ios' ? 400 : 0)
+
+// Molde comum das duas folhas abaixo (o mesmo da FolhaMotivoCancelamento). Durante o envio nada
+// fecha: o desfecho é de quem chamou.
+function Folha({ visivel, enviando, onFechar, titulo, children }) {
+  const insets = useSafeAreaInsets()
+  const fechar = () => { if (!enviando) onFechar?.() }
+  const { gesto, estiloArraste, medirFolha } = useArrastarParaFechar(fechar, !!visivel)
+  if (!visivel) return null
+  return (
+    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={fechar}>
+      <RaizGestosFolha>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={estilos.folhaFundo}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={fechar} accessibilityLabel="Fechar" />
+        <Animated.View style={[estilos.folha, { paddingBottom: insets.bottom + 20 }, estiloArraste]} onLayout={medirFolha}>
+          <ZonaArraste gesto={gesto} style={{ alignSelf: 'stretch' }}>
+            <View style={estilos.folhaAlca} />
+            <LinhaCabecalhoFolha onFechar={fechar}>
+              <Text style={estilos.folhaTitulo}>{titulo}</Text>
+            </LinhaCabecalhoFolha>
+          </ZonaArraste>
+          {children}
+        </Animated.View>
+      </KeyboardAvoidingView>
+      </RaizGestosFolha>
+    </Modal>
+  )
+}
+
+// "✅ Registrar a contratação". onRegistrar(valor): número, ou null com o campo vazio (a API cai
+// no orçamento enviado ou no valor do pedido). O campo zera a cada abertura.
+export function FolhaContratei({ visivel, nome, enviando, onRegistrar, onVoltar }) {
+  const [valor, setValor] = useState('')
+  useEffect(() => { if (visivel) setValor('') }, [visivel])
+  const registrar = () => {
+    if (enviando) return
+    Keyboard.dismiss()
+    onRegistrar?.(numeroDe(valor))
+  }
+  return (
+    <Folha visivel={visivel} enviando={enviando} onFechar={onVoltar} titulo="✅ Registrar a contratação">
+      <Text style={estilos.folhaTexto}>Combinou o serviço com o {nome || 'profissional'} durante a visita? Registre aqui para ter o histórico do serviço e poder avaliar o profissional.</Text>
+      <Text style={[estilos.rotulo, { alignSelf: 'stretch' }]}>VALOR COMBINADO (OPCIONAL)</Text>
+      <TextInput
+        style={[estilos.campo, { alignSelf: 'stretch', marginBottom: 16 }]}
+        placeholder="Ex: 2.500,00"
+        placeholderTextColor={cores.placeholderCampo}
+        keyboardType="numeric"
+        value={valor}
+        onChangeText={(t) => setValor(mascararValor(t))}
+        editable={!enviando}
+        accessibilityLabel="Valor combinado, em reais (opcional)"
+      />
+      <TouchableOpacity style={[estilos.folhaBtnPrincipal, enviando && { opacity: 0.6 }]} onPress={registrar} disabled={!!enviando} activeOpacity={0.85} accessibilityRole="button">
+        {enviando ? <ActivityIndicator size="small" color="#0A0A0A" /> : <Text style={estilos.folhaBtnPrincipalTexto}>Registrar contratação</Text>}
       </TouchableOpacity>
-      <TouchableOpacity style={[estilos.btnRecusar, enviando && { opacity: 0.6 }]} onPress={recusar} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
-        <Text style={estilos.btnRecusarTexto}>Recusar</Text>
+      <TouchableOpacity style={estilos.folhaBtnSecundario} onPress={onVoltar} disabled={!!enviando} activeOpacity={0.85} accessibilityRole="button">
+        <Text style={estilos.folhaBtnSecundarioTexto}>Voltar</Text>
       </TouchableOpacity>
-    </View>
+    </Folha>
+  )
+}
+
+// "Antes de cancelar": o dono cancelando um pedido com visitante_ativo ({ proposta_id, nome }).
+// onContratei → a FolhaContratei dessa proposta; onCancelar → a confirmação/motivo de sempre,
+// com contratou_visitante: false no DELETE (components/CancelarPedido).
+export function FolhaAntesCancelar({ visivel, nome, onContratei, onCancelar, onFechar }) {
+  const n = nome || null
+  return (
+    <Folha visivel={visivel} onFechar={onFechar} titulo="Antes de cancelar">
+      <Text style={estilos.folhaTexto}>{n ? `O ${n}` : 'O profissional'} visitou o seu pedido. Ele vai fazer o serviço?</Text>
+      <TouchableOpacity style={estilos.folhaBtnPrincipal} onPress={onContratei} activeOpacity={0.85} accessibilityRole="button">
+        <Text style={estilos.folhaBtnPrincipalTexto}>Sim, contratei o {n || 'profissional'}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={estilos.folhaBtnSecundario} onPress={onCancelar} activeOpacity={0.85} accessibilityRole="button">
+        <Text style={estilos.folhaBtnSecundarioTexto}>Não, vou cancelar</Text>
+      </TouchableOpacity>
+    </Folha>
   )
 }
 
@@ -391,9 +495,15 @@ export function PainelVisitaProfissional({ proposta, enviar, onEnviado, abrirFor
       {form ? (
         <FormularioOrcamento enviando={enviando} onEnviar={mandar} onCancelar={() => setForm(false)} />
       ) : (
-        <TouchableOpacity style={[estilos.btnAceitar, { flex: 0, marginTop: 8 }]} onPress={() => setForm(true)} activeOpacity={0.85} accessibilityRole="button">
-          <Text style={estilos.btnAceitarTexto}>Enviar orçamento</Text>
-        </TouchableOpacity>
+        <>
+          {/* Pós-visita: caixa dourada acima do botão. */}
+          <View style={estilos.caixaOuro}>
+            <Text style={estilos.caixaOuroTexto}>⭐ Só serviços fechados pelo ProTudo contam estrelas e sobem você nos pedidos. Combinou com o cliente? Envie o orçamento pelo app.</Text>
+          </View>
+          <TouchableOpacity style={[estilos.btnAceitar, { flex: 0 }]} onPress={() => setForm(true)} activeOpacity={0.85} accessibilityRole="button">
+            <Text style={estilos.btnAceitarTexto}>💰 Enviar orçamento agora</Text>
+          </TouchableOpacity>
+        </>
       )}
     </View>
   )
@@ -445,4 +555,18 @@ const estilos = StyleSheet.create({
   chipAtivo: { backgroundColor: cores.primariaSuave, borderColor: cores.primaria },
   chipTexto: { fontSize: 13, color: cores.textoMedio, fontWeight: '600' },
   chipTextoAtivo: { color: cores.textoForte, fontWeight: '700' },
+  // Pós-visita.
+  btnContratei: { backgroundColor: cores.sucesso, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
+  btnContrateiTexto: { color: '#0A0A0A', fontSize: 14, fontWeight: '800' },
+  caixaOuro: { backgroundColor: '#2a2200', borderWidth: 1, borderColor: '#8a6d00', borderRadius: raios.medio, padding: 12, marginTop: 8, marginBottom: 10 },
+  caixaOuroTexto: { fontSize: 13, color: '#FFD666', lineHeight: 19 },
+  folhaFundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  folha: { backgroundColor: cores.fundoCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: espacos.tela, paddingTop: 12, alignItems: 'center', ...larguraMaxima },
+  folhaAlca: { alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: cores.bordaCampo, marginBottom: 18 },
+  folhaTitulo: { fontSize: 20, fontWeight: '800', color: cores.textoForte, textAlign: 'center', letterSpacing: -0.3, marginBottom: 14 },
+  folhaTexto: { alignSelf: 'stretch', fontSize: 14, color: cores.textoMedio, lineHeight: 20, textAlign: 'center', marginBottom: 16 },
+  folhaBtnPrincipal: { backgroundColor: cores.sucesso, borderRadius: raios.grande, paddingVertical: 16, width: '100%', alignItems: 'center', justifyContent: 'center', minHeight: 54, marginBottom: 10 },
+  folhaBtnPrincipalTexto: { color: '#0A0A0A', fontSize: 16, fontWeight: '800' },
+  folhaBtnSecundario: { backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.grande, paddingVertical: 15, width: '100%', alignItems: 'center' },
+  folhaBtnSecundarioTexto: { color: cores.textoForte, fontSize: 15, fontWeight: '600' },
 })

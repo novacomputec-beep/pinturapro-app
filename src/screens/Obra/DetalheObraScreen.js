@@ -28,7 +28,7 @@ import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra, rotulosEspecialidades, rotuloCategoria, normalizarEspecialidades } from '../../utils/categorias'
 import { ehEspecialidadeDeObra } from '../../utils/gruposServico'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
-import { usePropostaVisita, BlocoVisitaDono, AcoesVisitaDono, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
+import { usePropostaVisita, BlocoVisitaDono, AcoesVisitaDono, FolhaContratei, ACTION_CONTRATEI, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
@@ -256,7 +256,7 @@ const PerguntaOpcoes = ({ label, opcoes, valor, onChange }) => (
 const mesclarTopo = (resposta, linha) => {
   if (!linha || typeof linha !== 'object' || !resposta || typeof resposta !== 'object') return linha
   const extra = camposAtrasoDe(resposta)
-  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'pode_escolher_outro', 'motivo_escolher_outro', 'desistencias', 'interessados_ativos', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
+  for (const k of ['dono_nome', 'dono_foto_url', 'sugestoes_restantes', 'desfazer_liberado_em', 'lembretes_agendar_enviados', 'proximo_lembrete_agendar_em', 'pode_escolher_outro', 'motivo_escolher_outro', 'desistencias', 'interessados_ativos', 'visitante_ativo', ...CAMPOS_IDENTIDADE]) if (k in resposta) extra[k] = resposta[k]
   return { ...linha, ...extra }
 }
 
@@ -381,6 +381,8 @@ export default function DetalheObraScreen({ route, navigation }) {
   const [valorAceito, setValorAceito] = useState(false)
   // "TIPO DE PROPOSTA" (components/Orcamento): valor fechado ou visita para orçamento.
   const proposta = usePropostaVisita(obra?.permite_visita === true)
+  // Pós-visita: { id, nome } da proposta cuja contratação o dono está registrando (FolhaContratei).
+  const [contratei, setContratei] = useState(null)
   const [fotoFullscreen, setFotoFullscreen] = useState(null)
   const [videoFullscreen, setVideoFullscreen] = useState(null)
   const [contrapropostaCandidaturaId, setContrapropostaCandidaturaId] = useState(null)
@@ -1322,7 +1324,9 @@ export default function DetalheObraScreen({ route, navigation }) {
     }
   }
 
-  const handleResponderCandidatura = async (candidaturaId, action) => {
+  // Devolve true quando a folha de quem chamou pode fechar (sucesso, ou 'contratei' que já não
+  // vale — CONTRATEI_INDISPONIVEL). valorCombinado: só no 'contratei' (FolhaContratei).
+  const handleResponderCandidatura = async (candidaturaId, action, valorCombinado = null) => {
     if (action === 'contraproposta' && !valorContraproposta) {
       Alert.alert('Atenção', 'Informe o valor da contraproposta.')
       return
@@ -1332,7 +1336,11 @@ export default function DetalheObraScreen({ route, navigation }) {
       const valorNumerico = valorContraproposta
         ? parseFloat(valorContraproposta.replace(/\./g, '').replace(',', '.'))
         : null
-      await comRetry(() => api.post(`/obras/${obra.id}/candidatura/${candidaturaId}/responder`, { action, valor: valorNumerico }))
+      // 'contratei' (pós-visita): só action + valor_combinado opcional.
+      const corpo = action === ACTION_CONTRATEI
+        ? { action, ...(valorCombinado != null ? { valor_combinado: valorCombinado } : {}) }
+        : { action, valor: valorNumerico }
+      await comRetry(() => api.post(`/obras/${obra.id}/candidatura/${candidaturaId}/responder`, corpo))
       setContrapropostaCandidaturaId(null)
       setValorContraproposta('')
       if (action === 'recusar') {
@@ -1340,13 +1348,18 @@ export default function DetalheObraScreen({ route, navigation }) {
         return
       }
       await buscar()
-      const msgs = { aceitar: '✅ Proposta aceita!', contraproposta: '💬 Contraproposta enviada!', aceitar_visita: '📋 Visita aceita! O profissional foi avisado e já vê o endereço. O pedido continua aberto para outras propostas.' }
+      const msgs = { aceitar: '✅ Proposta aceita!', contraproposta: '💬 Contraproposta enviada!', aceitar_visita: '📋 Visita aceita! O profissional foi avisado e já vê o endereço. O pedido continua aberto para outras propostas.', [ACTION_CONTRATEI]: '✅ Contratação registrada!' }
       Alert.alert('Sucesso', msgs[action])
+      return true
     } catch (err) {
       console.log('[DetalheObra] falha ao responder candidatura | status:', err.status, '| code:', err.code, '| msg:', err.mensagem)
       // 409 MATCH_ATIVO: o pintor já é o do match. Texto do app, não o do servidor: o da API
       // (ac199f0) ainda cita "Cancelar serviço", e o botão do dono passou a ser "Trocar
       // profissional ou cancelar".
+      // Pós-visita: a mensagem é a da API. CONTRATEI_INDISPONIVEL = a proposta mudou; recarrega e
+      // fecha a folha. VALOR_MINIMO: a folha fica aberta para corrigir o valor.
+      if (err.codigo === 'CONTRATEI_INDISPONIVEL') { Alert.alert('Atenção', err.mensagem || 'Não dá mais para registrar esta contratação.'); buscar(); return true }
+      if (err.codigo === 'VALOR_MINIMO') { Alert.alert('Atenção', err.mensagem || 'O valor combinado precisa ser de pelo menos R$ 20.'); return false }
       if (err.codigo === 'MATCH_ATIVO') { Alert.alert('Erro', `Este profissional já foi escolhido. Use "${ROTULO_CANCELAR_DONO}" na tela do pedido.`); return }
       // É AQUI que o dono recebe o 409 PROFISSIONAL_SUSPENSO ao tentar aceitar: o aceite
       // não vale, e o motivo é o profissional, não a conexão de quem está aceitando.
@@ -1364,7 +1377,7 @@ export default function DetalheObraScreen({ route, navigation }) {
       const isNetwork = err.code === 'ERR_NETWORK' || err.message === 'Network Error'
       if (isNetwork) {
         Alert.alert('Erro de conexão', await mensagemErroRede('Não foi possível enviar. Verifique sua conexão.'), [
-          { text: 'Tentar novamente', onPress: () => handleResponderCandidatura(candidaturaId, action) },
+          { text: 'Tentar novamente', onPress: () => handleResponderCandidatura(candidaturaId, action, valorCombinado) },
           { text: 'Cancelar', style: 'cancel' },
         ])
       } else {
@@ -2814,7 +2827,7 @@ export default function DetalheObraScreen({ route, navigation }) {
                       onResponder={setPerguntaResponder}
                     />
                     {visitaEmAberto(item) && !temMatch && !encerrada && (
-                      <AcoesVisitaDono item={item} enviando={enviandoResposta} onResponder={(action) => handleResponderCandidatura(item.id, action)} />
+                      <AcoesVisitaDono item={item} enviando={enviandoResposta} onResponder={(action) => handleResponderCandidatura(item.id, action)} onContratei={() => setContratei({ id: item.id, nome: primeiroNome(item.nome) })} />
                     )}
                     {item.status === 'pendente' && !visitaEmAberto(item) && !temMatch && !encerrada && (
                       <View style={{ marginTop: 10 }}>
@@ -3207,6 +3220,18 @@ export default function DetalheObraScreen({ route, navigation }) {
             interessados={candidatosNaDisputa.filter(c => !ehRecusado(c)).length}
             publicado={ehPublicado(obra)}
             onCancelado={() => navigation.navigate('Meus pedidos', { screen: 'ListaPedidos' })}
+            visitante={obra.visitante_ativo}
+            onContratei={(v) => { if (mountedRef.current) setContratei({ id: v.proposta_id, nome: v.nome }) }}
+          />
+        ) : null}
+        {/* Pós-visita: "✅ Registrar a contratação", aberta pelo card da visita ou pelo "Antes de cancelar". */}
+        {isDono ? (
+          <FolhaContratei
+            visivel={!!contratei}
+            nome={contratei?.nome}
+            enviando={enviandoResposta}
+            onVoltar={() => setContratei(null)}
+            onRegistrar={async (valor) => { const fechar = await handleResponderCandidatura(contratei.id, ACTION_CONTRATEI, valor); if (fechar && mountedRef.current) setContratei(null) }}
           />
         ) : null}
       </ScrollView>

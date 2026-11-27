@@ -17,14 +17,21 @@ import { comRetry } from './rede'
 //
 // `motivo` (arte "Por que vai cancelar?", components/FolhaMotivoCancelamento): só nos pedidos
 // já publicados; vai no corpo do DELETE como motivo_cancelamento. Sem motivo, a chamada é a de sempre.
-export const excluirPedido = (tipo, id, motivo) =>
-  comRetry(
+// `contratouVisitante` (pós-visita, pinturapro-api 4fa5221): true|false só quando o pedido tem
+// visitante_ativo — a API grava como métrica; null/undefined não vai no corpo.
+export const excluirPedido = (tipo, id, motivo, contratouVisitante) => {
+  const data = {
+    ...(motivo ? { motivo_cancelamento: motivo } : {}),
+    ...(typeof contratouVisitante === 'boolean' ? { contratou_visitante: contratouVisitante } : {}),
+  }
+  return comRetry(
     () => api.delete(
       tipo === 'obra' ? `/obras/dono/${id}` : `/reparos/dono/${id}`,
-      motivo ? { data: { motivo_cancelamento: motivo } } : undefined,
+      Object.keys(data).length > 0 ? { data } : undefined,
     ),
     { timeout: true, persistir: true },
   )
+}
 
 // Pedido já publicado (visível aos profissionais): a mesma regra do aviso da lixeira de
 // MeusPedidosScreen. Obra ainda em análise não entra — cancelar ali não pede motivo.
