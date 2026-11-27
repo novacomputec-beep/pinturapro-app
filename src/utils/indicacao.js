@@ -1,7 +1,11 @@
 import { Platform, Share, Linking } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
+import * as Clipboard from 'expo-clipboard'
+import * as FileSystem from 'expo-file-system/legacy'
+import RNShare from 'react-native-share'
 import api from '../services/api'
+import { mostrarAviso } from './deepLink'
 import { comRetry } from './rede'
 import { ehValorSimbolico } from './valorACombinar'
 import { leInteresses, leCandidaturas } from './profissional'
@@ -137,6 +141,104 @@ export const convidarPeloWhatsApp = async (mensagem) => {
   }
   try { await Share.share({ message: mensagem }) } catch (err) {
     console.log('[indicacao] compartilhar cancelado/falhou | msg:', err?.message)
+  }
+}
+
+// Indicar um pedido COM o cartão (arte 1080x1350) e a legenda numa mensagem só.
+// Contrato (pinturapro-api bd3f7a0, routes/paginaPublica.js:324-366), fora do /api:
+//   GET /p/:codigo/cartao.png?c=REF → 302 para a URL versionada (?v=) → PNG; 404 se o pedido
+//                                     fechou. downloadAsync segue o redirect.
+//   GET /p/:codigo/legenda?c=REF    → text/plain com a legenda pronta.
+// Ordem das saídas: WhatsApp (ou Business) direto com imagem + texto → folha do sistema com
+// imagem + texto (sem WhatsApp) → sem imagem (sem código público, falha ou 404), o convite só
+// de texto de sempre (convidarPeloWhatsApp). A legenda vai também para a área de
+// transferência: há versões do WhatsApp que largam o texto quando chega junto de uma imagem.
+const BASE_PUBLICA = String(api.defaults.baseURL || '').replace(/\/api\/?$/, '')
+const AVISO_LEGENDA = 'Legenda copiada — se não aparecer no WhatsApp, é só colar'
+const TEMPO_LEGENDA_MS = 15000
+// Fechar a folha/WhatsApp sem enviar rejeita com isso: não é erro, não pede outra saída.
+const ehCancelamento = (err) => /did not share|cancel/i.test(String(err?.message ?? err ?? ''))
+
+const buscarLegenda = async (url) => {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), TEMPO_LEGENDA_MS)
+  try {
+    const r = await fetch(url, { signal: ctrl.signal })
+    if (!r.ok) throw new Error(`legenda HTTP ${r.status}`)
+    const texto = (await r.text()).trim()
+    if (!texto) throw new Error('legenda vazia')
+    return texto
+  } finally {
+    clearTimeout(t)
+  }
+}
+
+const baixarCartao = async (url, nome) => {
+  const destino = `${FileSystem.cacheDirectory}${nome}`
+  const r = await FileSystem.downloadAsync(url, destino)
+  if (r?.status !== 200) throw new Error(`cartão HTTP ${r?.status}`)
+  return r.uri
+}
+
+// Android: qual WhatsApp está instalado (precisa do <queries> de app.json). iOS: não dá para
+// perguntar o Business; tenta o WhatsApp e, se falhar, a folha.
+const whatsAppInstalado = async () => {
+  if (Platform.OS !== 'android') return RNShare.Social.WHATSAPP
+  for (const [pacote, social] of [['com.whatsapp', RNShare.Social.WHATSAPP], ['com.whatsapp.w4b', RNShare.Social.WHATSAPPBUSINESS]]) {
+    try {
+      if ((await RNShare.isPackageInstalled(pacote))?.isInstalled) return social
+    } catch (err) {
+      console.log('[indicacao] isPackageInstalled falhou | pacote:', pacote, '| msg:', err?.message)
+    }
+  }
+  return null
+}
+
+// codigoPedido: codigo_publico da demanda; ref: código de indicação ('' = sem ?c);
+// textoReserva: o convite só de texto, usado quando o cartão não vem.
+export const indicarComCartao = async ({ codigoPedido, ref, textoReserva }) => {
+  const codigo = String(codigoPedido ?? '').trim()
+  if (!codigo) { await convidarPeloWhatsApp(textoReserva); return }
+  const c = String(ref ?? '').trim()
+  const qs = c ? `?c=${encodeURIComponent(c)}` : ''
+  const base = `${BASE_PUBLICA}/p/${encodeURIComponent(codigo)}`
+  const [cartao, legenda] = await Promise.allSettled([
+    baixarCartao(`${base}/cartao.png${qs}`, `cartao-${codigo}-${c || 'sem'}.png`),
+    buscarLegenda(`${base}/legenda${qs}`),
+  ])
+  if (cartao.status !== 'fulfilled') {
+    console.log('[indicacao] cartão indisponível, convite só de texto | msg:', cartao.reason?.message)
+    await convidarPeloWhatsApp(textoReserva)
+    return
+  }
+  if (legenda.status !== 'fulfilled') console.log('[indicacao] legenda indisponível, usando o texto do app | msg:', legenda.reason?.message)
+  const mensagem = legenda.status === 'fulfilled' ? legenda.value : textoReserva
+  try { await Clipboard.setStringAsync(mensagem) } catch (err) {
+    console.log('[indicacao] não copiou a legenda | msg:', err?.message)
+  }
+  // Android: toast por cima do WhatsApp que abre. iOS: o aviso é um Alert, que não pode
+  // disputar a tela com a folha — sai depois dela.
+  if (Platform.OS === 'android') mostrarAviso(AVISO_LEGENDA)
+  const arquivo = { url: cartao.value, type: 'image/png', filename: 'cartao-protudo.png', message: mensagem }
+  try {
+    const social = await whatsAppInstalado()
+    let enviado = false
+    if (social) {
+      try {
+        await RNShare.shareSingle({ ...arquivo, social })
+        enviado = true
+      } catch (err) {
+        if (ehCancelamento(err)) enviado = true
+        else console.log('[indicacao] shareSingle falhou, usando a folha | msg:', err?.message)
+      }
+    }
+    if (!enviado) {
+      try { await RNShare.open({ ...arquivo, failOnCancel: false }) } catch (err) {
+        if (!ehCancelamento(err)) console.log('[indicacao] folha de compartilhar falhou | msg:', err?.message)
+      }
+    }
+  } finally {
+    if (Platform.OS !== 'android') mostrarAviso(AVISO_LEGENDA)
   }
 }
 

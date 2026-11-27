@@ -21,7 +21,8 @@
         "NSCameraUsageDescription": "O ProTudo usa a câmera para você fotografar seu documento e tirar uma selfie na verificação do cadastro, e para registrar o serviço — por exemplo, fotografar a parede que precisa de pintura ao cadastrar uma demanda.",
         "NSMicrophoneUsageDescription": "O ProTudo usa o microfone para gravar o áudio dos vídeos que você anexa a um serviço — por exemplo, um vídeo explicando o barulho que a máquina de lavar está fazendo.",
         "NSPhotoLibraryUsageDescription": "O ProTudo acessa sua galeria para você anexar fotos e vídeos já salvos no celular — por exemplo, escolher a foto do vazamento na pia para ilustrar o serviço que está cadastrando.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["whatsapp"]
       }
     },
     "android": {
@@ -77,7 +78,10 @@
         {
           "android": {
             "compileSdkVersion": 36,
-            "targetSdkVersion": 36
+            "targetSdkVersion": 36,
+            "manifestQueries": {
+              "package": ["com.whatsapp", "com.whatsapp.w4b"]
+            }
           }
         }
       ],

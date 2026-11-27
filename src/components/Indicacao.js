@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
 import { useAuth } from '../contexts/AuthContext'
 import { espacos, larguraMaxima, cores, raios } from '../utils/tema'
 import { ehValorACombinar, valorRealDoPedido } from '../utils/valorACombinar'
-import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch, mensagemIndicarPedido, meuCodigoIndicacao, convidarPeloWhatsApp, lancamentoGratisAtivo } from '../utils/indicacao'
+import { lerEstadoBanner, bannerSilenciado, dispensarBanner, marcarTemMatch, profissionalJaTeveMatch, mensagemIndicarPedido, meuCodigoIndicacao, indicarComCartao, lancamentoGratisAtivo } from '../utils/indicacao'
 
 // Peças da indicação de colegas que aparecem FORA da tela própria (ConvidarColegaScreen):
 // o selo nos cards de candidato/interessado do dono, o cartão do feed do profissional e a
@@ -28,24 +28,48 @@ export const useMeuCodigoIndicacao = (ativo) => {
 // utils/indicacao (fallback: folha de compartilhar do sistema). `demanda` é o reparo ou a
 // obra: só título, valor e lugar entram na mensagem — cidade (sem ela, a do profissional) e,
 // em cidade com mais de 500 mil habitantes, também o bairro (utils/cidadesGrandes).
+// O envio leva o cartão do pedido + legenda (utils/indicacao: indicarComCartao); sem cartão,
+// cai no texto de sempre.
 export const CaixaIndicar = ({ demanda, codigo }) => {
   const { usuario } = useAuth()
-  const indicar = () => convidarPeloWhatsApp(mensagemIndicarPedido({
-    titulo: demanda?.titulo,
-    valor: valorRealDoPedido(demanda),
-    aCombinar: ehValorACombinar(demanda),
-    bairro: demanda?.bairro,
-    cidade: demanda?.cidade,
-    uf: demanda?.uf,
-    cidadeUsuario: usuario?.cidade,
-    codigo,
-  }))
+  const [preparando, setPreparando] = useState(false)
+  const indicar = async () => {
+    if (preparando) return
+    setPreparando(true)
+    try {
+      await indicarComCartao({
+        codigoPedido: demanda?.codigo_publico,
+        ref: codigo,
+        textoReserva: mensagemIndicarPedido({
+          titulo: demanda?.titulo,
+          valor: valorRealDoPedido(demanda),
+          aCombinar: ehValorACombinar(demanda),
+          bairro: demanda?.bairro,
+          cidade: demanda?.cidade,
+          uf: demanda?.uf,
+          cidadeUsuario: usuario?.cidade,
+          codigo,
+        }),
+      })
+    } catch (err) {
+      console.log('[CaixaIndicar] falha ao indicar | msg:', err?.message)
+    } finally {
+      setPreparando(false)
+    }
+  }
   return (
     <View style={estilos.caixaIndicar}>
       <Text style={estilos.caixaIndicarTitulo} maxFontSizeMultiplier={1.3}>🤝 Conhece quem faz esse serviço?</Text>
       <Text style={estilos.caixaIndicarTexto} maxFontSizeMultiplier={1.3}>Indique o ProTudo. Quando ele se cadastrar, recebe pedidos como este.</Text>
-      <TouchableOpacity style={estilos.btnIndicar} onPress={indicar} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Indicar pelo WhatsApp">
-        <Text style={estilos.btnIndicarTexto} maxFontSizeMultiplier={1.3}>Indicar pelo WhatsApp</Text>
+      <TouchableOpacity style={[estilos.btnIndicar, preparando && { opacity: 0.7 }]} onPress={indicar} disabled={preparando} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Indicar pelo WhatsApp" accessibilityState={{ busy: preparando, disabled: preparando }}>
+        {preparando ? (
+          <View style={estilos.btnIndicarCarregando}>
+            <ActivityIndicator size="small" color="#0A0A0A" />
+            <Text style={estilos.btnIndicarTexto} maxFontSizeMultiplier={1.3}>Preparando o cartão…</Text>
+          </View>
+        ) : (
+          <Text style={estilos.btnIndicarTexto} maxFontSizeMultiplier={1.3}>Indicar pelo WhatsApp</Text>
+        )}
       </TouchableOpacity>
     </View>
   )
@@ -183,4 +207,5 @@ const estilos = StyleSheet.create({
   caixaIndicarTexto: { fontSize: 13, color: cores.textoMedio, lineHeight: 19, marginBottom: 12 },
   btnIndicar: { backgroundColor: '#25D366', borderRadius: raios.medio, paddingVertical: 14, alignItems: 'center' },
   btnIndicarTexto: { color: '#0A0A0A', fontSize: 15, fontWeight: '800' },
+  btnIndicarCarregando: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 })
