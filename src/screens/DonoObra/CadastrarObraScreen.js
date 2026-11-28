@@ -708,6 +708,7 @@ export default function CadastrarObraScreen({ navigation }) {
             descricao={descricao} onDescricao={setDescricao}
             erros={erros} registrarY={registrarY}
             rotuloTitulo="TÍTULO DA OBRA" placeholderTitulo="Ex: Pintura interna residência 3 quartos" rotuloDescricao="DESCRIÇÃO DA OBRA"
+            especialidades={categoria ? [categoria] : []}
             midia={{
               itens: midia.itens, onRemover: midia.remover, onReenviar: midia.reenviar,
               onGravarVideo: () => setPickerMidia('video'),

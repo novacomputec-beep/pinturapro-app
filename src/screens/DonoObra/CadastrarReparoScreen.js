@@ -682,6 +682,7 @@ export default function CadastrarReparoScreen({ navigation, route }) {
             titulo={titulo} onTitulo={setTitulo}
             descricao={descricao} onDescricao={setDescricao}
             erros={erros} registrarY={registrarY}
+            especialidades={categorias}
             midia={{
               itens: midia.itens, onRemover: midia.remover, onReenviar: midia.reenviar,
               onGravarVideo: () => setPickerMidia('video'),

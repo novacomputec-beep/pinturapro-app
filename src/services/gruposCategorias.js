@@ -32,19 +32,49 @@ const normalizar = (resp) => {
   return grupoDoSlug
 }
 
-let promessaGrupos = null
-export const carregarGruposCategorias = () => {
-  if (!promessaGrupos) {
-    promessaGrupos = api.get('/config/grupos-categorias')
-      .then(normalizar)
+// A resposta crua, uma ida por processo: dela saem os vizinhos (carregarGruposCategorias) e a
+// chave de cada grupo (carregarChaveDoGrupo). Falha → null, e a próxima chamada tenta de novo.
+let promessaResposta = null
+const buscarResposta = () => {
+  if (!promessaResposta) {
+    promessaResposta = api.get('/config/grupos-categorias')
       .catch((err) => {
         console.log('[GruposCategorias] GET falhou, sem sugestões | code:', err?.code, '| msg:', err?.mensagem)
-        promessaGrupos = null
-        return {}
+        promessaResposta = null
+        return null
       })
   }
-  return promessaGrupos
+  return promessaResposta
 }
+
+export const carregarGruposCategorias = () => buscarResposta().then((r) => (r ? normalizar(r) : {}))
+
+// Chave curta de cada grupo — a MESMA tabela CHAVE_DO_GRUPO do servidor (pinturapro-api ecf8474,
+// utils/gruposCategorias.js:51). A resposta de /config/grupos-categorias só traz o NOME do
+// grupo; as perguntas-guia (services/perguntasGuia) vêm por chave. Grupo novo no servidor sem
+// linha aqui = sem perguntas do grupo (o lado seguro).
+export const CHAVE_DO_GRUPO = {
+  'Consertos da casa': 'reparos_casa', 'Limpeza e jardim': 'limpeza',
+  'Beleza': 'beleza', 'Festas e eventos': 'festas',
+  'Cuidado': 'cuidado', 'Transporte': 'transporte', 'Segurança': 'seguranca',
+  'Escritório e aulas': 'digital_aulas', 'Arte e criação': 'arte', 'Divulgação e publicidade': 'divulgacao',
+  'Obras de Construção Civil': 'obras_construcao_civil',
+}
+
+// { slug: chave do grupo dele }. Aceita as mesmas duas formas de resposta de `normalizar`.
+export const carregarChaveDoGrupo = () => buscarResposta().then((r) => {
+  const bruto = r?.grupos ?? r
+  const pares = Array.isArray(bruto)
+    ? bruto.map((g) => [g?.nome ?? g?.id, g?.categorias ?? g?.slugs])
+    : (bruto && typeof bruto === 'object' ? Object.entries(bruto) : [])
+  const chaveDoSlug = {}
+  for (const [nome, slugs] of pares) {
+    const chave = CHAVE_DO_GRUPO[String(nome ?? '').trim()]
+    if (!chave || !Array.isArray(slugs)) continue
+    for (const s of slugs) { const k = String(s).trim(); if (k && !chaveDoSlug[k]) chaveDoSlug[k] = chave }
+  }
+  return chaveDoSlug
+})
 
 // Slugs sugeridos para o que já está marcado: os vizinhos de grupo de CADA selecionada,
 // menos as próprias selecionadas, na ordem de CATEGORIAS_SERVICO (a ordem das pills).

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import BotaoVoltar from '../../components/BotaoVoltar'
 import { View, Text, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform, Animated, Keyboard } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -10,6 +10,7 @@ import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../../hooks
 import { cores, espacos, raios, alturas, larguraMaxima } from '../../utils/tema'
 import { CATEGORIAS_SERVICO, CATEGORIAS_CONSTRUCAO, MAX_CATEGORIAS_DEMANDA, LOCAIS_ATENDIMENTO } from '../../utils/categorias'
 import { TILE_OUTROS, SLUG_OUTROS } from '../../utils/gruposServico'
+import { carregarPerguntasGuia, escolherPerguntas } from '../../services/perguntasGuia'
 
 // Peças APRESENTACIONAIS do wizard "Cadastrar serviço" (Arte-Cadastrar-Servico), em 4 passos:
 // grupos → detalhes → prazo e valor → endereço. A tela (CadastrarReparoScreen) é dona de todo
@@ -361,15 +362,93 @@ export function FolhaGrupo({ visivel, grupo, selecionadas, onAlternar, onPronto,
 
 // ─── Passo 2: título, descrição (com o aviso de contato), mídia ───────────────────────────
 // rotuloTitulo/placeholderTitulo/rotuloDescricao: "do serviço" (padrão) ou "da obra".
-export function PassoDetalhes({ titulo, descricao, onTitulo, onDescricao, erros, registrarY, midia, rotuloTitulo = 'TÍTULO DO SERVIÇO', placeholderTitulo = 'Ex: Instalar 3 tomadas na sala', rotuloDescricao = 'DESCRIÇÃO DO SERVIÇO' }) {
+// Perguntas-guia (arte aprovada): caixa abaixo da descrição com perguntas da especialidade (ou do
+// grupo dela — services/perguntasGuia). Aparece com a descrição (sem espaços nas pontas) abaixo de
+// 60 caracteres e, uma vez mostrada, fica até a descrição chegar a 150 ou todas serem tocadas.
+// Tocar acrescenta a pergunta numa linha nova no fim da descrição, seguida de um espaço, foca o
+// campo com o cursor no fim e apaga a linha ("✓", desabilitada). Nunca trava o Continuar.
+const PERGUNTAS_ABAIXO_DE = 60
+const PERGUNTAS_ATE = 150
+
+function CaixaPerguntasGuia({ especialidades, descricao, onDescricao, inputRef }) {
+  const [dados, setDados] = useState(null)
+  const [tocadas, setTocadas] = useState(() => new Set())
+  const jaMostradaRef = useRef(false)
+  useEffect(() => {
+    let vivo = true
+    carregarPerguntasGuia().then((d) => { if (vivo) setDados(d) })
+    return () => { vivo = false }
+  }, [])
+  const chaveEsp = (especialidades || []).join('|')
+  const perguntas = useMemo(() => escolherPerguntas(dados, chaveEsp ? chaveEsp.split('|') : []), [dados, chaveEsp])
+  // Outra especialidade = outras perguntas: as marcas de tocada recomeçam.
+  const chavePerguntas = (perguntas || []).join('|')
+  useEffect(() => { setTocadas(new Set()) }, [chavePerguntas])
+
+  if (!perguntas || perguntas.length === 0) return null
+  const tamanho = String(descricao ?? '').trim().length
+  const todasTocadas = perguntas.every((p) => tocadas.has(p))
+  const visivel = !todasTocadas && (tamanho < PERGUNTAS_ABAIXO_DE || (jaMostradaRef.current && tamanho < PERGUNTAS_ATE))
+  if (!visivel) {
+    // Chegou a 150: a caixa sai e só volta se a descrição cair de novo abaixo de 60.
+    if (tamanho >= PERGUNTAS_ATE) jaMostradaRef.current = false
+    return null
+  }
+  jaMostradaRef.current = true
+
+  const tocar = (p) => {
+    if (tocadas.has(p)) return
+    const atual = String(descricao ?? '')
+    const novo = `${atual}${atual && !atual.endsWith('\n') ? '\n' : ''}${p} `
+    setTocadas((t) => new Set(t).add(p))
+    onDescricao(novo)
+    // Depois do re-render com o texto novo: foco e cursor no fim.
+    setTimeout(() => {
+      const campo = inputRef.current
+      campo?.focus?.()
+      campo?.setSelection?.(novo.length, novo.length)
+    }, 50)
+  }
+
+  return (
+    <View style={estilos.perguntasCaixa}>
+      <Text style={estilos.perguntasTitulo} maxFontSizeMultiplier={1.3}>💡 Ajude os profissionais a entender</Text>
+      <Text style={estilos.perguntasSub} maxFontSizeMultiplier={1.3}>
+        {tocadas.size > 0 ? 'Toque para responder:' : 'Pedidos bem explicados recebem mais propostas e valores mais certos. Toque para responder:'}
+      </Text>
+      {perguntas.map((p) => {
+        const feita = tocadas.has(p)
+        return (
+          <TouchableOpacity
+            key={p}
+            style={[estilos.perguntaLinha, feita && estilos.perguntaLinhaFeita]}
+            onPress={() => tocar(p)}
+            disabled={feita}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: feita }}
+          >
+            <Text style={[estilos.perguntaTexto, feita && estilos.perguntaTextoFeita]} maxFontSizeMultiplier={1.3}>{p}</Text>
+            <Text style={[estilos.perguntaMais, feita && estilos.perguntaTextoFeita]}>{feita ? '✓' : '+'}</Text>
+          </TouchableOpacity>
+        )
+      })}
+    </View>
+  )
+}
+
+// especialidades: slugs marcados (serviço: as categorias; obra: o tipo), para as perguntas-guia.
+export function PassoDetalhes({ titulo, descricao, onTitulo, onDescricao, erros, registrarY, midia, especialidades, rotuloTitulo = 'TÍTULO DO SERVIÇO', placeholderTitulo = 'Ex: Instalar 3 tomadas na sala', rotuloDescricao = 'DESCRIÇÃO DO SERVIÇO' }) {
+  const descricaoRef = useRef(null)
   return (
     <>
       <View onLayout={registrarY?.('titulo')}>
         <Input label={rotuloTitulo} placeholder={placeholderTitulo} value={titulo} onChangeText={onTitulo} erro={erros?.titulo} estiloInput={estilos.tituloBordaAzul} />
       </View>
       <View onLayout={registrarY?.('descricao')}>
-        <Input label={rotuloDescricao} placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={onDescricao} erro={erros?.descricao} multiline numberOfLines={4} avisoContato />
+        <Input inputRef={descricaoRef} label={rotuloDescricao} placeholder="Descreva detalhadamente o que precisa ser feito..." value={descricao} onChangeText={onDescricao} erro={erros?.descricao} multiline numberOfLines={4} avisoContato />
       </View>
+      <CaixaPerguntasGuia especialidades={especialidades} descricao={descricao} onDescricao={onDescricao} inputRef={descricaoRef} />
       <PainelMidiaDemanda itens={midia.itens} onRemover={midia.onRemover} onReenviar={midia.onReenviar} acoes={{ onGravarVideo: midia.onGravarVideo, onTirarFotos: midia.onTirarFotos, onGaleria: midia.onGaleria }} />
     </>
   )
@@ -736,6 +815,15 @@ const estilos = StyleSheet.create({
   localCaixaTitulo: { fontSize: 16, fontWeight: '800', color: cores.textoForte, marginBottom: 10 },
   // Passo 2
   tituloBordaAzul: { borderColor: cores.info, borderWidth: 1.5 },
+  // Perguntas-guia: cartão azul-marinho escuro com borda azul clara.
+  perguntasCaixa: { backgroundColor: '#0F1B2E', borderWidth: 1, borderColor: '#7DB4FF', borderRadius: raios.grande, padding: 14, marginBottom: 16 },
+  perguntasTitulo: { fontSize: 15, fontWeight: '800', color: cores.textoForte, marginBottom: 4 },
+  perguntasSub: { fontSize: 13, color: cores.textoMedio, lineHeight: 18, marginBottom: 10 },
+  perguntaLinha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(125,180,255,0.08)', borderWidth: 1, borderColor: 'rgba(125,180,255,0.35)', borderRadius: raios.medio, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 8 },
+  perguntaLinhaFeita: { backgroundColor: cores.fundoElevado, borderColor: cores.borda },
+  perguntaTexto: { flex: 1, fontSize: 14, color: cores.textoForte, marginRight: 10 },
+  perguntaMais: { fontSize: 20, fontWeight: '800', color: '#7DB4FF', lineHeight: 22 },
+  perguntaTextoFeita: { color: cores.textoFraco },
   // Passo 3
   urgenciasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
   urgenciaCard: { width: '31%', flexGrow: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: cores.fundoCard, borderWidth: 0.5, borderColor: cores.borda, borderRadius: raios.medio, paddingHorizontal: 8, paddingVertical: 10 },

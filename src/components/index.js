@@ -38,10 +38,12 @@ export const BotaoSecundario = ({ titulo, onPress, estilo }) => (
 // estiloInput: override OPCIONAL do box do TextInput (não do wrapper). Fica ANTES de
 // inputErro para que a borda de erro (vermelha) sempre prevaleça quando há erro.
 // valido: borda verde (campo conferido em tempo real, sem erro). Erro prevalece.
-export const Input = ({ label, erro, valido, estilo, estiloInput, avisoContato, ...props }) => (
+// inputRef: OPCIONAL, repassado ao TextInput (focar/posicionar o cursor de fora).
+export const Input = ({ label, erro, valido, estilo, estiloInput, avisoContato, inputRef, ...props }) => (
   <View style={[estilos.inputWrap, estilo]}>
     {label && <Text style={estilos.inputLabel}>{label}</Text>}
     <TextInput
+      ref={inputRef}
       style={[estilos.input, estiloInput, valido && !erro && estilos.inputValido, erro && estilos.inputErro]}
       placeholderTextColor={cores.placeholderCampo}
       {...props}
