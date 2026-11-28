@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, RefreshControl, ActivityIndicator, Alert
@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { useAuth } from '../../contexts/AuthContext'
 import api from '../../services/api'
 import { comRetry, recarregarSeFalhaDeRede, mensagemErroRede } from '../../utils/rede'
-import { FolhaAntesCancelar, FolhaContratei, ACTION_CONTRATEI, depoisDeFecharFolha } from '../../components/Orcamento'
+import { FolhaAntesCancelar, FolhaContratei, ACTION_CONTRATEI, depoisDeFecharFolha, modoAntesCancelar, valorDoOrcamento } from '../../components/Orcamento'
 import { excluirPedido, ehMatchAtivo, ehPublicado } from '../../utils/excluirPedido'
 import FolhaMotivoCancelamento from '../../components/FolhaMotivoCancelamento'
 import { textoSalvaram } from '../../utils/salvos'
@@ -379,17 +379,47 @@ export default function MeusPedidosScreen({ navigation }) {
     if (verificandoChave) return
     const chave = `${tipo}:${item.id}`
     setVerificandoChave(chave)
-    let visitante = null
+    // A folha depende dos flags da proposta do visitante (Orcamento: modoAntesCancelar), lida na
+    // lista do mesmo detalhe: pode_contratei → "Sim, contratei"; orçamento enviado → "Sim, aceitar
+    // o orçamento"; outro caso (ex.: antes do horário da visita) → sem folha.
+    let alvo = null
     try {
       const resp = await api.get(tipo === 'obra' ? `/obras/${item.id}` : `/reparos/${item.id}`)
-      visitante = resp && typeof resp === 'object' && resp.visitante_ativo?.proposta_id ? resp.visitante_ativo : null
+      const visitante = resp && typeof resp === 'object' && resp.visitante_ativo?.proposta_id ? resp.visitante_ativo : null
+      if (visitante) {
+        const lista = tipo === 'obra' ? resp.candidatos : resp.interessados
+        const proposta = (Array.isArray(lista) ? lista : []).find(p => String(p?.id) === String(visitante.proposta_id)) || null
+        const modo = modoAntesCancelar(proposta)
+        if (modo) alvo = { item, tipo, visitante, modo, valor: valorDoOrcamento(proposta) }
+      }
     } catch (err) {
       console.log('[MeusPedidos] detalhe antes de cancelar falhou; segue o fluxo de sempre | status:', err?.status, '| code:', err?.code)
     } finally {
       setVerificandoChave(null)
     }
-    if (visitante) setAntesAlvo({ item, tipo, visitante })
+    if (alvo) setAntesAlvo(alvo)
     else fluxoCancelar(item, tipo)
+  }
+
+  // "Sim, aceitar o orçamento" do "Antes de cancelar": o 'aceitar' de sempre (POST …/responder),
+  // como o "Aceitar orçamento" do card no detalhe. Sucesso: a lista recarrega (o pedido passa a ter
+  // profissional escolhido) e o mesmo "✅ Proposta aceita!".
+  const aceitandoRef = useRef(false)
+  const aceitarOrcamento = async ({ item, tipo, propostaId }) => {
+    if (aceitandoRef.current) return
+    aceitandoRef.current = true
+    try {
+      await comRetry(() => api.post(tipo === 'obra'
+        ? `/obras/${item.id}/candidatura/${propostaId}/responder`
+        : `/reparos/${item.id}/interesse/${propostaId}/responder`, { action: 'aceitar' }))
+      buscarDados()
+      Alert.alert('Sucesso', '✅ Proposta aceita!')
+    } catch (err) {
+      console.log('[MeusPedidos] falha ao aceitar orçamento | status:', err?.status, '| code:', err?.code, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
+      Alert.alert('Erro', err?.mensagem || await mensagemErroRede('Não foi possível aceitar o orçamento. Tente novamente.'))
+    } finally {
+      aceitandoRef.current = false
+    }
   }
 
   // "✅ Registrar a contratação" a partir do "Antes de cancelar": o mesmo 'contratei' do detalhe
@@ -461,7 +491,14 @@ export default function MeusPedidosScreen({ navigation }) {
       <FolhaAntesCancelar
         visivel={!!antesAlvo}
         nome={antesAlvo?.visitante?.nome}
+        modo={antesAlvo?.modo}
+        valor={antesAlvo?.valor}
         onFechar={() => setAntesAlvo(null)}
+        onAceitarOrcamento={() => {
+          const alvo = antesAlvo
+          setAntesAlvo(null)
+          depoisDeFecharFolha(() => aceitarOrcamento({ item: alvo.item, tipo: alvo.tipo, propostaId: alvo.visitante.proposta_id }))
+        }}
         onContratei={() => {
           const alvo = antesAlvo
           setAntesAlvo(null)

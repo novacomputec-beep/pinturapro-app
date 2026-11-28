@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView,
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { cores, raios, espacos, larguraMaxima } from '../utils/tema'
 import { PickerAgendamento } from './Agendamento'
+import api from '../services/api'
 import useArrastarParaFechar, { ZonaArraste, RaizGestosFolha } from '../hooks/useArrastarParaFechar'
 import { LinhaCabecalhoFolha } from './BotaoFecharFolha'
 
@@ -388,16 +389,49 @@ export function FolhaContratei({ visivel, nome, enviando, onRegistrar, onVoltar 
   )
 }
 
+// Qual "Antes de cancelar" mostrar, pelos flags da PROPOSTA do visitante (não do visitante_ativo,
+// que só traz { proposta_id, nome }): pode_contratei → 'contratei'; orçamento enviado →
+// 'orcamento'; qualquer outro caso (ex.: antes do horário da visita) → null = sem folha, direto
+// para o cancelamento de sempre.
+export const MODO_CONTRATEI = 'contratei'
+export const MODO_ORCAMENTO = 'orcamento'
+export const modoAntesCancelar = (proposta) => {
+  if (proposta?.pode_contratei === true) return MODO_CONTRATEI
+  if (ehVisita(proposta) && proposta?.status === STATUS_ORCAMENTO_ENVIADO) return MODO_ORCAMENTO
+  return null
+}
+export const valorDoOrcamento = (proposta) => proposta?.orcamento_valor ?? proposta?.valor_proposto ?? null
+// A proposta do visitante: na lista que a tela já tem (`lista`) ou, sem ela lá, no detalhe do
+// pedido (GET /obras/:id → candidatos, /reparos/:id → interessados). Erro de rede propaga.
+export const propostaDoVisitante = async (tipo, demandaId, visitante, lista) => {
+  const id = String(visitante?.proposta_id ?? '')
+  if (!id) return null
+  const achar = (l) => (Array.isArray(l) ? l : []).find(p => String(p?.id) === id) || null
+  const local = achar(lista)
+  if (local) return local
+  const r = await api.get(tipo === 'obra' ? `/obras/${demandaId}` : `/reparos/${demandaId}`)
+  return achar(tipo === 'obra' ? r?.candidatos : r?.interessados)
+}
+
 // "Antes de cancelar": o dono cancelando um pedido com visitante_ativo ({ proposta_id, nome }).
 // onContratei → a FolhaContratei dessa proposta; onCancelar → a confirmação/motivo de sempre,
 // com contratou_visitante: false no DELETE (components/CancelarPedido).
-export function FolhaAntesCancelar({ visivel, nome, onContratei, onCancelar, onFechar }) {
+// modo (modoAntesCancelar): 'contratei' → a pergunta da visita e "Sim, contratei"; 'orcamento' →
+// "mandou um orçamento de R$ X" e "Sim, aceitar o orçamento" (onAceitarOrcamento: o 'aceitar' de
+// sempre). `valor`: o do orçamento (valorDoOrcamento).
+export function FolhaAntesCancelar({ visivel, nome, modo = MODO_CONTRATEI, valor, onContratei, onAceitarOrcamento, onCancelar, onFechar }) {
   const n = nome || null
+  const quem = n ? `O ${n}` : 'O profissional'
+  const orcamento = modo === MODO_ORCAMENTO
   return (
     <Folha visivel={visivel} onFechar={onFechar} titulo="Antes de cancelar">
-      <Text style={estilos.folhaTexto}>{n ? `O ${n}` : 'O profissional'} visitou o seu pedido. Ele vai fazer o serviço?</Text>
-      <TouchableOpacity style={estilos.folhaBtnPrincipal} onPress={onContratei} activeOpacity={0.85} accessibilityRole="button">
-        <Text style={estilos.folhaBtnPrincipalTexto}>Sim, contratei o {n || 'profissional'}</Text>
+      <Text style={estilos.folhaTexto}>
+        {orcamento
+          ? `${quem} mandou um orçamento${Number(valor) > 0 ? ` de ${reais(valor)}` : ''}. Vai contratar?`
+          : `${quem} visitou o seu pedido. Ele vai fazer o serviço?`}
+      </Text>
+      <TouchableOpacity style={estilos.folhaBtnPrincipal} onPress={orcamento ? onAceitarOrcamento : onContratei} activeOpacity={0.85} accessibilityRole="button">
+        <Text style={estilos.folhaBtnPrincipalTexto}>{orcamento ? 'Sim, aceitar o orçamento' : `Sim, contratei o ${n || 'profissional'}`}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={estilos.folhaBtnSecundario} onPress={onCancelar} activeOpacity={0.85} accessibilityRole="button">
         <Text style={estilos.folhaBtnSecundarioTexto}>Não, vou cancelar</Text>

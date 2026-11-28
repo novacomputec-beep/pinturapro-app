@@ -3402,6 +3402,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
             onCancelado={() => navigation.navigate('Meus pedidos', { screen: 'ListaPedidos' })}
             visitante={reparo.visitante_ativo}
             onContratei={(v) => { if (mountedRef.current) setContratei({ id: v.proposta_id, nome: v.nome }) }}
+            // "Antes de cancelar" com orçamento enviado: o 'aceitar' de sempre desta proposta.
+            propostas={interessados}
+            onAceitarOrcamento={(propostaId) => { if (mountedRef.current) handleResponderInteresse(propostaId, 'aceitar') }}
           />
         ) : null}
         {/* Pós-visita: "✅ Registrar a contratação", aberta pelo card da visita ou pelo "Antes de cancelar". */}

@@ -4,7 +4,7 @@ import { cores, espacos, raios, larguraMaxima } from '../utils/tema'
 import { mensagemErroRede } from '../utils/rede'
 import { excluirPedido, ehMatchAtivo } from '../utils/excluirPedido'
 import FolhaMotivoCancelamento, { textoConfirmacaoCancelar } from './FolhaMotivoCancelamento'
-import { FolhaAntesCancelar, depoisDeFecharFolha } from './Orcamento'
+import { FolhaAntesCancelar, depoisDeFecharFolha, propostaDoVisitante, modoAntesCancelar, valorDoOrcamento } from './Orcamento'
 
 // Arte "Cancelar pedido": no detalhe do DONO (DetalheReparo / DetalheObra), SÓ enquanto não há
 // profissional escolhido, um link discreto no fim do conteúdo, "🗑️ Cancelar pedido" (cinza,
@@ -30,18 +30,38 @@ export { textoConfirmacaoCancelar }
 // folha "Antes de cancelar". "Sim, contratei" fecha e chama onContratei(visitante) (a tela abre
 // a FolhaContratei); "Não, vou cancelar" segue para a confirmação/motivo de sempre e o DELETE
 // leva contratou_visitante: false.
-export default function CancelarPedido({ tipo, id, interessados = 0, publicado = false, onCancelado, visitante = null, onContratei }) {
+// Qual folha sai depende dos flags da PROPOSTA do visitante (Orcamento: modoAntesCancelar), lida
+// em `propostas` (a lista que a tela já tem) ou, sem ela lá, no detalhe buscado na hora:
+// pode_contratei → a de sempre; orçamento enviado → "mandou um orçamento… Vai contratar?" com
+// "Sim, aceitar o orçamento" (onAceitarOrcamento(propostaId): o 'aceitar' da tela); outro caso
+// (ex.: antes do horário da visita) ou busca falhou → sem folha, direto ao cancelamento de sempre.
+export default function CancelarPedido({ tipo, id, interessados = 0, publicado = false, onCancelado, visitante = null, propostas, onContratei, onAceitarOrcamento }) {
   const [aberto, setAberto] = useState(false)
-  const [antes, setAntes] = useState(false)
+  // { modo, valor } da folha "Antes de cancelar" aberta, ou null.
+  const [antes, setAntes] = useState(null)
   const [negouVisitante, setNegouVisitante] = useState(false)
+  const [verificando, setVerificando] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const montadoRef = useRef(true)
   useEffect(() => () => { montadoRef.current = false }, [])
   const temVisitante = !!visitante?.proposta_id
 
-  const abrir = () => {
+  const abrir = async () => {
+    if (verificando) return
     setNegouVisitante(false)
-    if (temVisitante) setAntes(true)
+    if (!temVisitante) { setAberto(true); return }
+    setVerificando(true)
+    let proposta = null
+    try {
+      proposta = await propostaDoVisitante(tipo, id, visitante, propostas)
+    } catch (err) {
+      console.log('[CancelarPedido] proposta do visitante indisponível; cancelamento de sempre | status:', err?.status, '| code:', err?.code)
+    } finally {
+      if (montadoRef.current) setVerificando(false)
+    }
+    if (!montadoRef.current) return
+    const modo = modoAntesCancelar(proposta)
+    if (modo) setAntes({ modo, valor: valorDoOrcamento(proposta) })
     else setAberto(true)
   }
 
@@ -67,17 +87,20 @@ export default function CancelarPedido({ tipo, id, interessados = 0, publicado =
   return (
     <>
       <View style={estilos.rodape}>
-        <TouchableOpacity onPress={abrir} style={estilos.linkToque} accessibilityRole="button" hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}>
+        <TouchableOpacity onPress={abrir} disabled={verificando} style={[estilos.linkToque, verificando && { opacity: 0.5 }]} accessibilityRole="button" accessibilityState={{ busy: verificando }} hitSlop={{ top: 8, bottom: 8, left: 16, right: 16 }}>
           <Text style={estilos.link}>🗑️ Cancelar pedido</Text>
         </TouchableOpacity>
       </View>
 
       <FolhaAntesCancelar
-        visivel={antes}
+        visivel={!!antes}
         nome={visitante?.nome}
-        onFechar={() => setAntes(false)}
-        onContratei={() => { setAntes(false); depoisDeFecharFolha(() => onContratei?.(visitante)) }}
-        onCancelar={() => { setAntes(false); setNegouVisitante(true); depoisDeFecharFolha(() => { if (montadoRef.current) setAberto(true) }) }}
+        modo={antes?.modo}
+        valor={antes?.valor}
+        onFechar={() => setAntes(null)}
+        onContratei={() => { setAntes(null); depoisDeFecharFolha(() => onContratei?.(visitante)) }}
+        onAceitarOrcamento={() => { setAntes(null); depoisDeFecharFolha(() => onAceitarOrcamento?.(visitante.proposta_id)) }}
+        onCancelar={() => { setAntes(null); setNegouVisitante(true); depoisDeFecharFolha(() => { if (montadoRef.current) setAberto(true) }) }}
       />
 
       <FolhaMotivoCancelamento visivel={aberto && publicado} enviando={enviando} interessados={interessados} onConfirmar={confirmar} onFechar={() => setAberto(false)} />
