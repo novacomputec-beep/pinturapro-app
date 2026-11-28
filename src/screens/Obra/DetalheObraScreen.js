@@ -28,7 +28,7 @@ import { thumbnailDeCapa, FRAME_TILE_DETALHE } from '../../utils/thumbnail'
 import { emojiObra, rotulosEspecialidades, rotuloCategoria, normalizarEspecialidades } from '../../utils/categorias'
 import { ehEspecialidadeDeObra } from '../../utils/gruposServico'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
-import { usePropostaVisita, BlocoVisitaDono, AcoesVisitaDono, FolhaContratei, ACTION_CONTRATEI, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
+import { usePropostaVisita, BlocoVisitaDono, FaixaVisitaDono, estiloCardDono, AcoesVisitaDono, FolhaContratei, ACTION_CONTRATEI, PainelVisitaProfissional, PilulaValorFechado, visitaEmAberto, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
 import { formatarDuracao } from '../../utils/tempo'
 import { urgenciaObra, SEM_URGENCIA } from '../../utils/urgencia'
 import { CardAgendamento, CaixaReputacao, CaixaConcluaPeloApp, ModalCompareceu, diaAgendadoChegou, primeiroNome } from '../../components/Agendamento'
@@ -2753,7 +2753,9 @@ export default function DetalheObraScreen({ route, navigation }) {
                   const pilulaValorFechado = !visitaEmAberto(item) && item.status === 'pendente' && item.valor_proposto != null &&
                     !aceitouValorPedido && !propostoEhCombinado && !temMatch && !encerrada
                   return (
-                  <View key={item.id} style={[estilos.interessadoCard, ehOrcamentoEnviado(item) && estiloCardOrcamento]}>
+                  <View key={item.id} style={[estilos.interessadoCard, estiloCardDono(item)]}>
+                    {/* Visita proposta/aceita: faixa azul no topo do card (arte visita-ajustes). */}
+                    <FaixaVisitaDono item={item} />
                     <View style={estilos.candidatoTopo}>
                       {item.foto_url ? (
                         <Image source={{ uri: avatar(item.foto_url) }} style={estilos.candidatoAvatar} />

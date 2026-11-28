@@ -73,6 +73,13 @@ export const dataCurta = (data) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(data ?? ''))
   return m ? `${m[3]}/${m[2]}` : null
 }
+// "28/11 às 14h" / "28/11 às 9h30" no fuso do aparelho; data ilegível → null.
+export const diaHoraCurtos = (iso) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return `${p2(d.getDate())}/${p2(d.getMonth() + 1)} às ${d.getHours()}h${d.getMinutes() ? p2(d.getMinutes()) : ''}`
+}
 const rotuloVisita = (item) => (item?.visita_gratis || !(Number(item?.visita_valor) > 0) ? 'Grátis' : reais(item.visita_valor).replace(',00', ''))
 const maiuscula = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
@@ -223,23 +230,39 @@ export function BlocoVisitaDono({ item }) {
       </View>
     )
   }
+  // Visita sem orçamento: a FaixaVisitaDono, no topo do card, já diz tudo (arte visita-ajustes).
+  return null
+}
+
+// Arte visita-ajustes-previa (A): faixa azul no TOPO do card do dono enquanto a visita está
+// proposta ou aceita e ainda sem orçamento; o card ganha a borda no mesmo azul
+// (estiloCardDono). Orçamento enviado segue com a borda verde de estiloCardOrcamento.
+const temFaixaVisita = (item) => visitaEmAberto(item) && item.status !== STATUS_ORCAMENTO_ENVIADO
+export function FaixaVisitaDono({ item }) {
+  if (!temFaixaVisita(item)) return null
+  const rotulo = rotuloVisita(item)
   const quando = quandoVisita(item.visita_quando)
   return (
-    <View style={{ marginBottom: 4 }}>
-      <View style={[estilos.pilula, estilos.pilulaAzul]}>
-        <Text style={[estilos.pilulaTexto, { color: '#7DB4FF' }]}>📋 Visita para orçamento · {rotuloVisita(item)}</Text>
-      </View>
-      {quando ? <Text style={estilos.linha}>📅 Pode ir {quando}</Text> : null}
+    <View style={estilos.faixaVisita}>
+      <Text style={estilos.faixaVisitaTitulo}>📋 O profissional propôs ir ao local fazer um orçamento antes</Text>
+      <Text style={estilos.faixaVisitaTexto}>
+        {`Visita ${rotulo === 'Grátis' ? 'Grátis' : `de ${rotulo}`}${quando ? ` · ${quando}` : ''}. Depois da visita, ele manda o valor real pelo app.`}
+      </Text>
     </View>
   )
 }
+const estiloCardVisita = { borderWidth: 1, borderColor: cores.info }
+export const estiloCardDono = (item) => (ehOrcamentoEnviado(item) ? estiloCardOrcamento : temFaixaVisita(item) ? estiloCardVisita : null)
 
 // Pós-visita (arte pos-visita-previa; pinturapro-api 4fa5221): o dono que fechou com o
 // profissional da visita registra a contratação — POST …/responder { action: 'contratei',
 // valor_combinado? } (>= R$ 20, senão 400 VALOR_MINIMO; proposta fora de visita_aceita /
 // orcamento_enviado → 409 CONTRATEI_INDISPONIVEL). É o aceite de sempre no servidor.
 export const ACTION_CONTRATEI = 'contratei'
-const podeContratar = (item) => ehVisita(item) && [STATUS_VISITA_ACEITA, STATUS_ORCAMENTO_ENVIADO].includes(item?.status)
+// Ajustes da visita (pinturapro-api 007abf8): o servidor decide — pode_contratei só é true com a
+// visita aceita e o horário dela já chegado. Com o orçamento enviado ele é false e a ação do dono
+// é "Aceitar orçamento".
+const podeContratar = (item) => ehVisita(item) && item?.pode_contratei === true
 const BotaoContratei = ({ enviando, onPress }) => (
   <TouchableOpacity style={[estilos.btnContratei, enviando && { opacity: 0.6 }]} onPress={onPress} disabled={enviando} activeOpacity={0.85} accessibilityRole="button">
     <Text style={estilos.btnContrateiTexto}>✅ Contratei este profissional</Text>
@@ -447,6 +470,10 @@ export function PainelVisitaProfissional({ proposta, enviar, onEnviado, abrirFor
   const [enviando, setEnviando] = useState(false)
   if (!visitaEmAberto(proposta)) return null
   const quando = quandoVisita(proposta.visita_quando)
+  // Ajustes da visita (pinturapro-api 007abf8): o orçamento só libera no horário da visita.
+  // pode_enviar_orcamento === false → botão cinza com o cadeado; ausente (API antiga) → livre.
+  const travado = proposta.pode_enviar_orcamento === false
+  const libera = diaHoraCurtos(proposta.visita_quando)
   if (proposta.status === 'pendente') {
     return (
       <View style={{ marginTop: 10 }}>
@@ -482,6 +509,14 @@ export function PainelVisitaProfissional({ proposta, enviar, onEnviado, abrirFor
       console.log('[Orcamento] falha ao enviar orçamento | status:', err?.status, '| codigo:', err?.codigo, '| msg:', err?.mensagem)
       // Retry depois de uma resposta perdida: o orçamento já está lá.
       if (err?.codigo === 'ORCAMENTO_JA_ENVIADO') { setForm(false); onEnviado?.(); return }
+      // Antes do horário da visita (relógio do aparelho adiantado, ou tela aberta de antes): a
+      // mensagem é a da API; recarrega para o botão voltar ao cadeado.
+      if (err?.codigo === 'ORCAMENTO_ANTES_DA_VISITA') {
+        setForm(false)
+        Alert.alert('Atenção', err.mensagem || 'O orçamento libera no horário da visita.')
+        onEnviado?.()
+        return
+      }
       Alert.alert('Erro', err?.mensagem || 'Não foi possível enviar o orçamento. Tente novamente.')
     } finally {
       setEnviando(false)
@@ -492,7 +527,7 @@ export function PainelVisitaProfissional({ proposta, enviar, onEnviado, abrirFor
       <Text style={{ color: cores.sucesso, fontWeight: '600', marginBottom: 6 }}>📋 Visita aceita!</Text>
       {quando ? <Text style={estilos.linha}>📅 Visita {quando}</Text> : null}
       <Text style={{ fontSize: 13, color: cores.textoMedio, lineHeight: 20, marginBottom: 4 }}>📍 O endereço completo do pedido já aparece nesta tela. Depois da visita, envie o valor real por aqui.</Text>
-      {form ? (
+      {form && !travado ? (
         <FormularioOrcamento enviando={enviando} onEnviar={mandar} onCancelar={() => setForm(false)} />
       ) : (
         <>
@@ -500,9 +535,18 @@ export function PainelVisitaProfissional({ proposta, enviar, onEnviado, abrirFor
           <View style={estilos.caixaOuro}>
             <Text style={estilos.caixaOuroTexto}>⭐ Só serviços fechados pelo ProTudo contam estrelas e sobem você nos pedidos. Combinou com o cliente? Envie o orçamento pelo app.</Text>
           </View>
-          <TouchableOpacity style={[estilos.btnAceitar, { flex: 0 }]} onPress={() => setForm(true)} activeOpacity={0.85} accessibilityRole="button">
-            <Text style={estilos.btnAceitarTexto}>💰 Enviar orçamento agora</Text>
-          </TouchableOpacity>
+          {travado ? (
+            <>
+              <View style={estilos.btnTravado} accessibilityRole="button" accessibilityState={{ disabled: true }}>
+                <Text style={estilos.btnTravadoTexto}>🔒 Enviar orçamento{libera ? ` · libera em ${libera}` : ''}</Text>
+              </View>
+              <Text style={estilos.notaTravado}>No horário da visita o botão fica laranja e você recebe o aviso.</Text>
+            </>
+          ) : (
+            <TouchableOpacity style={[estilos.btnAceitar, { flex: 0 }]} onPress={() => setForm(true)} activeOpacity={0.85} accessibilityRole="button">
+              <Text style={estilos.btnAceitarTexto}>💰 Enviar orçamento agora</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
     </View>
@@ -555,6 +599,13 @@ const estilos = StyleSheet.create({
   chipAtivo: { backgroundColor: cores.primariaSuave, borderColor: cores.primaria },
   chipTexto: { fontSize: 13, color: cores.textoMedio, fontWeight: '600' },
   chipTextoAtivo: { color: cores.textoForte, fontWeight: '700' },
+  // Ajustes da visita.
+  faixaVisita: { backgroundColor: cores.infoSuave, borderWidth: 1, borderColor: cores.info, borderRadius: raios.medio, padding: 12, marginBottom: 12 },
+  faixaVisitaTitulo: { fontSize: 14, fontWeight: '800', color: '#7DB4FF', lineHeight: 19, marginBottom: 4 },
+  faixaVisitaTexto: { fontSize: 13, color: cores.textoForte, lineHeight: 19 },
+  btnTravado: { backgroundColor: cores.fundoElevado, borderWidth: 1, borderColor: cores.borda, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center' },
+  btnTravadoTexto: { color: cores.textoFraco, fontSize: 14, fontWeight: '700' },
+  notaTravado: { fontSize: 12, color: cores.textoFraco, lineHeight: 17, textAlign: 'center', marginTop: 6 },
   // Pós-visita.
   btnContratei: { backgroundColor: cores.sucesso, borderRadius: raios.medio, paddingVertical: 12, alignItems: 'center', marginTop: 10 },
   btnContrateiTexto: { color: '#0A0A0A', fontSize: 14, fontWeight: '800' },

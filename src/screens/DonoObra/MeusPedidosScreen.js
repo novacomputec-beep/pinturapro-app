@@ -21,6 +21,7 @@ import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerErroCarregamento from '../../components/BannerErroCarregamento'
 import EtiquetaTipo from '../../components/EtiquetaTipo'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import BannersPendencias from '../../components/Pendencias'
 import { textoFasePosMatch } from '../../components/Agendamento'
 import { SheetProfissionalDesistiu, primeiraDesistenciaNaoVista, gravarDesistenciaVista } from '../../components/ProfissionalDesistiu'
 
@@ -499,7 +500,11 @@ export default function MeusPedidosScreen({ navigation }) {
         onAbrir={abrir}
         onExcluir={deletarItem}
         verificandoChave={verificandoChave}
-        acimaDosSegmentos={<BannerComoFunciona navigation={navigation} />}
+        acimaDosSegmentos={<>
+          {/* Arte visita-ajustes: "💰 Orçamento recebido!" (GET /me/pendencias), até 3. */}
+          <BannersPendencias navigation={navigation} tipo="orcamento_recebido" />
+          <BannerComoFunciona navigation={navigation} />
+        </>}
         erro={<BannerErroCarregamento mensagem={erro} onRetry={buscarDados} />}
         atualizacao={<RefreshControl refreshing={atualizando} onRefresh={onRefresh} tintColor={cores.primaria} />}
       />

@@ -21,6 +21,7 @@ import { aoPedidoIndisponivel } from '../../utils/pedidoIndisponivel'
 import { softAskRef } from '../../components/SoftAskNotificacao'
 import BannerAtivarNotificacoes from '../../components/BannerAtivarNotificacoes'
 import BannerComoFunciona from '../../components/BannerComoFunciona'
+import BannersPendencias from '../../components/Pendencias'
 import { BannerConvideColega } from '../../components/Indicacao'
 import BannerCanalWhatsApp from '../../components/BannerCanalWhatsApp'
 import EtiquetaTipo from '../../components/EtiquetaTipo'
@@ -472,6 +473,9 @@ export default function PedidosScreen({ navigation }) {
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={estilos.container}>
       <CabecalhoPedidos cidade={cidadeBusca ? cidadeBusca.cidade : usuario?.cidade} />
+
+      {/* Arte visita-ajustes: "📋 Visita aceita!" (GET /me/pendencias), até 3, acima dos demais. */}
+      <BannersPendencias navigation={navigation} tipo="visita_aceita" />
 
       <BannerComoFunciona navigation={navigation} />
       {/* Canal do WhatsApp: nunca junto do "Como funciona" (ele decide isso sozinho) e na

@@ -9,7 +9,7 @@ import { Image } from 'react-native'
 import { VideoView, useVideoPlayer } from 'expo-video'
 import api from '../../services/api'
 import FolhaContatoNoTexto, { ehContatoNoTexto, trechoContatoDe } from '../../components/FolhaContatoNoTexto'
-import { usePropostaVisita, BlocoVisitaDono, AcoesVisitaDono, FolhaContratei, ACTION_CONTRATEI, PainelVisitaProfissional, PilulaValorFechado, estiloCardOrcamento, visitaEmAberto, ehOrcamentoEnviado, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
+import { usePropostaVisita, BlocoVisitaDono, FaixaVisitaDono, estiloCardDono, AcoesVisitaDono, FolhaContratei, ACTION_CONTRATEI, PainelVisitaProfissional, PilulaValorFechado, visitaEmAberto, mensagemDoProfissional, CODIGOS_ERRO_PROPOSTA } from '../../components/Orcamento'
 import { pedirAvaliacaoLoja } from '../../services/avaliacaoLoja'
 import { useAuth } from '../../contexts/AuthContext'
 import { useFocusEffect } from '@react-navigation/native'
@@ -2931,7 +2931,9 @@ export default function DetalheReparoScreen({ route, navigation }) {
                   const pilulaValorFechado = !visitaEmAberto(item) && item.status === 'pendente' && item.valor_proposto != null &&
                     !aceitouValorPedido && !propostoEhCombinado && !temMatch && !encerrada
                   return (
-                  <View key={item.id} style={[estilos.interessadoCard, ehOrcamentoEnviado(item) && estiloCardOrcamento]}>
+                  <View key={item.id} style={[estilos.interessadoCard, estiloCardDono(item)]}>
+                    {/* Visita proposta/aceita: faixa azul no topo do card (arte visita-ajustes). */}
+                    <FaixaVisitaDono item={item} />
                     <View style={estilos.candidatoTopo}>
                       {item.foto_url ? (
                         <Image source={{ uri: avatar(item.foto_url) }} style={estilos.candidatoAvatar} />
